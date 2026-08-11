@@ -1,0 +1,17 @@
+# 文档索引
+
+本目录只保留适用于 TypeScript Web/Chrome Extension Harness 的长期事实，不复制成熟模板的日期历史、Rust CLI 或 Tauri 发布材料。
+
+| 文档                                                   | 何时读取                                         |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| [`AGENT_POLICY.md`](AGENT_POLICY.md)                   | 判断并行协作、里程碑冒烟与 E2E 偏好              |
+| [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)         | 修改代码、测试、文档或配置                       |
+| [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)             | 初始化、维护 Web 或 Extension 模板与品牌派生     |
+| [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) | 初始化、读取或验证 development/test/release 配置 |
+| [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物        |
+| [`DATA_ACCESS.md`](DATA_ACCESS.md)                     | 分页、HTTP/认证、数据访问或事件流变化            |
+| [`RELEASE.md`](RELEASE.md)                             | 准备版本、候选或发布                             |
+| [`TECH_DEBT.md`](TECH_DEBT.md)                         | 记录当前范围外的已知限制                         |
+| [`HARNESS_ENGINEERING.md`](HARNESS_ENGINEERING.md)     | 需要理解模板方法、生命周期和裁剪原则             |
+
+按任务读取，不要为了“完整”一次性加载全部文档。

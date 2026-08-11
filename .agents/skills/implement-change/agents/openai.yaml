@@ -1,0 +1,4 @@
+interface:
+  display_name: "实施变更"
+  short_description: "Implement scoped Harness or TypeScript changes"
+  default_prompt: "Use $implement-change to implement and proportionally verify this scoped Harness or downstream change."

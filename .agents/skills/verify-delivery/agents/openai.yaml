@@ -1,0 +1,4 @@
+interface:
+  display_name: "验收交付"
+  short_description: "Verify Harness output or the current artifact"
+  default_prompt: "Use $verify-delivery to accept or reject the current Harness milestone or real release artifact."

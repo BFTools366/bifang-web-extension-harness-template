@@ -1,0 +1,4 @@
+interface:
+  display_name: "重构代码"
+  short_description: "Refactor TypeScript UI without behavior changes"
+  default_prompt: "Use $refactor-code to improve this TypeScript code without changing observable behavior."

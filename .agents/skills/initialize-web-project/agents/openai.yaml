@@ -1,0 +1,4 @@
+interface:
+  display_name: "初始化 Web 项目"
+  short_description: "Initialize one Web or Chrome Extension package"
+  default_prompt: "Use $initialize-web-project to initialize exactly one selected project type with three validated environments and safe logging."

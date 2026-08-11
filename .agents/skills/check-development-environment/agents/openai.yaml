@@ -1,0 +1,4 @@
+interface:
+  display_name: "检查开发环境"
+  short_description: "Verify Node pnpm and Chrome when required"
+  default_prompt: "Use $check-development-environment to verify the required TypeScript and browser tools."

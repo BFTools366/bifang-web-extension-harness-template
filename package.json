@@ -1,0 +1,45 @@
+{
+  "name": "bifang-web-harness-template",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A TypeScript Harness template for either a React web app or a Plasmo Chrome extension.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.2",
+    "pnpm": ">=10.33.3"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "esbuild",
+      "sharp"
+    ]
+  },
+  "scripts": {
+    "harness": "tsx .harness/tooling/cli.ts",
+    "harness:init": "tsx .harness/tooling/cli.ts init",
+    "instantiate": "tsx scripts/instantiate.ts",
+    "validate:harness": "tsx scripts/validate-harness.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.3",
+    "@types/node": "26.2.0",
+    "eslint": "10.8.1",
+    "jsdom": "30.0.1",
+    "prettier": "3.9.6",
+    "sharp": "0.35.3",
+    "tsx": "4.20.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.66.0",
+    "vitest": "4.1.10"
+  }
+}

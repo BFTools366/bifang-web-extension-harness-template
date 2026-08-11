@@ -1,0 +1,4 @@
+interface:
+  display_name: "定义产品"
+  short_description: "Define one product type and measurable outcomes"
+  default_prompt: "Use $define-product to turn the current Web or Extension idea into a testable scope."

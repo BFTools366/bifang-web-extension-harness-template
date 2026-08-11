@@ -1,0 +1,4 @@
+interface:
+  display_name: "实例化项目"
+  short_description: "Create an isolated single-type TS project"
+  default_prompt: "Use $instantiate-project to create a clean, independent Web or Extension project with development, test, and release configuration."

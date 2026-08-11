@@ -1,0 +1,4 @@
+interface:
+  display_name: "端到端测试产物"
+  short_description: "Exercise the production artifact in real Chrome"
+  default_prompt: "Use $test-final-artifact-e2e to test the accepted candidate path in isolated Chrome."

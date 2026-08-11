@@ -1,0 +1,4 @@
+interface:
+  display_name: "提取国际化文案"
+  short_description: "Move React UI copy into i18next resources"
+  default_prompt: "Use $extract-i18n-strings to migrate visible React copy into i18next resources."

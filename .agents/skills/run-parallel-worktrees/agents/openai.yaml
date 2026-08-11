@@ -1,0 +1,4 @@
+interface:
+  display_name: "并行工作树"
+  short_description: "Coordinate isolated parallel Git worktrees"
+  default_prompt: "Use $run-parallel-worktrees to coordinate independent Todo units safely."

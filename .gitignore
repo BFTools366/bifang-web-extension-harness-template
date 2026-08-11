@@ -1,0 +1,16 @@
+node_modules/
+coverage/
+dist/
+build/
+.plasmo/
+.turbo/
+*.log
+.DS_Store
+.env
+.env.*
+!.env.example
+!.env.development
+!.env.test
+!.env.production
+.harness/trash/
+src/routeTree.gen.ts

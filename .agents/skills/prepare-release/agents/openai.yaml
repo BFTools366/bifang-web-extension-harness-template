@@ -1,0 +1,4 @@
+interface:
+  display_name: "准备发布"
+  short_description: "Prepare one traceable release candidate"
+  default_prompt: "Use $prepare-release to assess the current Harness, Web, or Extension candidate for release."

@@ -1,0 +1,96 @@
+# Harness Engineering
+
+本文档解释 Bifang Web Harness Template 的工程方法。它是方法论入口，不复制具体技术、配置、日志、测试或发布细则；这些事实分别由 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、[`DATA_ACCESS.md`](DATA_ACCESS.md)、[`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 与 [`RELEASE.md`](RELEASE.md) 维护。
+
+## 1. 目标
+
+Harness 的价值不是生成最多文件，而是用少量稳定事实把 Agent、用户和工具约束到同一条可验证路径：
+
+- 用户在初始化开始时显式选择一个项目类型；
+- 生成器只创建该宿主所需的单包工程；
+- 项目身份与品牌从单一事实源派生；
+- 日常工作按风险选择快速、标准或里程碑闭环；
+- 最终可用性由真实构建和适用浏览器验证证明，而不是由脚手架存在证明。
+
+## 2. 单选优于组合
+
+Web 与 Extension 虽然都使用 React/TypeScript 和相近 UI/状态技术，但宿主生命周期、权限、安全、入口、构建和发布渠道不同。把两者放进一个仓库会引入 workspace、共享边界、目标增减和跨宿主发布协调，而大多数单宿主项目不需要这些复杂度。
+
+因此本 Harness 采用终端单选：
+
+```text
+Harness
+├── --type web       → 独立 React + Vite 单包仓库
+└── --type extension → 独立 Plasmo + Chrome MV3 单包仓库
+```
+
+需要两个宿主时创建两个仓库，让每个仓库拥有自己的事实、代码、品牌派生、状态、测试、候选和发布授权。相同技术选型不等于共享源码。
+
+## 3. 生命周期
+
+### 3.1 实例化
+
+1. 确认目标目录、项目名称、稳定标识与描述。
+2. 非交互调用显式提供 `--type web` 或 `--type extension`；交互调用在第一步无默认值地提示用户二选一。
+3. 接收用户 Logo/品牌色，或根据项目身份确定性生成。
+4. 收集 development、test、release 三个 BaseURL，不为 Release endpoint 猜测默认值。
+5. 只渲染一个模板，写入 `.harness/project.json.projectType`、Logo 母版、三份受管环境、类型化 `APP_CONFIG` 与统一 logger。
+6. 同步当前宿主的 HTML/manifest、页面与品牌资产。
+7. 执行结构、三环境、解析、测试和三种 profile 构建检查；Release 构建自动运行 `pnpm release:inspect`，失败时不留下伪完成状态。
+8. 删除只服务模板派生的 init/instantiate 命令与 Skills，使输出成为不能继续派生项目的终端仓库。
+
+### 3.2 日常开发
+
+- 快速路径保持小改动短闭环。
+- 标准路径为多步骤工作保留精简 Todo 和交接上下文。
+- 里程碑路径覆盖初始化契约、权限、安全、类型能力和最终候选。
+- 每轮只读取任务相关事实，不用所有文档和 Skills 填满上下文。
+
+### 3.3 验收与发布
+
+先完成实现 Todo，再固定真实候选，最后按当前 `projectType` 使用逻辑 Release 配置运行最终构建，并保留自动 `pnpm release:inspect` 与适用浏览器验证证据。开发预览、Mock、测试替身和占位页面可帮助实现，但不能替代发布结论。外部上传和发布始终需要独立授权。
+
+## 4. 品牌收敛
+
+品牌流程使用“事实 → 母版 → 当前宿主派生”的单向关系：
+
+```text
+.harness/project.json
+          +
+上传 Logo 或确定性生成
+          ↓
+.harness/brand/logo-1024.png
+          ↓
+Web: public/logo.png + public/favicon.png + index/Landing
+或
+Extension: assets/icon.png + manifest + Popup/Options
+```
+
+派生文件可以重新生成，所以不能成为第二身份源。生成必须具备确定性和失败原子性，避免页面名称、manifest 描述与图标分别漂移。
+
+## 5. 从成熟 Harness 的裁剪原则
+
+保留的是与语言和宿主无关、能提高交付可信度的治理壳层：最少读取、任务分级、单一事实来源、工程规则、非空测试、真实候选验收、技术债、版本、发布和商业许可。
+
+删除的是与本目标无关的产品面和发布面：Rust/Cargo/Tokio、CLI/TUI/MCP、Tauri、shared core/adapter、pnpm monorepo、DMG/NSIS/xwin、桌面签名与公证，以及这些能力的 Skills、日期历史和验证流水账。
+
+裁剪后的判断标准不是“文件越少越好”，而是每个保留入口都能服务当前两个独立单包模板，每个删除入口都不再把 Agent 引向旧架构。
+
+## 6. 扩展 Harness，而非叠加下游
+
+未来增加项目类型时，应在 Harness 层新增互斥枚举、独立模板、品牌规则、测试和发布门禁。不能通过向既有下游加入 target add/remove、workspace 或共享 core 来实现。
+
+未来移除类型时，应保留已生成项目的维护说明和升级边界，但不需要让现有仓库自动迁移成其他类型。长期重要且难逆的类型变更进入里程碑路径并记录取舍。
+
+## 7. 阅读路由
+
+- 要初始化或维护模板：读 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)。
+- 要初始化、读取或验证 BaseURL 与构建 profile：读 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
+- 要设计日志、Release 脱敏或产物扫描：读 [`LOGGING.md`](LOGGING.md)。
+- 要选择 REST/OpenAPI、GraphQL、SSE 或可选 RxJS 事件流：读 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
+- 要修改代码、测试或文档：读 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)。
+- 要决定并行、冒烟或 E2E：读 [`AGENT_POLICY.md`](AGENT_POLICY.md)。
+- 要准备候选或发布：读 [`RELEASE.md`](RELEASE.md)。
+- 发现范围外问题：写 [`TECH_DEBT.md`](TECH_DEBT.md)。
+
+方法论只有在帮助当前决策时才需要读取；日常任务继续遵循根 [`AGENTS.md`](../AGENTS.md) 的最小闭环。
