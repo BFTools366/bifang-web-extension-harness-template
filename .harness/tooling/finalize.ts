@@ -243,8 +243,6 @@ ${stack}.
 
 The generated native Fetch and pagination foundations standardize request headers, authentication handoff, 401 handling, language persistence, and per-list session state without inventing a business endpoint. Optional Ky/OpenAPI, GraphQL, SSE, and RxJS integrations remain on demand; their rules live in \`docs/DATA_ACCESS.md\`.
 
-The other project type and all project-instantiation capabilities were intentionally removed.
-
 ## Identity and brand
 
 - \`.harness/project.json\` is the identity and brand source of truth.
@@ -277,7 +275,7 @@ function downstreamAgents(config: ProjectConfig): string {
       : ""
   return `# Project Agent Instructions
 
-This repository is the terminal \`${config.projectType}\` project **${config.name}**. Keep it flat and single-package; never restore initialization, instantiation, scaffolding, a workspace layout, or a second project type.
+This repository is the terminal \`${config.projectType}\` project **${config.name}**. Keep it flat and single-package. Do not add project-generation commands, a workspace layout, or a second project type.
 
 ## Minimum reading
 
@@ -301,9 +299,9 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`docs/RUNTIME_CONFIGURATION.md\`: the three profiles, public configuration schema, and build mapping.
 - \`docs/LOGGING.md\`: structured logging, error boundaries, redaction, and Release inspection.
 - \`docs/\`: durable policy, engineering, release, and debt records.
-- License files: legal text; only the Applicable Project Name may have been changed during creation.
+- License files: legal text; the Applicable Project Name must match the current project identity.
 
-## Retained Skill map
+## Skill map
 
 - \`check-development-environment\`: verify the local toolchain.
 - \`define-product\`: clarify product scope and acceptance criteria.
@@ -315,7 +313,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`run-parallel-worktrees\`: isolate explicitly parallel work.
 - \`test-final-artifact-e2e\`: test the final built artifact.
 - \`prepare-release\`: assemble release evidence and artifacts.
-- \`upgrade-harness\`: review applicable upstream governance updates without restoring derivation.
+- \`upgrade-harness\`: review compatible Harness engineering updates while preserving product-owned files.
 - \`verify-delivery\`: run and report the delivery gate.
 
 ## Validation loop

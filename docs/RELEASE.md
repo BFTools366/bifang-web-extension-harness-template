@@ -28,7 +28,7 @@
 Harness 候选至少满足：
 
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
-- 中英文 License 存在，且除适用项目名外与批准的成熟模板法律文本一致；
+- 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次普通安装产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过；Harness 根没有应用 `build` 门禁；
 - 在两个全新隔离目录分别以三份显式 BaseURL 执行 `--type web` 和 `--type extension` 非交互初始化，并验证交互式选择没有默认类型且会逐项询问三个 BaseURL；两种输出均为单 package，且只包含一个 `projectType`；
 - 成功下游不再包含 `instantiate`、`harness:init` 或对应模板派生 Skills，不能继续从自身生成项目；
@@ -80,11 +80,7 @@ Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露
 
 任何签名、重打包、manifest 修改、品牌替换或渠道处理若改变最终字节或运行行为，都产生新候选并重新执行受影响验收。
 
-## 7. 明确删除的发布范围
-
-本模板不定义或支持 Rust/Cargo 制品、Tauri 应用、DMG、NSIS、MSI、xwin、Windows/macOS 桌面签名、Apple notarization/stapling 或桌面跨平台安装包矩阵。未来若出现这些需求，应作为新的独立 Harness 类型重新评估，不能恢复旧模板文档来绕过当前单包边界。
-
-## 8. 发布记录最小字段
+## 7. 发布记录最小字段
 
 - 版本与日期；
 - `projectType`；

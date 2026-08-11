@@ -5,7 +5,7 @@ description: 检查纯 TypeScript Web 或 Plasmo Chrome Extension 项目所需�
 
 # 检查开发环境
 
-只检查 Node.js、pnpm 和 Google Chrome；不得探测或安装 Rust、Cargo、Tauri、桌面签名、交叉编译或其他无关工具链。
+只检查 Node.js、pnpm 和 Google Chrome；不得探测或安装任务范围外的工具链、签名或交叉编译环境。
 
 ## 工作流程
 

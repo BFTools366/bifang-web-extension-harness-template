@@ -68,21 +68,13 @@ Extension: assets/icon.png + manifest + Popup/Options
 
 派生文件可以重新生成，所以不能成为第二身份源。生成必须具备确定性和失败原子性，避免页面名称、manifest 描述与图标分别漂移。
 
-## 5. 从成熟 Harness 的裁剪原则
-
-保留的是与语言和宿主无关、能提高交付可信度的治理壳层：最少读取、任务分级、单一事实来源、工程规则、非空测试、真实候选验收、技术债、版本、发布和商业许可。
-
-删除的是与本目标无关的产品面和发布面：Rust/Cargo/Tokio、CLI/TUI/MCP、Tauri、shared core/adapter、pnpm monorepo、DMG/NSIS/xwin、桌面签名与公证，以及这些能力的 Skills、日期历史和验证流水账。
-
-裁剪后的判断标准不是“文件越少越好”，而是每个保留入口都能服务当前两个独立单包模板，每个删除入口都不再把 Agent 引向旧架构。
-
-## 6. 扩展 Harness，而非叠加下游
+## 5. 扩展 Harness，而非叠加下游
 
 未来增加项目类型时，应在 Harness 层新增互斥枚举、独立模板、品牌规则、测试和发布门禁。不能通过向既有下游加入 target add/remove、workspace 或共享 core 来实现。
 
 未来移除类型时，应保留已生成项目的维护说明和升级边界，但不需要让现有仓库自动迁移成其他类型。长期重要且难逆的类型变更进入里程碑路径并记录取舍。
 
-## 7. 阅读路由
+## 6. 阅读路由
 
 - 要初始化或维护模板：读 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)。
 - 要初始化、读取或验证 BaseURL 与构建 profile：读 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。

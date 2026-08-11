@@ -1,6 +1,6 @@
 # Bifang Web Harness Template
 
-这是一个面向 AI Agent 的 TypeScript 项目 Harness。它从成熟的 Agent-first Harness 保留任务分级、最少读取、工程约束、验证与发布治理，但把产品脚手架收敛为两种互斥选择：**纯 React Web 页面**或 **Chrome MV3 Plasmo 扩展**。
+这是一个面向 AI Agent 的纯 TypeScript 项目 Harness，只生成两种互斥的终端下游：**纯 React Web 页面**或 **Chrome MV3 Plasmo 扩展**。任务分级、最少读取、工程约束、验证与发布治理共同形成可验证的交付闭环。
 
 每次初始化只生成一个平铺的 pnpm 单包项目。下游仓库不会同时包含 Web 与 Extension，不使用 pnpm workspace、`apps/`、`packages/` 或共享 core。若同一产品需要两种宿主，应分别初始化两个独立仓库，并独立维护版本、品牌、状态和测试。
 
@@ -21,8 +21,6 @@
 | 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；里程碑按适用性增加真实 Chrome 验证 |
 
 初始化器会生成不含业务 endpoint 的原生 Fetch client、语言偏好和分页基础层，统一 `X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、401、错误日志与 sessionStorage 分页语义。Ky、OpenAPI、GraphQL、SSE 与 RxJS 等集成仍只随真实消费者按需加入；初始化不预装这些依赖、不生成占位请求/事件总线，也不预置 Extension 权限。完整协议见 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。
-
-模板明确不包含 Rust、Cargo、Tokio、CLI、TUI、MCP、Tauri、DMG、NSIS、xwin、代码签名、公证或桌面安装包流程。
 
 ## 快速开始
 
@@ -229,23 +227,3 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 - 未实际运行的平台和浏览器范围必须标记为 `Unverified`。
 
 详细规则见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)、[`docs/TS_WEB_TEMPLATE.md`](docs/TS_WEB_TEMPLATE.md)、[`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)、[`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)、[`docs/LOGGING.md`](docs/LOGGING.md) 与 [`docs/RELEASE.md`](docs/RELEASE.md)。
-
-## 从成熟模板保留与删除的内容
-
-保留：
-
-- 快速、标准、里程碑三档任务闭环；
-- 最少读取、单一事实来源、持久 Agent 策略；
-- 文件规模、注释、文档、测试、技术债、验证与发布规则；
-- 实例化、实现、品牌、i18n、并行协作、验收和 Harness 升级等适用 Skills；
-- 中英文企业专有商业许可。
-
-删除：
-
-- Rust/Cargo/Tokio 和 shared core/adapter 架构；
-- CLI、TUI、MCP、Tauri 及其 Skills、契约和运行时规则；
-- pnpm monorepo、workspace、`apps/`、`packages/` 与跨宿主共享代码；
-- DMG、NSIS、xwin、签名、公证、stapling 与桌面发布矩阵；
-- 原模板的日期历史、Rust/Tauri 发布证据和不适用于本模板的项目记忆。
-
-本 Harness 只提供工程骨架，不替下游推测具体业务。产品目标不清楚时先使用 `$define-product`；范围清楚的日常工作按 [`AGENTS.md`](AGENTS.md) 选择相称路径。

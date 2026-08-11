@@ -216,6 +216,7 @@ describe("single-package Harness initialization", () => {
     expect(dataAccess).toContain("X-Http-Request")
     expect(dataAccess).toContain("sessionStorage")
     expect(dataAccess).toContain("UnauthorizedHandler")
+    expect(dataAccess).not.toContain("由源 Harness")
     expect(engineeringRules).toContain("RxJS 只在多来源或复杂时序需求出现时")
     expect(engineeringRules).toContain("src/routeTree.gen.ts")
     expect(engineeringRules).toContain("route 级自动拆包")
@@ -865,7 +866,7 @@ describe("safe template instantiation", () => {
       )
     }
     const downstreamAgents = await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")
-    expect(downstreamAgents).toContain("## Retained Skill map")
+    expect(downstreamAgents).toContain("## Skill map")
     expect(downstreamAgents).toContain("docs/DATA_ACCESS.md")
     expect(downstreamAgents).toContain("multi-source event streams, or RxJS")
     expect(downstreamAgents).toContain("`src/routes/`")
@@ -880,6 +881,10 @@ describe("safe template instantiation", () => {
     expect(downstreamDocsReadme).toContain("RxJS")
     expect(downstreamDocsReadme).toContain("RUNTIME_CONFIGURATION.md")
     expect(downstreamDocsReadme).toContain("LOGGING.md")
+    const downstreamTechDebt = await readFile(path.join(targetRoot, "docs/TECH_DEBT.md"), "utf8")
+    expect(downstreamTechDebt).not.toContain("## 当前记录")
+    expect(downstreamTechDebt).not.toContain("初始化时没有登记")
+    expect(downstreamTechDebt).not.toContain("DEP0205")
 
     const terminalDocs = [
       "README.md",
@@ -898,6 +903,15 @@ describe("safe template instantiation", () => {
       expect(contents).not.toContain("pnpm instantiate")
       expect(contents).not.toContain("pnpm harness:init")
       expect(contents).not.toContain("Bifang Web Harness Template")
+      for (const historicalMarker of [
+        "intentionally removed",
+        "Retained Skill map",
+        "由源 Harness",
+        "已删除的项目生成流程",
+        "may have been changed during creation"
+      ]) {
+        expect(contents).not.toContain(historicalMarker)
+      }
     }
     for (const removedDoc of [
       "Version.md",

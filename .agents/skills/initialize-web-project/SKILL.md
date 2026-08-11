@@ -65,7 +65,7 @@ pnpm harness:init -- --type <web|extension> --name "<display-name>" \
 1. 生成当前宿主后先执行终端化：删除 `.agents/skills/instantiate-project/`、`.agents/skills/initialize-web-project/` 和仅服务模板派生的活动说明，重写 Skills/约束地图；保留开发、品牌、升级、验证、发布和并行 Skills，并确认项目记忆仍按触发创建而非预建。
 2. 对终端化结果运行 `pnpm env:validate` 与 `pnpm harness validate`，再运行 package 中真实存在的格式、lint、类型、非空测试和 development/test/release 三种构建脚本；确认任一环境文件缺失或字段非法都会在宿主构建前失败。原地初始化若在终端化后的检查中失败，不得宣称完成，也不会自动恢复已删除或改写的模板文件。
 3. 对 `web` 检查逻辑 Release 产生的真实 Vite `dist/`；对 `extension` 检查逻辑 Release 产生的真实 Plasmo Chrome MV3 构建目录及 manifest。`build:release` 必须在构建后自动通过 `pnpm release:inspect`；Extension `package` 同理。初始化阶段不宣称里程碑验收或发布就绪。
-4. 搜索旧模板身份、另一类型入口、占位文案、绝对本机路径和未解释的跳过项；逐项解决或报告阻断。
+4. 搜索源 Harness 身份残留、另一类型入口、占位文案、绝对本机路径和未解释的跳过项；逐项解决或报告阻断。
 5. 由实例化流程调用时返回创建基线提交所需证据；直接初始化时除非用户明确授权，不自行提交。
 
 ## 完成输出

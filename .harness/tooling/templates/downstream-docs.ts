@@ -173,11 +173,6 @@ function technicalDebt(config: ProjectConfig): string {
 
 本文件记录 **${config.name}** 当前 \`${config.projectType}\` 项目中已观察、已接受且不在活动任务范围内的问题。初始化器不代替产品团队虚构业务技术债。
 
-## 当前记录
-
-- 初始化时没有登记产品特有技术债。
-- Node.js 26 使用当前 tsx 基线时可能输出 \`DEP0205\` 弃用警告；现有命令退出码与功能不受影响，升级 tsx 或 Node LTS 基线时复核。
-
 ## 记录规则
 
 - 新条目必须包含可观察事实、用户或工程影响、状态和明确的处理/复核条件。
@@ -215,7 +210,7 @@ ${canonicalSections.slice(deliveryStart)}`
 
   return `# 数据访问与事件流集成技术选型
 
-本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的分页、HTTP/认证、数据访问、SSE 与可选 RxJS 工程事实。规范章节由源 Harness 的权威 \`docs/DATA_ACCESS.md\` 派生；初始化生成无业务 endpoint 的原生 Fetch 与分页基础，不预装 Ky/Axios/RxJS、不生成占位网络/事件总线代码，也不预置 endpoint 或 Extension 权限。
+本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的分页、HTTP/认证、数据访问、SSE 与可选 RxJS 工程事实。项目包含无业务 endpoint 的原生 Fetch 与分页基础，不预装 Ky/Axios/RxJS、不生成占位网络/事件总线代码，也不预置 endpoint 或 Extension 权限。
 
 ${derivedSections}
 `
@@ -236,7 +231,7 @@ function docsReadme(config: ProjectConfig): string {
 | [\`RELEASE.md\`](RELEASE.md)                     | 准备版本、候选或发布                 |
 | [\`TECH_DEBT.md\`](TECH_DEBT.md)                 | 记录当前范围外的已知限制             |
 
-按任务读取最少事实，不把已删除的项目生成流程恢复到终端仓库。
+按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。
 `
 }
 
