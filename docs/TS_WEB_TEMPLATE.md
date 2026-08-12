@@ -314,7 +314,7 @@ pnpm env:validate
 pnpm release:inspect
 ```
 
-命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev`、`test`、`typecheck`、全部构建和 `release:inspect` 在其适用阶段验证受管环境，`lint` 与格式命令只检查源码/格式。`dev` 使用 development，`test` 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。`build:development` 与 `build:test` 只生成诊断构建。`env:validate` 默认验证全部三份配置；指定 `--profile development|test|release` 时仍检查三份文件，只允许当前进程用当前宿主的四个已声明键覆盖所选 profile。`.env`、四种 `.env*.local` 或未知公开键都会失败。
+命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev`、`test`、`typecheck`、全部构建和 `release:inspect` 在其适用阶段验证受管环境，`lint` 执行 ESLint 与中文声明注释门禁，格式命令只检查格式。注释声明矩阵和精确排除以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 为准。`dev` 使用 development，`test` 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。`build:development` 与 `build:test` 只生成诊断构建。`env:validate` 默认验证全部三份配置；指定 `--profile development|test|release` 时仍检查三份文件，只允许当前进程用当前宿主的四个已声明键覆盖所选 profile。`.env`、四种 `.env*.local` 或未知公开键都会失败。
 
 `build:release` 在宿主构建后自动运行 `release:inspect`（Web 同一脚本还运行 `tsc --noEmit`）。Extension 在 inspector 前还运行 `pnpm harness validate`，核对 browser target 并扫描 production JS 中未被打包的运行时依赖 self-map；`package` 在 zip 构建后执行同样两道门禁。产物检查针对 `build/chrome-mv3-prod`，不会直接解包 zip：文件名层拒绝 `.env*`/`.map`，仅在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径与 `sourceMappingURL`；它不提供通用秘密扫描。
 
@@ -341,11 +341,11 @@ pnpm harness validate
 6. `src/pagination/`、`src/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。manifest 不因该基础新增 Ky/Axios，Extension manifest 仍无预置权限。
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
 8. 普通首次安装已生成与 manifest 一致的 `pnpm-lock.yaml`；若受控自动化使用 `--skip-install`，结果明确报告安装和后续检查尚未执行。
-9. Web 的动态文件路由树已由命令生成，且生成项目的 `lint`、`typecheck`、非空 `test` 与三种 profile 构建已实际执行并通过；Extension 完成自身对应门禁。初始化结果若明确使用 `--skip-install`，必须报告哪些生成与检查尚未执行，未运行不得记为通过。
+9. Web 的动态文件路由树已由命令生成，且生成项目的 `lint`（含中文声明注释门禁）、`typecheck`、非空 `test` 与三种 profile 构建已实际执行并通过；Extension 完成自身对应门禁。初始化结果若明确使用 `--skip-install`，必须报告哪些生成与检查尚未执行，未运行不得记为通过。
 10. Release 构建已自动通过 `pnpm release:inspect`：候选文件名不含 `.env*`/`.map`，受支持的可读文本扩展未命中开发/测试 BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径或 `sourceMappingURL`；另行确认测试使用的 Token/continuation 值没有进入候选。Extension 还通过 `pnpm harness validate` 的 browser target 与运行时依赖自包含检查，记录的是 `build/chrome-mv3-prod` 检查结果，而不是通用秘密或 zip 解包扫描结论。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、检查或构建失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
 12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。
-13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
+13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力
 

@@ -1,4 +1,0 @@
-interface:
-  display_name: "升级 Harness"
-  short_description: "Dry-run managed Harness updates without data loss"
-  default_prompt: "Use $upgrade-harness to preview ownership-aware Harness updates before applying them."

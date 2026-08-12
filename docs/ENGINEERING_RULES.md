@@ -54,8 +54,19 @@
 - 应用日志集中在 `src/observability/logger.ts`。产品代码不得直接使用 `console.*`；只允许 logger 默认 sink、测试替身或工具脚本在明确边界使用 console。事件字段、级别、Release allowlist 与脱敏规则见 [`LOGGING.md`](LOGGING.md)。
 - Promise 必须被等待、返回或显式处理；用户触发的异步操作需要加载、成功与失败反馈，取消或卸载后不得更新失效 UI。
 - 公共类型、组件 props、消息契约和持久化结构要保持向后兼容；破坏性变化进入里程碑路径并提供迁移或明确重建边界。
-- 代码标识符使用英文。导出契约、非直观边界或算法、关键失败条件和测试场景使用有业务意义的中文注释，说明目的、约束、错误与副作用；自解释的局部函数不要求逐项注释，也不要逐行翻译代码。
+- 代码标识符使用英文。注释应说明声明职责、约束、错误或副作用，不逐行翻译代码；以下机械门禁只证明注释邻接且含汉字，语义是否准确仍由评审负责。
 - `TODO`、`FIXME`、`HACK` 必须说明原因和完成/删除条件；当前任务不解决时同步登记 [`TECH_DEBT.md`](TECH_DEBT.md)。
+
+### 3.1 中文声明注释硬门禁
+
+- 门禁覆盖 Harness、生成器模板及终端下游中所有由 Harness 维护或生成的 `.ts`、`.tsx` 文件；`.d.ts` 也因 `.ts` 后缀受管。每个受管声明都必须有一条直接关联、至少包含一个汉字的行注释、块注释或 JSDoc。
+- interface declaration 及其每个 property、method、call、construct 和 index signature 都分别受管。
+- class declaration/expression 及其字段、方法、getter、setter、constructor 都分别受管；带 `public`、`protected`、`private`、`readonly` 或 `override` 等修饰符并同时声明字段的 constructor 参数属性也必须有自己的紧邻中文注释。
+- 所有函数形态都受管，包括 function declaration/expression、arrow function、对象或 class 方法、getter、setter、constructor 与匿名 callback。变量以函数作为初始化器时，变量与该函数可以共用同一条同时说明两者职责的注释；class 方法、访问器或 constructor 的一条注释也可同时满足成员与函数要求。
+- 每条 `const`、`let`、`var` 声明在所有作用域都受管，包括函数内部局部变量以及 `for`、`for…in`、`for…of` 初始化器；同一 declaration list 中的多个绑定可以共用一条说明整组职责的注释。import binding、普通函数参数、catch binding、type alias 与 enum member 不因自身类别进入本门禁，除非同时属于上述受管声明。
+- “紧邻”只接受声明正上方没有空行或其他 token 隔开的注释，或语法允许位置中直接置于声明前的块注释/JSDoc。与声明不邻接的文件头注释、隔空注释、纯英文注释、字符串中的中文、前一声明的行尾注释或关联到其他节点的注释均不能代替当前声明。
+- 排除范围只包括精确文件 `src/routeTree.gen.ts`，以及路径任一目录段为 `.plasmo`、`build`、`dist`、`coverage`、`node_modules` 或 `.git` 的内容。不得用 `*.gen.ts`、`*.generated.ts`、名称包含 `gen` 或笼统“生成目录”等 blanket 规则扩大排除；例如 `src/nested/routeTree.gen.ts`、`src/feature.gen.ts` 与 `src/plasmo.d.ts` 仍受门禁。
+- 根 Harness 与两类下游的 `pnpm lint` 都必须在 ESLint 后运行该 AST 门禁；`comments:check` 可用于直接诊断，但不能替代 `lint`。Harness validator 与下游 `pnpm harness validate` 必须锁定策略模块、脚本接线、精确排除和当前源码通过状态，删除注释或绕过接线都应失败。
 
 ## 4. 文件规模
 
@@ -91,7 +102,7 @@
 
 ### 6.2 构建与里程碑
 
-- 生成项目的完整 package 门禁是 `pnpm env:validate`、`pnpm lint`、`pnpm typecheck`、`pnpm test` 与 `pnpm build`；它用于里程碑、发布候选、跨配置/结构/构建链变化、用户明确要求，或窄检查不足以建立可信度的任务，不要求每个局部或纯文档改动机械全跑。快速/普通标准任务先运行受影响的最小充分检查；凡执行环境校验都必须覆盖 development、test、release 三份配置。只有脚本真实存在并实际成功时才能报告通过。
+- 生成项目的完整 package 门禁是 `pnpm env:validate`、`pnpm lint`、`pnpm typecheck`、`pnpm test` 与 `pnpm build`；其中 `lint` 必须包含 §3.1 的中文声明注释门禁。完整门禁用于里程碑、发布候选、跨配置/结构/构建链变化、用户明确要求，或窄检查不足以建立可信度的任务，不要求每个局部或纯文档改动机械全跑。快速/普通标准任务先运行受影响的最小充分检查；凡执行环境校验都必须覆盖 development、test、release 三份配置。只有脚本真实存在并实际成功时才能报告通过。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：文件名层拒绝 `.env*`/`.map`，仅在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、源码绝对路径与 `sourceMappingURL`。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 里程碑策略选中真实浏览器验证时，Web 使用 Playwright 或可用浏览器能力打开最终构建，验证品牌、关键路由、核心成功路径与风险失败路径。
 - 里程碑策略选中真实浏览器验证时，Extension 在真实 Chrome 中加载最终 MV3 构建，验证 manifest、Plasmo 生成图标、Popup、Options、必要权限及真实 Chrome API 行为。

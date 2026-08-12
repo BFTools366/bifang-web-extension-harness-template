@@ -1,5 +1,6 @@
 import type { ProjectConfig } from "../types.ts"
 
+// 执行 languageSource 函数的处理逻辑。
 function languageSource(): string {
   return `import { BRAND } from "../brand"
 
@@ -151,7 +152,9 @@ export async function changeApplicationLanguage(language: string): Promise<void>
 `
 }
 
+// 执行 languageTest 函数的处理逻辑。
 function languageTest(config: ProjectConfig): string {
+  // 保存 expectedStorageKey 变量供当前逻辑使用。
   const expectedStorageKey = JSON.stringify(`${config.id}:language:v1`)
   return `// @vitest-environment jsdom
 import { describe, expect, test, vi } from "vitest"
@@ -265,6 +268,7 @@ describe("application language", () => {
 `
 }
 
+// 保存 HTTP_CLIENT_SOURCE 变量供当前逻辑使用。
 const HTTP_CLIENT_SOURCE = `import { APP_CONFIG } from "../../config/environment"
 import type { AppConfig } from "../../config/environment.schema"
 import { getRequestLanguage, normalizeLanguage } from "../../i18n/language"
@@ -762,6 +766,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
 }
 `
 
+// 保存 HTTP_CLIENT_TEST 变量供当前逻辑使用。
 const HTTP_CLIENT_TEST = `import { afterEach, describe, expect, test, vi } from "vitest"
 import {
   ApiError,
@@ -1168,6 +1173,7 @@ describe("HTTP client", () => {
 })
 `
 
+// 执行 httpFiles 函数的处理逻辑。
 export function httpFiles(config: ProjectConfig): Map<string, string> {
   return new Map([
     ["src/i18n/language.ts", languageSource()],

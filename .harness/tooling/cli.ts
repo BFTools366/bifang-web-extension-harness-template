@@ -8,6 +8,7 @@ import { isInteractiveTerminal, promptForIdentity } from "./prompts.ts"
 import type { InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
 
+// 保存 INIT_OPTIONS 变量供当前逻辑使用。
 const INIT_OPTIONS = [
   "type",
   "name",
@@ -22,6 +23,7 @@ const INIT_OPTIONS = [
   "skip-git"
 ] as const
 
+// 执行 usage 函数的处理逻辑。
 function usage(): string {
   return `Bifang Web Harness
 
@@ -40,10 +42,14 @@ Use --skip-install and --skip-git only in controlled automation.
 `
 }
 
+// 执行 resolveInitOptions 函数的处理逻辑。
 export async function resolveInitOptions(args: ParsedArgs, root: string): Promise<InitOptions> {
   assertKnownOptions(args, INIT_OPTIONS)
+  // 保存 interactive 变量供当前逻辑使用。
   const interactive = isInteractiveTerminal()
+  // 保存 suppliedBrandColor 变量供当前逻辑使用。
   const suppliedBrandColor = readStringOption(args, "brand-color")
+  // 保存 supplied 变量供当前逻辑使用。
   const supplied = {
     projectType: readStringOption(args, "type"),
     name: readStringOption(args, "name"),
@@ -54,6 +60,7 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
     testBaseUrl: readStringOption(args, "test-base-url"),
     releaseBaseUrl: readStringOption(args, "release-base-url")
   }
+  // 保存 required 变量供当前逻辑使用。
   const required = [
     ["--type", supplied.projectType],
     ["--name", supplied.name],
@@ -63,8 +70,12 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
     ["--test-base-url", supplied.testBaseUrl],
     ["--release-base-url", supplied.releaseBaseUrl]
   ] as const
-  const missing = required.filter(([, value]) => value === undefined).map(([flag]) => flag)
+  // 保存 missing 变量供当前逻辑使用。
+  const missing = required
+    .filter(/* 执行 当前声明 函数的处理逻辑。 */ ([, value]) => value === undefined)
+    .map(/* 执行 当前声明 函数的处理逻辑。 */ ([flag]) => flag)
 
+  // 保存 identity 变量供当前逻辑使用。
   let identity = supplied
   if (missing.length > 0 || (interactive && suppliedBrandColor === undefined)) {
     if (!interactive) {
@@ -93,12 +104,15 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
   }
 }
 
+// 执行 runBrand 函数的处理逻辑。
 async function runBrand(argv: string[], root: string): Promise<void> {
+  // 保存 args 变量供当前逻辑使用。
   const args = parseArgs(argv)
   assertKnownOptions(args, ["logo", "brand-color"])
   if (args.positionals.length !== 1 || args.positionals[0] !== "refresh") {
     throw new Error("Usage: pnpm harness brand refresh [--logo <path>] [--brand-color <color>]")
   }
+  // 保存 config 变量供当前逻辑使用。
   const config = await refreshBrand(root, {
     logoPath: readStringOption(args, "logo"),
     brandColor: readStringOption(args, "brand-color")
@@ -106,15 +120,20 @@ async function runBrand(argv: string[], root: string): Promise<void> {
   console.log(`Refreshed brand assets for ${config.name}`)
 }
 
+// 执行 runValidate 函数的处理逻辑。
 async function runValidate(argv: string[], root: string): Promise<void> {
+  // 保存 args 变量供当前逻辑使用。
   const args = parseArgs(argv)
   assertKnownOptions(args, [])
   if (args.positionals.length > 0) throw new Error("validate does not accept positional arguments")
+  // 保存 checked 变量供当前逻辑使用。
   const checked = await validateProject(root)
   console.log(`Project validation passed (${checked.join(", ")})`)
 }
 
+// 执行 runCli 函数的处理逻辑。
 export async function runCli(argv = process.argv.slice(2), root = process.cwd()): Promise<void> {
+  // 保存 [command, ...rest] 变量供当前逻辑使用。
   const [command, ...rest] = argv
   if (command === "init") return rejectInPlaceInitialization()
   if (command === "brand") return runBrand(rest, root)
@@ -126,11 +145,14 @@ export async function runCli(argv = process.argv.slice(2), root = process.cwd())
   throw new Error(`Unknown Harness command: ${command}\n\n${usage()}`)
 }
 
+// 保存 executedPath 变量供当前逻辑使用。
 const executedPath =
   process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
 if (executedPath === import.meta.url) {
-  runCli().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : String(error))
-    process.exitCode = 1
-  })
+  runCli().catch(
+    /* 执行 当前声明 函数的处理逻辑。 */ (error: unknown) => {
+      console.error(error instanceof Error ? error.message : String(error))
+      process.exitCode = 1
+    }
+  )
 }

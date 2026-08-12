@@ -52,7 +52,7 @@ Release 配置即使被错误设置成更低级别，logger 也必须把有效�
 - transport 层只记录协议、网络与认证边界；TanStack Query 的全局错误日志负责最终 query/mutation 失败。接入真实 feature 时应明确单一所有者，避免同一失败在两层重复记录。
 - Extension 的 popup、options、content script 与 service worker 分属不同执行上下文，日志不能提供跨上下文状态或可靠传输。
 - 测试可注入 sink 和时钟，断言级别、结构与脱敏；不得通过屏蔽 console 错误掩盖产品失败。
-- `extract-i18n-strings` 继续排除日志事件名和错误码；它们是工程契约，不是用户文案。
+- `web-extract-i18n-strings` 继续排除日志事件名和错误码；它们是工程契约，不是用户文案。
 
 ## 6. 测试与 Release 门禁
 

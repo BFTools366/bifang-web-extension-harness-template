@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import sharp from "sharp"
@@ -15,13 +15,17 @@ import { downstreamGovernanceFiles } from "../.harness/tooling/templates/downstr
 import type { InitOptions, ProjectConfig } from "../.harness/tooling/types.ts"
 import { validateProject } from "../.harness/tooling/validate.ts"
 
+// 保存 temporaryRoots 变量供当前逻辑使用。
 const temporaryRoots: string[] = []
+// 保存 repositoryRoot 变量供当前逻辑使用。
 const repositoryRoot = path.resolve(import.meta.dirname, "..")
+// 保存 TEST_BASE_URLS 变量供当前逻辑使用。
 const TEST_BASE_URLS = {
   developmentBaseUrl: "http://localhost:3000/api",
   testBaseUrl: "https://test-api.example.com/v1",
   releaseBaseUrl: "https://api.example.com/v1"
 } as const
+// 保存 OPTIONAL_INTEGRATION_PACKAGES 变量供当前逻辑使用。
 const OPTIONAL_INTEGRATION_PACKAGES = [
   "ky",
   "axios",
@@ -36,6 +40,7 @@ const OPTIONAL_INTEGRATION_PACKAGES = [
   "@microsoft/fetch-event-source",
   "rxjs"
 ] as const
+// 保存 PAGINATION_I18N_KEYS 变量供当前逻辑使用。
 const PAGINATION_I18N_KEYS = [
   "paginationNavigation",
   "paginationPage",
@@ -44,26 +49,36 @@ const PAGINATION_I18N_KEYS = [
   "paginationPageSize"
 ] as const
 
+// 执行 expectOptionalIntegrationPackagesNotInstalled 函数的处理逻辑。
 function expectOptionalIntegrationPackagesNotInstalled(manifest: {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
 }): void {
+  // 保存 installed 变量供当前逻辑使用。
   const installed = { ...manifest.dependencies, ...manifest.devDependencies }
+  // 保存 dependency 变量供当前逻辑使用。
   for (const dependency of OPTIONAL_INTEGRATION_PACKAGES) {
     expect(installed).not.toHaveProperty(dependency)
   }
 }
 
+// 执行 temporaryDirectory 函数的处理逻辑。
 async function temporaryDirectory(prefix: string): Promise<string> {
+  // 保存 directory 变量供当前逻辑使用。
   const directory = await mkdtemp(path.join(os.tmpdir(), prefix))
   temporaryRoots.push(directory)
   return directory
 }
 
+// 执行 seedTemplateRoot 函数的处理逻辑。
 async function seedTemplateRoot(): Promise<string> {
+  // 保存 root 变量供当前逻辑使用。
   const root = await temporaryDirectory("web-harness-test-")
   await mkdir(path.join(root, "docs"))
   await mkdir(path.join(root, ".harness/tooling"), { recursive: true })
+  await cp(path.join(repositoryRoot, ".agents"), path.join(root, ".agents"), {
+    recursive: true
+  })
   await writeFile(
     path.join(root, ".gitignore"),
     await readFile(path.join(repositoryRoot, ".gitignore"), "utf8")
@@ -89,6 +104,10 @@ async function seedTemplateRoot(): Promise<string> {
     await readFile(path.join(repositoryRoot, ".harness/tooling/release.ts"), "utf8")
   )
   await writeFile(
+    path.join(root, ".harness/tooling/comment-policy.ts"),
+    await readFile(path.join(repositoryRoot, ".harness/tooling/comment-policy.ts"), "utf8")
+  )
+  await writeFile(
     path.join(root, "package.json"),
     await readFile(path.join(repositoryRoot, "package.json"), "utf8")
   )
@@ -107,6 +126,7 @@ async function seedTemplateRoot(): Promise<string> {
   return root
 }
 
+// 执行 options 函数的处理逻辑。
 function options(root: string, projectType: "web" | "extension"): InitOptions {
   return {
     root,
@@ -121,60 +141,96 @@ function options(root: string, projectType: "web" | "extension"): InitOptions {
   }
 }
 
-afterEach(async () => {
-  await Promise.all(
-    temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
-  )
-})
+afterEach(
+  /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    await Promise.all(
+      temporaryRoots
+        .splice(0)
+        .map(
+          /* 执行 当前声明 函数的处理逻辑。 */ (root) => rm(root, { recursive: true, force: true })
+        )
+    )
+  }
+)
 
-describe("single-package Harness initialization", () => {
-  test("creates a terminal Web project with synchronized identity and scaled assets", async () => {
+describe("single-package Harness initialization", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  test("creates a terminal Web project with synchronized identity and scaled assets", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
 
+    // 保存 master 变量供当前逻辑使用。
     const master = await sharp(path.join(root, ".harness/brand/logo-1024.png")).metadata()
+    // 保存 logo 变量供当前逻辑使用。
     const logo = await sharp(path.join(root, "public/logo.png")).metadata()
+    // 保存 favicon 变量供当前逻辑使用。
     const favicon = await sharp(path.join(root, "public/favicon.png")).metadata()
     expect([master.width, master.height]).toEqual([1024, 1024])
     expect([logo.width, logo.height]).toEqual([512, 512])
     expect([favicon.width, favicon.height]).toEqual([64, 64])
 
+    // 保存 index 变量供当前逻辑使用。
     const index = await readFile(path.join(root, "index.html"), "utf8")
+    // 保存 landing 变量供当前逻辑使用。
     const landing = await readFile(path.join(root, "src/features/welcome/WelcomePage.tsx"), "utf8")
+    // 保存 indexRoute 变量供当前逻辑使用。
     const indexRoute = await readFile(path.join(root, "src/routes/index.tsx"), "utf8")
+    // 保存 rootRoute 变量供当前逻辑使用。
     const rootRoute = await readFile(path.join(root, "src/routes/__root.tsx"), "utf8")
+    // 保存 router 变量供当前逻辑使用。
     const router = await readFile(path.join(root, "src/app/router.tsx"), "utf8")
+    // 保存 viteConfig 变量供当前逻辑使用。
     const viteConfig = await readFile(path.join(root, "vite.config.ts"), "utf8")
+    // 保存 i18n 变量供当前逻辑使用。
     const i18n = await readFile(path.join(root, "src/i18n/index.ts"), "utf8")
+    // 保存 englishLocale 变量供当前逻辑使用。
     const englishLocale = await readFile(path.join(root, "src/i18n/locales/en.ts"), "utf8")
+    // 保存 chineseLocale 变量供当前逻辑使用。
     const chineseLocale = await readFile(path.join(root, "src/i18n/locales/zh.ts"), "utf8")
+    // 保存 language 变量供当前逻辑使用。
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
+    // 保存 httpClient 变量供当前逻辑使用。
     const httpClient = await readFile(path.join(root, "src/api/client/httpClient.ts"), "utf8")
+    // 保存 apiBoundary 变量供当前逻辑使用。
     const apiBoundary = await readFile(path.join(root, "src/api/README.md"), "utf8")
+    // 保存 gitignore 变量供当前逻辑使用。
     const gitignore = await readFile(path.join(root, ".gitignore"), "utf8")
+    // 保存 dataAccess 变量供当前逻辑使用。
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
+    // 保存 engineeringRules 变量供当前逻辑使用。
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+    // 保存 mantineUiGuidelines 变量供当前逻辑使用。
     const mantineUiGuidelines = await readFile(
       path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
       "utf8"
     )
+    // 保存 developmentEnvironment 变量供当前逻辑使用。
     const developmentEnvironment = await readFile(path.join(root, ".env.development"), "utf8")
+    // 保存 testEnvironment 变量供当前逻辑使用。
     const testEnvironment = await readFile(path.join(root, ".env.test"), "utf8")
+    // 保存 releaseEnvironment 变量供当前逻辑使用。
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
+    // 保存 logger 变量供当前逻辑使用。
     const logger = await readFile(path.join(root, "src/observability/logger.ts"), "utf8")
+    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(
       path.join(root, "src/pagination/useSessionPagination.ts"),
       "utf8"
     )
+    // 保存 paginationControls 变量供当前逻辑使用。
     const paginationControls = await readFile(
       path.join(root, "src/pagination/PaginationControls.tsx"),
       "utf8"
     )
+    // 保存 queryClient 变量供当前逻辑使用。
     const queryClient = await readFile(path.join(root, "src/app/queryClient.ts"), "utf8")
+    // 保存 main 变量供当前逻辑使用。
     const main = await readFile(path.join(root, "src/main.tsx"), "utf8")
+    // 保存 tsconfig 变量供当前逻辑使用。
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
     }
+    // 保存 terminalConfig 变量供当前逻辑使用。
     const terminalConfig = await readFile(path.join(root, ".harness/tooling/config.ts"), "utf8")
     expect(index).toContain("<title>Aurora Notes</title>")
     expect(index).toContain('content="A focused notes workspace."')
@@ -199,6 +255,7 @@ describe("single-package Harness initialization", () => {
     expect(i18n).toContain("initializeLanguage")
     expect(i18n).toContain('fallbackLng: "en"')
     expect(i18n).toContain("zh: { translation: zh }")
+    // 保存 key 变量供当前逻辑使用。
     for (const key of PAGINATION_I18N_KEYS) {
       expect(englishLocale).toContain(`${key}:`)
       expect(chineseLocale).toContain(`${key}:`)
@@ -266,10 +323,12 @@ describe("single-package Harness initialization", () => {
     expect(main).not.toContain("IS_RELEASE_BUILD")
     expect(tsconfig.include).not.toContain(".plasmo/index.d.ts")
     expect(terminalConfig).toContain("export const HARNESS_ONLY_PATHS")
+    // 保存 sourceOnlyPath 变量供当前逻辑使用。
     for (const sourceOnlyPath of HARNESS_ONLY_PATHS) {
       expect(terminalConfig).toContain(JSON.stringify(sourceOnlyPath))
     }
 
+    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
       scripts: Record<string, string>
       dependencies: Record<string, string>
@@ -301,36 +360,54 @@ describe("single-package Harness initialization", () => {
     )
   })
 
-  test("creates a terminal Chrome extension without Router or unused permissions", async () => {
+  test("creates a terminal Chrome extension without Router or unused permissions", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
 
+    // 保存 icon 变量供当前逻辑使用。
     const icon = await sharp(path.join(root, "assets/icon.png")).metadata()
     expect([icon.width, icon.height]).toEqual([1024, 1024])
+    // 保存 popup 变量供当前逻辑使用。
     const popup = await readFile(path.join(root, "src/popup.tsx"), "utf8")
+    // 保存 extensionBrand 变量供当前逻辑使用。
     const extensionBrand = await readFile(path.join(root, "src/brand.ts"), "utf8")
+    // 保存 i18n 变量供当前逻辑使用。
     const i18n = await readFile(path.join(root, "src/i18n.ts"), "utf8")
+    // 保存 language 变量供当前逻辑使用。
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
+    // 保存 httpClient 变量供当前逻辑使用。
     const httpClient = await readFile(path.join(root, "src/api/client/httpClient.ts"), "utf8")
+    // 保存 dataAccess 变量供当前逻辑使用。
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
+    // 保存 engineeringRules 变量供当前逻辑使用。
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+    // 保存 mantineUiGuidelines 变量供当前逻辑使用。
     const mantineUiGuidelines = await readFile(
       path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
       "utf8"
     )
+    // 保存 developmentEnvironment 变量供当前逻辑使用。
     const developmentEnvironment = await readFile(path.join(root, ".env.development"), "utf8")
+    // 保存 releaseEnvironment 变量供当前逻辑使用。
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
+    // 保存 extensionShell 变量供当前逻辑使用。
     const extensionShell = await readFile(path.join(root, "src/ExtensionShell.tsx"), "utf8")
+    // 保存 providers 变量供当前逻辑使用。
     const providers = await readFile(path.join(root, "src/providers.tsx"), "utf8")
+    // 保存 logger 变量供当前逻辑使用。
     const logger = await readFile(path.join(root, "src/observability/logger.ts"), "utf8")
+    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(
       path.join(root, "src/pagination/useSessionPagination.ts"),
       "utf8"
     )
+    // 保存 paginationControls 变量供当前逻辑使用。
     const paginationControls = await readFile(
       path.join(root, "src/pagination/PaginationControls.tsx"),
       "utf8"
     )
+    // 保存 tsconfig 变量供当前逻辑使用。
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
     }
@@ -338,6 +415,7 @@ describe("single-package Harness initialization", () => {
     expect(popup).toContain('surface="popup"')
     expect(extensionBrand).toContain("Aurora Clipper")
     expect(i18n).toContain("initializeLanguage")
+    // 保存 key 变量供当前逻辑使用。
     for (const key of PAGINATION_I18N_KEYS) {
       expect(i18n.split(`${key}:`)).toHaveLength(3)
     }
@@ -386,6 +464,7 @@ describe("single-package Harness initialization", () => {
     expect(paginationControls).toContain("onPageSizeChange")
     expect(tsconfig.include[0]).toBe(".plasmo/index.d.ts")
 
+    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
       displayName: string
       manifest: Record<string, unknown>
@@ -407,14 +486,15 @@ describe("single-package Harness initialization", () => {
     await expect(readFile(path.join(root, "index.html"), "utf8")).rejects.toThrow()
   })
 
-  test("rejects combined, invalid, and repeated type options", async () => {
+  test("rejects combined, invalid, and repeated type options", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await expect(
       initializeProject({ ...options(root, "web"), projectType: "both" as "web" })
     ).rejects.toThrow(/exactly "web" or "extension"/)
-    expect(() => parseArgs(["--type", "web", "--type", "extension"])).toThrow(
-      /only be provided once/
-    )
+    expect(
+      /* 执行 当前声明 函数的处理逻辑。 */ () => parseArgs(["--type", "web", "--type", "extension"])
+    ).toThrow(/only be provided once/)
     await expect(
       resolveInitOptions(
         parseArgs([
@@ -438,14 +518,18 @@ describe("single-package Harness initialization", () => {
     ).rejects.toThrow(/exactly "web" or "extension"/)
   })
 
-  test("parses the profile arguments exactly as pnpm forwards them", () => {
+  test("parses the profile arguments exactly as pnpm forwards them", /* 执行 当前声明 函数的处理逻辑。 */ () => {
     expect(profileFromArgs([])).toBeUndefined()
     expect(profileFromArgs(["--profile", "test"])).toBe("test")
-    expect(() => profileFromArgs(["--", "--profile", "test"])).toThrow(/Usage/)
+    expect(
+      /* 执行 当前声明 函数的处理逻辑。 */ () => profileFromArgs(["--", "--profile", "test"])
+    ).toThrow(/Usage/)
   })
 
-  test("uses the stable color default but requires type and identity when non-interactive", async () => {
+  test("uses the stable color default but requires type and identity when non-interactive", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
+    // 保存 resolved 变量供当前逻辑使用。
     const resolved = await resolveInitOptions(
       parseArgs([
         "--type",
@@ -490,7 +574,8 @@ describe("single-package Harness initialization", () => {
     ).rejects.toThrow(/--development-base-url/)
   })
 
-  test("rejects invalid or colliding environment configuration before completion", async () => {
+  test("rejects invalid or colliding environment configuration before completion", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 invalidRoot 变量供当前逻辑使用。
     const invalidRoot = await seedTemplateRoot()
     await expect(
       initializeProject({
@@ -502,6 +587,7 @@ describe("single-package Harness initialization", () => {
       readFile(path.join(invalidRoot, ".harness/project.json"), "utf8")
     ).rejects.toThrow()
 
+    // 保存 collisionRoot 变量供当前逻辑使用。
     const collisionRoot = await seedTemplateRoot()
     await writeFile(path.join(collisionRoot, ".env.test"), "USER_OWNED=true\n")
     await expect(initializeProject(options(collisionRoot, "web"))).rejects.toThrow(
@@ -510,7 +596,8 @@ describe("single-package Harness initialization", () => {
     expect(await readFile(path.join(collisionRoot, ".env.test"), "utf8")).toBe("USER_OWNED=true\n")
   })
 
-  test("rejects incomplete environment files during project validation", async () => {
+  test("rejects incomplete environment files during project validation", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
     await writeFile(
@@ -521,7 +608,8 @@ describe("single-package Harness initialization", () => {
     await expect(validateProject(root)).rejects.toThrow(/API_BASE_URL is required/)
   })
 
-  test("rejects hidden environment overrides and undeclared public browser values", async () => {
+  test("rejects hidden environment overrides and undeclared public browser values", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 localOverrideRoot 变量供当前逻辑使用。
     const localOverrideRoot = await seedTemplateRoot()
     await initializeProject(options(localOverrideRoot, "web"))
     await writeFile(
@@ -532,15 +620,19 @@ describe("single-package Harness initialization", () => {
       /can silently override the governed profiles/
     )
 
+    // 保存 publicSecretRoot 变量供当前逻辑使用。
     const publicSecretRoot = await seedTemplateRoot()
     await initializeProject(options(publicSecretRoot, "extension"))
+    // 保存 environmentPath 变量供当前逻辑使用。
     const environmentPath = path.join(publicSecretRoot, ".env.test")
+    // 保存 environment 变量供当前逻辑使用。
     const environment = await readFile(environmentPath, "utf8")
     await writeFile(environmentPath, `${environment}PLASMO_PUBLIC_API_TOKEN=do-not-ship\n`)
     await expect(validateProject(publicSecretRoot)).rejects.toThrow(
       /undeclared public configuration: PLASMO_PUBLIC_API_TOKEN/
     )
 
+    // 保存 processOverrideRoot 变量供当前逻辑使用。
     const processOverrideRoot = await seedTemplateRoot()
     await initializeProject(options(processOverrideRoot, "web"))
     process.env.VITE_PRIVATE_TOKEN = "do-not-ship"
@@ -553,9 +645,11 @@ describe("single-package Harness initialization", () => {
     }
   })
 
-  test("inspects release artifacts for profile leakage and source-only information", async () => {
+  test("inspects release artifacts for profile leakage and source-only information", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
+    // 保存 artifactRoot 变量供当前逻辑使用。
     const artifactRoot = path.join(root, "dist")
     await mkdir(artifactRoot)
     await writeFile(
@@ -573,6 +667,7 @@ describe("single-package Harness initialization", () => {
     )
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/non-release API BaseURL/)
 
+    // 保存 method 变量供当前逻辑使用。
     for (const method of ["debug", "info"] as const) {
       await writeFile(
         path.join(artifactRoot, "index.html"),
@@ -582,10 +677,13 @@ describe("single-package Harness initialization", () => {
     }
   })
 
-  test("rejects drift from the release-safe structured logging contract", async () => {
+  test("rejects drift from the release-safe structured logging contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
+    // 保存 loggerPath 变量供当前逻辑使用。
     const loggerPath = path.join(root, "src/observability/logger.ts")
+    // 保存 logger 变量供当前逻辑使用。
     const logger = await readFile(loggerPath, "utf8")
     await writeFile(loggerPath, logger.replaceAll("SENSITIVE_KEY", "UNSAFE_KEY"))
 
@@ -594,10 +692,13 @@ describe("single-package Harness initialization", () => {
     )
   })
 
-  test("keeps extension protocol and built identity values as exact gates", async () => {
+  test("keeps extension protocol and built identity values as exact gates", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 sourceRoot 变量供当前逻辑使用。
     const sourceRoot = await seedTemplateRoot()
     await initializeProject(options(sourceRoot, "extension"))
+    // 保存 sourceManifestPath 变量供当前逻辑使用。
     const sourceManifestPath = path.join(sourceRoot, "package.json")
+    // 保存 sourceManifest 变量供当前逻辑使用。
     const sourceManifest = JSON.parse(await readFile(sourceManifestPath, "utf8")) as {
       manifest: Record<string, unknown>
     }
@@ -605,8 +706,10 @@ describe("single-package Harness initialization", () => {
     await writeFile(sourceManifestPath, `${JSON.stringify(sourceManifest, null, 2)}\n`)
     await expect(validateProject(sourceRoot)).rejects.toThrow(/manifest_version must equal 3/)
 
+    // 保存 builtRoot 变量供当前逻辑使用。
     const builtRoot = await seedTemplateRoot()
     await initializeProject(options(builtRoot, "extension"))
+    // 保存 artifactRoot 变量供当前逻辑使用。
     const artifactRoot = path.join(builtRoot, "build/chrome-mv3-prod")
     await mkdir(artifactRoot, { recursive: true })
     await writeFile(path.join(artifactRoot, "popup.html"), "<!doctype html>\n")
@@ -625,10 +728,13 @@ describe("single-package Harness initialization", () => {
     await expect(validateProject(builtRoot)).rejects.toThrow(/Extension build name is stale/)
   })
 
-  test("keeps identity schemas exact while accepting only tooling at or above its baseline", async () => {
+  test("keeps identity schemas exact while accepting only tooling at or above its baseline", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 toolingRoot 变量供当前逻辑使用。
     const toolingRoot = await seedTemplateRoot()
     await initializeProject(options(toolingRoot, "web"))
+    // 保存 manifestPath 变量供当前逻辑使用。
     const manifestPath = path.join(toolingRoot, "package.json")
+    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
       devDependencies: Record<string, string>
     }
@@ -638,23 +744,29 @@ describe("single-package Harness initialization", () => {
       /typescript minimum must not be lower than 6\.0\.3/
     )
 
+    // 保存 schemaRoot 变量供当前逻辑使用。
     const schemaRoot = await seedTemplateRoot()
     await initializeProject(options(schemaRoot, "web"))
+    // 保存 configPath 变量供当前逻辑使用。
     const configPath = path.join(schemaRoot, ".harness/project.json")
+    // 保存 config 变量供当前逻辑使用。
     const config = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>
     config.schemaVersion = 2
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
     await expect(validateProject(schemaRoot)).rejects.toThrow(/Unsupported project config schema/)
   })
 
-  test("rejects repeat initialization without overwriting the project", async () => {
+  test("rejects repeat initialization without overwriting the project", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
+    // 保存 init 变量供当前逻辑使用。
     const init = options(root, "web")
     await initializeProject(init)
     await expect(initializeProject(init)).rejects.toThrow(/Refusing to overwrite/)
   })
 
-  test("requires the generated data-access and event-stream knowledge in terminal projects", async () => {
+  test("requires the generated data-access and event-stream knowledge in terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
     await rm(path.join(root, "docs/DATA_ACCESS.md"))
@@ -662,7 +774,8 @@ describe("single-package Harness initialization", () => {
     await expect(validateProject(root)).rejects.toThrow(/Missing docs\/DATA_ACCESS\.md/)
   })
 
-  test("requires the generated Mantine UI guidelines in terminal projects", async () => {
+  test("requires the generated Mantine UI guidelines in terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
     await rm(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"))
@@ -670,12 +783,60 @@ describe("single-package Harness initialization", () => {
     await expect(validateProject(root)).rejects.toThrow(/Missing docs\/MANTINE_UI_GUIDELINES\.md/)
   })
 
-  test("rejects every source-only path finalized out of terminal projects", async () => {
+  test.each(["web", "extension"] as const)(
+    "rejects a missing Chinese declaration comment in a generated %s project",
+    /* 执行 当前声明 函数的处理逻辑。 */ async (projectType) => {
+      // 保存 root 变量供当前逻辑使用。
+      const root = await seedTemplateRoot()
+      await initializeProject(options(root, projectType))
+      // 保存 brandPath 变量供当前逻辑使用。
+      const brandPath = path.join(root, "src/brand.ts")
+      // 保存 brandSource 变量供当前逻辑使用。
+      const brandSource = await readFile(brandPath, "utf8")
+      // 保存 withoutComment 变量供当前逻辑使用。
+      const withoutComment = brandSource.replace(
+        /\/\/ [^\n]*\nexport const BRAND/u,
+        "export const BRAND"
+      )
+      expect(withoutComment).not.toBe(brandSource)
+      await writeFile(brandPath, withoutComment)
+
+      await expect(validateProject(root)).rejects.toThrow(/变量声明必须有紧邻中文注释/)
+    }
+  )
+
+  test("rejects terminal Skill directory and Chinese metadata drift", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
+    // 保存 verifySkillRoot 变量供当前逻辑使用。
+    const verifySkillRoot = path.join(root, ".agents/skills/web-verify-delivery")
+    await rm(verifySkillRoot, { recursive: true, force: true })
+    await expect(validateProject(root)).rejects.toThrow(/Terminal Skill directories must exactly/)
+
+    await cp(path.join(repositoryRoot, ".agents/skills/web-verify-delivery"), verifySkillRoot, {
+      recursive: true
+    })
+    // 保存 metadataPath 变量供当前逻辑使用。
+    const metadataPath = path.join(verifySkillRoot, "agents/openai.yaml")
+    // 保存 metadata 变量供当前逻辑使用。
+    const metadata = await readFile(metadataPath, "utf8")
+    await writeFile(
+      metadataPath,
+      metadata.replace("Web Harness：验证前端交付", "Rust Server：验证交付")
+    )
+    await expect(validateProject(root)).rejects.toThrow(/Rust\/Server language/)
+  })
+
+  test("rejects every source-only path finalized out of terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
+    const root = await seedTemplateRoot()
+    await initializeProject(options(root, "web"))
+    // 保存 sourceOnlyPaths 变量供当前逻辑使用。
     const sourceOnlyPaths = [
       ".agents/skills/initialize-web-project",
       ".agents/skills/instantiate-project",
+      ".agents/skills/web-instantiate-project",
       ".agents/skills/manage-project-surfaces",
       ".harness/tooling/init.ts",
       ".harness/tooling/instantiate.ts",
@@ -695,15 +856,19 @@ describe("single-package Harness initialization", () => {
       "Version.md",
       ".harness/tooling/finalize.ts"
     ] as const
+    // 保存 sourceOnlyDirectories 变量供当前逻辑使用。
     const sourceOnlyDirectories = new Set([
       ".agents/skills/initialize-web-project",
       ".agents/skills/instantiate-project",
+      ".agents/skills/web-instantiate-project",
       ".agents/skills/manage-project-surfaces",
       ".harness/tooling/templates",
       "docs/work_plan"
     ])
 
+    // 保存 relativePath 变量供当前逻辑使用。
     for (const relativePath of sourceOnlyPaths) {
+      // 保存 sourceOnlyPath 变量供当前逻辑使用。
       const sourceOnlyPath = path.join(root, relativePath)
       if (sourceOnlyDirectories.has(relativePath)) {
         await mkdir(sourceOnlyPath, { recursive: true })
@@ -719,17 +884,21 @@ describe("single-package Harness initialization", () => {
     }
   })
 
-  test("rejects drift from the shared pagination contract", async () => {
+  test("rejects drift from the shared pagination contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
+    // 保存 paginationPath 变量供当前逻辑使用。
     const paginationPath = path.join(root, "src/pagination/useSessionPagination.ts")
+    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(paginationPath, "utf8")
     await writeFile(paginationPath, pagination.replaceAll("sessionStorage", "localStorage"))
 
     await expect(validateProject(root)).rejects.toThrow(/Pagination state must use/)
   })
 
-  test("requires every shared pagination file in Web projects", async () => {
+  test("requires every shared pagination file in Web projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
     await rm(path.join(root, "src/pagination/useSessionPagination.ts"))
@@ -739,10 +908,13 @@ describe("single-package Harness initialization", () => {
     )
   })
 
-  test("rejects a pagination empty-page reconciliation drift", async () => {
+  test("rejects a pagination empty-page reconciliation drift", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
+    // 保存 paginationPath 变量供当前逻辑使用。
     const paginationPath = path.join(root, "src/pagination/useSessionPagination.ts")
+    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(paginationPath, "utf8")
     await writeFile(
       paginationPath,
@@ -754,10 +926,13 @@ describe("single-package Harness initialization", () => {
     )
   })
 
-  test("rejects a missing pagination translation", async () => {
+  test("rejects a missing pagination translation", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
+    // 保存 localePath 变量供当前逻辑使用。
     const localePath = path.join(root, "src/i18n/locales/en.ts")
+    // 保存 locale 变量供当前逻辑使用。
     const locale = await readFile(localePath, "utf8")
     await writeFile(
       localePath,
@@ -769,20 +944,26 @@ describe("single-package Harness initialization", () => {
     )
   })
 
-  test("rejects drift from the shared HTTP authentication contract", async () => {
+  test("rejects drift from the shared HTTP authentication contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
+    // 保存 clientPath 变量供当前逻辑使用。
     const clientPath = path.join(root, "src/api/client/httpClient.ts")
+    // 保存 client 变量供当前逻辑使用。
     const client = await readFile(clientPath, "utf8")
     await writeFile(clientPath, client.replace('authToken: "X-AUTH-TOKEN"', 'authToken: "X-Token"'))
 
     await expect(validateProject(root)).rejects.toThrow(/HTTP client contract is missing/)
   })
 
-  test("rejects drift from the Web file-route and code-splitting contract", async () => {
+  test("rejects drift from the Web file-route and code-splitting contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 missingPluginRoot 变量供当前逻辑使用。
     const missingPluginRoot = await seedTemplateRoot()
     await initializeProject(options(missingPluginRoot, "web"))
+    // 保存 manifestPath 变量供当前逻辑使用。
     const manifestPath = path.join(missingPluginRoot, "package.json")
+    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
       devDependencies: Record<string, string>
     }
@@ -792,9 +973,12 @@ describe("single-package Harness initialization", () => {
       /missing @tanstack\/router-plugin/
     )
 
+    // 保存 disabledSplittingRoot 变量供当前逻辑使用。
     const disabledSplittingRoot = await seedTemplateRoot()
     await initializeProject(options(disabledSplittingRoot, "web"))
+    // 保存 viteConfigPath 变量供当前逻辑使用。
     const viteConfigPath = path.join(disabledSplittingRoot, "vite.config.ts")
+    // 保存 viteConfig 变量供当前逻辑使用。
     const viteConfig = await readFile(viteConfigPath, "utf8")
     await writeFile(
       viteConfigPath,
@@ -803,19 +987,25 @@ describe("single-package Harness initialization", () => {
     await expect(validateProject(disabledSplittingRoot)).rejects.toThrow(/autoCodeSplitting/)
   })
 
-  test("refreshes generated branding deterministically from edited identity", async () => {
+  test("refreshes generated branding deterministically from edited identity", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
+    // 保存 configPath 变量供当前逻辑使用。
     const configPath = path.join(root, ".harness/project.json")
+    // 保存 config 变量供当前逻辑使用。
     const config = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>
     config.name = "Renamed Aurora"
     config.id = "renamed-aurora"
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
 
     await refreshBrand(root)
+    // 保存 first 变量供当前逻辑使用。
     const first = await readFile(path.join(root, ".harness/brand/logo-1024.png"))
     await refreshBrand(root)
+    // 保存 second 变量供当前逻辑使用。
     const second = await readFile(path.join(root, ".harness/brand/logo-1024.png"))
+    // 保存 paginationTest 变量供当前逻辑使用。
     const paginationTest = await readFile(
       path.join(root, "src/pagination/pagination.test.tsx"),
       "utf8"
@@ -828,8 +1018,9 @@ describe("single-package Harness initialization", () => {
   })
 })
 
-describe("safe template instantiation", () => {
-  test("keeps the Extension package inspection as a hard candidate gate", async () => {
+describe("safe template instantiation", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  test("keeps the Extension package inspection as a hard candidate gate", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 config 变量供当前逻辑使用。
     const config: ProjectConfig = {
       schemaVersion: 1,
       projectType: "extension",
@@ -843,11 +1034,13 @@ describe("safe template instantiation", () => {
       },
       initializedAt: "2026-08-12T00:00:00.000Z"
     }
+    // 保存 files 变量供当前逻辑使用。
     const files = downstreamGovernanceFiles(
       config,
       await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8"),
       await readFile(path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"), "utf8")
     )
+    // 保存 release 变量供当前逻辑使用。
     const release = files.get("docs/RELEASE.md")
 
     expect(release).toContain("`pnpm package`")
@@ -855,10 +1048,14 @@ describe("safe template instantiation", () => {
     expect(release).toContain("Agent Policy 或产品/渠道硬要求选中浏览器验证时")
   })
 
-  test("preflights environment failures before creating the target", async () => {
+  test("preflights environment failures before creating the target", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 sourceRoot 变量供当前逻辑使用。
     const sourceRoot = await seedTemplateRoot()
+    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-preflight-")
+    // 保存 invalidTarget 变量供当前逻辑使用。
     const invalidTarget = path.join(parent, "invalid-environment")
+    // 保存 { root: invalidRoot, ...invalidInit } 变量供当前逻辑使用。
     const { root: invalidRoot, ...invalidInit } = options(invalidTarget, "web")
     void invalidRoot
     await expect(
@@ -875,7 +1072,9 @@ describe("safe template instantiation", () => {
     await expect(readdir(invalidTarget)).rejects.toThrow()
 
     await writeFile(path.join(sourceRoot, ".env.local"), "VITE_API_TOKEN=do-not-ship\n")
+    // 保存 hiddenTarget 变量供当前逻辑使用。
     const hiddenTarget = path.join(parent, "hidden-environment")
+    // 保存 { root: hiddenRoot, ...hiddenInit } 变量供当前逻辑使用。
     const { root: hiddenRoot, ...hiddenInit } = options(hiddenTarget, "web")
     void hiddenRoot
     await expect(
@@ -891,8 +1090,10 @@ describe("safe template instantiation", () => {
     await expect(readdir(hiddenTarget)).rejects.toThrow()
   })
 
-  test("copies a clean template into a governed terminal project", async () => {
+  test("copies a clean template into a governed terminal project", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-copy-")
+    // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = path.join(parent, "terminal-project")
     await instantiateProject({
       sourceRoot: repositoryRoot,
@@ -909,15 +1110,37 @@ describe("safe template instantiation", () => {
       }
     })
 
+    // 保存 skillEntries 变量供当前逻辑使用。
     const skillEntries = await readdir(path.join(targetRoot, ".agents/skills"), {
       withFileTypes: true
     })
-    const skills = skillEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)
+    // 保存 skills 变量供当前逻辑使用。
+    const skills = skillEntries
+      .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
+      .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
     expect(skills).toHaveLength(12)
+    expect(skills.sort()).toEqual(
+      [
+        "web-check-development-environment",
+        "web-define-product",
+        "web-extract-i18n-strings",
+        "web-implement-change",
+        "web-plan-change",
+        "web-prepare-brand-identity",
+        "web-prepare-release",
+        "web-refactor-code",
+        "web-run-parallel-worktrees",
+        "web-test-final-artifact-e2e",
+        "web-upgrade-harness",
+        "web-verify-delivery"
+      ].sort()
+    )
     expect(skills).not.toContain("initialize-web-project")
     expect(skills).not.toContain("instantiate-project")
+    expect(skills).not.toContain("web-instantiate-project")
     expect(skills).not.toContain("manage-project-surfaces")
 
+    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(targetRoot, "package.json"), "utf8")) as {
       scripts: Record<string, string>
     }
@@ -925,6 +1148,7 @@ describe("safe template instantiation", () => {
     expect(manifest.scripts).not.toHaveProperty("harness:init")
     expect(manifest.scripts).not.toHaveProperty("instantiate")
     expect(manifest.scripts).not.toHaveProperty("validate:harness")
+    // 保存 removedCreationPath 变量供当前逻辑使用。
     for (const removedCreationPath of [
       ".harness/tooling/init.ts",
       ".harness/tooling/instantiate.ts",
@@ -938,13 +1162,15 @@ describe("safe template instantiation", () => {
     await expect(
       readFile(path.join(targetRoot, "tests/extension-runtime.test.ts"), "utf8")
     ).rejects.toThrow()
+    // 保存 retainedTest 变量供当前逻辑使用。
     for (const retainedTest of ["tests/release-inspection.test.ts", "tests/version.test.ts"]) {
       await expect(readFile(path.join(targetRoot, retainedTest), "utf8")).resolves.toContain(
         "test("
       )
     }
+    // 保存 downstreamAgents 变量供当前逻辑使用。
     const downstreamAgents = await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")
-    expect(downstreamAgents).toContain("## Skill map")
+    expect(downstreamAgents).toContain("## Web Harness 前端 Skill 地图")
     expect(downstreamAgents).toContain("docs/DATA_ACCESS.md")
     expect(downstreamAgents).toContain("docs/MANTINE_UI_GUIDELINES.md")
     expect(downstreamAgents).toContain("interaction-state, responsive, or UI-accessibility work")
@@ -954,27 +1180,44 @@ describe("safe template instantiation", () => {
     expect(downstreamAgents).toContain("`src/pagination/`")
     expect(downstreamAgents).toContain("create a persistent plan only for cross-session work")
     expect(downstreamAgents).toContain("smoke and E2E run only when policy selects them")
+    // 保存 downstreamVerifyDeliveryMetadata 变量供当前逻辑使用。
     const downstreamVerifyDeliveryMetadata = await readFile(
-      path.join(targetRoot, ".agents/skills/verify-delivery/agents/openai.yaml"),
+      path.join(targetRoot, ".agents/skills/web-verify-delivery/agents/openai.yaml"),
       "utf8"
     )
-    expect(downstreamVerifyDeliveryMetadata).toContain('display_name: "验证前端项目交付"')
+    expect(downstreamVerifyDeliveryMetadata).toContain('display_name: "Web Harness：验证前端交付"')
+    expect(downstreamVerifyDeliveryMetadata).toContain("使用 $web-verify-delivery 验收 Web Harness")
+    // 保存 skillName 变量供当前逻辑使用。
+    for (const skillName of skills) {
+      // 保存 metadata 变量供当前逻辑使用。
+      const metadata = await readFile(
+        path.join(targetRoot, ".agents/skills", skillName, "agents/openai.yaml"),
+        "utf8"
+      )
+      expect(metadata).toMatch(/display_name: "Web Harness：[^"]+"/u)
+      expect(metadata).toContain(`使用 $${skillName}`)
+      expect(metadata).not.toMatch(/\b(?:Rust|Server)\b/iu)
+    }
+    // 保存 downstreamReadme 变量供当前逻辑使用。
     const downstreamReadme = await readFile(path.join(targetRoot, "README.md"), "utf8")
     expect(downstreamReadme).toContain("React, Vite, Mantine")
     expect(downstreamReadme).toContain("native Fetch and pagination foundations")
     expect(downstreamReadme).toContain("docs/MANTINE_UI_GUIDELINES.md")
     expect(downstreamReadme).toContain("pnpm routes:generate")
     expect(downstreamReadme).toContain("run the smallest sufficient affected checks")
+    // 保存 downstreamPolicy 变量供当前逻辑使用。
     const downstreamPolicy = await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")
     expect(downstreamPolicy).toContain("schema_version: 2")
     expect(downstreamPolicy).toContain("standard_work_plan: optional")
     expect(downstreamPolicy).toContain("milestone_smoke: optional")
+    // 保存 downstreamEngineering 变量供当前逻辑使用。
     const downstreamEngineering = await readFile(
       path.join(targetRoot, "docs/ENGINEERING_RULES.md"),
       "utf8"
     )
     expect(downstreamEngineering).toContain("局部可逆任务先运行受影响的最小充分检查")
     expect(downstreamEngineering).toContain("docs/MANTINE_UI_GUIDELINES.md")
+    // 保存 downstreamMantineUi 变量供当前逻辑使用。
     const downstreamMantineUi = await readFile(
       path.join(targetRoot, "docs/MANTINE_UI_GUIDELINES.md"),
       "utf8"
@@ -986,21 +1229,26 @@ describe("safe template instantiation", () => {
     expect(downstreamMantineUi).not.toContain("Options")
     expect(downstreamMantineUi).not.toContain("src/providers.tsx")
     expect(downstreamMantineUi).not.toContain("MV3/CSP")
+    // 保存 downstreamRelease 变量供当前逻辑使用。
     const downstreamRelease = await readFile(path.join(targetRoot, "docs/RELEASE.md"), "utf8")
     expect(downstreamRelease).toContain("Agent Policy 或产品/渠道硬要求选中浏览器验证时")
+    // 保存 downstreamLogging 变量供当前逻辑使用。
     const downstreamLogging = await readFile(path.join(targetRoot, "docs/LOGGING.md"), "utf8")
     expect(downstreamLogging).toContain("策略选中的真实 Chrome 候选验证")
+    // 保存 downstreamDocsReadme 变量供当前逻辑使用。
     const downstreamDocsReadme = await readFile(path.join(targetRoot, "docs/README.md"), "utf8")
     expect(downstreamDocsReadme).toContain("DATA_ACCESS.md")
     expect(downstreamDocsReadme).toContain("MANTINE_UI_GUIDELINES.md")
     expect(downstreamDocsReadme).toContain("RxJS")
     expect(downstreamDocsReadme).toContain("RUNTIME_CONFIGURATION.md")
     expect(downstreamDocsReadme).toContain("LOGGING.md")
+    // 保存 downstreamTechDebt 变量供当前逻辑使用。
     const downstreamTechDebt = await readFile(path.join(targetRoot, "docs/TECH_DEBT.md"), "utf8")
     expect(downstreamTechDebt).not.toContain("## 当前记录")
     expect(downstreamTechDebt).not.toContain("初始化时没有登记")
     expect(downstreamTechDebt).not.toContain("DEP0205")
 
+    // 保存 terminalDocs 变量供当前逻辑使用。
     const terminalDocs = [
       "README.md",
       "AGENTS.md",
@@ -1014,11 +1262,15 @@ describe("safe template instantiation", () => {
       "docs/RUNTIME_CONFIGURATION.md",
       "docs/TECH_DEBT.md"
     ]
+    // 保存 relativePath 变量供当前逻辑使用。
     for (const relativePath of terminalDocs) {
+      // 保存 contents 变量供当前逻辑使用。
       const contents = await readFile(path.join(targetRoot, relativePath), "utf8")
       expect(contents).not.toContain("pnpm instantiate")
       expect(contents).not.toContain("pnpm harness:init")
       expect(contents).not.toContain("Bifang Web Harness Template")
+      expect(contents).not.toContain("$web-instantiate-project")
+      // 保存 historicalMarker 变量供当前逻辑使用。
       for (const historicalMarker of [
         "intentionally removed",
         "Retained Skill map",
@@ -1029,6 +1281,7 @@ describe("safe template instantiation", () => {
         expect(contents).not.toContain(historicalMarker)
       }
     }
+    // 保存 removedDoc 变量供当前逻辑使用。
     for (const removedDoc of [
       "Version.md",
       "docs/TS_WEB_TEMPLATE.md",
@@ -1038,7 +1291,9 @@ describe("safe template instantiation", () => {
     }
     await expect(readdir(path.join(targetRoot, "docs/work_plan"))).rejects.toThrow()
 
+    // 保存 sourceLicense 变量供当前逻辑使用。
     const sourceLicense = await readFile(path.join(repositoryRoot, "LICENSE.en.md"), "utf8")
+    // 保存 expectedLicense 变量供当前逻辑使用。
     const expectedLicense = sourceLicense.replace(
       "Applicable Project Name: Bifang Web Harness Template.",
       "Applicable Project Name: Terminal Project."
@@ -1046,8 +1301,10 @@ describe("safe template instantiation", () => {
     expect(await readFile(path.join(targetRoot, "LICENSE.en.md"), "utf8")).toBe(expectedLicense)
   })
 
-  test("rejects a non-empty target", async () => {
+  test("rejects a non-empty target", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-target-")
+    // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = path.join(parent, "aurora-notes")
     await mkdir(targetRoot)
     await writeFile(path.join(targetRoot, "keep.txt"), "user data")
@@ -1070,8 +1327,10 @@ describe("safe template instantiation", () => {
     expect(await readFile(path.join(targetRoot, "keep.txt"), "utf8")).toBe("user data")
   })
 
-  test("requires target basename to match id and rejects symlink targets", async () => {
+  test("requires target basename to match id and rejects symlink targets", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-path-")
+    // 保存 wrongTarget 变量供当前逻辑使用。
     const wrongTarget = path.join(parent, "wrong-name")
     await expect(
       instantiateProject({
@@ -1090,7 +1349,9 @@ describe("safe template instantiation", () => {
       })
     ).rejects.toThrow(/must exactly match project id/)
 
+    // 保存 realTarget 变量供当前逻辑使用。
     const realTarget = path.join(parent, "real-target")
+    // 保存 linkTarget 变量供当前逻辑使用。
     const linkTarget = path.join(parent, "linked-project")
     await mkdir(realTarget)
     await symlink(realTarget, linkTarget)

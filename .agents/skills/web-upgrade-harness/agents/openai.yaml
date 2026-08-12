@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：升级前端工程基线"
+  short_description: "将较新 Web Harness 工程层安全同步到单一 React 或 Plasmo MV3 前端下游"
+  default_prompt: "使用 $web-upgrade-harness 先执行只读预演，再将较新 Web Harness 前端工程层安全同步到单一 React Web 或 Plasmo Chrome MV3 Extension 下游。"

@@ -5,6 +5,7 @@ import { lstatIfPresent, writeAtomic } from "./files.ts"
 import { downstreamGovernanceFiles } from "./templates/downstream-docs.ts"
 import type { ProjectConfig } from "./types.ts"
 
+// 保存 TERMINAL_CLI 变量供当前逻辑使用。
 const TERMINAL_CLI = `import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
@@ -59,9 +60,11 @@ if (executed === import.meta.url) {
 }
 `
 
+// 保存 TERMINAL_BRAND 变量供当前逻辑使用。
 const TERMINAL_BRAND = `import path from "node:path"
 import { createLogo, deriveLogoAssets, readLogo } from "./logo.ts"
 import { loadProjectConfig, MASTER_LOGO_PATH, normalizeColor, PROJECT_CONFIG_PATH } from "./config.ts"
+import { annotateTypeScriptSource } from "./comment-policy.ts"
 import { readJson, writeAtomic, writeJsonAtomic } from "./files.ts"
 import type { ProjectConfig } from "./types.ts"
 
@@ -112,7 +115,10 @@ async function syncMetadata(root: string, config: ProjectConfig): Promise<void> 
     updated.manifest = { ...current, manifest_version: 3, name: config.name, description: config.description }
   }
   await writeJsonAtomic(packagePath, updated)
-  await writeAtomic(path.join(root, "src/brand.ts"), brandModule(config))
+  await writeAtomic(
+    path.join(root, "src/brand.ts"),
+    annotateTypeScriptSource(brandModule(config), "src/brand.ts")
+  )
   if (config.projectType === "web") await writeAtomic(path.join(root, "index.html"), webIndex(config))
 }
 
@@ -137,6 +143,7 @@ export async function refreshBrand(root: string, options: BrandRefreshOptions = 
 }
 `
 
+// 保存 TERMINAL_TYPES 变量供当前逻辑使用。
 const TERMINAL_TYPES = `export type ProjectType = "web" | "extension"
 
 export interface BrandConfig {
@@ -167,6 +174,7 @@ export interface ParsedArgs {
 }
 `
 
+// 保存 TERMINAL_CONFIG 变量供当前逻辑使用。
 const TERMINAL_CONFIG = `import path from "node:path"
 import { readJson } from "./files.ts"
 import type { ProjectConfig, ProjectType } from "./types.ts"
@@ -223,11 +231,14 @@ export async function loadProjectConfig(root: string): Promise<ProjectConfig> {
 }
 `
 
+// 执行 downstreamReadme 函数的处理逻辑。
 function downstreamReadme(config: ProjectConfig): string {
+  // 保存 stack 变量供当前逻辑使用。
   const stack =
     config.projectType === "web"
       ? "React, Vite, Mantine, TanStack Router file routing, TanStack Query, Jotai, and i18next"
       : "Plasmo (Chrome MV3), React, Mantine, TanStack Query, Jotai, and i18next"
+  // 保存 routeCommand 变量供当前逻辑使用。
   const routeCommand =
     config.projectType === "web"
       ? "- `pnpm routes:generate` — regenerate the Git-ignored TanStack route tree.\n"
@@ -271,7 +282,9 @@ For a small, reversible change, run the smallest sufficient affected checks. For
 `
 }
 
+// 执行 downstreamAgents 函数的处理逻辑。
 function downstreamAgents(config: ProjectConfig): string {
+  // 保存 hostSources 变量供当前逻辑使用。
   const hostSources =
     config.projectType === "web"
       ? "- `src/routes/`: file-route source; `src/routeTree.gen.ts` is generated, Git-ignored, and never edited by hand.\n"
@@ -287,8 +300,8 @@ Always inspect the workspace and protect existing changes. Read this file and \`
 ## Three delivery paths
 
 1. Small, local, reversible changes: inspect the owning file, implement narrowly, and run the smallest sufficient affected checks.
-2. Reversible standard feature or refactor work: create a persistent plan only for cross-session work, handoff/recovery, significant step dependencies, or an explicit user request; otherwise use \`implement-change\` directly and complete the smallest sufficient affected checks. Ordinary UI or route changes do not become milestones merely because they are visible.
-3. Milestone work includes project-creation contracts, project-type capabilities, brand/identity derivation, Release, compatibility contracts, security/permissions, production side effects, and irreversible changes. Plan explicit boundaries, use isolated worktrees only when eligible, preserve evidence, and invoke \`verify-delivery\`; smoke and E2E run only when policy selects them or a product/channel requirement makes them mandatory.
+2. Reversible standard feature or refactor work: create a persistent plan only for cross-session work, handoff/recovery, significant step dependencies, or an explicit user request; otherwise use \`$web-implement-change\` directly and complete the smallest sufficient affected checks. Ordinary UI or route changes do not become milestones merely because they are visible.
+3. Milestone work includes project-creation contracts, project-type capabilities, brand/identity derivation, Release, compatibility contracts, security/permissions, production side effects, and irreversible changes. Plan explicit boundaries, use isolated worktrees only when eligible, preserve evidence, and invoke \`$web-verify-delivery\`; smoke and E2E run only when policy selects them or a product/channel requirement makes them mandatory.
 
 ## Sources of truth
 
@@ -305,20 +318,20 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`docs/\`: durable policy, engineering, release, and debt records.
 - License files: legal text; the Applicable Project Name must match the current project identity.
 
-## Skill map
+## Web Harness 前端 Skill 地图
 
-- \`check-development-environment\`: verify the local toolchain.
-- \`define-product\`: clarify product scope and acceptance criteria.
-- \`extract-i18n-strings\`: maintain complete localized UI text.
-- \`plan-change\`: prepare persistent plans when coordination or recovery needs them.
-- \`implement-change\`: execute an approved change with tests.
-- \`refactor-code\`: preserve behavior during structural cleanup.
-- \`prepare-brand-identity\`: refresh identity and brand assets.
-- \`run-parallel-worktrees\`: isolate explicitly parallel work.
-- \`test-final-artifact-e2e\`: test the final built artifact.
-- \`prepare-release\`: assemble release evidence and artifacts.
-- \`upgrade-harness\`: review compatible Harness engineering updates while preserving product-owned files.
-- \`verify-delivery\`: run and report the delivery gate.
+- \`$web-check-development-environment\`：检查 Node.js、pnpm 与按需使用的 Google Chrome 前端环境。
+- \`$web-define-product\`：定义单一 React Web 或 Plasmo Chrome MV3 Extension 前端产品范围。
+- \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
+- \`$web-plan-change\`：为需要交接、恢复或里程碑治理的前端变更建立持久计划。
+- \`$web-implement-change\`：实施并验证已批准的 Web Harness 前端变更。
+- \`$web-refactor-code\`：在保持行为不变时整理 TypeScript/TSX 前端代码。
+- \`$web-prepare-brand-identity\`：同步当前前端宿主的 Logo 与品牌元数据。
+- \`$web-run-parallel-worktrees\`：隔离写入范围互不重叠的前端并行工作。
+- \`$web-test-final-artifact-e2e\`：在真实 Chrome 中测试精确前端候选产物。
+- \`$web-prepare-release\`：整理 Web Harness、Vite dist 或 Chrome MV3 zip 发布候选。
+- \`$web-upgrade-harness\`：保留产品所有权并同步较新的 Web Harness 前端工程层。
+- \`$web-verify-delivery\`：运行并报告 Web Harness 前端交付门禁。
 
 ## Validation loop
 
@@ -328,10 +341,12 @@ Use \`pnpm harness brand refresh\` after intentional identity changes. For daily
 `
 }
 
+// 执行 prepareLicenseFiles 函数的处理逻辑。
 async function prepareLicenseFiles(
   root: string,
   config: ProjectConfig
 ): Promise<Map<string, string>> {
+  // 保存 replacements 变量供当前逻辑使用。
   const replacements = [
     [
       "LICENSE.en.md",
@@ -344,36 +359,49 @@ async function prepareLicenseFiles(
       `适用项目名称：${config.name}。`
     ]
   ] as const
+  // 保存 contentsByFile 变量供当前逻辑使用。
   const contentsByFile = await Promise.all(
-    replacements.map(([file]) => readFile(path.join(root, file), "utf8"))
+    replacements.map(
+      /* 执行 当前声明 函数的处理逻辑。 */ ([file]) => readFile(path.join(root, file), "utf8")
+    )
   )
+  // 保存 files 变量供当前逻辑使用。
   const files = new Map<string, string>()
-  replacements.forEach(([file, before, after], index) => {
-    const contents = contentsByFile[index]
-    if (contents === undefined || contents.split(before).length !== 2) {
-      throw new Error(`Cannot safely replace project name in ${file}`)
+  replacements.forEach(
+    /* 执行 当前声明 函数的处理逻辑。 */ ([file, before, after], index) => {
+      // 保存 contents 变量供当前逻辑使用。
+      const contents = contentsByFile[index]
+      if (contents === undefined || contents.split(before).length !== 2) {
+        throw new Error(`Cannot safely replace project name in ${file}`)
+      }
+      files.set(file, contents.replace(before, after))
     }
-    files.set(file, contents.replace(before, after))
-  })
+  )
   return files
 }
 
+// 执行 removeIfPresent 函数的处理逻辑。
 async function removeIfPresent(root: string, relativePath: string): Promise<void> {
   await rm(path.join(root, relativePath), { recursive: true, force: true })
 }
 
+// 定义 DownstreamFinalizationPlan 接口的结构契约。
 export interface DownstreamFinalizationPlan {
+  // 描述 files 接口成员的结构契约。
   files: ReadonlyMap<string, string>
 }
 
+// 执行 prepareDownstreamFinalization 函数的处理逻辑。
 export async function prepareDownstreamFinalization(
   root: string,
   config: ProjectConfig
 ): Promise<DownstreamFinalizationPlan> {
+  // 保存 [canonicalDataAccess, canonicalMantineUiGuidelines] 变量供当前逻辑使用。
   const [canonicalDataAccess, canonicalMantineUiGuidelines] = await Promise.all([
     readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8"),
     readFile(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"), "utf8")
   ])
+  // 保存 files 变量供当前逻辑使用。
   const files = new Map<string, string>([
     [".harness/tooling/cli.ts", TERMINAL_CLI],
     [".harness/tooling/brand.ts", TERMINAL_BRAND],
@@ -382,6 +410,7 @@ export async function prepareDownstreamFinalization(
     ["README.md", downstreamReadme(config)],
     ["AGENTS.md", downstreamAgents(config)]
   ])
+  // 保存 [relativePath, contents] 变量供当前逻辑使用。
   for (const [relativePath, contents] of downstreamGovernanceFiles(
     config,
     canonicalDataAccess,
@@ -389,42 +418,53 @@ export async function prepareDownstreamFinalization(
   )) {
     files.set(relativePath, contents)
   }
+  // 保存 [relativePath, contents] 变量供当前逻辑使用。
   for (const [relativePath, contents] of await prepareLicenseFiles(root, config)) {
     files.set(relativePath, contents)
   }
   await Promise.all(
-    [...files.keys()].map(async (relativePath) => {
-      const existing = await lstatIfPresent(path.join(root, relativePath))
-      if (existing !== undefined && !existing.isFile()) {
-        throw new Error(`Downstream output path must be a regular file: ${relativePath}`)
+    [...files.keys()].map(
+      /* 执行 当前声明 函数的处理逻辑。 */ async (relativePath) => {
+        // 保存 existing 变量供当前逻辑使用。
+        const existing = await lstatIfPresent(path.join(root, relativePath))
+        if (existing !== undefined && !existing.isFile()) {
+          throw new Error(`Downstream output path must be a regular file: ${relativePath}`)
+        }
       }
-    })
+    )
   )
   return { files }
 }
 
+// 执行 finalizeDownstream 函数的处理逻辑。
 export async function finalizeDownstream(
   root: string,
   config: ProjectConfig,
   plan?: DownstreamFinalizationPlan
 ): Promise<void> {
+  // 保存 prepared 变量供当前逻辑使用。
   const prepared = plan ?? (await prepareDownstreamFinalization(root, config))
   await Promise.all(
-    [...prepared.files].map(([relativePath, contents]) =>
-      writeAtomic(path.join(root, relativePath), contents)
+    [...prepared.files].map(
+      /* 执行 当前声明 函数的处理逻辑。 */ ([relativePath, contents]) =>
+        writeAtomic(path.join(root, relativePath), contents)
     )
   )
 
   await Promise.all(
     HARNESS_ONLY_PATHS.filter(
+      // 执行 当前声明 函数的处理逻辑。
       (relativePath) => relativePath !== ".harness/tooling/finalize.ts"
-    ).map((relativePath) => removeIfPresent(root, relativePath))
+    ).map(
+      /* 执行 当前声明 函数的处理逻辑。 */ (relativePath) => removeIfPresent(root, relativePath)
+    )
   )
+  // 保存 scriptsPath 变量供当前逻辑使用。
   const scriptsPath = path.join(root, "scripts")
   if (
     await readdir(scriptsPath)
-      .catch(() => ["not-empty"] as string[])
-      .then((entries) => entries.length === 0)
+      .catch(/* 执行 当前声明 函数的处理逻辑。 */ () => ["not-empty"] as string[])
+      .then(/* 执行 当前声明 函数的处理逻辑。 */ (entries) => entries.length === 0)
   ) {
     await removeIfPresent(root, "scripts")
   }

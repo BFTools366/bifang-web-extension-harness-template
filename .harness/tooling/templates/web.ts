@@ -5,9 +5,13 @@ import { httpFiles } from "./http.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
 
+// 执行 renderWebIndex 函数的处理逻辑。
 export function renderWebIndex(config: ProjectConfig): string {
+  // 保存 name 变量供当前逻辑使用。
   const name = escapeHtml(config.name)
+  // 保存 description 变量供当前逻辑使用。
   const description = escapeHtml(config.description)
+  // 保存 color 变量供当前逻辑使用。
   const color = escapeHtml(config.brand.primaryColor)
   return `<!doctype html>
 <html lang="en">
@@ -27,6 +31,7 @@ export function renderWebIndex(config: ProjectConfig): string {
 `
 }
 
+// 执行 renderWebBrand 函数的处理逻辑。
 export function renderWebBrand(config: ProjectConfig): string {
   return `export const BRAND = {
   name: ${tsString(config.name)},
@@ -38,6 +43,7 @@ export function renderWebBrand(config: ProjectConfig): string {
 `
 }
 
+// 执行 webFiles 函数的处理逻辑。
 export function webFiles(
   config: ProjectConfig,
   baseUrls: EnvironmentBaseUrls

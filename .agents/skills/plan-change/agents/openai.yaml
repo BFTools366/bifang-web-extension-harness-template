@@ -1,4 +1,0 @@
-interface:
-  display_name: "规划变更"
-  short_description: "Plan multi-file Harness or downstream work"
-  default_prompt: "Use $plan-change to prepare a risk-aware implementation plan for this change."

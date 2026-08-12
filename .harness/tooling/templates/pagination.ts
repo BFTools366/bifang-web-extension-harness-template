@@ -1,6 +1,7 @@
 import type { ProjectConfig } from "../types.ts"
 import { tsString } from "./helpers.ts"
 
+// 保存 PAGINATION_SOURCE 变量供当前逻辑使用。
 const PAGINATION_SOURCE = `import { useCallback, useEffect, useRef, useState } from "react"
 import { BRAND } from "../brand"
 
@@ -196,6 +197,7 @@ export function useSessionPagination<Item>({
 }
 `
 
+// 保存 PAGINATION_CONTROLS_SOURCE 变量供当前逻辑使用。
 const PAGINATION_CONTROLS_SOURCE = `import { Group, Pagination, Select } from "@mantine/core"
 import {
   PAGE_SIZES,
@@ -270,6 +272,7 @@ export function PaginationControls({
 }
 `
 
+// 执行 paginationTest 函数的处理逻辑。
 function paginationTest(config: ProjectConfig): string {
   return `// @vitest-environment jsdom
 import { MantineProvider } from "@mantine/core"
@@ -517,6 +520,7 @@ test("renders controlled accessible pagination without deriving state from an em
 `
 }
 
+// 执行 paginationFiles 函数的处理逻辑。
 export function paginationFiles(config: ProjectConfig): Map<string, string> {
   return new Map([
     ["src/pagination/useSessionPagination.ts", PAGINATION_SOURCE],

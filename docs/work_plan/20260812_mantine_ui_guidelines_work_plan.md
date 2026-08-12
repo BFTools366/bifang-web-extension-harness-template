@@ -21,7 +21,7 @@
 | UI-02 | done | 新增 `docs/MANTINE_UI_GUIDELINES.md` 唯一详细规范，并在 `AGENTS.md`、`docs/README.md`、`docs/ENGINEERING_RULES.md`、`docs/TS_WEB_TEMPLATE.md` 和公开索引接入读取路由          | UI-01 | 规范区分硬规则/默认规则；不臆造未安装依赖；Markdown 链接、格式和 Harness 内容校验通过          |
 | UI-03 | done | `.harness/tooling/templates/downstream-docs.ts` 与 `finalize.ts` 从规范事实源派生当前宿主文档；终端 `AGENTS.md` 要求 UI 任务读取；`.harness/tooling/validate.ts` 拒绝缺失规范 | UI-02 | 共同段落已改为宿主中立，theme 路径、Popup/Options、MV3 与站点路由规则只位于对应宿主章节        |
 | UI-04 | done | `scripts/validate-harness.ts`、`tests/harness-tooling.test.ts` 与 `tests/harness-validator.test.ts` 锁定源规范、下游传播、宿主裁剪和缺失文件失败路径                          | UI-03 | 已补另一宿主术语/路径不得泄漏的回归；格式、lint、typecheck、54 项测试和 Harness validator 通过 |
-| UI-05 | done | 建立 `$verify-delivery` 准入：实现 Todo 全部完成，根门禁通过，源状态可绑定，并明确要求生成 Web/Extension 两个独立 Release 候选                                                | UI-04 | 首轮候选已拒绝；修订后从当前源码重新生成、构建、打包和审计两个候选                             |
+| UI-05 | done | 建立 `$web-verify-delivery` 准入：实现 Todo 全部完成，根门禁通过，源状态可绑定，并明确要求生成 Web/Extension 两个独立 Release 候选                                            | UI-04 | 首轮候选已拒绝；修订后从当前源码重新生成、构建、打包和审计两个候选                             |
 
 ## 入口到实现与测试映射
 
@@ -39,7 +39,7 @@
 2. 根 Harness 的 `git diff --check`、格式、lint、typecheck、非空测试和 `pnpm validate:harness` 通过。
 3. Web 与 Extension 都从本次源码在源外独立生成，终端文档只保留当前宿主规范，且 `pnpm harness validate` 把该规范作为必备文件。
 4. 两种下游完成三环境校验、格式、lint、typecheck、非空测试、Release 构建与 `release:inspect`；Extension 另完成 `pnpm package`。
-5. `milestone_smoke: optional` 由 `$verify-delivery` 根据本次是否改变运行时与候选价值决定；`milestone_e2e: disabled` 默认 `Not run`，硬要求仍可覆盖。未选择浏览器步骤时记录 `not-required/not-probed` 和 `Unverified`。
+5. `milestone_smoke: optional` 由 `$web-verify-delivery` 根据本次是否改变运行时与候选价值决定；`milestone_e2e: disabled` 默认 `Not run`，硬要求仍可覆盖。未选择浏览器步骤时记录 `not-required/not-probed` 和 `Unverified`。
 6. 本任务不授权 commit、push、tag、部署、商店上传或发布。
 
 ## 当前状态

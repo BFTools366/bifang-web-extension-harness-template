@@ -5,7 +5,9 @@ import { loadProjectConfig } from "./config.ts"
 import { validateEnvironmentFiles } from "./environment.ts"
 import { pathExists, walkFiles } from "./files.ts"
 
+// 保存 TEXT_EXTENSIONS 变量供当前逻辑使用。
 const TEXT_EXTENSIONS = new Set([".css", ".html", ".js", ".json", ".mjs", ".txt", ".xml"])
+// 保存 RELEASE_SENTINELS 变量供当前逻辑使用。
 const RELEASE_SENTINELS = [
   "debug_sentinel",
   "info_sentinel",
@@ -13,16 +15,23 @@ const RELEASE_SENTINELS = [
   "surface_started",
   "do-not-ship"
 ] as const
+// 保存 RELEASE_LOW_LEVEL_LOG_CALLS 变量供当前逻辑使用。
 const RELEASE_LOW_LEVEL_LOG_CALLS = ["console.debug", "console.info"] as const
+// 保存 HTTP_URL_PATTERN 变量供当前逻辑使用。
 const HTTP_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g
 
+// 定义 ReleaseInspection 接口的结构契约。
 export interface ReleaseInspection {
+  // 描述 artifactRoot 接口成员的结构契约。
   artifactRoot: string
+  // 描述 files 接口成员的结构契约。
   files: number
 }
 
+// 执行 normalizeHttpUrl 函数的处理逻辑。
 function normalizeHttpUrl(value: string): string | undefined {
   try {
+    // 保存 url 变量供当前逻辑使用。
     const url = new URL(value)
     if (url.protocol !== "http:" && url.protocol !== "https:") return undefined
     return url.toString().replace(/\/$/, "")
@@ -31,67 +40,94 @@ function normalizeHttpUrl(value: string): string | undefined {
   }
 }
 
+// 执行 collectHttpUrls 函数的处理逻辑。
 function collectHttpUrls(contents: string): Set<string> {
+  // 保存 urls 变量供当前逻辑使用。
   const urls = new Set<string>()
+  // 保存 match 变量供当前逻辑使用。
   for (const match of contents.matchAll(HTTP_URL_PATTERN)) {
+    // 保存 normalized 变量供当前逻辑使用。
     const normalized = normalizeHttpUrl(match[0])
     if (normalized !== undefined) urls.add(normalized)
   }
   return urls
 }
 
+// 执行 inspectReleaseArtifact 函数的处理逻辑。
 export async function inspectReleaseArtifact(rootInput: string): Promise<ReleaseInspection> {
+  // 保存 root 变量供当前逻辑使用。
   const root = path.resolve(rootInput)
+  // 保存 project 变量供当前逻辑使用。
   const project = await loadProjectConfig(root)
+  // 保存 environments 变量供当前逻辑使用。
   const environments = await validateEnvironmentFiles(root, "release")
+  // 保存 relativeArtifactRoot 变量供当前逻辑使用。
   const relativeArtifactRoot = project.projectType === "web" ? "dist" : "build/chrome-mv3-prod"
+  // 保存 artifactRoot 变量供当前逻辑使用。
   const artifactRoot = path.join(root, relativeArtifactRoot)
   if (!(await pathExists(artifactRoot))) {
     throw new Error(`Missing release artifact: ${relativeArtifactRoot}`)
   }
 
+  // 保存 files 变量供当前逻辑使用。
   const files = await walkFiles(artifactRoot)
   if (files.length === 0) throw new Error(`Release artifact is empty: ${relativeArtifactRoot}`)
+  // 保存 releaseBaseUrl 变量供当前逻辑使用。
   const releaseBaseUrl = environments.release.apiBaseUrl
+  // 保存 nonReleaseBaseUrls 变量供当前逻辑使用。
   const nonReleaseBaseUrls = new Set(
     [environments.development.apiBaseUrl, environments.test.apiBaseUrl].filter(
+      // 执行 当前声明 函数的处理逻辑。
       (value) => value !== releaseBaseUrl
     )
   )
 
+  // 保存 perFileErrors 变量供当前逻辑使用。
   const perFileErrors = await Promise.all(
-    files.map(async (absolute) => {
-      const relative = path.relative(root, absolute)
-      const basename = path.basename(absolute)
-      const fileErrors: string[] = []
-      if (basename.startsWith(".env") || absolute.endsWith(".map")) {
-        fileErrors.push(`${relative} must not be present in a release artifact`)
+    files.map(
+      /* 执行 当前声明 函数的处理逻辑。 */ async (absolute) => {
+        // 保存 relative 变量供当前逻辑使用。
+        const relative = path.relative(root, absolute)
+        // 保存 basename 变量供当前逻辑使用。
+        const basename = path.basename(absolute)
+        // 保存 fileErrors 变量供当前逻辑使用。
+        const fileErrors: string[] = []
+        if (basename.startsWith(".env") || absolute.endsWith(".map")) {
+          fileErrors.push(`${relative} must not be present in a release artifact`)
+          return fileErrors
+        }
+        if (!TEXT_EXTENSIONS.has(path.extname(absolute))) return fileErrors
+        // 保存 contents 变量供当前逻辑使用。
+        const contents = await readFile(absolute, "utf8")
+        // 保存 artifactUrls 变量供当前逻辑使用。
+        const artifactUrls = collectHttpUrls(contents)
+        // 保存 baseUrl 变量供当前逻辑使用。
+        for (const baseUrl of nonReleaseBaseUrls) {
+          if (artifactUrls.has(baseUrl)) {
+            fileErrors.push(`${relative} contains a non-release API BaseURL`)
+          }
+        }
+        // 保存 sentinel 变量供当前逻辑使用。
+        for (const sentinel of RELEASE_SENTINELS) {
+          if (contents.includes(sentinel)) fileErrors.push(`${relative} contains ${sentinel}`)
+        }
+        // 保存 logCall 变量供当前逻辑使用。
+        for (const logCall of RELEASE_LOW_LEVEL_LOG_CALLS) {
+          if (contents.includes(logCall)) fileErrors.push(`${relative} contains ${logCall}`)
+        }
+        // 保存 withoutUrls 变量供当前逻辑使用。
+        const withoutUrls = contents.replace(HTTP_URL_PATTERN, "[URL]")
+        if (/\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+/.test(withoutUrls)) {
+          fileErrors.push(`${relative} contains a local absolute path`)
+        }
+        if (/sourceMappingURL\s*=/.test(contents)) {
+          fileErrors.push(`${relative} references a source map`)
+        }
         return fileErrors
       }
-      if (!TEXT_EXTENSIONS.has(path.extname(absolute))) return fileErrors
-      const contents = await readFile(absolute, "utf8")
-      const artifactUrls = collectHttpUrls(contents)
-      for (const baseUrl of nonReleaseBaseUrls) {
-        if (artifactUrls.has(baseUrl)) {
-          fileErrors.push(`${relative} contains a non-release API BaseURL`)
-        }
-      }
-      for (const sentinel of RELEASE_SENTINELS) {
-        if (contents.includes(sentinel)) fileErrors.push(`${relative} contains ${sentinel}`)
-      }
-      for (const logCall of RELEASE_LOW_LEVEL_LOG_CALLS) {
-        if (contents.includes(logCall)) fileErrors.push(`${relative} contains ${logCall}`)
-      }
-      const withoutUrls = contents.replace(HTTP_URL_PATTERN, "[URL]")
-      if (/\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+/.test(withoutUrls)) {
-        fileErrors.push(`${relative} contains a local absolute path`)
-      }
-      if (/sourceMappingURL\s*=/.test(contents)) {
-        fileErrors.push(`${relative} references a source map`)
-      }
-      return fileErrors
-    })
+    )
   )
+  // 保存 errors 变量供当前逻辑使用。
   const errors = perFileErrors.flat()
 
   if (errors.length > 0) {
@@ -100,23 +136,29 @@ export async function inspectReleaseArtifact(rootInput: string): Promise<Release
   return { artifactRoot: relativeArtifactRoot, files: files.length }
 }
 
+// 保存 executedPath 变量供当前逻辑使用。
 const executedPath =
   process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
 if (executedPath === import.meta.url) {
+  // 保存 [command, ...rest] 变量供当前逻辑使用。
   const [command, ...rest] = process.argv.slice(2)
   if (command !== "inspect" || rest.length > 0) {
     console.error("Usage: pnpm release:inspect")
     process.exitCode = 1
   } else {
     inspectReleaseArtifact(process.cwd())
-      .then((report) => {
-        console.log(
-          `Release artifact inspection passed (${report.artifactRoot}, ${report.files} files)`
-        )
-      })
-      .catch((error: unknown) => {
-        console.error(error instanceof Error ? error.message : String(error))
-        process.exitCode = 1
-      })
+      .then(
+        /* 执行 当前声明 函数的处理逻辑。 */ (report) => {
+          console.log(
+            `Release artifact inspection passed (${report.artifactRoot}, ${report.files} files)`
+          )
+        }
+      )
+      .catch(
+        /* 执行 当前声明 函数的处理逻辑。 */ (error: unknown) => {
+          console.error(error instanceof Error ? error.message : String(error))
+          process.exitCode = 1
+        }
+      )
   }
 }

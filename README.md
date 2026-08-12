@@ -106,7 +106,7 @@ pnpm env:validate
 pnpm release:inspect
 ```
 
-这些命令在各自项目内运行；`dev`、`test`、`typecheck`、全部 `build:*`、`build` 和 `release:inspect` 会在其适用阶段校验三份受管环境，`lint` 与格式命令只检查源码/格式，不重复读取运行配置。`pnpm dev` 使用 development，`pnpm test` 使用 test；`pnpm build` 固定等于 `pnpm build:release`，使用逻辑 release 与 `.env.production`。`build:release` 在对应宿主构建后自动运行 `pnpm release:inspect`（Web 同一脚本还运行 `tsc --noEmit`）；Extension 会先运行 `pnpm harness validate`，确认显式 Parcel browser target 已把运行时依赖打进 Chrome bundle，再执行产物扫描，`pnpm package` 也执行相同两道门禁。检查在文件名层拒绝 `.env*` 与 `.map`；仅对受支持的可读文本扩展扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径与 `sourceMappingURL`。Extension 检查 `build/chrome-mv3-prod`，不会直接解包扫描 zip；它也不是通用秘密扫描器。`build:development` 和 `build:test` 是诊断构建，不能冒充发布候选。完整范围见 [`docs/LOGGING.md`](docs/LOGGING.md)。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
+这些命令在各自项目内运行；`dev`、`test`、`typecheck`、全部 `build:*`、`build` 和 `release:inspect` 会在其适用阶段校验三份受管环境，`lint` 执行 ESLint 和严格中文声明注释门禁，格式命令只检查格式，它们都不重复读取运行配置。注释门禁的声明矩阵、邻接语义与精确排除只见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §3.1。`pnpm dev` 使用 development，`pnpm test` 使用 test；`pnpm build` 固定等于 `pnpm build:release`，使用逻辑 release 与 `.env.production`。`build:release` 在对应宿主构建后自动运行 `pnpm release:inspect`（Web 同一脚本还运行 `tsc --noEmit`）；Extension 会先运行 `pnpm harness validate`，确认显式 Parcel browser target 已把运行时依赖打进 Chrome bundle，再执行产物扫描，`pnpm package` 也执行相同两道门禁。检查在文件名层拒绝 `.env*` 与 `.map`；仅对受支持的可读文本扩展扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径与 `sourceMappingURL`。Extension 检查 `build/chrome-mv3-prod`，不会直接解包扫描 zip；它也不是通用秘密扫描器。`build:development` 和 `build:test` 是诊断构建，不能冒充发布候选。完整范围见 [`docs/LOGGING.md`](docs/LOGGING.md)。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
 
 Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`test` 与 `typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器和 lint 忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
 
@@ -119,7 +119,7 @@ pnpm harness validate
 
 `brand refresh` 的两个选项都可省略；它不会添加、删除或切换宿主。
 
-成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、源专用 `$instantiate-project`、内部 init/instantiate tooling 或任何其他项目派生入口；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。
+成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 或任何其他项目派生入口；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。
 
 Harness 根目录当前提供以下维护门禁；根项目没有应用 `dev` 或 `build` 脚本：
 
@@ -201,7 +201,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 | 路径                                                                      | 作用                                                |
 | ------------------------------------------------------------------------- | --------------------------------------------------- |
 | [`AGENTS.md`](AGENTS.md)                                                  | Agent 的最少读取、任务路径、Skills 与约束地图       |
-| [`.agents/skills/`](.agents/skills/)                                      | 按触发条件读取的项目 Skills                         |
+| [`.agents/skills/`](.agents/skills/)                                      | 13 个按触发条件读取的 `web-*` 项目 Skills           |
 | [`.harness/tooling/`](.harness/tooling/)                                  | 初始化、品牌刷新和下游校验的 TypeScript 工具        |
 | 生成项目中的 `.harness/project.json`                                      | 下游项目身份、唯一 `projectType` 与品牌的单一事实源 |
 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                              | 数据访问、SSE 与可选 RxJS 事件流编排                |

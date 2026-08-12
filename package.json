@@ -20,9 +20,10 @@
     "harness": "tsx .harness/tooling/cli.ts",
     "instantiate": "tsx scripts/instantiate.ts",
     "validate:harness": "tsx scripts/validate-harness.ts",
+    "comments:check": "tsx .harness/tooling/comment-policy.ts check",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . && pnpm comments:check",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

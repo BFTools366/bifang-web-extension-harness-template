@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：测试前端最终产物"
+  short_description: "在真实 Chrome 中测试 Vite dist 或 Plasmo Chrome MV3 前端候选"
+  default_prompt: "使用 $web-test-final-artifact-e2e 在隔离的真实 Google Chrome 中测试精确的 React Web Vite dist 或 Plasmo Chrome MV3 前端候选。"

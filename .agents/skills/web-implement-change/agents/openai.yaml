@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施前端变更"
+  short_description: "实施 Web Harness 或其 React Web、Plasmo MV3 前端下游变更"
+  default_prompt: "使用 $web-implement-change 在 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游中实施并验证当前范围内的前端变更。"

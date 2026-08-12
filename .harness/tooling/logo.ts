@@ -4,16 +4,25 @@ import path from "node:path"
 import sharp from "sharp"
 import type { ProjectType } from "./types.ts"
 
+// 定义 LogoInput 接口的结构契约。
 interface LogoInput {
+  // 描述 root 接口成员的结构契约。
   root: string
+  // 描述 name 接口成员的结构契约。
   name: string
+  // 描述 id 接口成员的结构契约。
   id: string
+  // 描述 color 接口成员的结构契约。
   color: string
+  // 描述 logoPath 接口成员的结构契约。
   logoPath?: string
 }
 
+// 执行 stableHash 函数的处理逻辑。
 function stableHash(value: string): number {
+  // 保存 hash 变量供当前逻辑使用。
   let hash = 2166136261
+  // 保存 character 变量供当前逻辑使用。
   for (const character of value) {
     hash ^= character.codePointAt(0) ?? 0
     hash = Math.imul(hash, 16777619)
@@ -21,8 +30,11 @@ function stableHash(value: string): number {
   return hash >>> 0
 }
 
+// 执行 generatedSvg 函数的处理逻辑。
 function generatedSvg(name: string, id: string, color: string): Buffer {
+  // 保存 rotation 变量供当前逻辑使用。
   const rotation = stableHash(`${id}:${name}`) % 90
+  // 保存 inset 变量供当前逻辑使用。
   const inset = 220 + (stableHash(id) % 70)
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" rx="224" fill="${color}"/>
@@ -35,10 +47,14 @@ function generatedSvg(name: string, id: string, color: string): Buffer {
 </svg>`)
 }
 
+// 执行 crc32 函数的处理逻辑。
 function crc32(data: Uint8Array): number {
+  // 保存 crc 变量供当前逻辑使用。
   let crc = 0xffffffff
+  // 保存 byte 变量供当前逻辑使用。
   for (const byte of data) {
     crc ^= byte
+    // 保存 bit 变量供当前逻辑使用。
     for (let bit = 0; bit < 8; bit += 1) {
       crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0)
     }
@@ -46,29 +62,47 @@ function crc32(data: Uint8Array): number {
   return (crc ^ 0xffffffff) >>> 0
 }
 
+// 执行 pngChunk 函数的处理逻辑。
 function pngChunk(type: string, data: Buffer): Buffer {
+  // 保存 typeBuffer 变量供当前逻辑使用。
   const typeBuffer = Buffer.from(type, "ascii")
+  // 保存 length 变量供当前逻辑使用。
   const length = Buffer.alloc(4)
   length.writeUInt32BE(data.length)
+  // 保存 checksum 变量供当前逻辑使用。
   const checksum = Buffer.alloc(4)
   checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])))
   return Buffer.concat([length, typeBuffer, data, checksum])
 }
 
+// 执行 fallbackPng 函数的处理逻辑。
 function fallbackPng(color: string): Buffer {
+  // 保存 width 变量供当前逻辑使用。
   const width = 1024
+  // 保存 height 变量供当前逻辑使用。
   const height = 1024
+  // 保存 red 变量供当前逻辑使用。
   const red = Number.parseInt(color.slice(1, 3), 16)
+  // 保存 green 变量供当前逻辑使用。
   const green = Number.parseInt(color.slice(3, 5), 16)
+  // 保存 blue 变量供当前逻辑使用。
   const blue = Number.parseInt(color.slice(5, 7), 16)
+  // 保存 pixels 变量供当前逻辑使用。
   const pixels = Buffer.alloc((width * 4 + 1) * height)
+  // 保存 center 变量供当前逻辑使用。
   const center = width / 2
 
+  // 保存 y 变量供当前逻辑使用。
   for (let y = 0; y < height; y += 1) {
+    // 保存 row 变量供当前逻辑使用。
     const row = y * (width * 4 + 1)
+    // 保存 x 变量供当前逻辑使用。
     for (let x = 0; x < width; x += 1) {
+      // 保存 offset 变量供当前逻辑使用。
       const offset = row + 1 + x * 4
+      // 保存 diamond 变量供当前逻辑使用。
       const diamond = Math.abs(x - center) + Math.abs(y - center)
+      // 保存 white 变量供当前逻辑使用。
       const white = diamond < 210 && diamond > 80
       pixels[offset] = white ? 255 : red
       pixels[offset + 1] = white ? 255 : green
@@ -77,6 +111,7 @@ function fallbackPng(color: string): Buffer {
     }
   }
 
+  // 保存 header 变量供当前逻辑使用。
   const header = Buffer.alloc(13)
   header.writeUInt32BE(width, 0)
   header.writeUInt32BE(height, 4)
@@ -90,8 +125,10 @@ function fallbackPng(color: string): Buffer {
   ])
 }
 
+// 执行 createLogo 函数的处理逻辑。
 export async function createLogo(input: LogoInput): Promise<Buffer> {
   if (input.logoPath !== undefined) {
+    // 保存 sourcePath 变量供当前逻辑使用。
     const sourcePath = path.isAbsolute(input.logoPath)
       ? input.logoPath
       : path.resolve(input.root, input.logoPath)
@@ -117,15 +154,18 @@ export async function createLogo(input: LogoInput): Promise<Buffer> {
   }
 }
 
+// 执行 readLogo 函数的处理逻辑。
 export async function readLogo(filePath: string): Promise<Buffer> {
   return readFile(filePath)
 }
 
+// 执行 deriveLogoAssets 函数的处理逻辑。
 export async function deriveLogoAssets(
   projectType: ProjectType,
   master: Buffer
 ): Promise<Map<string, Buffer>> {
   if (projectType === "extension") return new Map([["assets/icon.png", master]])
+  // 保存 [logo, favicon] 变量供当前逻辑使用。
   const [logo, favicon] = await Promise.all([
     sharp(master).resize(512, 512).png({ compressionLevel: 9 }).toBuffer(),
     sharp(master).resize(64, 64).png({ compressionLevel: 9 }).toBuffer()

@@ -2,6 +2,7 @@ import type { ProjectConfig } from "./types.ts"
 
 type PackageJson = Record<string, unknown>
 
+// 保存 runtimeVersions 变量供当前逻辑使用。
 const runtimeVersions = {
   react: "19.2.8",
   reactDom: "19.2.8",
@@ -13,6 +14,7 @@ const runtimeVersions = {
   reactI18next: "17.0.11"
 } as const
 
+// 保存 toolingVersions 变量供当前逻辑使用。
 const toolingVersions = {
   typesReact: "19.2.18",
   typesReactDom: "19.2.4",
@@ -24,6 +26,7 @@ const toolingVersions = {
   typesChrome: "0.2.5"
 } as const
 
+// 保存 testingVersions 变量供当前逻辑使用。
 const testingVersions = {
   testingLibrary: "16.3.2",
   jestDom: "6.9.1",
@@ -31,13 +34,18 @@ const testingVersions = {
   jsdom: "30.0.1"
 } as const
 
+// 执行 asRecord 函数的处理逻辑。
 function asRecord(value: unknown): Record<string, string> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return {}
   return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+    Object.entries(value).filter(
+      /* 执行 当前声明 函数的处理逻辑。 */ (entry): entry is [string, string] =>
+        typeof entry[1] === "string"
+    )
   )
 }
 
+// 执行 commonDependencies 函数的处理逻辑。
 function commonDependencies(): Record<string, string> {
   return {
     "@mantine/core": runtimeVersions.mantine,
@@ -51,25 +59,30 @@ function commonDependencies(): Record<string, string> {
   }
 }
 
+// 执行 commonScripts 函数的处理逻辑。
 function commonScripts(): Record<string, string> {
   return {
     harness: "tsx .harness/tooling/cli.ts",
+    "comments:check": "tsx .harness/tooling/comment-policy.ts check",
     "env:validate": "tsx .harness/tooling/environment.ts validate",
     "release:inspect": "tsx .harness/tooling/release.ts inspect",
     test: "pnpm env:validate --profile test && vitest run",
     typecheck: "pnpm env:validate && tsc --noEmit",
-    lint: "eslint .",
+    lint: "eslint . && pnpm comments:check",
     format: "prettier --write .",
     "format:check": "prettier --check ."
   }
 }
 
+// 执行 buildProjectManifest 函数的处理逻辑。
 export function buildProjectManifest(existing: PackageJson, config: ProjectConfig): PackageJson {
+  // 保存 dependencies 变量供当前逻辑使用。
   const dependencies = {
     ...asRecord(existing.dependencies),
     ...commonDependencies(),
     ...(config.projectType === "web" ? { "@tanstack/react-router": runtimeVersions.router } : {})
   }
+  // 保存 devDependencies 变量供当前逻辑使用。
   const devDependencies = {
     ...asRecord(existing.devDependencies),
     "@testing-library/jest-dom": testingVersions.jestDom,
@@ -87,6 +100,7 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
         }
       : { "@types/chrome": toolingVersions.typesChrome, plasmo: toolingVersions.plasmo })
   }
+  // 保存 scripts 变量供当前逻辑使用。
   const scripts = {
     ...commonScripts(),
     ...(config.projectType === "web"
@@ -118,6 +132,7 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
         })
   }
 
+  // 保存 manifest 变量供当前逻辑使用。
   const manifest: PackageJson = {
     ...existing,
     name: config.id,
@@ -157,7 +172,9 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
   return manifest
 }
 
+// 执行 updateManifestIdentity 函数的处理逻辑。
 export function updateManifestIdentity(existing: PackageJson, config: ProjectConfig): PackageJson {
+  // 保存 updated 变量供当前逻辑使用。
   const updated: PackageJson = {
     ...existing,
     name: config.id,
@@ -165,6 +182,7 @@ export function updateManifestIdentity(existing: PackageJson, config: ProjectCon
   }
   if (config.projectType === "extension") {
     updated.displayName = config.name
+    // 保存 currentManifest 变量供当前逻辑使用。
     const currentManifest =
       existing.manifest !== null && typeof existing.manifest === "object"
         ? (existing.manifest as Record<string, unknown>)

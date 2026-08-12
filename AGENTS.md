@@ -52,7 +52,7 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 
 ### 里程碑路径
 
-适用于初始化器/项目创建契约变化、新增/移除 Harness 支持类型、品牌或身份派生、权限或安全边界、已承诺的兼容性/对外契约、生产副作用、发布候选、不可逆迁移，或用户明确要求完整验收的工作。Todo 全部完成后必须验收精确 Release 候选；冒烟、E2E 与人工复核分别按 [`docs/AGENT_POLICY.md`](docs/AGENT_POLICY.md) 和硬门禁启用。新下游实例化本身使用 `$instantiate-project` 的完整创建门禁，不重复创建通用 Work Plan。
+适用于初始化器/项目创建契约变化、新增/移除 Harness 支持类型、品牌或身份派生、权限或安全边界、已承诺的兼容性/对外契约、生产副作用、发布候选、不可逆迁移，或用户明确要求完整验收的工作。Todo 全部完成后必须验收精确 Release 候选；冒烟、E2E 与人工复核分别按 [`docs/AGENT_POLICY.md`](docs/AGENT_POLICY.md) 和硬门禁启用。新下游实例化本身使用 `$web-instantiate-project` 的完整创建门禁，不重复创建通用 Work Plan。
 
 ## 硬约束
 
@@ -74,6 +74,8 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 - 三份环境至少包含 `APP_ENV`、`API_BASE_URL`、`LOG_LEVEL` 与 `REQUEST_TIMEOUT_MS`，业务代码只通过冻结的 `APP_CONFIG` 读取。禁止 `.env` 与四种 `.env*.local` 隐式覆盖；进程只可用当前宿主的四个已声明键覆盖选定 profile，未知公开键失败。`pnpm env:validate`、测试和所有构建入口必须先验证三份配置齐全且类型有效。
 - 应用日志统一经过 logger，不在产品代码散落 `console.*`。Release 强制 `warn`/`error` 下限，只保留批准的诊断字段，并对敏感键、URL query/fragment、Error stack/cause 与本机路径脱敏或裁剪；`build:release` 与 Extension `package` 必须自动通过 `pnpm release:inspect`。
 - Node.js、pnpm 与受控依赖的工具链门禁按稳定 SemVer（`x.y.z`）最低版本判断，更高合法版本不得仅因不等于初始基线而失败；prerelease 或无法解析的声明不进入兼容门禁。`packageManager` 保持精确 `pnpm@x.y.z` 格式；Harness/软件当前版本、候选版本、源码提交、lock/hash、Schema/协议版本、`manifest_version`、`projectType` 等身份与协议事实仍精确匹配。
+- 本仓库工具链仅限 Node.js/pnpm/TypeScript；不引入 Python 等其他语言运行时或构建产物。若外部工具（如 Skill 校验器）在本仓库内产生 `__pycache__/`、`*.pyc` 等 Python 缓存，须删除且不得提交，`.gitignore` 已排除。
+- 受管 `.ts`/`.tsx` 中的 interface、class、函数和 `const`/`let`/`var` 声明必须有紧邻且含汉字的注释；`pnpm lint` 必须执行该门禁，精确声明矩阵、邻接语义与排除范围只见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)。
 - 行为变化必须有相关非空测试，至少覆盖核心成功路径与最高风险失败路径。Mock 可隔离外部依赖，但不能作为最终产物已可用的证据。
 - 文档中的命令、路径、配置和验证结论必须来自真实仓库或明确规范；未运行写“未执行”，未验证写 `Unverified`。
 - 不覆盖或撤销用户和其他 Agent 的既有修改；并行写入必须先划分互不重叠的文件所有权。
@@ -83,39 +85,43 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 
 本节与“约束地图”是永久结构。只删除不再存在的 Skill 条目，不得删除整个章节，也不得保留失效入口。
 
-- 从 Harness 建立独立终端下游、重置身份与历史：`$instantiate-project`。
-- 初始化或更新 Logo 母版及当前类型的品牌派生：`$prepare-brand-identity`。
-- 新产品、需求模糊或产品目标/边界/成功标准变化：`$define-product`。
-- 需要跨会话/交接/失败恢复的标准路径、里程碑路径或用户要求持久计划：`$plan-change`。
-- 实施范围清楚的请求或活动计划：`$implement-change`。
-- 行为保持的 TypeScript 文件与模块整理：`$refactor-code`。
-- 抽取 Web 或 Extension 当前单包中的用户可见文案：`$extract-i18n-strings`。
-- 任务可安全拆分且文件所有权不重叠：`$run-parallel-worktrees`。
-- 首次代码开发或 Node.js/pnpm/Chrome 工具条件变化：`$check-development-environment`。
-- 里程碑、发布候选或用户明确要求完整验收：`$verify-delivery`。
-- 验证里程碑中对真实 Web 或已加载 Extension 执行 E2E：`$test-final-artifact-e2e`。
-- 定版本、更新发布元数据或准备发布：`$prepare-release`。
-- 已初始化下游需要同步新版 Harness 工程规则：`$upgrade-harness`。
+| 触发场景                                                                       | canonical id                        | 调用名                               | 目录                                                |
+| ------------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------ | --------------------------------------------------- |
+| 从源 Harness 建立独立终端下游、重置身份与历史                                  | `web-instantiate-project`           | `$web-instantiate-project`           | `.agents/skills/web-instantiate-project/`           |
+| 初始化或更新 Logo 母版及当前类型的品牌派生                                     | `web-prepare-brand-identity`        | `$web-prepare-brand-identity`        | `.agents/skills/web-prepare-brand-identity/`        |
+| 新产品、需求模糊或产品目标、边界、成功标准变化                                 | `web-define-product`                | `$web-define-product`                | `.agents/skills/web-define-product/`                |
+| 需要跨会话、交接、失败恢复的标准路径，或里程碑、发布候选、用户明确要求持久计划 | `web-plan-change`                   | `$web-plan-change`                   | `.agents/skills/web-plan-change/`                   |
+| 实施范围清楚的请求或活动计划                                                   | `web-implement-change`              | `$web-implement-change`              | `.agents/skills/web-implement-change/`              |
+| 行为保持的 TypeScript 文件与模块整理                                           | `web-refactor-code`                 | `$web-refactor-code`                 | `.agents/skills/web-refactor-code/`                 |
+| 抽取当前 Web 或 Extension 单包中的用户可见文案                                 | `web-extract-i18n-strings`          | `$web-extract-i18n-strings`          | `.agents/skills/web-extract-i18n-strings/`          |
+| 安全协调写入范围互不重叠的并行任务                                             | `web-run-parallel-worktrees`        | `$web-run-parallel-worktrees`        | `.agents/skills/web-run-parallel-worktrees/`        |
+| 首次代码开发或 Node.js、pnpm、Chrome 工具条件变化                              | `web-check-development-environment` | `$web-check-development-environment` | `.agents/skills/web-check-development-environment/` |
+| 里程碑、发布候选或用户明确要求完整验收                                         | `web-verify-delivery`               | `$web-verify-delivery`               | `.agents/skills/web-verify-delivery/`               |
+| 按验收契约对最终 Web 或 Extension 候选执行真实 Chrome E2E                      | `web-test-final-artifact-e2e`       | `$web-test-final-artifact-e2e`       | `.agents/skills/web-test-final-artifact-e2e/`       |
+| 定版本、更新发布元数据或准备发布                                               | `web-prepare-release`               | `$web-prepare-release`               | `.agents/skills/web-prepare-release/`               |
+| 已初始化下游同步新版 Harness 工程规则                                          | `web-upgrade-harness`               | `$web-upgrade-harness`               | `.agents/skills/web-upgrade-harness/`               |
 
-源 Harness 当前保留 13 个项目 Skills，位于 `.agents/skills/`；其中只有 `$instantiate-project` 负责创建项目。不存在公开的独立初始化 Skill，也不存在“为已有下游增加第二宿主”的 Skill；不得调用或恢复此类能力。
+每个项目 Skill 的目录名必须等于 canonical id，`SKILL.md` frontmatter `name` 必须与目录名完全一致，frontmatter `description` 必须使用中文说明 Web 前端职责；`agents/openai.yaml` 的 `default_prompt` 必须显式调用对应的 `$web-*`。`display_name` 统一使用 `Web Harness：<中文动作>`，`short_description`、`default_prompt` 和 `SKILL.md` 正文以中文为默认；React、TypeScript、Web、Plasmo、Chrome、MV3、Git 等技术专名可以保留英文。canonical id、展示名、说明、提示和正文都只能描述本 Harness 的纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端职责，不得混入 Rust、Server 或其他非 Web Harness 语义，也不保留旧 canonical id 的兼容入口。
 
-Harness 源只保留 `$instantiate-project` 作为创建 Skill。成功生成的终端下游必须删除该 Skill、`instantiate` script 和全部内部 init/instantiate tooling，不得暴露 `harness:init` 或其他派生入口；品牌、实现、验证、发布和 `$upgrade-harness` 等维护能力继续按需保留。
+源 Harness 当前保留 13 个项目 Skills，位于 `.agents/skills/`；其中只有 `$web-instantiate-project` 负责创建项目。不存在公开的独立初始化 Skill，也不存在“为已有下游增加第二宿主”的 Skill；不得调用或恢复此类能力。
+
+Harness 源只保留 `$web-instantiate-project` 作为创建 Skill。成功生成的终端下游必须删除该 Skill、`instantiate` script 和全部内部 init/instantiate tooling，不得暴露 `harness:init` 或其他派生入口；品牌、实现、验证、发布和 `$web-upgrade-harness` 等维护能力继续按需保留。
 
 ## 约束地图
 
-| 约束领域                                 | 唯一来源或入口                                                                                          |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 单类型创建、技术栈、目录和品牌派生       | [`docs/TS_WEB_TEMPLATE.md`](docs/TS_WEB_TEMPLATE.md)、`$instantiate-project`、`$prepare-brand-identity` |
-| 分页、HTTP header/认证、数据访问与事件流 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                                                            |
-| 三环境、BaseURL 与构建 profile           | [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)                                        |
-| 日志、Release 裁剪与敏感信息扫描         | [`docs/LOGGING.md`](docs/LOGGING.md)                                                                    |
-| Mantine UI 令牌、布局、组件与交互状态    | [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)                                        |
-| 文件、注释、状态职责、测试与规则例外     | [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)                                                |
-| 任务分级、并行与里程碑验收偏好           | [`docs/AGENT_POLICY.md`](docs/AGENT_POLICY.md)                                                          |
-| 开发环境                                 | `$check-development-environment`                                                                        |
-| 版本与候选发布                           | [`Version.md`](Version.md)、[`docs/RELEASE.md`](docs/RELEASE.md)、`$prepare-release`                    |
-| 下游 Harness 来源与升级                  | `$upgrade-harness` 与下游 `.harness/` 元数据                                                            |
-| 商业许可与知识产权                       | [`LICENSE.zh-CN.md`](LICENSE.zh-CN.md)、[`LICENSE.en.md`](LICENSE.en.md)                                |
+| 约束领域                                 | 唯一来源或入口                                                                                                  |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 单类型创建、技术栈、目录和品牌派生       | [`docs/TS_WEB_TEMPLATE.md`](docs/TS_WEB_TEMPLATE.md)、`$web-instantiate-project`、`$web-prepare-brand-identity` |
+| 分页、HTTP header/认证、数据访问与事件流 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                                                                    |
+| 三环境、BaseURL 与构建 profile           | [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)                                                |
+| 日志、Release 裁剪与敏感信息扫描         | [`docs/LOGGING.md`](docs/LOGGING.md)                                                                            |
+| Mantine UI 令牌、布局、组件与交互状态    | [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)                                                |
+| 文件、注释、状态职责、测试与规则例外     | [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)                                                        |
+| 任务分级、并行与里程碑验收偏好           | [`docs/AGENT_POLICY.md`](docs/AGENT_POLICY.md)                                                                  |
+| 开发环境                                 | `$web-check-development-environment`                                                                            |
+| 版本与候选发布                           | [`Version.md`](Version.md)、[`docs/RELEASE.md`](docs/RELEASE.md)、`$web-prepare-release`                        |
+| 下游 Harness 来源与升级                  | `$web-upgrade-harness` 与下游 `.harness/` 元数据                                                                |
+| 商业许可与知识产权                       | [`LICENSE.zh-CN.md`](LICENSE.zh-CN.md)、[`LICENSE.en.md`](LICENSE.en.md)                                        |
 
 ## 每次任务的最小闭环
 

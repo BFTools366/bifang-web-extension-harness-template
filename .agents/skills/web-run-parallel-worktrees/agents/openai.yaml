@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：运行前端并行工作树"
+  short_description: "用隔离 Git 工作树协调互不重叠的 Web Harness 前端任务"
+  default_prompt: "使用 $web-run-parallel-worktrees 通过隔离 Git 工作树协调 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前端下游中互不重叠的任务。"

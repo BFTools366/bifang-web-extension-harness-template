@@ -16,11 +16,11 @@
 
 ## Todo
 
-| ID     | 状态 | 可观察结果与所有权                                                                           | 依赖   | 风险与验证                                                                      |
-| ------ | ---- | -------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------- |
-| REL-01 | done | 只读确认 Git 顶层/分支/远端、完整工作区范围、版本事实源、环境约束和已有三个已完成里程碑计划  | 无     | 用户已批准整个工作区；Node/pnpm 兼容；Chrome 当前 `not-required/not-probed`     |
-| REL-02 | done | `Version.md` 更新为上海时间版本 `202608121047`，本计划记录授权、范围、候选门禁和外部操作边界 | REL-01 | `git diff --check`、格式与链接/validator 必须通过；不改写历史计划中的旧候选证据 |
-| REL-03 | done | 当前完整源码通过根 `format:check`、`lint`、`typecheck`、非空 `test` 与 `validate:harness`    | REL-02 | 任一失败回到 `$implement-change` 修复并重跑；根 Harness 不虚构应用 `build` 门禁 |
+| ID     | 状态 | 可观察结果与所有权                                                                           | 依赖   | 风险与验证                                                                          |
+| ------ | ---- | -------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------- |
+| REL-01 | done | 只读确认 Git 顶层/分支/远端、完整工作区范围、版本事实源、环境约束和已有三个已完成里程碑计划  | 无     | 用户已批准整个工作区；Node/pnpm 兼容；Chrome 当前 `not-required/not-probed`         |
+| REL-02 | done | `Version.md` 更新为上海时间版本 `202608121047`，本计划记录授权、范围、候选门禁和外部操作边界 | REL-01 | `git diff --check`、格式与链接/validator 必须通过；不改写历史计划中的旧候选证据     |
+| REL-03 | done | 当前完整源码通过根 `format:check`、`lint`、`typecheck`、非空 `test` 与 `validate:harness`    | REL-02 | 任一失败回到 `$web-implement-change` 修复并重跑；根 Harness 不虚构应用 `build` 门禁 |
 
 ## 入口、实现与测试映射
 
@@ -36,8 +36,8 @@
 
 1. REL-01..03 全部 `done`，整棵工作区差异已审阅且无敏感信息或未批准范围。
 2. 将版本与所有批准改动提交为精确源码候选；不在提交后修改候选字节。
-3. `$verify-delivery` 从该提交在源仓库之外重新生成 Web/Extension 两个独立下游，运行三环境、下游全门禁、三 profile Release 构建/扫描及 Extension 打包，并记录候选哈希。
-4. `$prepare-release` 仅在验收结论为 `Milestone accepted` 且 HEAD/版本/lock/hash 一致时声明 `Ready`。
+3. `$web-verify-delivery` 从该提交在源仓库之外重新生成 Web/Extension 两个独立下游，运行三环境、下游全门禁、三 profile Release 构建/扫描及 Extension 打包，并记录候选哈希。
+4. `$web-prepare-release` 仅在验收结论为 `Milestone accepted` 且 HEAD/版本/lock/hash 一致时声明 `Ready`。
 5. 仅在上述门禁通过后推送 `master` 到 `origin/master`；不创建 tag、PR、托管 Release 或部署。
 
 ## 当前状态
@@ -46,4 +46,4 @@
 - Git：顶层等于项目根，分支 `master`，基线 `edd916c9f88daab15bebd40391a74348a7556fdf`，远端 `origin/master`；工作区全部变更已由用户明确批准。
 - 外部工具：远端为自托管 HTTP Git 服务且本任务不创建 PR；GitHub 专用 `gh`/draft PR 流程不适用。
 - 根门禁：首次 `format:check` 只发现本计划需要 Prettier；定向格式化后，`git diff --check`、`pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`（6 个文件、54 项）与 `pnpm validate:harness`（13 Skills、136 条本地链接）全部通过。
-- 候选：用户补充确认前端 Skill 的可见名称应与同级 Rust Harness 清晰区分；已将 `$verify-delivery` 的显示名、标题和默认提示明确为“验证前端项目交付”。该候选版本重新确定为 `202608121047`，需重新提交、完整验收并推送。
+- 候选：用户补充确认前端 Skill 的可见名称应与同级 Rust Harness 清晰区分；已将 `$web-verify-delivery` 的显示名、标题和默认提示明确为“验证前端项目交付”。该候选版本重新确定为 `202608121047`，需重新提交、完整验收并推送。

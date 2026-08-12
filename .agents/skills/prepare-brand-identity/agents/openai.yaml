@@ -1,4 +1,0 @@
-interface:
-  display_name: "准备品牌身份"
-  short_description: "Create a logo and sync type-specific metadata"
-  default_prompt: "Use $prepare-brand-identity to create the logo and synchronize current project metadata."

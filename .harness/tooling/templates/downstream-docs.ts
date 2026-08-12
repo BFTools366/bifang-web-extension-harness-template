@@ -1,28 +1,35 @@
 import type { ProjectConfig } from "../types.ts"
 
+// 执行 stackName 函数的处理逻辑。
 function stackName(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "Vite + React/TypeScript、Mantine、TanStack Router、TanStack Query、Jotai 与 i18next"
     : "Plasmo + Chrome MV3 + React/TypeScript、Mantine、TanStack Query、Jotai 与 i18next"
 }
 
+// 执行 brandAssets 函数的处理逻辑。
 function brandAssets(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "`public/logo.png`、`public/favicon.png`、`index.html` 与 Landing 页面"
     : "`assets/icon.png`、Chrome manifest、Popup 与 Options"
 }
 
+// 执行 artifact 函数的处理逻辑。
 function artifact(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "Vite 生成的 `dist/` 目录"
     : "Plasmo 生成的 Chrome MV3 构建与受验收 zip"
 }
 
+// 执行 engineeringRules 函数的处理逻辑。
 function engineeringRules(config: ProjectConfig): string {
+  // 保存 hostRules 变量供当前逻辑使用。
   const hostRules =
     config.projectType === "web"
       ? `- Web 按 \`app → routes → features → api\` 组织；\`api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 部署前明确 base path、路由回退、CSP、跨域、缓存和环境变量边界。`
       : `- Popup 与 Options 是独立 Plasmo 入口；没有真实页内导航需求时不引入路由器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Service worker 可能随时回收，不能依赖进程内长期状态；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化 Chrome 消息或 Port。`
+  // 保存 routeTreeExclusion 变量供当前逻辑使用。
+  const routeTreeExclusion = config.projectType === "web" ? " src/routeTree.gen.ts、" : " "
 
   return `# 工程规则
 
@@ -47,7 +54,8 @@ function engineeringRules(config: ProjectConfig): string {
 - 用户可见文案进入 i18next，至少保留英文回退和项目声明的实际语言资源。
 - 三份公开运行配置与 BaseURL 只通过 \`src/config/environment.ts\` 的 \`APP_CONFIG\` 进入业务代码，遵循 \`docs/RUNTIME_CONFIGURATION.md\`。
 - 产品日志只通过 \`src/observability/logger.ts\`，边界覆盖、敏感字段和 Release 裁剪遵循 \`docs/LOGGING.md\`。
-- 导出契约、非直观算法与测试场景使用有业务意义的中文注释；直观代码不堆叠复述式注释。
+- 严格中文注释门禁覆盖人工维护与 Harness 生成的 .ts/.tsx：每个 interface 及成员、class 声明/表达式及字段/方法/访问器/构造函数/参数属性、所有函数形式，以及每个 const/let/var 声明（包括函数内部变量与 for 初始器），都必须紧邻一条包含汉字的注释；变量声明与其函数初始化器可共用同一条注释。
+- 只精确排除第三方或构建生成物${routeTreeExclusion}.plasmo/**、build/**、dist/**、coverage/**、node_modules/** 与 .git/**；不得用 *.gen.ts 等宽泛模式隐藏维护源码。注释应说明声明职责，不能用字符串、英文注释、尾随前一语句或隔空文件头冒充；pnpm lint 会自动运行 pnpm comments:check。
 - 文件接近 500 行时复核职责，超过 2,000 行必须拆分；生成文件与人工维护文件要有清晰边界。
 
 ## 当前宿主规则
@@ -69,7 +77,9 @@ ${hostRules}
 `
 }
 
+// 执行 releaseRules 函数的处理逻辑。
 function releaseRules(config: ProjectConfig): string {
+  // 保存 artifactChecks 变量供当前逻辑使用。
   const artifactChecks =
     config.projectType === "web"
       ? "检查 `dist/index.html`、静态资源、Logo/favicon、路由回退与部署配置。"
@@ -100,8 +110,11 @@ function releaseRules(config: ProjectConfig): string {
 `
 }
 
+// 执行 runtimeConfiguration 函数的处理逻辑。
 function runtimeConfiguration(config: ProjectConfig): string {
+  // 保存 prefix 变量供当前逻辑使用。
   const prefix = config.projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
+  // 保存 hostMapping 变量供当前逻辑使用。
   const hostMapping =
     config.projectType === "web"
       ? "Vite mode `development`、`test`、`production`"
@@ -141,6 +154,7 @@ Extension 的 BaseURL 不会自动授予 \`host_permissions\`；真实网络消�
 `
 }
 
+// 执行 loggingRules 函数的处理逻辑。
 function loggingRules(config: ProjectConfig): string {
   return `# 日志设计与发布脱敏
 
@@ -170,6 +184,7 @@ function loggingRules(config: ProjectConfig): string {
 `
 }
 
+// 执行 technicalDebt 函数的处理逻辑。
 function technicalDebt(config: ProjectConfig): string {
   return `# 技术债与已知限制
 
@@ -183,15 +198,22 @@ function technicalDebt(config: ProjectConfig): string {
 `
 }
 
+// 执行 dataAccess 函数的处理逻辑。
 function dataAccess(config: ProjectConfig, canonical: string): string {
+  // 保存 sectionMarker 变量供当前逻辑使用。
   const sectionMarker = "## 1. 选型结论"
+  // 保存 deliveryMarker 变量供当前逻辑使用。
   const deliveryMarker = "## 7. 落地与测试门禁"
+  // 保存 sectionStart 变量供当前逻辑使用。
   const sectionStart = canonical.indexOf(sectionMarker)
   if (sectionStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${sectionMarker}`)
+  // 保存 canonicalSections 变量供当前逻辑使用。
   const canonicalSections = canonical.slice(sectionStart).trim()
+  // 保存 deliveryStart 变量供当前逻辑使用。
   const deliveryStart = canonicalSections.indexOf(deliveryMarker)
   if (deliveryStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${deliveryMarker}`)
 
+  // 保存 hostRules 变量供当前逻辑使用。
   const hostRules =
     config.projectType === "web"
       ? `## 当前 Web 宿主补充
@@ -204,6 +226,7 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
 - 类型化 endpoint registry 必须与已批准的 manifest origin 一致，并覆盖权限未授予或被撤销的失败路径。
 - Popup/Options 关闭时清理连接；MV3 service worker 可能被回收，不能承诺把持久 SSE 长连接托管在 service worker。`
 
+  // 保存 derivedSections 变量供当前逻辑使用。
   const derivedSections = `${canonicalSections.slice(0, deliveryStart).trimEnd()}
 
 ${hostRules}
@@ -218,14 +241,23 @@ ${derivedSections}
 `
 }
 
+// 执行 mantineUiGuidelines 函数的处理逻辑。
 function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
+  // 保存 sharedMarker 变量供当前逻辑使用。
   const sharedMarker = "## 1. 规范等级与使用方式"
+  // 保存 webMarker 变量供当前逻辑使用。
   const webMarker = "## 8. Web 宿主规范"
+  // 保存 extensionMarker 变量供当前逻辑使用。
   const extensionMarker = "## 9. Extension 宿主规范"
+  // 保存 deliveryMarker 变量供当前逻辑使用。
   const deliveryMarker = "## 10. 交付检查"
+  // 保存 sharedStart 变量供当前逻辑使用。
   const sharedStart = canonical.indexOf(sharedMarker)
+  // 保存 webStart 变量供当前逻辑使用。
   const webStart = canonical.indexOf(webMarker)
+  // 保存 extensionStart 变量供当前逻辑使用。
   const extensionStart = canonical.indexOf(extensionMarker)
+  // 保存 deliveryStart 变量供当前逻辑使用。
   const deliveryStart = canonical.indexOf(deliveryMarker)
   if (
     sharedStart < 0 ||
@@ -236,7 +268,9 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
     throw new Error("Canonical MANTINE_UI_GUIDELINES.md has invalid section markers")
   }
 
+  // 保存 shared 变量供当前逻辑使用。
   const shared = canonical.slice(sharedStart, webStart).trim()
+  // 保存 hostSection 变量供当前逻辑使用。
   const hostSection =
     config.projectType === "web"
       ? canonical.slice(webStart, extensionStart).trim()
@@ -244,6 +278,7 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
           .slice(extensionStart, deliveryStart)
           .trim()
           .replace(extensionMarker, "## 8. Extension 宿主规范")
+  // 保存 delivery 变量供当前逻辑使用。
   const delivery = canonical
     .slice(deliveryStart)
     .trim()
@@ -265,6 +300,7 @@ ${delivery}
 `
 }
 
+// 执行 docsReadme 函数的处理逻辑。
 function docsReadme(config: ProjectConfig): string {
   return `# 文档索引
 
@@ -285,6 +321,7 @@ function docsReadme(config: ProjectConfig): string {
 `
 }
 
+// 执行 downstreamGovernanceFiles 函数的处理逻辑。
 export function downstreamGovernanceFiles(
   config: ProjectConfig,
   canonicalDataAccess: string,

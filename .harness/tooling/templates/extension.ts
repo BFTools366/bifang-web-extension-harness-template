@@ -5,6 +5,7 @@ import { httpFiles } from "./http.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
 
+// 执行 renderExtensionBrand 函数的处理逻辑。
 export function renderExtensionBrand(config: ProjectConfig): string {
   return `export const BRAND = {
   name: ${tsString(config.name)},
@@ -15,11 +16,13 @@ export function renderExtensionBrand(config: ProjectConfig): string {
 `
 }
 
+// 保存 entryStyles 变量供当前逻辑使用。
 const entryStyles = `import "@mantine/core/styles.css"
 import "./style.css"
 import "./i18n"
 `
 
+// 执行 extensionFiles 函数的处理逻辑。
 export function extensionFiles(
   config: ProjectConfig,
   baseUrls: EnvironmentBaseUrls

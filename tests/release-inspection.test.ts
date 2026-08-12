@@ -4,22 +4,31 @@ import path from "node:path"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
 import { inspectReleaseArtifact } from "../.harness/tooling/release.ts"
 
+// 定义 BaseUrls 接口的结构契约。
 interface BaseUrls {
+  // 描述 development 接口成员的结构契约。
   development: string
+  // 描述 test 接口成员的结构契约。
   test: string
+  // 描述 release 接口成员的结构契约。
   release: string
 }
 
+// 保存 roots 变量供当前逻辑使用。
 const roots: string[] = []
+// 保存 publicEnvironmentKeys 变量供当前逻辑使用。
 const publicEnvironmentKeys = [
   "VITE_APP_ENV",
   "VITE_API_BASE_URL",
   "VITE_LOG_LEVEL",
   "VITE_REQUEST_TIMEOUT_MS"
 ] as const
+// 保存 savedEnvironment 变量供当前逻辑使用。
 const savedEnvironment = new Map<string, string | undefined>()
 
+// 执行 environmentFile 函数的处理逻辑。
 function environmentFile(environment: keyof BaseUrls, baseUrl: string): string {
+  // 保存 logLevel 变量供当前逻辑使用。
   const logLevel =
     environment === "development" ? "debug" : environment === "test" ? "info" : "warn"
   return [
@@ -31,12 +40,15 @@ function environmentFile(environment: keyof BaseUrls, baseUrl: string): string {
   ].join("\n")
 }
 
+// 执行 createFixture 函数的处理逻辑。
 async function createFixture(
   baseUrls: BaseUrls,
   contents: string
 ): Promise<{ artifactRoot: string; root: string }> {
+  // 保存 root 变量供当前逻辑使用。
   const root = await mkdtemp(path.join(os.tmpdir(), "release-inspection-"))
   roots.push(root)
+  // 保存 artifactRoot 变量供当前逻辑使用。
   const artifactRoot = path.join(root, "dist")
   await mkdir(path.join(root, ".harness"), { recursive: true })
   await mkdir(artifactRoot)
@@ -62,7 +74,9 @@ async function createFixture(
   )
   await Promise.all(
     (Object.entries(baseUrls) as Array<[keyof BaseUrls, string]>).map(
+      // 执行 当前声明 函数的处理逻辑。
       async ([environment, baseUrl]) => {
+        // 保存 filename 变量供当前逻辑使用。
         const filename =
           environment === "development"
             ? ".env.development"
@@ -77,31 +91,46 @@ async function createFixture(
   return { artifactRoot, root }
 }
 
-beforeEach(() => {
-  savedEnvironment.clear()
-  for (const key of publicEnvironmentKeys) {
-    savedEnvironment.set(key, process.env[key])
-    delete process.env[key]
+beforeEach(
+  /* 执行 当前声明 函数的处理逻辑。 */ () => {
+    savedEnvironment.clear()
+    // 保存 key 变量供当前逻辑使用。
+    for (const key of publicEnvironmentKeys) {
+      savedEnvironment.set(key, process.env[key])
+      delete process.env[key]
+    }
   }
-})
+)
 
-afterEach(async () => {
-  for (const key of publicEnvironmentKeys) {
-    const value = savedEnvironment.get(key)
-    if (value === undefined) delete process.env[key]
-    else process.env[key] = value
+afterEach(
+  /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 key 变量供当前逻辑使用。
+    for (const key of publicEnvironmentKeys) {
+      // 保存 value 变量供当前逻辑使用。
+      const value = savedEnvironment.get(key)
+      if (value === undefined) delete process.env[key]
+      else process.env[key] = value
+    }
+    await Promise.all(
+      roots
+        .splice(0)
+        .map(
+          /* 执行 当前声明 函数的处理逻辑。 */ (root) => rm(root, { recursive: true, force: true })
+        )
+    )
   }
-  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
-})
+)
 
-describe("release URL inspection", () => {
+describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  // 保存 baseUrls 变量供当前逻辑使用。
   const baseUrls: BaseUrls = {
     development: "https://api.example.com",
     test: "https://test-api.example.com/v1",
     release: "https://api.example.com/v1"
   }
 
-  test("compares complete URLs without prefix, path-version, similar-host, or URL-path false positives", async () => {
+  test("compares complete URLs without prefix, path-version, similar-host, or URL-path false positives", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 { root } 变量供当前逻辑使用。
     const { root } = await createFixture(
       baseUrls,
       [
@@ -121,18 +150,25 @@ describe("release URL inspection", () => {
   test.each([
     ["development", baseUrls.development],
     ["test with a normalized trailing slash", `${baseUrls.test}/`]
-  ])("rejects the complete %s BaseURL", async (_label, leakedUrl) => {
-    const { root } = await createFixture(
-      baseUrls,
-      `<script>const leakedApi = "${leakedUrl}"</script>\n`
-    )
+  ])(
+    "rejects the complete %s BaseURL",
+    /* 执行 当前声明 函数的处理逻辑。 */ async (_label, leakedUrl) => {
+      // 保存 { root } 变量供当前逻辑使用。
+      const { root } = await createFixture(
+        baseUrls,
+        `<script>const leakedApi = "${leakedUrl}"</script>\n`
+      )
 
-    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/non-release API BaseURL/)
-  })
+      await expect(inspectReleaseArtifact(root)).rejects.toThrow(/non-release API BaseURL/)
+    }
+  )
 
-  test("retains low-level log, sentinel, source-map, environment-file, and local-path gates", async () => {
+  test("retains low-level log, sentinel, source-map, environment-file, and local-path gates", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 safeContents 变量供当前逻辑使用。
     const safeContents = '<a href="https://public.example.com/Users/alice/project">Safe URL</a>\n'
+    // 保存 { artifactRoot, root } 变量供当前逻辑使用。
     const { artifactRoot, root } = await createFixture(baseUrls, safeContents)
+    // 保存 indexPath 变量供当前逻辑使用。
     const indexPath = path.join(artifactRoot, "index.html")
     await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({ files: 1 })
 
@@ -146,6 +182,7 @@ describe("release URL inspection", () => {
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/references a source map/)
 
     await writeFile(indexPath, safeContents)
+    // 保存 sourceMapPath 变量供当前逻辑使用。
     const sourceMapPath = path.join(artifactRoot, "app.js.map")
     await writeFile(sourceMapPath, "{}\n")
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/must not be present/)

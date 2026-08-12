@@ -1,6 +1,7 @@
 import { validateBaseUrls } from "../environment.ts"
 import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 
+// 保存 ENVIRONMENT_SCHEMA 变量供当前逻辑使用。
 const ENVIRONMENT_SCHEMA = `export const APPLICATION_ENVIRONMENTS = ["development", "test", "release"] as const
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const
 
@@ -71,11 +72,13 @@ export function createAppConfig(input: AppConfigInput): Readonly<AppConfig> {
 }
 `
 
+// 执行 environmentFile 函数的处理逻辑。
 function environmentFile(
   prefix: "VITE_" | "PLASMO_PUBLIC_",
   environment: "development" | "test" | "release",
   baseUrl: string
 ): string {
+  // 保存 logLevel 变量供当前逻辑使用。
   const logLevel =
     environment === "development" ? "debug" : environment === "test" ? "info" : "warn"
   return `# Public browser configuration. Never place secrets, tokens, cookies, or passwords here.
@@ -86,6 +89,7 @@ ${prefix}REQUEST_TIMEOUT_MS=10000
 `
 }
 
+// 执行 runtimeAdapter 函数的处理逻辑。
 function runtimeAdapter(projectType: ProjectConfig["projectType"]): string {
   if (projectType === "web") {
     return `import { createAppConfig } from "./environment.schema"
@@ -113,6 +117,7 @@ export const APP_CONFIG = createAppConfig({
 `
 }
 
+// 保存 ENVIRONMENT_TEST 变量供当前逻辑使用。
 const ENVIRONMENT_TEST = `import { describe, expect, test } from "vitest"
 import { createAppConfig } from "./environment.schema"
 
@@ -146,11 +151,14 @@ describe("application environment", () => {
 })
 `
 
+// 执行 environmentFiles 函数的处理逻辑。
 export function environmentFiles(
   config: ProjectConfig,
   suppliedBaseUrls: EnvironmentBaseUrls
 ): Map<string, string> {
+  // 保存 baseUrls 变量供当前逻辑使用。
   const baseUrls = validateBaseUrls(suppliedBaseUrls)
+  // 保存 prefix 变量供当前逻辑使用。
   const prefix = config.projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
   return new Map([
     [".env.development", environmentFile(prefix, "development", baseUrls.developmentBaseUrl)],

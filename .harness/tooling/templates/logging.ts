@@ -1,6 +1,8 @@
 import type { ProjectType } from "../types.ts"
 
+// 执行 loggerSource 函数的处理逻辑。
 function loggerSource(projectType: ProjectType): string {
+  // 保存 releaseBuildExpression 变量供当前逻辑使用。
   const releaseBuildExpression =
     projectType === "web"
       ? 'import.meta.env.VITE_APP_ENV === "release"'
@@ -181,6 +183,7 @@ export function createLogger(scope: string, options: LoggerOptions = {}) {
 `
 }
 
+// 保存 LOGGER_TEST 变量供当前逻辑使用。
 const LOGGER_TEST = `import { describe, expect, test } from "vitest"
 import type { AppConfig } from "../config/environment.schema"
 import { createLogger, type LogEntry } from "./logger"
@@ -258,6 +261,7 @@ describe("structured logger", () => {
 })
 `
 
+// 保存 ERROR_BOUNDARY_SOURCE 变量供当前逻辑使用。
 const ERROR_BOUNDARY_SOURCE = `import { Component, type ErrorInfo, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { createLogger } from "./logger"
@@ -305,6 +309,7 @@ export function AppErrorBoundary({ children }: AppErrorBoundaryProps) {
 }
 `
 
+// 保存 ERROR_BOUNDARY_TEST 变量供当前逻辑使用。
 const ERROR_BOUNDARY_TEST = `// @vitest-environment jsdom
 import "../i18n"
 import { render, screen } from "@testing-library/react"
@@ -330,6 +335,7 @@ test("contains render failures without rethrowing into the host surface", () => 
 })
 `
 
+// 执行 loggingFiles 函数的处理逻辑。
 export function loggingFiles(projectType: ProjectType = "web"): Map<string, string> {
   return new Map([
     ["src/observability/logger.ts", loggerSource(projectType)],

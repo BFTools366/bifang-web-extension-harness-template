@@ -27,9 +27,9 @@
 
 1. 快速任务不创建持久计划，也不机械播报路径；标准任务只有在交接、跨会话、失败恢复、显著依赖或用户要求时创建 Work Plan。
 2. 普通可逆页面、路由或交互变化保持标准路径；只有已承诺对外契约、安全/权限、不可逆变化、生产副作用或候选发布强制里程碑。
-3. `milestone_smoke: optional` 由 `verify-delivery` 根据风险和候选价值决定是否运行；`milestone_e2e: disabled` 默认跳过，硬要求仍可覆盖。只有选中真实浏览器步骤后才探测 Chrome。
+3. `milestone_smoke: optional` 由 `web-verify-delivery` 根据风险和候选价值决定是否运行；`milestone_e2e: disabled` 默认跳过，硬要求仍可覆盖。只有选中真实浏览器步骤后才探测 Chrome。
 4. 日常开发只运行受影响的最小充分检查；完整 package/Release 门禁仅在跨切面变化、里程碑、候选发布、用户要求或无法用窄检查建立可信度时执行。
-5. `verify-delivery` 独占候选准入、策略解析、失败回流和最终结论；E2E Skill 只执行已批准的浏览器场景并返回证据。
+5. `web-verify-delivery` 独占候选准入、策略解析、失败回流和最终结论；E2E Skill 只执行已批准的浏览器场景并返回证据。
 
 ## 验证结果
 
