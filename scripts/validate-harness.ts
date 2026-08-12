@@ -241,6 +241,31 @@ async function validateContent(
   }
 }
 
+const MAINTAINED_TEXT_EXTENSIONS = [".ts", ".tsx", ".md", ".json", ".yaml", ".yml", ".css"] as const
+const FILE_SIZE_HARD_LIMIT = 2000
+const EXCLUDED_FILE_SIZE_PATHS = ["pnpm-lock.yaml"] as const
+
+async function validateFileSize(root: string, files: string[], errors: string[]): Promise<void> {
+  const candidates = files.filter(
+    (file) =>
+      MAINTAINED_TEXT_EXTENSIONS.some((extension) => file.endsWith(extension)) &&
+      !EXCLUDED_FILE_SIZE_PATHS.includes(file as (typeof EXCLUDED_FILE_SIZE_PATHS)[number])
+  )
+  const perFileLineCounts = await Promise.all(
+    candidates.map(async (relativePath) => {
+      const contents = await readFile(path.join(root, relativePath), "utf8")
+      return { relativePath, lines: contents.split("\n").length }
+    })
+  )
+  for (const { relativePath, lines } of perFileLineCounts) {
+    if (lines > FILE_SIZE_HARD_LIMIT) {
+      errors.push(
+        `${relativePath} has ${lines} lines, over the ${FILE_SIZE_HARD_LIMIT}-line hard split threshold (ENGINEERING_RULES.md §4)`
+      )
+    }
+  }
+}
+
 const FORBIDDEN_TEMPLATE_PATHS = [
   "pnpm-workspace.yaml",
   "apps",
@@ -337,6 +362,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   await validateContent(root, markdownFiles, errors)
   const markdownLinks = await validateMarkdownLinks(root, markdownFiles, errors)
   await validateToolingContract(root, errors)
+  await validateFileSize(root, files, errors)
   if (errors.length > 0) throw new Error(`Harness validation failed:\n- ${errors.join("\n- ")}`)
   return { files: files.length, skills, markdownLinks }
 }

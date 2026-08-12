@@ -36,29 +36,26 @@ export async function promptForIdentity(defaults: PromptDefaults): Promise<Promp
   try {
     let projectType = defaults.projectType
     if (projectType === undefined) {
-      const answer = (
-        await prompt.question("Project type (1 = Web, 2 = Chrome extension): ")
-      ).trim()
+      const answer = (await prompt.question("项目类型（1 = Web，2 = Chrome 扩展）：")).trim()
       projectType = answer === "1" ? "web" : answer === "2" ? "extension" : answer
     }
 
-    const name = defaults.name ?? (await prompt.question("Project display name: ")).trim()
+    const name = defaults.name ?? (await prompt.question("项目显示名称：")).trim()
     const suggestedId = slugify(name)
     const idAnswer =
       defaults.id ??
-      (await prompt.question(`Project id${suggestedId === "" ? "" : ` [${suggestedId}]`}: `)).trim()
+      (await prompt.question(`项目 id${suggestedId === "" ? "" : `［${suggestedId}］`}：`)).trim()
     const id = idAnswer === "" ? suggestedId : idAnswer
-    const description =
-      defaults.description ?? (await prompt.question("Project description: ")).trim()
+    const description = defaults.description ?? (await prompt.question("项目描述：")).trim()
     const colorAnswer =
-      defaults.brandColor ?? (await prompt.question("Brand color [#4C6EF5]: ")).trim()
+      defaults.brandColor ?? (await prompt.question("品牌颜色［#4C6EF5］：")).trim()
     const developmentBaseUrl =
       defaults.developmentBaseUrl ??
-      (await prompt.question("Development API BaseURL (http/https): ")).trim()
+      (await prompt.question("Development API BaseURL（http/https）：")).trim()
     const testBaseUrl =
-      defaults.testBaseUrl ?? (await prompt.question("Test API BaseURL (http/https): ")).trim()
+      defaults.testBaseUrl ?? (await prompt.question("Test API BaseURL（http/https）：")).trim()
     const releaseBaseUrl =
-      defaults.releaseBaseUrl ?? (await prompt.question("Release API BaseURL (https): ")).trim()
+      defaults.releaseBaseUrl ?? (await prompt.question("Release API BaseURL（https）：")).trim()
 
     return {
       projectType,

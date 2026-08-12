@@ -22,11 +22,11 @@ description: 为已有标准/里程碑计划中至少两个写入范围互不重
 
 ## 创建与执行
 
-1. 为每个单元公开 Todo ID、结果、负责路径、禁止路径、依赖、验证、整合顺序和分支名 `codex/<task>/<unit>`。
+1. 为每个单元公开 Todo ID、结果、负责路径、禁止路径、依赖、验证、整合顺序和分支名 `agent/<task>/<unit>`。
 2. 在项目外选择明确的临时父目录，并为每项运行：
 
    ```text
-   git worktree add <absolute-worktree-path> -b codex/<task>/<unit> <baseline-commit>
+   git worktree add <absolute-worktree-path> -b agent/<task>/<unit> <baseline-commit>
    ```
 
 3. 分派写入前，从每个 Worktree 验证 Git 顶层、分支、HEAD 与负责路径均精确匹配。告知 Subagent 只能编辑已声明路径，必须保护他人修改，不得修改另一项目类型、扩张权限、创建远端、推送、发布或执行范围外副作用。

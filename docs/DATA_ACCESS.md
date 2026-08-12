@@ -2,6 +2,8 @@
 
 本文档是 Bifang Web Harness Template 及其生成下游在统一分页、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成不含业务 endpoint 的原生 Fetch client、语言偏好、分页基础与非空测试；它不安装 Ky、Axios 或其他请求库，不生成占位业务请求、登录页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
 
+固定生成的 HTTP/分页基础（`.harness/tooling/templates/http.ts`、`pagination.ts`）体量明显大于"不生成空壳"原则通常允许的规模，这是刻意例外而非疏漏：动态 header、乱序 revision、迟到 401 与 single-flight 是认证/并发正确性问题，一旦交给每个下游各自实现，出错代价（安全绕过、竞态覆盖新状态）远高于集中维护的成本；因此即便当前项目零业务 endpoint，也在初始化阶段一次性生成并测试，而不是等首个真实 endpoint 出现才补。这与 Ky/OpenAPI/GraphQL/SSE/RxJS 按真实消费者才安装的策略并不矛盾：后者是可替换的传输/协议适配器，前者是所有适配器共享、不可省略的正确性契约。
+
 ## 1. 选型结论
 
 | 能力                           | 默认选型                                                    | 何时改选                                                                                                      |
@@ -14,8 +16,9 @@
 | 简单 SSE                       | 浏览器原生 `EventSource`                                    | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                          |
 | Fetch 风格 SSE 备选            | `@microsoft/fetch-event-source`                             | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                   |
 | 多来源持续事件编排             | RxJS（按需）                                                | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                  |
+| 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | `openapi-fetch` 等适配器已自带对应运行时校验时复用其结果，不重复引入第二套校验库                              |
 
-原生 Fetch、分页和语言基础是生成项目的固定源码与测试，不是新增运行时依赖。Ky、OpenAPI、GraphQL、SSE 与 RxJS 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
+原生 Fetch、分页和语言基础是生成项目的固定源码与测试，不是新增运行时依赖。Ky、OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
 
 ## 2. 共同边界与统一分页
 
@@ -110,7 +113,7 @@ Ky 基于 Fetch API，提供实例默认值、非 2xx 错误、timeout、hooks �
 
 - Schema 或 operation 变化后必须重新生成并运行 `pnpm typecheck`；生成目录不手工编辑。
 - Token/continuation 获取、语言、并发 revision、401、错误归一化、取消和观测规则与原生 Fetch 基础相同，通过 `openapi-fetch` middleware 或清晰的外层 service 复用。
-- Schema 只提供静态契约，不能证明运行时响应可信；对安全关键或外部服务响应仍执行运行时校验。
+- Schema 只提供静态契约，不能证明运行时响应可信；对安全关键或外部服务响应仍用 §1 表中的 `zod`（或已有的等价校验结果）执行运行时校验。
 - 不在同一端点外层叠加原生 Fetch、Ky 和 openapi-fetch 多套 retry/error 语义。
 
 ### 3.7 Axios 例外

@@ -38,7 +38,7 @@ Harness 候选至少满足：
 - Extension 结果的 `assets/icon.png`、manifest 身份、Popup 与 Options 一致，Plasmo 能从来源图标生成构建所需尺寸；`targets.default` 明确使用 browser context 与 `includeNodeModules: true`；
 - 两种生成项目都包含 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
 - 两种生成项目各自实际运行 `pnpm env:validate`、`pnpm lint`、`pnpm typecheck`、非空 `pnpm test`、三种 profile 构建与默认 `pnpm build`；默认构建与 `build:release` 的逻辑 Release 产物一致；
-- 两种 Release 构建均自动执行 `pnpm release:inspect`：文件名层拒绝 `.env*`/`.map`，仅在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、源码绝对路径与 `sourceMappingURL`；Extension 在 inspector 前还用 `pnpm harness validate` 拒绝错误 Parcel target 或 production JS 运行时依赖 self-map，`pnpm package` 也执行同样门禁。检查对象是 `build/chrome-mv3-prod`，不会直接解包 zip；固定规则集不提供通用秘密扫描，完整边界见 [`LOGGING.md`](LOGGING.md)。命中时上层命令失败，不得发布；
+- 两种 Release 构建均自动执行 `pnpm release:inspect`（Extension 额外先执行 `pnpm harness validate`，`pnpm package` 同样门禁），扫描规则、检查对象与失败即禁止发布的约束以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 为唯一权威来源；
 - 未实际执行的操作系统、Chrome 版本和分发渠道明确标记 `Unverified`；
 - 当前已知重要限制已记录在 [`TECH_DEBT.md`](TECH_DEBT.md)。
 

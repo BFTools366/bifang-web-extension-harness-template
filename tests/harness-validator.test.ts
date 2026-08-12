@@ -191,6 +191,32 @@ describe("Harness template validator", () => {
     }
   })
 
+  test("rejects a maintained text file over the 2000-line hard split threshold", async () => {
+    const targetRoot = await copyRepository()
+    const oversizedPath = path.join(targetRoot, "docs/TECH_DEBT.md")
+    await writeFile(oversizedPath, `${"line\n".repeat(2001)}`)
+
+    await expect(validateHarness(targetRoot)).rejects.toThrow(
+      /docs\/TECH_DEBT\.md has 2002 lines, over the 2000-line hard split threshold/
+    )
+  })
+
+  test("accepts a maintained text file at exactly the 2000-line threshold", async () => {
+    const targetRoot = await copyRepository()
+    const boundaryPath = path.join(targetRoot, "docs/TECH_DEBT.md")
+    await writeFile(boundaryPath, `${"line\n".repeat(1999)}`)
+
+    await expect(validateHarness(targetRoot)).resolves.toMatchObject({ skills: expect.any(Array) })
+  })
+
+  test("does not flag an oversized lock file", async () => {
+    const targetRoot = await copyRepository()
+    const lockPath = path.join(targetRoot, "pnpm-lock.yaml")
+    await writeFile(lockPath, `${"lockfileVersion: '9.0'\n".repeat(2500)}`)
+
+    await expect(validateHarness(targetRoot)).resolves.toMatchObject({ skills: expect.any(Array) })
+  })
+
   test("rejects prerelease or non-canonical versions and a pin below the declared minimum", async () => {
     const prereleaseRoot = await copyRepository()
     await updateManifest(prereleaseRoot, (manifest) => {
