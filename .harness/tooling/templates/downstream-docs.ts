@@ -43,6 +43,7 @@ function engineeringRules(config: ProjectConfig): string {
 - \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/api/client/\` 的三个 header、Token、错误和 401 handler 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
 - Ky/OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
+- Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。
 - 用户可见文案进入 i18next，至少保留英文回退和项目声明的实际语言资源。
 - 三份公开运行配置与 BaseURL 只通过 \`src/config/environment.ts\` 的 \`APP_CONFIG\` 进入业务代码，遵循 \`docs/RUNTIME_CONFIGURATION.md\`。
 - 产品日志只通过 \`src/observability/logger.ts\`，边界覆盖、敏感字段和 Release 裁剪遵循 \`docs/LOGGING.md\`。
@@ -62,7 +63,7 @@ ${hostRules}
 ## 测试与交付
 
 - 行为变化必须有非空测试，至少覆盖核心成功路径和最高风险失败路径。
-- 交付前运行 \`pnpm harness validate\`、\`pnpm format:check\`、\`pnpm lint\`、\`pnpm typecheck\`、\`pnpm test\` 与 \`pnpm build\`；Release build 自动执行配置与产物泄漏检查。
+- 局部可逆任务先运行受影响的最小充分检查。里程碑、Release 候选、跨配置/结构/构建链变化、用户明确要求，或窄检查不足以建立可信度时，运行 \`pnpm harness validate\`、\`pnpm format:check\`、\`pnpm lint\`、\`pnpm typecheck\`、\`pnpm test\` 与 \`pnpm build\`；Release build 自动执行配置与产物泄漏检查。
 - Mock 只能隔离外部依赖，不能替代最终构建验收。未运行的浏览器、操作系统或渠道写为 \`Unverified\`。
 - 发布、部署、商店上传、凭据、生产数据和不可逆外部副作用必须另行取得明确授权。
 `
@@ -72,7 +73,7 @@ function releaseRules(config: ProjectConfig): string {
   const artifactChecks =
     config.projectType === "web"
       ? "检查 `dist/index.html`、静态资源、Logo/favicon、路由回退与部署配置。"
-      : "先由 `pnpm harness validate` 检查 browser target 和运行时依赖自包含，再检查 MV3 manifest、Popup、Options、图标、版本及 permissions/host_permissions；真实发布候选还要在 Chrome 中加载验证。"
+      : "先由 `pnpm harness validate` 检查 browser target 和运行时依赖自包含，再检查 MV3 manifest、Popup、Options、图标、版本及 permissions/host_permissions；还必须对同一 Release 源码运行 `pnpm package`，确认其自动执行 `pnpm harness validate` 与 `pnpm release:inspect` 并生成受验收 zip。"
 
   return `# 版本与发布
 
@@ -89,8 +90,9 @@ function releaseRules(config: ProjectConfig): string {
 1. \`.harness/project.json.projectType\` 必须仍为 \`${config.projectType}\`，仓库保持单包且没有另一宿主入口。
 2. 对同一源码实际运行 \`pnpm harness validate\`、\`pnpm lint\`、\`pnpm typecheck\`、非空 \`pnpm test\` 与 \`pnpm build\`。
 3. \`pnpm build\` 必须先校验三份受管环境配置，并在构建后自动通过 \`pnpm release:inspect\`；${artifactChecks}
-4. 记录源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题。
-5. 必需检查失败、取消、超时或未执行时结论为 \`Not ready\`；不能用历史结果或部分成功替代。
+4. Agent Policy 或产品/渠道硬要求选中浏览器验证时，只对上述精确 Release 候选运行；未选中时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
+5. 记录源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题。
+6. 必需检查失败、取消、超时或未执行时结论为 \`Not ready\`；不能用历史结果或部分成功替代。
 
 ## 外部操作
 
@@ -164,7 +166,7 @@ function loggingRules(config: ProjectConfig): string {
     config.projectType === "extension"
       ? "Extension 还会先运行 `pnpm harness validate`，拒绝错误 browser target 或运行时依赖 Parcel self-map。"
       : ""
-  }文件名层对所有候选文件拒绝 \`.env*\` 与 \`.map\`；内容扫描只读取 \`.css\`、\`.html\`、\`.js\`、\`.json\`、\`.mjs\`、\`.txt\` 与 \`.xml\`，并拒绝开发/测试 BaseURL、固定哨兵 \`debug_sentinel\`、\`info_sentinel\`、\`application_started\`、\`surface_started\`、\`do-not-ship\`、原始 \`console.debug\`/\`console.info\`、本机绝对路径与 \`sourceMappingURL\`。Extension 检查 \`build/chrome-mv3-prod\`，不会直接解包扫描 zip。该固定规则集不是通用秘密扫描器，也不能代替 logger 单元测试和真实 Chrome 候选冒烟。
+  }文件名层对所有候选文件拒绝 \`.env*\` 与 \`.map\`；内容扫描只读取 \`.css\`、\`.html\`、\`.js\`、\`.json\`、\`.mjs\`、\`.txt\` 与 \`.xml\`，并拒绝开发/测试 BaseURL、固定哨兵 \`debug_sentinel\`、\`info_sentinel\`、\`application_started\`、\`surface_started\`、\`do-not-ship\`、原始 \`console.debug\`/\`console.info\`、本机绝对路径与 \`sourceMappingURL\`。Extension 检查 \`build/chrome-mv3-prod\`，不会直接解包扫描 zip。该固定规则集不是通用秘密扫描器，也不能代替 logger 单元测试或策略选中的真实 Chrome 候选验证。
 `
 }
 
@@ -216,6 +218,53 @@ ${derivedSections}
 `
 }
 
+function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
+  const sharedMarker = "## 1. 规范等级与使用方式"
+  const webMarker = "## 8. Web 宿主规范"
+  const extensionMarker = "## 9. Extension 宿主规范"
+  const deliveryMarker = "## 10. 交付检查"
+  const sharedStart = canonical.indexOf(sharedMarker)
+  const webStart = canonical.indexOf(webMarker)
+  const extensionStart = canonical.indexOf(extensionMarker)
+  const deliveryStart = canonical.indexOf(deliveryMarker)
+  if (
+    sharedStart < 0 ||
+    webStart <= sharedStart ||
+    extensionStart <= webStart ||
+    deliveryStart <= extensionStart
+  ) {
+    throw new Error("Canonical MANTINE_UI_GUIDELINES.md has invalid section markers")
+  }
+
+  const shared = canonical.slice(sharedStart, webStart).trim()
+  const hostSection =
+    config.projectType === "web"
+      ? canonical.slice(webStart, extensionStart).trim()
+      : canonical
+          .slice(extensionStart, deliveryStart)
+          .trim()
+          .replace(extensionMarker, "## 8. Extension 宿主规范")
+  const delivery = canonical
+    .slice(deliveryStart)
+    .trim()
+    .replace(deliveryMarker, "## 9. 交付检查")
+    .replace("## 11. 反模式", "## 10. 反模式")
+    .replace("## 12. 官方依据", "## 11. 官方依据")
+
+  return `# Mantine UI 设计规范
+
+本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的 Mantine UI 设计事实。项目身份与品牌色仍以 \`.harness/project.json\` 为唯一来源；工程和测试通则仍以 [\`ENGINEERING_RULES.md\`](ENGINEERING_RULES.md) 为准。
+
+当前项目声明 Mantine \`9.5.1\`，并以根级 \`MantineProvider\`、\`createTheme\` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须重新核对主题、Styles API 和响应式机制；未安装的 \`@mantine/form\`、\`@mantine/notifications\` 等扩展包不是现有能力。
+
+${shared}
+
+${hostSection}
+
+${delivery}
+`
+}
+
 function docsReadme(config: ProjectConfig): string {
   return `# 文档索引
 
@@ -223,8 +272,9 @@ function docsReadme(config: ProjectConfig): string {
 
 | 文档                                           | 何时读取                             |
 | ---------------------------------------------- | ------------------------------------ |
-| [\`AGENT_POLICY.md\`](AGENT_POLICY.md)           | 判断并行协作、里程碑冒烟与 E2E 偏好  |
+| [\`AGENT_POLICY.md\`](AGENT_POLICY.md)           | 判断任务路径、持久计划、并行、冒烟与 E2E 偏好 |
 | [\`ENGINEERING_RULES.md\`](ENGINEERING_RULES.md) | 修改代码、测试、文档或配置           |
+| [\`MANTINE_UI_GUIDELINES.md\`](MANTINE_UI_GUIDELINES.md) | 修改主题、页面、组件、布局、交互状态或 UI 无障碍 |
 | [\`DATA_ACCESS.md\`](DATA_ACCESS.md)             | 分页、HTTP/认证、数据访问、SSE 与 RxJS |
 | [\`RUNTIME_CONFIGURATION.md\`](RUNTIME_CONFIGURATION.md) | 修改环境或运行配置       |
 | [\`LOGGING.md\`](LOGGING.md)                     | 修改日志、错误边界或发布脱敏         |
@@ -237,11 +287,13 @@ function docsReadme(config: ProjectConfig): string {
 
 export function downstreamGovernanceFiles(
   config: ProjectConfig,
-  canonicalDataAccess: string
+  canonicalDataAccess: string,
+  canonicalMantineUiGuidelines: string
 ): Map<string, string> {
   return new Map([
     ["docs/README.md", docsReadme(config)],
     ["docs/ENGINEERING_RULES.md", engineeringRules(config)],
+    ["docs/MANTINE_UI_GUIDELINES.md", mantineUiGuidelines(config, canonicalMantineUiGuidelines)],
     ["docs/DATA_ACCESS.md", dataAccess(config, canonicalDataAccess)],
     ["docs/RUNTIME_CONFIGURATION.md", runtimeConfiguration(config)],
     ["docs/LOGGING.md", loggingRules(config)],

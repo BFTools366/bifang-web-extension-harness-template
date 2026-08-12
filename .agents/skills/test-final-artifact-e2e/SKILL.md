@@ -1,6 +1,6 @@
 ---
 name: test-final-artifact-e2e
-description: 在隔离的真实 Google Chrome 中对已构建的 Web dist 或 Plasmo Chrome MV3 候选执行端到端验收。仅由 $verify-delivery 在全部 Todo 完成且 Agent Policy 或产品/渠道硬要求启用 E2E 时调用；不得用于开发预览、规划、普通编码或单元测试替代。
+description: 按 $verify-delivery 已批准的执行契约，在隔离的真实 Google Chrome 中对精确 Web dist 或 Plasmo Chrome MV3 候选执行端到端场景并返回证据。不得自行决定策略、候选准入、Todo 回流或里程碑结论，也不得用于开发预览、规划、普通编码或单元测试替代。
 ---
 
 # 测试最终产物 E2E
@@ -9,10 +9,10 @@ description: 在隔离的真实 Google Chrome 中对已构建的 Web dist 或 Pl
 
 ## 准入
 
-1. 读取 `.harness/project.json.projectType`、已批准成功标准、活动 Work Plan、Agent Policy 和相关 Verification。
-2. 要求所有 Todo `done`，且 `$verify-delivery` 已进入里程碑验收；否则停止并报告 `Not run`。
-3. 要求 `milestone_e2e: enabled` 或存在明确 `required` 硬规则。`disabled` 时除非硬规则覆盖，只记录 `Not run`；缺失/非法时要求用户解决。
-4. 要求 Node.js、pnpm、真实 Google Chrome 和逻辑 Release 候选已由 `pnpm env:validate`、自动通过的 `pnpm release:inspect`、`.env.production` 构建证据及 SHA-256 精确定位。拒绝 development/test 构建、dev server、源码调用、mock、脚手架、历史产物和推测路径。
+1. 接收 `$verify-delivery` 的执行契约：精确候选路径与 SHA-256、`projectType`、Release profile、批准场景、预期、超时、外部授权边界和清理要求。不得重新解析 Agent Policy 或扩大场景。
+2. 防御性确认调用来自已进入候选验收的 `$verify-delivery`，候选字节仍与输入 hash 一致；不重新检查全部 Todo，也不另行决定候选是否准入。
+3. 任何登录、真实账号、生产数据、付费、商店上传、凭据或不可逆副作用必须已在执行契约中取得独立明确授权；没有授权就返回对应场景 `blocked`，不自行扩权。
+4. 要求 Node.js、pnpm、真实 Google Chrome 和逻辑 Release 候选已有 `pnpm env:validate`、自动通过的 `pnpm release:inspect` 与 `.env.production` 构建证据。拒绝 development/test 构建、dev server、源码调用、mock、脚手架、历史产物和推测路径。
 
 ## 场景设计
 
@@ -38,9 +38,9 @@ description: 在隔离的真实 Google Chrome 中对已构建的 Web dist 或 Pl
 
 1. 每步前后读取最新页面/扩展状态，记录候选哈希、提交、Release profile、Chrome/OS、步骤、预期/观察、截图或 trace、清理后的控制台摘要、关闭和清理。
 2. 结束时停止静态服务，关闭临时 Chrome，移除本次精确临时 profile/解压目录；不得删除用户目录或未知文件。
-3. 任何必需场景失败、超时、取消或未执行时，记录证据、拒绝里程碑、重开具体修复 Todo 并返回 `$implement-change`。修复后重跑完整场景集。
+3. 任何场景失败、超时、取消、阻断或未执行时返回精确场景、证据和建议修复范围，由 `$verify-delivery` 统一决定候选结论与 Todo 回流；本 Skill 不直接拒绝里程碑或修改计划。
 4. 未实际执行的浏览器、OS、入口和渠道标记 `Unverified`；不签署人工复核字段。
 
 ## 完成输出
 
-报告精确候选、策略来源、Chrome/OS、场景、证据、清理、通过/失败、重开的 Todo、未验证范围和剩余风险。
+报告精确候选与 hash、Chrome/OS、逐场景 `passed|failed|blocked|not-run`、证据、清理、未验证范围和剩余风险，不输出独立里程碑结论。

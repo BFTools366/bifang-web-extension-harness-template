@@ -23,7 +23,7 @@ async function main(): Promise<void> {
   ])
   if (parsed.positionals.length !== 1 || parsed.positionals[0] === undefined) {
     throw new Error(
-      "Usage: pnpm instantiate -- <empty-target> --type web|extension --name <name> --id <id> --description <description> --development-base-url <url> --test-base-url <url> --release-base-url <https-url>"
+      "Usage: pnpm instantiate -- <empty-target-outside-harness> --type web|extension --name <name> --id <id> --description <description> --development-base-url <url> --test-base-url <url> --release-base-url <https-url>"
     )
   }
 

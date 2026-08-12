@@ -173,6 +173,7 @@ import type { ProjectConfig, ProjectType } from "./types.ts"
 
 export const PROJECT_CONFIG_PATH = ".harness/project.json" as const
 export const MASTER_LOGO_PATH = ".harness/brand/logo-1024.png" as const
+export const HARNESS_ONLY_PATHS = ${JSON.stringify(HARNESS_ONLY_PATHS)} as const
 
 export function normalizeColor(value: string): string {
   const trimmed = value.trim()
@@ -243,6 +244,8 @@ ${stack}.
 
 The generated native Fetch and pagination foundations standardize request headers, authentication handoff, 401 handling, language persistence, and per-list session state without inventing a business endpoint. Optional Ky/OpenAPI, GraphQL, SSE, and RxJS integrations remain on demand; their rules live in \`docs/DATA_ACCESS.md\`.
 
+Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`.
+
 ## Identity and brand
 
 - \`.harness/project.json\` is the identity and brand source of truth.
@@ -262,9 +265,9 @@ ${routeCommand}- \`pnpm env:validate\` — validate all three runtime profiles.
 - \`pnpm harness brand refresh\` — regenerate brand assets from \`.harness/project.json\`.
 - \`pnpm harness validate\` — validate project identity, layout, and assets.
 
-## Delivery gate
+## Validation scopes
 
-Run \`pnpm harness validate && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build\` before delivery. Release building validates all three environment files and automatically runs the artifact inspection.
+For a small, reversible change, run the smallest sufficient affected checks. For a milestone, Release candidate, cross-cutting configuration/structure/build change, or when narrower evidence is insufficient, run \`pnpm harness validate && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build\`. Release building validates all three environment files and automatically runs the artifact inspection.
 `
 }
 
@@ -279,13 +282,13 @@ This repository is the terminal \`${config.projectType}\` project **${config.nam
 
 ## Minimum reading
 
-Before changing code, read this file, \`.harness/project.json\`, \`docs/AGENT_POLICY.md\`, \`docs/ENGINEERING_RULES.md\`, and the Skill selected for the task. Read \`docs/RUNTIME_CONFIGURATION.md\` for environment work, \`docs/LOGGING.md\` for logging/error handling, and \`docs/DATA_ACCESS.md\` for pagination, HTTP headers, authentication, REST/OpenAPI, GraphQL, SSE, multiple remote endpoints, multi-source event streams, or RxJS. Read only the additional facts needed.
+Always inspect the workspace and protect existing changes. Read this file and \`.harness/project.json\`; read \`docs/AGENT_POLICY.md\` when choosing paths, persistent planning, parallel work, smoke, or E2E. Read \`docs/ENGINEERING_RULES.md\` before modifying code, tests, docs, or configuration, plus the selected Skill. Read \`docs/MANTINE_UI_GUIDELINES.md\` for theme, page, Popup, Options, layout, component, interaction-state, responsive, or UI-accessibility work. Read \`docs/RUNTIME_CONFIGURATION.md\` for environment work, \`docs/LOGGING.md\` for logging/error handling, and \`docs/DATA_ACCESS.md\` for pagination, HTTP headers, authentication, REST/OpenAPI, GraphQL, SSE, multiple remote endpoints, multi-source event streams, or RxJS. Read only the additional facts needed.
 
 ## Three delivery paths
 
 1. Small, local, reversible changes: inspect the owning file, implement narrowly, and run the smallest sufficient affected checks.
-2. Standard feature or refactor work: use \`plan-change\` when the work is multi-step, then \`implement-change\` and complete the relevant static, test, and build gates; this path does not automatically invoke full artifact verification.
-3. Milestone, release, or infrastructure work: plan explicit boundaries, use isolated worktrees when appropriate, preserve evidence, and invoke \`verify-delivery\`; run full browser E2E only when policy or a product/channel requirement enables it.
+2. Reversible standard feature or refactor work: create a persistent plan only for cross-session work, handoff/recovery, significant step dependencies, or an explicit user request; otherwise use \`implement-change\` directly and complete the smallest sufficient affected checks. Ordinary UI or route changes do not become milestones merely because they are visible.
+3. Milestone work includes project-creation contracts, project-type capabilities, brand/identity derivation, Release, compatibility contracts, security/permissions, production side effects, and irreversible changes. Plan explicit boundaries, use isolated worktrees only when eligible, preserve evidence, and invoke \`verify-delivery\`; smoke and E2E run only when policy selects them or a product/channel requirement makes them mandatory.
 
 ## Sources of truth
 
@@ -296,6 +299,7 @@ Before changing code, read this file, \`.harness/project.json\`, \`docs/AGENT_PO
 ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state and empty-page reconciliation contract.
 - \`src/api/client/\`: the endpoint-free native Fetch, request-context, language, token, error, and unauthorized-handler foundation.
 - \`docs/DATA_ACCESS.md\`: pagination, request headers, authentication, data access, SSE, optional RxJS, and state ownership boundaries.
+- \`docs/MANTINE_UI_GUIDELINES.md\`: Mantine theme, tokens, layout, component semantics, interaction states, responsive behavior, accessibility, and current-host UI rules.
 - \`docs/RUNTIME_CONFIGURATION.md\`: the three profiles, public configuration schema, and build mapping.
 - \`docs/LOGGING.md\`: structured logging, error boundaries, redaction, and Release inspection.
 - \`docs/\`: durable policy, engineering, release, and debt records.
@@ -306,7 +310,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`check-development-environment\`: verify the local toolchain.
 - \`define-product\`: clarify product scope and acceptance criteria.
 - \`extract-i18n-strings\`: maintain complete localized UI text.
-- \`plan-change\`: prepare non-trivial implementation plans.
+- \`plan-change\`: prepare persistent plans when coordination or recovery needs them.
 - \`implement-change\`: execute an approved change with tests.
 - \`refactor-code\`: preserve behavior during structural cleanup.
 - \`prepare-brand-identity\`: refresh identity and brand assets.
@@ -318,7 +322,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 
 ## Validation loop
 
-Use \`pnpm harness brand refresh\` after intentional identity changes. Before delivery run \`pnpm harness validate\`, \`pnpm format:check\`, \`pnpm lint\`, \`pnpm typecheck\`, \`pnpm test\`, and \`pnpm build\`; Release build includes environment validation${
+Use \`pnpm harness brand refresh\` after intentional identity changes. For daily work, run the smallest sufficient affected format, lint, type, and non-empty test checks. Run \`pnpm harness validate\`, \`pnpm format:check\`, \`pnpm lint\`, \`pnpm typecheck\`, \`pnpm test\`, and \`pnpm build\` for milestones, Release candidates, cross-cutting configuration/structure/build changes, explicit requests, or when narrower evidence is insufficient. Release build includes environment validation${
     config.projectType === "extension" ? ", browser-bundle self-containment validation," : ""
   } and \`pnpm release:inspect\`. Report any skipped or blocked check explicitly; do not claim success from partial evidence.
 `
@@ -366,7 +370,10 @@ export async function prepareDownstreamFinalization(
   root: string,
   config: ProjectConfig
 ): Promise<DownstreamFinalizationPlan> {
-  const canonicalDataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
+  const [canonicalDataAccess, canonicalMantineUiGuidelines] = await Promise.all([
+    readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8"),
+    readFile(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"), "utf8")
+  ])
   const files = new Map<string, string>([
     [".harness/tooling/cli.ts", TERMINAL_CLI],
     [".harness/tooling/brand.ts", TERMINAL_BRAND],
@@ -375,7 +382,11 @@ export async function prepareDownstreamFinalization(
     ["README.md", downstreamReadme(config)],
     ["AGENTS.md", downstreamAgents(config)]
   ])
-  for (const [relativePath, contents] of downstreamGovernanceFiles(config, canonicalDataAccess)) {
+  for (const [relativePath, contents] of downstreamGovernanceFiles(
+    config,
+    canonicalDataAccess,
+    canonicalMantineUiGuidelines
+  )) {
     files.set(relativePath, contents)
   }
   for (const [relativePath, contents] of await prepareLicenseFiles(root, config)) {

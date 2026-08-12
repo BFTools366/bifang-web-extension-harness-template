@@ -5,8 +5,8 @@ import { PROJECT_TYPES, type InitOptions, type ProjectConfig, type ProjectType }
 export const PROJECT_CONFIG_PATH = ".harness/project.json" as const
 export const MASTER_LOGO_PATH = ".harness/brand/logo-1024.png" as const
 
-// Generator-only paths that finalizeDownstream removes and validateProject must
-// confirm stay absent from every terminal project. Single source of truth for both.
+// Source-only and legacy project-creation paths that finalizeDownstream removes and
+// validateProject must keep absent from every terminal project. Single source of truth for both.
 export const HARNESS_ONLY_PATHS = [
   ".agents/skills/initialize-web-project",
   ".agents/skills/instantiate-project",

@@ -1,12 +1,12 @@
 # Harness Engineering
 
-本文档解释 Bifang Web Harness Template 的工程方法。它是方法论入口，不复制具体技术、配置、日志、测试或发布细则；这些事实分别由 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、[`DATA_ACCESS.md`](DATA_ACCESS.md)、[`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 与 [`RELEASE.md`](RELEASE.md) 维护。
+本文档解释 Bifang Web Harness Template 的工程方法。它是方法论入口，不复制具体技术、配置、UI、日志、测试或发布细则；这些事实分别由 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)、[`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、[`DATA_ACCESS.md`](DATA_ACCESS.md)、[`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 与 [`RELEASE.md`](RELEASE.md) 维护。
 
 ## 1. 目标
 
 Harness 的价值不是生成最多文件，而是用少量稳定事实把 Agent、用户和工具约束到同一条可验证路径：
 
-- 用户在初始化开始时显式选择一个项目类型；
+- 用户从源 Harness 通过唯一公开入口在源外目标创建项目，并显式选择一个项目类型；
 - 生成器只创建该宿主所需的单包工程；
 - 项目身份与品牌从单一事实源派生；
 - 日常工作按风险选择快速、标准或里程碑闭环；
@@ -19,7 +19,7 @@ Web 与 Extension 虽然都使用 React/TypeScript 和相近 UI/状态技术，�
 因此本 Harness 采用终端单选：
 
 ```text
-Harness
+源 Harness：pnpm instantiate -- <absolute-target-outside-harness> ...
 ├── --type web       → 独立 React + Vite 单包仓库
 └── --type extension → 独立 Plasmo + Chrome MV3 单包仓库
 ```
@@ -30,25 +30,28 @@ Harness
 
 ### 3.1 实例化
 
-1. 确认目标目录、项目名称、稳定标识与描述。
+1. 在源 Harness 根确认源外绝对目标目录、项目名称、稳定标识与描述；不复制模板后原地初始化。
 2. 非交互调用显式提供 `--type web` 或 `--type extension`；交互调用在第一步无默认值地提示用户二选一。
 3. 接收用户 Logo/品牌色，或根据项目身份确定性生成。
 4. 收集 development、test、release 三个 BaseURL，不为 Release endpoint 猜测默认值。
-5. 只渲染一个模板，写入 `.harness/project.json.projectType`、Logo 母版、三份受管环境、类型化 `APP_CONFIG` 与统一 logger。
-6. 同步当前宿主的 HTML/manifest、页面与品牌资产。
-7. 执行结构、三环境、解析、测试和三种 profile 构建检查；Release 构建自动运行 `pnpm release:inspect`，失败时不留下伪完成状态。
-8. 删除只服务模板派生的 init/instantiate 命令与 Skills，使输出成为不能继续派生项目的终端仓库。
+5. `pnpm instantiate` 在目标同级 sibling staging 中复制模板，并把底层 initializer 作为内部步骤调用；源 Harness 根、子路径与模板副本自身都不能成为初始化位置。
+6. 只渲染一个模板，写入 `.harness/project.json.projectType`、Logo 母版、三份受管环境、类型化 `APP_CONFIG` 与统一 logger。
+7. 同步当前宿主的 HTML/manifest、页面与品牌资产。
+8. 执行结构、三环境、解析、测试和三种 profile 构建检查；Release 构建自动运行 `pnpm release:inspect`，失败时不发布 staging 内容。
+9. 原子发布目标，并删除只服务模板派生的 script、Skill 与内部 init/instantiate tooling，使输出成为不能继续派生项目的终端仓库。
+
+源 Harness 不提供 `pnpm harness:init`；`pnpm harness init` 只负责明确拒绝原地初始化并引导到 `pnpm instantiate`，不是第二创建路径。
 
 ### 3.2 日常开发
 
 - 快速路径保持小改动短闭环。
-- 标准路径为多步骤工作保留精简 Todo 和交接上下文。
-- 里程碑路径覆盖初始化契约、权限、安全、类型能力和最终候选。
+- 标准路径只在跨会话、需要交接/失败恢复、步骤依赖明显或用户要求时保留持久 Todo；其他可逆多步骤工作直接实施并运行受影响检查。
+- 里程碑路径覆盖初始化器/项目创建契约、类型能力、品牌/身份、安全/权限、兼容性、不可逆或生产副作用和最终候选；新下游实例化使用 `$instantiate-project` 自带的完整门禁，不重复制造通用 Work Plan。
 - 每轮只读取任务相关事实，不用所有文档和 Skills 填满上下文。
 
 ### 3.3 验收与发布
 
-先完成实现 Todo，再固定真实候选，最后按当前 `projectType` 使用逻辑 Release 配置运行最终构建，并保留自动 `pnpm release:inspect` 与适用浏览器验证证据。开发预览、Mock、测试替身和占位页面可帮助实现，但不能替代发布结论。外部上传和发布始终需要独立授权。
+先完成必需 Todo，再固定真实候选，最后按当前 `projectType` 使用逻辑 Release 配置运行最终构建，并保留自动 `pnpm release:inspect` 证据。真实浏览器验证按 Agent Policy 和产品/渠道硬要求选择；一旦选中就必须针对精确候选完成。开发预览、Mock、测试替身和占位页面可帮助实现，但不能替代发布结论。外部上传和发布始终需要独立授权。
 
 ## 4. 品牌收敛
 
@@ -77,11 +80,12 @@ Extension: assets/icon.png + manifest + Popup/Options
 ## 6. 阅读路由
 
 - 要初始化或维护模板：读 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)。
+- 要设计或修改 Mantine 主题、页面、组件、布局与交互状态：读 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)。
 - 要初始化、读取或验证 BaseURL 与构建 profile：读 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 - 要设计日志、Release 脱敏或产物扫描：读 [`LOGGING.md`](LOGGING.md)。
 - 要选择 REST/OpenAPI、GraphQL、SSE 或可选 RxJS 事件流：读 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - 要修改代码、测试或文档：读 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)。
-- 要决定并行、冒烟或 E2E：读 [`AGENT_POLICY.md`](AGENT_POLICY.md)。
+- 要决定任务路径、持久计划、并行、冒烟或 E2E：读 [`AGENT_POLICY.md`](AGENT_POLICY.md)。
 - 要准备候选或发布：读 [`RELEASE.md`](RELEASE.md)。
 - 发现范围外问题：写 [`TECH_DEBT.md`](TECH_DEBT.md)。
 

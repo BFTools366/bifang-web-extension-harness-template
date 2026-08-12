@@ -408,6 +408,7 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       "docs/README.md",
       "docs/DATA_ACCESS.md",
       "docs/ENGINEERING_RULES.md",
+      "docs/MANTINE_UI_GUIDELINES.md",
       "docs/LOGGING.md",
       "docs/RELEASE.md",
       "docs/RUNTIME_CONFIGURATION.md",

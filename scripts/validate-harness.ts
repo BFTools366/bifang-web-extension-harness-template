@@ -9,7 +9,6 @@ const EXPECTED_SKILLS = [
   "define-product",
   "extract-i18n-strings",
   "implement-change",
-  "initialize-web-project",
   "instantiate-project",
   "plan-change",
   "prepare-brand-identity",
@@ -33,6 +32,7 @@ const REQUIRED_FILES = [
   "docs/ENGINEERING_RULES.md",
   "docs/HARNESS_ENGINEERING.md",
   "docs/LOGGING.md",
+  "docs/MANTINE_UI_GUIDELINES.md",
   "docs/RELEASE.md",
   "docs/RUNTIME_CONFIGURATION.md",
   "docs/TECH_DEBT.md",
@@ -90,9 +90,41 @@ function parseFrontmatter(contents: string): Record<string, string> | undefined 
   const result: Record<string, string> = {}
   for (const line of contents.slice(4, end).split("\n")) {
     const separator = line.indexOf(":")
-    if (separator > 0) result[line.slice(0, separator).trim()] = line.slice(separator + 1).trim()
+    if (separator <= 0) return undefined
+    const key = line.slice(0, separator).trim()
+    if (key in result) return undefined
+    result[key] = line.slice(separator + 1).trim()
   }
   return result
+}
+
+const AGENT_POLICY_FIELDS = {
+  schema_version: ["2"],
+  decision_mode: ["reuse_then_infer_then_ask"],
+  standard_work_plan: ["required", "optional"],
+  parallel_worktree_subagents: ["enabled", "disabled"],
+  milestone_smoke: ["enabled", "optional", "disabled"],
+  milestone_e2e: ["enabled", "optional", "disabled"]
+} as const
+
+async function validateAgentPolicy(root: string, errors: string[]): Promise<void> {
+  const relativePath = "docs/AGENT_POLICY.md"
+  const frontmatter = parseFrontmatter(await readFile(path.join(root, relativePath), "utf8"))
+  if (frontmatter === undefined) {
+    errors.push(`${relativePath} has invalid or duplicate frontmatter fields`)
+    return
+  }
+
+  for (const [key, allowed] of Object.entries(AGENT_POLICY_FIELDS)) {
+    const value = frontmatter[key]
+    if (value === undefined) errors.push(`${relativePath} is missing ${key}`)
+    else if (!(allowed as readonly string[]).includes(value)) {
+      errors.push(`${relativePath} has invalid ${key}: ${value}`)
+    }
+  }
+  for (const key of Object.keys(frontmatter)) {
+    if (!(key in AGENT_POLICY_FIELDS)) errors.push(`${relativePath} has unknown field: ${key}`)
+  }
 }
 
 async function validateSkills(root: string, errors: string[]): Promise<string[]> {
@@ -221,9 +253,7 @@ const FORBIDDEN_TEMPLATE_PATHS = [
   ".env.test",
   ".env.test.local",
   ".env.production",
-  ".env.production.local",
-  "Cargo.toml",
-  "src-tauri"
+  ".env.production.local"
 ] as const
 
 async function validateToolingContract(root: string, errors: string[]): Promise<void> {
@@ -244,9 +274,18 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
   if ("workspaces" in manifest) errors.push("Template package.json must not define workspaces")
   assertPackageManagerPins(manifest, errors)
   const scripts = manifest.scripts as Record<string, unknown> | undefined
-  for (const script of ["harness", "harness:init", "instantiate", "validate:harness"]) {
+  for (const script of ["harness", "instantiate", "validate:harness"]) {
     if (typeof scripts?.[script] !== "string")
       errors.push(`package.json is missing script ${script}`)
+  }
+  if (scripts?.["harness:init"] !== undefined) {
+    errors.push("Source Harness must not expose the in-place harness:init script")
+  }
+  if (scripts?.harness !== "tsx .harness/tooling/cli.ts") {
+    errors.push("Source Harness script harness must use the governed CLI")
+  }
+  if (scripts?.instantiate !== "tsx scripts/instantiate.ts") {
+    errors.push("Source Harness script instantiate must use the governed downstream creator")
   }
   const devDependencies = manifest.devDependencies as Record<string, unknown> | undefined
   for (const [dependency, version] of [
@@ -259,8 +298,32 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
     }
   }
   const cli = await readFile(path.join(root, ".harness/tooling/cli.ts"), "utf8")
-  for (const contract of ["brand", "refresh", "validate", "--type"]) {
+  for (const contract of [
+    "brand",
+    "refresh",
+    "validate",
+    "pnpm instantiate",
+    'if (command === "init") return rejectInPlaceInitialization()'
+  ]) {
     if (!cli.includes(contract)) errors.push(`Harness CLI is missing ${contract} contract`)
+  }
+  if (cli.includes("initializeProject")) {
+    errors.push("Harness CLI must not dispatch directly to initializeProject")
+  }
+  const initializer = await readFile(path.join(root, ".harness/tooling/init.ts"), "utf8")
+  for (const contract of [
+    "SOURCE_HARNESS_ROOT",
+    "assertDownstreamInitializationRoot",
+    "rejectInPlaceInitialization",
+    "await assertDownstreamInitializationRoot(root)"
+  ]) {
+    if (!initializer.includes(contract)) {
+      errors.push(`Harness initializer is missing ${contract} downstream-only gate`)
+    }
+  }
+  const finalizer = await readFile(path.join(root, ".harness/tooling/finalize.ts"), "utf8")
+  if (!finalizer.includes("JSON.stringify(HARNESS_ONLY_PATHS)")) {
+    errors.push("Downstream config must retain the source-only path tombstones for validation")
   }
 }
 
@@ -270,6 +333,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   const files = await collectFiles(root)
   const markdownFiles = governedMarkdownFiles(files)
   const skills = await validateSkills(root, errors)
+  await validateAgentPolicy(root, errors)
   await validateContent(root, markdownFiles, errors)
   const markdownLinks = await validateMarkdownLinks(root, markdownFiles, errors)
   await validateToolingContract(root, errors)

@@ -4,8 +4,9 @@
 
 | 文档                                                   | 何时读取                                         |
 | ------------------------------------------------------ | ------------------------------------------------ |
-| [`AGENT_POLICY.md`](AGENT_POLICY.md)                   | 判断并行协作、里程碑冒烟与 E2E 偏好              |
+| [`AGENT_POLICY.md`](AGENT_POLICY.md)                   | 判断任务路径、持久计划、并行、冒烟与 E2E 偏好    |
 | [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)         | 修改代码、测试、文档或配置                       |
+| [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) | 修改主题、页面、组件、布局、交互状态或 UI 无障碍 |
 | [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)             | 初始化、维护 Web 或 Extension 模板与品牌派生     |
 | [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) | 初始化、读取或验证 development/test/release 配置 |
 | [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物        |

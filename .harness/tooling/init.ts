@@ -1,4 +1,6 @@
+import { realpath } from "node:fs/promises"
 import path from "node:path"
+import { fileURLToPath } from "node:url"
 import { createProjectConfig, PROJECT_CONFIG_PATH, MASTER_LOGO_PATH } from "./config.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import {
@@ -21,6 +23,27 @@ import { validateProject } from "./validate.ts"
 
 const FORBIDDEN_LAYOUT_PATHS = ["pnpm-workspace.yaml", "apps", "packages"] as const
 const PLASMO_TYPE_PATH = ".plasmo/index.d.ts"
+const SOURCE_HARNESS_ROOT = fileURLToPath(new URL("../../", import.meta.url))
+
+export const DOWNSTREAM_ONLY_INITIALIZATION_ERROR =
+  "Refusing to initialize inside the source Harness. No files were changed. Create a downstream project outside this repository with `pnpm instantiate -- <absolute-target> ...`."
+
+function isSameOrNestedPath(parent: string, candidate: string): boolean {
+  const relative = path.relative(parent, candidate)
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+}
+
+export function rejectInPlaceInitialization(): never {
+  throw new Error(DOWNSTREAM_ONLY_INITIALIZATION_ERROR)
+}
+
+async function assertDownstreamInitializationRoot(root: string): Promise<void> {
+  const [sourceRoot, candidateRoot] = await Promise.all([
+    realpath(SOURCE_HARNESS_ROOT),
+    realpath(root)
+  ])
+  if (isSameOrNestedPath(sourceRoot, candidateRoot)) rejectInPlaceInitialization()
+}
 
 async function assertSinglePackageRoot(root: string): Promise<void> {
   const exists = await Promise.all(
@@ -95,6 +118,7 @@ async function runPostInitialization(options: InitOptions): Promise<void> {
 
 export async function initializeProject(options: InitOptions): Promise<ProjectConfig> {
   const root = path.resolve(options.root)
+  await assertDownstreamInitializationRoot(root)
   const resolvedOptions = { ...options, ...validateBaseUrls(options), root }
   const config = createProjectConfig(resolvedOptions)
   await assertSinglePackageRoot(root)

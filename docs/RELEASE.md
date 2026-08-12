@@ -16,7 +16,7 @@
 
 普通局部开发可走快速或标准路径。以下工作必须进入里程碑路径：
 
-- Harness 初始化命令、`projectType` 枚举或模板输出契约变化；
+- Harness 项目创建命令、内部初始化门禁、`projectType` 枚举或模板输出契约变化；
 - Logo 生成、身份/manifest 同步或 Extension 权限变化；
 - 新增或移除 Harness 支持的独立项目类型；
 - 创建发布候选、对外上传、Chrome Web Store 提交或用户明确要求完整验收。
@@ -30,9 +30,10 @@ Harness 候选至少满足：
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次普通安装产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过；Harness 根没有应用 `build` 门禁；
-- 在两个全新隔离目录分别以三份显式 BaseURL 执行 `--type web` 和 `--type extension` 非交互初始化，并验证交互式选择没有默认类型且会逐项询问三个 BaseURL；两种输出均为单 package，且只包含一个 `projectType`；
-- 成功下游不再包含 `instantiate`、`harness:init` 或对应模板派生 Skills，不能继续从自身生成项目；
-- `both`、类型/BaseURL 缺失、类型列表、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标和路径越界等预检失败保持目标零写入；独立 `instantiate` 只在 sibling staging 全部成功后原子发布，安装、检查或构建失败保持目标不存在或为空；原地 `harness:init` 写入后失败会明确报错但不承诺自动回滚；
+- 源 Harness 只公开 `pnpm instantiate -- <absolute-target-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
+- 在源 Harness 之外的两个全新隔离目标分别以三份显式 BaseURL 执行 `--type web` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型且会逐项询问三个 BaseURL；两种输出均为单 package，且只包含一个 `projectType`；
+- 成功下游不再包含 `instantiate`、`harness:init`、源专用创建 Skill、内部 init/instantiate tooling 或其他项目派生入口，不能继续从自身生成项目；
+- `both`、类型/BaseURL 缺失、类型列表、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标、源 Harness 根/子路径和路径越界等预检失败保持目标零写入；`instantiate` 只在目标同级 sibling staging 中调用内部 initializer，并在全部生成、安装和检查成功后原子发布，任何失败都保持目标不存在或为空；
 - Web 结果的 `public/logo.png`、`public/favicon.png`、根 `index.html` 与 Landing 身份一致；
 - Extension 结果的 `assets/icon.png`、manifest 身份、Popup 与 Options 一致，Plasmo 能从来源图标生成构建所需尺寸；`targets.default` 明确使用 browser context 与 `includeNodeModules: true`；
 - 两种生成项目都包含 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
@@ -74,7 +75,7 @@ Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露
 2. 固定源码提交与依赖锁，执行三环境校验、当前项目类型的 lint、类型、非空测试和逻辑 Release 构建。
 3. 检查身份、Logo 母版、当前宿主品牌派生、manifest/HTML、配置与权限边界。
 4. 确认生成候选的 `build:release` 或 Extension `package` 已自动通过 `pnpm release:inspect`；需要独立复核既有目录时直接重跑该命令。任何命中先修复并生成新候选。
-5. 根据 [`AGENT_POLICY.md`](AGENT_POLICY.md)、产品与渠道硬要求，对最终构建执行适用冒烟/E2E；`milestone_e2e: disabled` 只关闭默认可选 E2E，不能跳过环境、测试、构建、扫描或渠道硬门禁。
+5. 根据 [`AGENT_POLICY.md`](AGENT_POLICY.md)、产品与渠道硬要求决定最终构建的冒烟/E2E：`milestone_smoke: optional` 按剩余运行时风险与证据价值选择，`milestone_e2e: disabled` 默认跳过 E2E；两者都不能覆盖环境、测试、构建、扫描或渠道硬门禁，一旦选为必需检查就必须完成。
 6. 记录实际环境、命令、结果、未执行项和剩余风险；需要人工复核时由真实复核人签署，Agent 不得代签。
 7. 只有全部必需门禁通过后才能准备标签或发布元数据；push、上传或正式发布仍需独立授权。
 

@@ -40,7 +40,79 @@ afterEach(async () => {
 describe("Harness template validator", () => {
   test("accepts the complete clean template contract", async () => {
     const report = await validateHarness(repositoryRoot)
-    expect(report.skills).toHaveLength(14)
+    expect(report.skills).toHaveLength(13)
+    const verifyDelivery = await readFile(
+      path.join(repositoryRoot, ".agents/skills/verify-delivery/SKILL.md"),
+      "utf8"
+    )
+    const verifyDeliveryMetadata = await readFile(
+      path.join(repositoryRoot, ".agents/skills/verify-delivery/agents/openai.yaml"),
+      "utf8"
+    )
+    expect(verifyDelivery).toContain("# 验证前端项目交付")
+    expect(verifyDelivery).toContain("Extension 候选无论运行时验收使用构建目录还是 zip")
+    expect(verifyDelivery).toContain("都必须另运行 `pnpm package`")
+    expect(verifyDeliveryMetadata).toContain('display_name: "验证前端项目交付"')
+  })
+
+  test("rejects missing, unknown, or invalid Agent Policy fields", async () => {
+    const missingRoot = await copyRepository()
+    const missingPath = path.join(missingRoot, "docs/AGENT_POLICY.md")
+    const missingPolicy = await readFile(missingPath, "utf8")
+    await writeFile(missingPath, missingPolicy.replace("standard_work_plan: optional\n", ""))
+    await expect(validateHarness(missingRoot)).rejects.toThrow(/is missing standard_work_plan/)
+
+    const invalidRoot = await copyRepository()
+    const invalidPath = path.join(invalidRoot, "docs/AGENT_POLICY.md")
+    const invalidPolicy = await readFile(invalidPath, "utf8")
+    await writeFile(
+      invalidPath,
+      invalidPolicy.replace("milestone_smoke: optional", "milestone_smoke: automatic")
+    )
+    await expect(validateHarness(invalidRoot)).rejects.toThrow(/invalid milestone_smoke/)
+
+    const unknownRoot = await copyRepository()
+    const unknownPath = path.join(unknownRoot, "docs/AGENT_POLICY.md")
+    const unknownPolicy = await readFile(unknownPath, "utf8")
+    await writeFile(
+      unknownPath,
+      unknownPolicy.replace("decision_mode:", "extra_switch: enabled\ndecision_mode:")
+    )
+    await expect(validateHarness(unknownRoot)).rejects.toThrow(/unknown field: extra_switch/)
+  })
+
+  test("rejects restored in-place creation entry points and removed deep gates", async () => {
+    const scriptRoot = await copyRepository()
+    await updateManifest(scriptRoot, (manifest) => {
+      const scripts = manifest.scripts as Record<string, string>
+      scripts["harness:init"] = "tsx .harness/tooling/cli.ts init"
+    })
+    await expect(validateHarness(scriptRoot)).rejects.toThrow(
+      /must not expose the in-place harness:init script/
+    )
+
+    const cliRoot = await copyRepository()
+    const cliPath = path.join(cliRoot, ".harness/tooling/cli.ts")
+    const cli = await readFile(cliPath, "utf8")
+    await writeFile(
+      cliPath,
+      cli.replace(
+        'if (command === "init") return rejectInPlaceInitialization()',
+        'if (command === "init") return'
+      )
+    )
+    await expect(validateHarness(cliRoot)).rejects.toThrow(/Harness CLI is missing/)
+
+    const initializerRoot = await copyRepository()
+    const initializerPath = path.join(initializerRoot, ".harness/tooling/init.ts")
+    const initializer = await readFile(initializerPath, "utf8")
+    await writeFile(
+      initializerPath,
+      initializer.replace("await assertDownstreamInitializationRoot(root)", "void root")
+    )
+    await expect(validateHarness(initializerRoot)).rejects.toThrow(
+      /Harness initializer is missing await assertDownstreamInitializationRoot\(root\)/
+    )
   })
 
   test("rejects a template missing the canonical data-access knowledge", async () => {
@@ -49,6 +121,15 @@ describe("Harness template validator", () => {
 
     await expect(validateHarness(targetRoot)).rejects.toThrow(
       /Missing required file: docs\/DATA_ACCESS\.md/
+    )
+  })
+
+  test("rejects a template missing the canonical Mantine UI guidelines", async () => {
+    const targetRoot = await copyRepository()
+    await rm(path.join(targetRoot, "docs/MANTINE_UI_GUIDELINES.md"))
+
+    await expect(validateHarness(targetRoot)).rejects.toThrow(
+      /Missing required file: docs\/MANTINE_UI_GUIDELINES\.md/
     )
   })
 

@@ -18,7 +18,6 @@
   },
   "scripts": {
     "harness": "tsx .harness/tooling/cli.ts",
-    "harness:init": "tsx .harness/tooling/cli.ts init",
     "instantiate": "tsx scripts/instantiate.ts",
     "validate:harness": "tsx scripts/validate-harness.ts",
     "test": "vitest run",

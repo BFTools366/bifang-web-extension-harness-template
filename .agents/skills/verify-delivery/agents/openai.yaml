@@ -1,4 +1,4 @@
 interface:
-  display_name: "验收交付"
-  short_description: "Verify Harness output or the current artifact"
-  default_prompt: "Use $verify-delivery to accept or reject the current Harness milestone or real release artifact."
+  display_name: "验证前端项目交付"
+  short_description: "验收 Harness、Web dist 或 Chrome MV3 候选"
+  default_prompt: "使用 $verify-delivery 验收当前前端 Harness 里程碑或 Web/Chrome MV3 Release 候选。"

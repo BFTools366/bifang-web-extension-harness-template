@@ -4,6 +4,8 @@
 
 ## 1. 不变量
 
+- 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-target-outside-harness> ...`；目标必须位于源 Harness 之外。
+- 源 Harness 不提供 `pnpm harness:init` script；`pnpm harness init` 明确拒绝原地初始化。底层 initializer 只作为 `instantiate` 在目标同级 sibling staging 中调用的内部步骤。
 - 非交互 CLI 必须传入 `--type web` 或 `--type extension`；交互式 TTY 必须提示用户选择且不得提供默认类型。
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
 - 不支持 `both`，不提供默认类型，也不提供下游 target add/remove。
@@ -12,9 +14,9 @@
 - 已生成项目不原地切换类型。需要另一宿主时，在另一个目录初始化新的独立仓库。
 - 初始化同时建立 development、test、release 三个逻辑环境；逻辑 `release` 固定映射到 `.env.production`，不生成 `.env.release`。
 
-## 2. 初始化契约
+## 2. 创建与内部初始化契约
 
-从 Harness 源创建推荐的独立目录：
+从源 Harness 根创建独立 Web 目录：
 
 ```bash
 pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --id example-web \
@@ -24,32 +26,24 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --release-base-url "https://api.example.com"
 ```
 
-目标必须位于 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。以下 `harness:init` 命令用于原地初始化已有模板副本。
-
-Web：
+从同一个源 Harness 根创建独立 Extension 目录：
 
 ```bash
-pnpm harness:init -- --type web --name "示例 Web" --id example-web \
-  --description "示例 React Web 页面" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
-```
-
-Extension：
-
-```bash
-pnpm harness:init -- --type extension --name "示例扩展" --id example-extension \
+pnpm instantiate -- /absolute/path/example-extension --type extension \
+  --name "示例扩展" --id example-extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
   --release-base-url "https://api.example.com"
 ```
 
+目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
+
 可选品牌输入：
 
 ```bash
-pnpm harness:init -- --type web --name "示例 Web" --id example-web \
+pnpm instantiate -- /absolute/path/example-web --type web \
+  --name "示例 Web" --id example-web \
   --description "示例页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
@@ -64,7 +58,7 @@ pnpm harness:init -- --type web --name "示例 Web" --id example-web \
 - `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
 
-参数的精确必填性、错误格式与帮助文本以初始化器真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 staging 完成复制、生成、安装和验证，成功后才原子发布目标；失败时原先不存在的目标仍不存在，预存空目录仍为空。原地 `pnpm harness:init` 会在首次写入前完成可确定预检，但写入后的 I/O、安装或构建失败不承诺事务回滚。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
+参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目，再完成安装和验证；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
 生成器在当前类型 manifest 写入后执行普通 `pnpm install`，首次解析并固定 `pnpm-lock.yaml`。`--skip-install` 仅供受控测试或自动化延后安装；后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。
 
@@ -131,22 +125,28 @@ Extension 初始化必须同步：
 - 401 只在当前请求使用的 Token 仍为当前 revision 时清理它与同一会话的 continuation，并通过 single-flight `UnauthorizedHandler` 调用真实宿主 adapter。同一失效周期只调用一次；Web 只有存在真实登录 route 后才注入 `router.navigate`，Extension 不使用 Router，也不虚构 background、登录页或跨 Popup/Options 共享会话。
 - 基线不安装 Ky/Axios。真实 Ky/openapi-fetch adapter、CORS、Cookie、跨域 endpoint 与 Extension 跨上下文认证仍按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 单独落地；配置 BaseURL 不自动新增 `permissions` 或 `host_permissions`。
 
+### 3.7 Mantine UI 规范基线
+
+两种项目都必须生成 `docs/MANTINE_UI_GUIDELINES.md`，由源 Harness 的同名唯一事实源按当前 `projectType` 派生：共同 theme、令牌、组件语义、状态、响应式、无障碍与 i18n 规则保留，只携带 Web 或 Extension 当前宿主章节，不把另一宿主的布局约定写入终端项目。生成的 `AGENTS.md`、`docs/README.md` 与 `docs/ENGINEERING_RULES.md` 必须为 UI 任务提供读取入口，`pnpm harness validate` 必须拒绝规范缺失。
+
+该规范不要求初始化器预装 `@mantine/form`、`@mantine/notifications` 等可选包，也不把最小 Landing、Popup 或 Options 宣称为完整业务设计系统。真实 UI 开始实施时以 Mantine theme 和当前包内受控样式落实规范，不建立第二套基础组件库或跨宿主源码共享层。
+
 ## 4. Web 技术基线
 
-| 能力        | 选型                                           | 边界                                    |
-| ----------- | ---------------------------------------------- | --------------------------------------- |
-| 构建与开发  | Vite                                           | 只服务当前 Web 单包                     |
-| UI          | React + TypeScript + Mantine                   | Mantine theme 承载品牌令牌              |
-| 路由        | TanStack Router 文件路由                       | Vite plugin 生成路由树并自动 route 拆包 |
-| 异步数据    | TanStack Query                                 | 负责远端数据、缓存、重试和失效          |
-| HTTP 与分页 | 原生 Fetch + 统一分页基础                      | 生成 client/测试但不生成业务 endpoint   |
-| 实时数据    | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                 |
-| 事件流编排  | RxJS（按需）                                   | 只有真实多来源或复杂时序需求时安装      |
-| 客户端状态  | Jotai                                          | 只保存需要跨组件共享的客户端状态        |
-| 国际化      | i18next                                        | 用户可见文案使用翻译键                  |
-| 运行时配置  | 类型化 `APP_CONFIG`                            | `VITE_` 三环境公开配置，不承载秘密      |
-| 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物        |
-| 测试        | Vitest + Testing Library                       | 测用户可观察行为；里程碑可加 Playwright |
+| 能力        | 选型                                           | 边界                                                                             |
+| ----------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| 构建与开发  | Vite                                           | 只服务当前 Web 单包                                                              |
+| UI          | React + TypeScript + Mantine                   | theme 与 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) 承载统一视觉语言 |
+| 路由        | TanStack Router 文件路由                       | Vite plugin 生成路由树并自动 route 拆包                                          |
+| 异步数据    | TanStack Query                                 | 负责远端数据、缓存、重试和失效                                                   |
+| HTTP 与分页 | 原生 Fetch + 统一分页基础                      | 生成 client/测试但不生成业务 endpoint                                            |
+| 实时数据    | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                                                          |
+| 事件流编排  | RxJS（按需）                                   | 只有真实多来源或复杂时序需求时安装                                               |
+| 客户端状态  | Jotai                                          | 只保存需要跨组件共享的客户端状态                                                 |
+| 国际化      | i18next                                        | 用户可见文案使用翻译键                                                           |
+| 运行时配置  | 类型化 `APP_CONFIG`                            | `VITE_` 三环境公开配置，不承载秘密                                               |
+| 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                 |
+| 测试        | Vitest + Testing Library                       | 测用户可观察行为；里程碑可加 Playwright                                          |
 
 Web 输出是普通浏览器页面，不携带 Chrome Extension 权限、manifest、Popup 或 Options。需要浏览器特有能力时，应先判断产品是否应该作为新的独立 Extension 项目初始化。生成的分页/原生 Fetch 基础与未来 REST/OpenAPI、GraphQL、SSE、可选 RxJS 的认证、CORS、缓存和状态所有权边界以 [`DATA_ACCESS.md`](DATA_ACCESS.md) 为准；模板没有真实登录 route 时不得宣称 401 已能跳转。
 
@@ -198,19 +198,19 @@ src/
 
 ## 5. Extension 技术基线
 
-| 能力        | 选型                                           | 边界                                         |
-| ----------- | ---------------------------------------------- | -------------------------------------------- |
-| 构建与开发  | Plasmo + Chrome MV3                            | 只服务当前 Extension 单包                    |
-| UI          | React + TypeScript + Mantine                   | Popup/Options 各自挂载，复用仅限当前包内组件 |
-| 异步数据    | TanStack Query                                 | 负责异步数据与缓存，不包装全部 Chrome API    |
-| HTTP 与分页 | 原生 Fetch + 统一分页基础                      | 无业务 endpoint 或预置 host permissions      |
-| 实时数据    | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                      |
-| 事件流编排  | RxJS（按需）                                   | 仅限当前执行上下文，不替代 Chrome 消息       |
-| 客户端状态  | Jotai                                          | 当前扩展包内的跨组件 UI 状态                 |
-| 国际化      | i18next                                        | Popup/Options 等用户可见文案使用翻译键       |
-| 运行时配置  | 类型化 `APP_CONFIG`                            | `PLASMO_PUBLIC_` 三环境公开配置，不承载秘密  |
-| 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物             |
-| 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；里程碑使用真实 Chrome |
+| 能力        | 选型                                           | 边界                                                                                |
+| ----------- | ---------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 构建与开发  | Plasmo + Chrome MV3                            | 只服务当前 Extension 单包                                                           |
+| UI          | React + TypeScript + Mantine                   | Popup/Options 各自挂载并遵循 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) |
+| 异步数据    | TanStack Query                                 | 负责异步数据与缓存，不包装全部 Chrome API                                           |
+| HTTP 与分页 | 原生 Fetch + 统一分页基础                      | 无业务 endpoint 或预置 host permissions                                             |
+| 实时数据    | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                                                             |
+| 事件流编排  | RxJS（按需）                                   | 仅限当前执行上下文，不替代 Chrome 消息                                              |
+| 客户端状态  | Jotai                                          | 当前扩展包内的跨组件 UI 状态                                                        |
+| 国际化      | i18next                                        | Popup/Options 等用户可见文案使用翻译键                                              |
+| 运行时配置  | 类型化 `APP_CONFIG`                            | `PLASMO_PUBLIC_` 三环境公开配置，不承载秘密                                         |
+| 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                    |
+| 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；里程碑使用真实 Chrome                                        |
 
 Extension 基线不使用 TanStack Router。Popup 与 Options 是独立入口；如果某个入口内部没有真实多页需求，不应引入站内路由抽象。
 
@@ -343,8 +343,9 @@ pnpm harness validate
 8. 普通首次安装已生成与 manifest 一致的 `pnpm-lock.yaml`；若受控自动化使用 `--skip-install`，结果明确报告安装和后续检查尚未执行。
 9. Web 的动态文件路由树已由命令生成，且生成项目的 `lint`、`typecheck`、非空 `test` 与三种 profile 构建已实际执行并通过；Extension 完成自身对应门禁。初始化结果若明确使用 `--skip-install`，必须报告哪些生成与检查尚未执行，未运行不得记为通过。
 10. Release 构建已自动通过 `pnpm release:inspect`：候选文件名不含 `.env*`/`.map`，受支持的可读文本扩展未命中开发/测试 BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径或 `sourceMappingURL`；另行确认测试使用的 Token/continuation 值没有进入候选。Extension 还通过 `pnpm harness validate` 的 browser target 与运行时依赖自包含检查，记录的是 `build/chrome-mv3-prod` 检查结果，而不是通用秘密或 zip 解包扫描结论。
-11. 非空目标、路径、参数和输入资产等预检失败保持目标零写入；独立 `instantiate` 的依赖安装、检查或构建失败也不得发布 staging 内容到目标。原地 `harness:init` 在写入后失败时明确报错且不得宣称初始化完成，但不会自动回滚已经写入的文件。
-12. 成功下游已删除 `instantiate`、`harness:init`、`$instantiate-project`、`$initialize-web-project` 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
+11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、检查或构建失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
+12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。
+13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力
 

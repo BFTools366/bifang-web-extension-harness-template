@@ -22,6 +22,8 @@
 
 初始化器会生成不含业务 endpoint 的原生 Fetch client、语言偏好和分页基础层，统一 `X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、401、错误日志与 sessionStorage 分页语义。Ky、OpenAPI、GraphQL、SSE 与 RxJS 等集成仍只随真实消费者按需加入；初始化不预装这些依赖、不生成占位请求/事件总线，也不预置 Extension 权限。完整协议见 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。
 
+两种下游还会携带按当前宿主裁剪的 Mantine UI 规范，统一 theme/语义令牌、排版、间距、组件层级、异步状态、响应式、无障碍和 i18n 实施边界；源规范见 [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)。
+
 ## 快速开始
 
 准备 Node.js `>=22.22.2`、Corepack 与 pnpm `>=10.33.3` 后，在 Harness 根目录安装依赖。`engines` 是兼容性最低版本，实际工具可以更高；`packageManager` 仍使用精确 `pnpm@x.y.z` pin 供 Corepack 与复现使用，但这个 pin 也只需不低于最低版本：
@@ -30,7 +32,7 @@
 pnpm install
 ```
 
-推荐从 Harness 源创建新的独立目录。目标必须位于 Harness 目录之外、不存在或为空，并且目录 basename 与 `--id` 完全相同：
+项目只能从源 Harness 根创建。唯一公开创建入口是 `pnpm instantiate -- <absolute-target-outside-harness> ...`；目标必须位于源 Harness 目录之外、不存在或为空，并且目录 basename 与 `--id` 完全相同：
 
 ```bash
 pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --id example-web \
@@ -40,29 +42,22 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --release-base-url "https://api.example.com"
 ```
 
-如果当前目录已经是准备终端化的模板副本，可以原地初始化纯 Web 项目：
+创建纯 Chrome 扩展时仍从同一个源 Harness 根调用，并使用另一个源外绝对目标：
 
 ```bash
-pnpm harness:init -- --type web --name "示例 Web" --id example-web \
-  --description "示例 React Web 页面" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
-```
-
-原地初始化纯 Chrome 扩展：
-
-```bash
-pnpm harness:init -- --type extension --name "示例扩展" --id example-extension \
+pnpm instantiate -- /absolute/path/example-extension --type extension \
+  --name "示例扩展" --id example-extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
   --release-base-url "https://api.example.com"
 ```
 
-`pnpm instantiate` 用于从源 Harness 派生独立下游，`pnpm harness:init` 用于原地初始化已有模板副本；这两个入口只存在于初始化完成前。非交互调用还必须提供 `--development-base-url`、`--test-base-url` 与 `--release-base-url`。三者都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。两种命令都可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
+不要复制模板后原地初始化。源 Harness 不再提供 `pnpm harness:init` script；`pnpm harness init` 会在解析项目输入或写入文件前明确拒绝，并指向源外的 `pnpm instantiate`。底层 initializer 只是 `instantiate` 在目标同级 sibling staging 中调用的内部步骤，不是受支持的用户或 Agent 入口。
 
-`pnpm instantiate` 会先完成输入与源模板预检，再在目标同级的临时目录中复制模板、生成并终端化当前宿主、执行静态下游校验，然后安装依赖并运行完整门禁；全部成功后才以原子 rename 发布到目标。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。`pnpm harness:init` 是原地入口，会在首次写入前完成可确定的配置、Logo、文档和许可证预检，但生成与终端化开始后的 I/O、安装或构建失败不会自动回滚。
+非交互调用还必须提供 `--development-base-url`、`--test-base-url` 与 `--release-base-url`。三者都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
+
+`pnpm instantiate` 会先完成输入与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、执行静态下游校验，然后安装依赖并运行完整门禁；全部成功后才以原子 rename 发布到目标。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
 
 非交互初始化必须显式传入 `--type web` 或 `--type extension`。交互式 TTY 可以在开始时提示用户二选一，但提示不得提供默认类型，也不得接受 `both`、逗号列表或重复类型。生成后的 `projectType` 是仓库边界；不得通过在同一仓库补入另一套宿主来改变它。
 
@@ -124,7 +119,7 @@ pnpm harness validate
 
 `brand refresh` 的两个选项都可省略；它不会添加、删除或切换宿主。
 
-成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、`$instantiate-project` 或 `$initialize-web-project`；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。
+成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、源专用 `$instantiate-project`、内部 init/instantiate tooling 或任何其他项目派生入口；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。
 
 Harness 根目录当前提供以下维护门禁；根项目没有应用 `dev` 或 `build` 脚本：
 
@@ -210,6 +205,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 | [`.harness/tooling/`](.harness/tooling/)                                  | 初始化、品牌刷新和下游校验的 TypeScript 工具        |
 | 生成项目中的 `.harness/project.json`                                      | 下游项目身份、唯一 `projectType` 与品牌的单一事实源 |
 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                              | 数据访问、SSE 与可选 RxJS 事件流编排                |
+| [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)          | Mantine UI 令牌、布局、组件、状态与无障碍规范       |
 | [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)          | 三环境、BaseURL、公开变量与构建模式                 |
 | [`docs/LOGGING.md`](docs/LOGGING.md)                                      | 结构化日志、Release 脱敏与产物扫描                  |
 | [`docs/`](docs/)                                                          | 工程、技术基线、发布、技术债与方法论                |
@@ -218,12 +214,12 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 
 ## 验证原则
 
-- 初始化器必须分别在隔离目录验证 `web` 与 `extension`，并确认每个输出只有一个 `projectType`。
+- 涉及初始化器、类型生成/终端化或 Harness 发布候选时，必须分别在隔离目录验证 `web` 与 `extension`，并确认每个输出只有一个 `projectType`；无关文档、局部实现或单一宿主下游任务不重复执行双类型生成。
 - Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收；`Version.md` 当前值、候选版本、源码提交、lockfile、Schema/协议版本、`manifest_version` 与 `projectType` 等身份或协议事实继续精确匹配。
 - 三份环境必须同时齐全并通过 Schema 校验；`pnpm release:inspect` 必须按 [`docs/LOGGING.md`](docs/LOGGING.md) 在文件名层拒绝 `.env*`/`.map`，并只在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机路径与 `sourceMappingURL`，作为 `build:release`/Extension `package` 的自动失败门禁；它不提供通用秘密扫描。
 - 行为变化至少运行相关非空单元/组件测试；文档与元数据变化运行链接、解析或差异检查。
-- Web 里程碑可以使用 Playwright 验证真实构建页面；Extension 里程碑应在真实 Chrome 中加载最终构建并验证所需 Popup、Options 与权限行为。
+- Web/Extension 的真实浏览器检查在 Agent Policy 选择或产品/安全/渠道硬要求时执行；选中后必须针对最终构建验证当前项目真实需要的页面、入口与权限行为。
 - Mock、占位页面、开发预览或仅检查源码不能替代最终产物验收。
 - 未实际运行的平台和浏览器范围必须标记为 `Unverified`。
 
-详细规则见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)、[`docs/TS_WEB_TEMPLATE.md`](docs/TS_WEB_TEMPLATE.md)、[`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)、[`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)、[`docs/LOGGING.md`](docs/LOGGING.md) 与 [`docs/RELEASE.md`](docs/RELEASE.md)。
+详细规则见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)、[`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)、[`docs/TS_WEB_TEMPLATE.md`](docs/TS_WEB_TEMPLATE.md)、[`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)、[`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)、[`docs/LOGGING.md`](docs/LOGGING.md) 与 [`docs/RELEASE.md`](docs/RELEASE.md)。

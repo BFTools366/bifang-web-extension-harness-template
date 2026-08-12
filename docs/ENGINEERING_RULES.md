@@ -66,12 +66,13 @@
 
 ## 5. UI、可访问性与国际化
 
+- Mantine UI 的令牌、样式优先级、排版、布局、组件语义、状态、响应式、Web/Extension 差异和交付清单以 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) 为唯一详细事实；本节只保留跨工程硬边界。
 - 使用语义化 HTML、可见焦点、键盘可操作控件和可理解的标签；颜色不是唯一状态提示。
 - Popup 等紧凑界面也必须保证触控目标、文本缩放和错误反馈可用。Options 页面应适配常见桌面窗口宽度。
 - 用户可见文案通过 i18next 翻译键提供；项目名称、描述等身份值从事实源派生，不复制为可独立漂移的翻译常量。
 - 日期、数字、语言和时区使用明确 locale；不要把开发机默认值写死为业务事实。
 - 分页控件必须是受控且键盘可操作的 Mantine/语义化组件，页码、每页数据量、总量和禁用/加载状态具有可理解的本地化名称；没有真实分页集合时不得为了展示基础能力制造假列表。
-- 使用 Mantine 主题表达颜色、间距和字体，不在页面散落重复品牌常量。
+- 使用 Mantine theme、语义令牌和受控样式表达视觉规则，不在页面散落重复品牌常量、另建基础组件系统或跨宿主共享 UI 源码。
 
 ## 6. 测试与验证
 
@@ -89,10 +90,10 @@
 
 ### 6.2 构建与里程碑
 
-- 生成项目的通用门禁是 `pnpm env:validate`、`pnpm lint`、`pnpm typecheck`、`pnpm test` 与 `pnpm build`；环境校验必须覆盖 development、test、release 三份配置。只有脚本真实存在并实际成功时才能报告通过。
+- 生成项目的完整 package 门禁是 `pnpm env:validate`、`pnpm lint`、`pnpm typecheck`、`pnpm test` 与 `pnpm build`；它用于里程碑、发布候选、跨配置/结构/构建链变化、用户明确要求，或窄检查不足以建立可信度的任务，不要求每个局部或纯文档改动机械全跑。快速/普通标准任务先运行受影响的最小充分检查；凡执行环境校验都必须覆盖 development、test、release 三份配置。只有脚本真实存在并实际成功时才能报告通过。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：文件名层拒绝 `.env*`/`.map`，仅在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、源码绝对路径与 `sourceMappingURL`。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
-- Web 里程碑按适用性使用 Playwright 打开最终构建，验证品牌、关键路由、核心成功路径与风险失败路径。
-- Extension 里程碑在真实 Chrome 中加载最终 MV3 构建，验证 manifest、Plasmo 生成图标、Popup、Options、必要权限及真实 Chrome API 行为。
+- 里程碑策略选中真实浏览器验证时，Web 使用 Playwright 或可用浏览器能力打开最终构建，验证品牌、关键路由、核心成功路径与风险失败路径。
+- 里程碑策略选中真实浏览器验证时，Extension 在真实 Chrome 中加载最终 MV3 构建，验证 manifest、Plasmo 生成图标、Popup、Options、必要权限及真实 Chrome API 行为。
 - 未运行的浏览器、操作系统或渠道标记为 `Unverified`。开发服务器、Mock、占位和源码片段不能替代最终候选。
 
 ### 6.3 非代码变更
@@ -112,8 +113,9 @@
 | `README.md`                     | 用途、初始化方式、目录、命令、维护状态与产品边界    |
 | `AGENTS.md`                     | Agent 阅读顺序、任务路径、硬约束、Skills 与约束地图 |
 | `Version.md`                    | Harness 当前时间版本与发布状态                      |
-| `docs/AGENT_POLICY.md`          | 并行、冒烟与 E2E 偏好                               |
+| `docs/AGENT_POLICY.md`          | 任务路径、持久计划、并行、冒烟与 E2E 偏好           |
 | `docs/ENGINEERING_RULES.md`     | 文件、TypeScript、注释、文档、测试与例外规则        |
+| `docs/MANTINE_UI_GUIDELINES.md` | Mantine UI 令牌、布局、组件、状态与无障碍规范       |
 | `docs/TS_WEB_TEMPLATE.md`       | 单类型初始化与两种技术基线                          |
 | `docs/RUNTIME_CONFIGURATION.md` | 三环境、公开变量、BaseURL 与构建 profile            |
 | `docs/LOGGING.md`               | 结构化日志、Release 裁剪、脱敏与产物扫描            |

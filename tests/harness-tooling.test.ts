@@ -6,11 +6,13 @@ import { afterEach, describe, expect, test } from "vitest"
 import { parseArgs } from "../.harness/tooling/args.ts"
 import { refreshBrand } from "../.harness/tooling/brand.ts"
 import { resolveInitOptions } from "../.harness/tooling/cli.ts"
+import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
 import { profileFromArgs, validateEnvironmentFiles } from "../.harness/tooling/environment.ts"
 import { initializeProject } from "../.harness/tooling/init.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { inspectReleaseArtifact } from "../.harness/tooling/release.ts"
-import type { InitOptions } from "../.harness/tooling/types.ts"
+import { downstreamGovernanceFiles } from "../.harness/tooling/templates/downstream-docs.ts"
+import type { InitOptions, ProjectConfig } from "../.harness/tooling/types.ts"
 import { validateProject } from "../.harness/tooling/validate.ts"
 
 const temporaryRoots: string[] = []
@@ -69,6 +71,10 @@ async function seedTemplateRoot(): Promise<string> {
   await writeFile(
     path.join(root, "docs/DATA_ACCESS.md"),
     await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8")
+  )
+  await writeFile(
+    path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
+    await readFile(path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"), "utf8")
   )
   await writeFile(
     path.join(root, ".harness/tooling/version.ts"),
@@ -148,6 +154,10 @@ describe("single-package Harness initialization", () => {
     const gitignore = await readFile(path.join(root, ".gitignore"), "utf8")
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+    const mantineUiGuidelines = await readFile(
+      path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
+      "utf8"
+    )
     const developmentEnvironment = await readFile(path.join(root, ".env.development"), "utf8")
     const testEnvironment = await readFile(path.join(root, ".env.test"), "utf8")
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
@@ -165,6 +175,7 @@ describe("single-package Harness initialization", () => {
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
     }
+    const terminalConfig = await readFile(path.join(root, ".harness/tooling/config.ts"), "utf8")
     expect(index).toContain("<title>Aurora Notes</title>")
     expect(index).toContain('content="A focused notes workspace."')
     expect(index).toContain('content="#5B5BD6"')
@@ -220,6 +231,15 @@ describe("single-package Harness initialization", () => {
     expect(engineeringRules).toContain("RxJS 只在多来源或复杂时序需求出现时")
     expect(engineeringRules).toContain("src/routeTree.gen.ts")
     expect(engineeringRules).toContain("route 级自动拆包")
+    expect(engineeringRules).toContain("docs/MANTINE_UI_GUIDELINES.md")
+    expect(mantineUiGuidelines).toContain("## 3. Theme 与设计令牌")
+    expect(mantineUiGuidelines).toContain("## 8. Web 宿主规范")
+    expect(mantineUiGuidelines).not.toContain("## 9. Extension 宿主规范")
+    expect(mantineUiGuidelines).toContain('Container size="lg/xl"')
+    expect(mantineUiGuidelines).not.toContain("Popup")
+    expect(mantineUiGuidelines).not.toContain("Options")
+    expect(mantineUiGuidelines).not.toContain("src/providers.tsx")
+    expect(mantineUiGuidelines).not.toContain("MV3/CSP")
     expect(developmentEnvironment).toContain("VITE_APP_ENV=development")
     expect(developmentEnvironment).toContain(
       `VITE_API_BASE_URL=${TEST_BASE_URLS.developmentBaseUrl}`
@@ -245,6 +265,10 @@ describe("single-package Harness initialization", () => {
     expect(main).toContain('import.meta.env.VITE_APP_ENV !== "release"')
     expect(main).not.toContain("IS_RELEASE_BUILD")
     expect(tsconfig.include).not.toContain(".plasmo/index.d.ts")
+    expect(terminalConfig).toContain("export const HARNESS_ONLY_PATHS")
+    for (const sourceOnlyPath of HARNESS_ONLY_PATHS) {
+      expect(terminalConfig).toContain(JSON.stringify(sourceOnlyPath))
+    }
 
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
       scripts: Record<string, string>
@@ -290,6 +314,10 @@ describe("single-package Harness initialization", () => {
     const httpClient = await readFile(path.join(root, "src/api/client/httpClient.ts"), "utf8")
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+    const mantineUiGuidelines = await readFile(
+      path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
+      "utf8"
+    )
     const developmentEnvironment = await readFile(path.join(root, ".env.development"), "utf8")
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
     const extensionShell = await readFile(path.join(root, "src/ExtensionShell.tsx"), "utf8")
@@ -328,6 +356,15 @@ describe("single-package Harness initialization", () => {
     expect(dataAccess).toContain("不能让 service worker 常驻")
     expect(engineeringRules).toContain("RxJS 只能编排当前执行上下文内的事件")
     expect(engineeringRules).not.toContain("src/routeTree.gen.ts")
+    expect(engineeringRules).toContain("docs/MANTINE_UI_GUIDELINES.md")
+    expect(mantineUiGuidelines).toContain("## 3. Theme 与设计令牌")
+    expect(mantineUiGuidelines).toContain("## 8. Extension 宿主规范")
+    expect(mantineUiGuidelines).not.toContain("## 8. Web 宿主规范")
+    expect(mantineUiGuidelines).toContain("默认宽 `380px`")
+    expect(mantineUiGuidelines).not.toContain("Landing")
+    expect(mantineUiGuidelines).not.toContain("404")
+    expect(mantineUiGuidelines).not.toContain("src/app/theme.ts")
+    expect(mantineUiGuidelines).not.toContain("TanStack Router")
     expect(developmentEnvironment).toContain("PLASMO_PUBLIC_APP_ENV=development")
     expect(developmentEnvironment).toContain(
       `PLASMO_PUBLIC_API_BASE_URL=${TEST_BASE_URLS.developmentBaseUrl}`
@@ -625,6 +662,14 @@ describe("single-package Harness initialization", () => {
     await expect(validateProject(root)).rejects.toThrow(/Missing docs\/DATA_ACCESS\.md/)
   })
 
+  test("requires the generated Mantine UI guidelines in terminal projects", async () => {
+    const root = await seedTemplateRoot()
+    await initializeProject(options(root, "extension"))
+    await rm(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"))
+
+    await expect(validateProject(root)).rejects.toThrow(/Missing docs\/MANTINE_UI_GUIDELINES\.md/)
+  })
+
   test("rejects every source-only path finalized out of terminal projects", async () => {
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
@@ -784,6 +829,32 @@ describe("single-package Harness initialization", () => {
 })
 
 describe("safe template instantiation", () => {
+  test("keeps the Extension package inspection as a hard candidate gate", async () => {
+    const config: ProjectConfig = {
+      schemaVersion: 1,
+      projectType: "extension",
+      name: "Terminal Extension",
+      id: "terminal-extension",
+      description: "A terminal Chrome extension.",
+      brand: {
+        primaryColor: "#4C6EF5",
+        logoSource: "generated",
+        masterLogo: ".harness/brand/logo-1024.png"
+      },
+      initializedAt: "2026-08-12T00:00:00.000Z"
+    }
+    const files = downstreamGovernanceFiles(
+      config,
+      await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8"),
+      await readFile(path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"), "utf8")
+    )
+    const release = files.get("docs/RELEASE.md")
+
+    expect(release).toContain("`pnpm package`")
+    expect(release).toContain("自动执行 `pnpm harness validate` 与 `pnpm release:inspect`")
+    expect(release).toContain("Agent Policy 或产品/渠道硬要求选中浏览器验证时")
+  })
+
   test("preflights environment failures before creating the target", async () => {
     const sourceRoot = await seedTemplateRoot()
     const parent = await temporaryDirectory("web-harness-preflight-")
@@ -854,6 +925,13 @@ describe("safe template instantiation", () => {
     expect(manifest.scripts).not.toHaveProperty("harness:init")
     expect(manifest.scripts).not.toHaveProperty("instantiate")
     expect(manifest.scripts).not.toHaveProperty("validate:harness")
+    for (const removedCreationPath of [
+      ".harness/tooling/init.ts",
+      ".harness/tooling/instantiate.ts",
+      "scripts/instantiate.ts"
+    ]) {
+      await expect(readFile(path.join(targetRoot, removedCreationPath), "utf8")).rejects.toThrow()
+    }
     await expect(
       readFile(path.join(targetRoot, ".harness/tooling/manifest.ts"), "utf8")
     ).rejects.toThrow()
@@ -868,16 +946,53 @@ describe("safe template instantiation", () => {
     const downstreamAgents = await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")
     expect(downstreamAgents).toContain("## Skill map")
     expect(downstreamAgents).toContain("docs/DATA_ACCESS.md")
+    expect(downstreamAgents).toContain("docs/MANTINE_UI_GUIDELINES.md")
+    expect(downstreamAgents).toContain("interaction-state, responsive, or UI-accessibility work")
     expect(downstreamAgents).toContain("multi-source event streams, or RxJS")
     expect(downstreamAgents).toContain("`src/routes/`")
     expect(downstreamAgents).toContain("`src/api/client/`")
     expect(downstreamAgents).toContain("`src/pagination/`")
+    expect(downstreamAgents).toContain("create a persistent plan only for cross-session work")
+    expect(downstreamAgents).toContain("smoke and E2E run only when policy selects them")
+    const downstreamVerifyDeliveryMetadata = await readFile(
+      path.join(targetRoot, ".agents/skills/verify-delivery/agents/openai.yaml"),
+      "utf8"
+    )
+    expect(downstreamVerifyDeliveryMetadata).toContain('display_name: "验证前端项目交付"')
     const downstreamReadme = await readFile(path.join(targetRoot, "README.md"), "utf8")
     expect(downstreamReadme).toContain("React, Vite, Mantine")
     expect(downstreamReadme).toContain("native Fetch and pagination foundations")
+    expect(downstreamReadme).toContain("docs/MANTINE_UI_GUIDELINES.md")
     expect(downstreamReadme).toContain("pnpm routes:generate")
+    expect(downstreamReadme).toContain("run the smallest sufficient affected checks")
+    const downstreamPolicy = await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")
+    expect(downstreamPolicy).toContain("schema_version: 2")
+    expect(downstreamPolicy).toContain("standard_work_plan: optional")
+    expect(downstreamPolicy).toContain("milestone_smoke: optional")
+    const downstreamEngineering = await readFile(
+      path.join(targetRoot, "docs/ENGINEERING_RULES.md"),
+      "utf8"
+    )
+    expect(downstreamEngineering).toContain("局部可逆任务先运行受影响的最小充分检查")
+    expect(downstreamEngineering).toContain("docs/MANTINE_UI_GUIDELINES.md")
+    const downstreamMantineUi = await readFile(
+      path.join(targetRoot, "docs/MANTINE_UI_GUIDELINES.md"),
+      "utf8"
+    )
+    expect(downstreamMantineUi).toContain("## 8. Web 宿主规范")
+    expect(downstreamMantineUi).not.toContain("## 9. Extension 宿主规范")
+    expect(downstreamMantineUi).toContain("## 9. 交付检查")
+    expect(downstreamMantineUi).not.toContain("Popup")
+    expect(downstreamMantineUi).not.toContain("Options")
+    expect(downstreamMantineUi).not.toContain("src/providers.tsx")
+    expect(downstreamMantineUi).not.toContain("MV3/CSP")
+    const downstreamRelease = await readFile(path.join(targetRoot, "docs/RELEASE.md"), "utf8")
+    expect(downstreamRelease).toContain("Agent Policy 或产品/渠道硬要求选中浏览器验证时")
+    const downstreamLogging = await readFile(path.join(targetRoot, "docs/LOGGING.md"), "utf8")
+    expect(downstreamLogging).toContain("策略选中的真实 Chrome 候选验证")
     const downstreamDocsReadme = await readFile(path.join(targetRoot, "docs/README.md"), "utf8")
     expect(downstreamDocsReadme).toContain("DATA_ACCESS.md")
+    expect(downstreamDocsReadme).toContain("MANTINE_UI_GUIDELINES.md")
     expect(downstreamDocsReadme).toContain("RxJS")
     expect(downstreamDocsReadme).toContain("RUNTIME_CONFIGURATION.md")
     expect(downstreamDocsReadme).toContain("LOGGING.md")
@@ -893,6 +1008,7 @@ describe("safe template instantiation", () => {
       "docs/AGENT_POLICY.md",
       "docs/DATA_ACCESS.md",
       "docs/ENGINEERING_RULES.md",
+      "docs/MANTINE_UI_GUIDELINES.md",
       "docs/LOGGING.md",
       "docs/RELEASE.md",
       "docs/RUNTIME_CONFIGURATION.md",

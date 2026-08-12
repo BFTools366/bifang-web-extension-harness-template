@@ -38,17 +38,18 @@
 
 ## 4. 初始化输入
 
-非交互初始化除身份和唯一项目类型外，还必须显式提供三份 API BaseURL：
+非交互创建除身份和唯一项目类型外，还必须显式提供三份 API BaseURL。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
 
 ```bash
-pnpm harness:init -- --type web --name "示例 Web" --id example-web \
+pnpm instantiate -- /absolute/path/example-web --type web \
+  --name "示例 Web" --id example-web \
   --description "示例 React Web 页面" \
   --development-base-url http://localhost:3000/api \
   --test-base-url http://localhost:3100/api \
   --release-base-url https://api.example.com
 ```
 
-`pnpm instantiate` 使用相同的三个参数。交互式初始化逐项询问，不为 Release endpoint 猜测默认值。URL、颜色、Logo、路径或其他预检失败必须发生在项目文件写入前；已有任一受管环境文件也视为冲突，不得覆盖。
+命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建逐项询问，不为 Release endpoint 猜测默认值。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
 
 初始化器为当前唯一宿主生成三份配置、类型化 schema、运行时 adapter、非空测试与统一 logger。它还生成只读取 `APP_CONFIG` 的原生 Fetch 基础 client，但不生成真实 endpoint 或请求调用，也不预装 Ky/Axios 等传输依赖。语言、分页、continuation 与认证 Token 是运行时状态，不得加入公开环境文件；其存储和安全边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 

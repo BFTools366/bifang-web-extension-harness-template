@@ -22,7 +22,7 @@ description: 扫描当前 React Web 或 Plasmo Extension 的 TSX 用户可见文
 
 ## 硬边界
 
-- 不引入 `rust-i18n`、Chrome `_locales`、手写语言分支或其他并行机制。
+- 不引入第二套 i18n 库、Chrome `_locales`、手写语言分支或其他并行机制。
 - 不修改 manifest 权限、路由、消息协议、存储语义或项目类型。
 - 不用空值、源文案 key 或无说明临时标记伪装完成。
 

@@ -12,12 +12,17 @@ import {
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
+import { runCli } from "../.harness/tooling/cli.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
-import { initializeProject } from "../.harness/tooling/init.ts"
+import {
+  DOWNSTREAM_ONLY_INITIALIZATION_ERROR,
+  initializeProject
+} from "../.harness/tooling/init.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import type { InitOptions } from "../.harness/tooling/types.ts"
 
 const temporaryRoots: string[] = []
+const repositoryRoot = path.resolve(import.meta.dirname, "..")
 const BASE_URLS = {
   developmentBaseUrl: "http://localhost:3000/api",
   testBaseUrl: "https://test-api.example.com/v1",
@@ -76,7 +81,39 @@ afterEach(async () => {
 })
 
 describe("failure-safe initialization", () => {
-  test("preflights missing downstream documentation before the first in-place write", async () => {
+  test("blocks the public in-place command before parsing input or writing files", async () => {
+    const root = await temporaryDirectory("harness-blocked-cli-init-")
+    await writeFile(path.join(root, "user-file.txt"), "preserve this byte-for-byte\n")
+    const before = await snapshotTree(root)
+
+    await expect(runCli(["init"], root)).rejects.toThrow(DOWNSTREAM_ONLY_INITIALIZATION_ERROR)
+
+    expect(await snapshotTree(root)).toEqual(before)
+  })
+
+  test("blocks the internal initializer at the source root, child paths, and aliases", async () => {
+    const manifestPath = path.join(repositoryRoot, "package.json")
+    const tsconfigPath = path.join(repositoryRoot, "tsconfig.json")
+    const beforeManifest = await readFile(manifestPath)
+    const beforeTsconfig = await readFile(tsconfigPath)
+    const aliasParent = await temporaryDirectory("harness-source-alias-")
+    const sourceAlias = path.join(aliasParent, "source-alias")
+    await symlink(repositoryRoot, sourceAlias)
+
+    for (const root of [repositoryRoot, path.join(repositoryRoot, ".harness"), sourceAlias]) {
+      await expect(initializeProject(initOptions(root, "web", "blocked-source"))).rejects.toThrow(
+        DOWNSTREAM_ONLY_INITIALIZATION_ERROR
+      )
+    }
+
+    expect(await readFile(manifestPath)).toEqual(beforeManifest)
+    expect(await readFile(tsconfigPath)).toEqual(beforeTsconfig)
+    await expect(lstat(path.join(repositoryRoot, ".harness/project.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    })
+  })
+
+  test("preflights missing downstream documentation before the first internal staged write", async () => {
     const root = await temporaryDirectory("harness-atomic-init-")
     await mkdir(path.join(root, "docs"))
     await writeFile(
@@ -95,11 +132,15 @@ describe("failure-safe initialization", () => {
       path.join(root, "LICENSE.zh-CN.md"),
       "适用项目名称：Bifang Web Harness Template。保留其余内容。\n"
     )
+    await writeFile(
+      path.join(root, "docs/DATA_ACCESS.md"),
+      await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8")
+    )
     const before = await snapshotTree(root)
 
     await expect(
       initializeProject(initOptions(root, "extension", "atomic-extension"))
-    ).rejects.toThrow(/DATA_ACCESS\.md/)
+    ).rejects.toThrow(/MANTINE_UI_GUIDELINES\.md/)
 
     expect(await snapshotTree(root)).toEqual(before)
   })
@@ -145,6 +186,20 @@ describe("failure-safe initialization", () => {
         (await readdir(targetParent)).filter((entry) => entry.startsWith(`.${id}.harness-stage-`))
       ).toEqual([])
     }
+  })
+
+  test("rejects a downstream target inside the source before creating target or staging data", async () => {
+    const sourceRoot = await temporaryDirectory("harness-nested-target-source-")
+    const targetRoot = path.join(sourceRoot, "nested-project")
+    const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", "nested-project")
+    void ignoredRoot
+
+    await expect(instantiateProject({ sourceRoot, targetRoot, init })).rejects.toThrow(
+      /Target must be outside the Harness template directory/
+    )
+
+    expect(await readdir(sourceRoot)).toEqual([])
+    await expect(lstat(targetRoot)).rejects.toMatchObject({ code: "ENOENT" })
   })
 
   test("copies only maintained top-level seeds into staging and the committed target", async () => {

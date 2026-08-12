@@ -3,7 +3,7 @@ import path from "node:path"
 import { assertKnownOptions, parseArgs, readBooleanOption, readStringOption } from "./args.ts"
 import { refreshBrand } from "./brand.ts"
 import { assertProjectType } from "./config.ts"
-import { initializeProject } from "./init.ts"
+import { rejectInPlaceInitialization } from "./init.ts"
 import { isInteractiveTerminal, promptForIdentity } from "./prompts.ts"
 import type { InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
@@ -25,15 +25,18 @@ const INIT_OPTIONS = [
 function usage(): string {
   return `Bifang Web Harness
 
-Commands:
-  pnpm harness:init -- --type web|extension --name <name> --id <id> \\
+Project creation (the target must be outside this Harness repository):
+  pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
     --description <description> --development-base-url <url> \\
     --test-base-url <url> --release-base-url <https-url> \\
     [--brand-color <#RRGGBB>] [--logo <path>]
+
+Maintenance commands:
   pnpm harness brand refresh [--logo <path>] [--brand-color <#RRGGBB>]
   pnpm harness validate
 
-Initialization requires exactly one project type. Use --skip-install and --skip-git in automation.
+In-place initialization is forbidden. Project creation requires exactly one type.
+Use --skip-install and --skip-git only in controlled automation.
 `
 }
 
@@ -90,13 +93,6 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
   }
 }
 
-async function runInit(argv: string[], root: string): Promise<void> {
-  const args = parseArgs(argv)
-  if (args.positionals.length > 0) throw new Error("init does not accept positional arguments")
-  const config = await initializeProject(await resolveInitOptions(args, root))
-  console.log(`Initialized ${config.projectType} project ${config.name}`)
-}
-
 async function runBrand(argv: string[], root: string): Promise<void> {
   const args = parseArgs(argv)
   assertKnownOptions(args, ["logo", "brand-color"])
@@ -120,7 +116,7 @@ async function runValidate(argv: string[], root: string): Promise<void> {
 
 export async function runCli(argv = process.argv.slice(2), root = process.cwd()): Promise<void> {
   const [command, ...rest] = argv
-  if (command === "init") return runInit(rest, root)
+  if (command === "init") return rejectInPlaceInitialization()
   if (command === "brand") return runBrand(rest, root)
   if (command === "validate") return runValidate(rest, root)
   if (command === "help" || command === "--help" || command === "-h" || command === undefined) {
