@@ -104,6 +104,7 @@
 ### 6.2 构建与里程碑
 
 - 生成项目日常开发先运行受影响的格式、lint、类型与 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或相称替代验证。行为保持重构运行全量 `pnpm test`。纯文档/元数据任务使用相称静态检查。
+- `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖和建立 Git 根；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。初始化器/模板契约里程碑仍须在两个真实下游创建成功后另行显式构建精确 Release 候选。
 - `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。每次调用先取得当次 E2E `enabled|disabled` 选择；交互式入口直接询问，非交互入口显式传参。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试，按上海时区生成 `YYYYMMDDHHMM` 版本并注入当前前端页面，再完成宿主生产构建和 `pnpm release:inspect`；不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当次 12 位构建版本存在于候选。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
@@ -141,7 +142,7 @@
 
 ## 8. 依赖与安全
 
-- 只安装当前单包真实使用的依赖。生成的基础 client 使用浏览器原生 Fetch，不安装 Ky/Axios；这些库与 OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。首次生成 manifest 后使用普通 `pnpm install` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
+- 只安装当前单包真实使用的依赖。生成的基础 client 使用浏览器原生 Fetch，不安装 Ky/Axios；这些库与 OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 不得写入 localStorage/sessionStorage。
 - 外部 URL、HTML、消息、Storage 与网络响应均视为不可信输入；验证并编码后再使用。
 - Extension 权限、content script 匹配范围和 Web 可访问资源必须最小化。Web 的第三方脚本、CSP 与跨域配置也需要显式安全评估。

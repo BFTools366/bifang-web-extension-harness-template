@@ -58,6 +58,7 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 
 - 新下游只能从源 Harness 根通过 `pnpm instantiate -- <absolute-target-outside-harness> ...` 创建，目标必须位于源 Harness 之外。源 Harness 不提供 `pnpm harness:init`；`pnpm harness init` 必须在任何输入解析或写入前明确拒绝。底层初始化只允许作为 `instantiate` 在目标同级 sibling staging 中执行的内部步骤。
 - 非交互初始化必须显式提供 `--type web` 或 `--type extension`；交互式初始化必须在开始时提示二选一且不得提供默认类型。任何路径都不得接受 `both`、列表或两个类型。
+- 初始化不接受 E2E 选择，不执行 Release 构建；只在 staging 内完成生成、定向格式化、静态结构/三环境/终端化校验、一次 `pnpm install --no-frozen-lockfile --prefer-offline` 与 Git 初始化，再原子发布。成功目标不得包含 `dist/`、`build/` 或 zip；最终候选必须在下游另行取得当次 E2E 选择并运行唯一 `pnpm build`。
 - 每个下游是平铺 pnpm 单包，只拥有当前宿主所需组件、状态、品牌资产和测试。不得引入 workspace、`apps/`、`packages/`、共享 core 或另一宿主入口。
 - 成功下游不得保留 `instantiate`、`harness:init`、源专用创建 Skill、内部 init/instantiate tooling 或任何其他项目派生入口；需要另一个宿主或项目时必须回到源 Harness 创建新的源外仓库。
 - 已生成仓库不得叠加或切换宿主。需要另一类型时创建独立仓库；Harness 未来新增支持类型也不回写成现有仓库的多目标能力。
@@ -73,7 +74,7 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 - 初始化必须收集 development、test、release 三个 BaseURL，并生成 `.env.development`、`.env.test` 与 `.env.production`；逻辑 `release` 只映射到 `.env.production`。Web 只公开 `VITE_` 变量，Extension 只公开 `PLASMO_PUBLIC_` 变量，浏览器端配置不得承载秘密。
 - 三份环境至少包含 `APP_ENV`、`API_BASE_URL`、`LOG_LEVEL` 与 `REQUEST_TIMEOUT_MS`，业务代码只通过冻结的 `APP_CONFIG` 读取。禁止 `.env` 与四种 `.env*.local` 隐式覆盖；进程只可用当前宿主的四个已声明键覆盖选定 profile，未知公开键失败。`pnpm env:validate`、测试和所有构建入口必须先验证三份配置齐全且类型有效。
 - 应用日志统一经过 logger，不在产品代码散落 `console.*`。Release 强制 `warn`/`error` 下限，只保留批准的诊断字段，并对敏感键、URL query/fragment、Error stack/cause 与本机路径脱敏或裁剪；`build:release` 与 Extension `package` 必须自动通过 `pnpm release:inspect`。
-- Node.js、pnpm 与受控依赖的工具链门禁按稳定 SemVer（`x.y.z`）最低版本判断，更高合法版本不得仅因不等于初始基线而失败；prerelease 或无法解析的声明不进入兼容门禁。`packageManager` 保持精确 `pnpm@x.y.z` 格式；Harness/软件当前版本、候选版本、源码提交、lock/hash、Schema/协议版本、`manifest_version`、`projectType` 等身份与协议事实仍精确匹配。
+- Node.js、pnpm 与受控依赖的工具链门禁按稳定 SemVer（`x.y.z`）最低版本判断，更高合法版本不得仅因不等于初始基线而失败；prerelease 或无法解析的声明不进入兼容门禁。新下游首次初始化只检查一次 Node.js/pnpm；普通开发、构建、新会话或 Agent 切换不做预探测，只有真实命令失败且错误指向环境时才诊断相关组件，安装/升级仍需授权。`packageManager` 保持精确 `pnpm@x.y.z` 格式；Harness/软件当前版本、候选版本、源码提交、lock/hash、Schema/协议版本、`manifest_version`、`projectType` 等身份与协议事实仍精确匹配。
 - 本仓库工具链仅限 Node.js/pnpm/TypeScript；不引入 Python 等其他语言运行时或构建产物。若外部工具（如 Skill 校验器）在本仓库内产生 `__pycache__/`、`*.pyc` 等 Python 缓存，须删除且不得提交，`.gitignore` 已排除。
 - 受管 `.ts`/`.tsx` 中的 interface、class、函数和 `const`/`let`/`var` 声明必须有紧邻且含汉字的注释；`pnpm lint` 必须执行该门禁，精确声明矩阵、邻接语义与排除范围只见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)。
 - 新生成终端项目的 `pnpm lint` 还必须执行人工维护 TypeScript/TSX 源码体积门禁：501–999 行提示复核，达到 1000 行拒绝；生成物与外部目录只能按精确规则排除。源 Harness 自身的受管文本硬阈值仍由 `pnpm validate:harness` 按 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) 执行。
@@ -88,21 +89,21 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 
 本节与“约束地图”是永久结构。只删除不再存在的 Skill 条目，不得删除整个章节，也不得保留失效入口。
 
-| 触发场景                                                   | canonical id                        | 调用名                               | 目录                                                |
-| ---------------------------------------------------------- | ----------------------------------- | ------------------------------------ | --------------------------------------------------- |
-| 从源 Harness 建立独立终端下游、重置身份与历史              | `web-instantiate-project`           | `$web-instantiate-project`           | `.agents/skills/web-instantiate-project/`           |
-| 初始化或更新 Logo 母版及当前类型的品牌派生                 | `web-prepare-brand-identity`        | `$web-prepare-brand-identity`        | `.agents/skills/web-prepare-brand-identity/`        |
-| 新产品、需求模糊或产品目标、边界、成功标准变化             | `web-define-product`                | `$web-define-product`                | `.agents/skills/web-define-product/`                |
-| 里程碑、发布候选或用户明确要求持久计划                     | `web-plan-change`                   | `$web-plan-change`                   | `.agents/skills/web-plan-change/`                   |
-| 实施范围清楚的请求或活动计划                               | `web-implement-change`              | `$web-implement-change`              | `.agents/skills/web-implement-change/`              |
-| 行为保持的 TypeScript 文件与模块整理                       | `web-refactor-code`                 | `$web-refactor-code`                 | `.agents/skills/web-refactor-code/`                 |
-| 抽取当前 Web 或 Extension 单包中的用户可见文案             | `web-extract-i18n-strings`          | `$web-extract-i18n-strings`          | `.agents/skills/web-extract-i18n-strings/`          |
-| 用户明确要求安全协调写入范围互不重叠的并行任务             | `web-run-parallel-worktrees`        | `$web-run-parallel-worktrees`        | `.agents/skills/web-run-parallel-worktrees/`        |
-| 初始化、最终构建、工具链故障诊断或被硬要求的真实浏览器验证 | `web-check-development-environment` | `$web-check-development-environment` | `.agents/skills/web-check-development-environment/` |
-| 里程碑、发布候选或用户明确要求完整验收                     | `web-verify-delivery`               | `$web-verify-delivery`               | `.agents/skills/web-verify-delivery/`               |
-| 按验收契约对最终 Web 或 Extension 候选执行真实 Chrome E2E  | `web-test-final-artifact-e2e`       | `$web-test-final-artifact-e2e`       | `.agents/skills/web-test-final-artifact-e2e/`       |
-| 定版本、更新发布元数据或准备发布                           | `web-prepare-release`               | `$web-prepare-release`               | `.agents/skills/web-prepare-release/`               |
-| 已初始化下游同步新版 Harness 工程规则                      | `web-upgrade-harness`               | `$web-upgrade-harness`               | `.agents/skills/web-upgrade-harness/`               |
+| 触发场景                                                  | canonical id                        | 调用名                               | 目录                                                |
+| --------------------------------------------------------- | ----------------------------------- | ------------------------------------ | --------------------------------------------------- |
+| 从源 Harness 建立独立终端下游、重置身份与历史             | `web-instantiate-project`           | `$web-instantiate-project`           | `.agents/skills/web-instantiate-project/`           |
+| 初始化或更新 Logo 母版及当前类型的品牌派生                | `web-prepare-brand-identity`        | `$web-prepare-brand-identity`        | `.agents/skills/web-prepare-brand-identity/`        |
+| 新产品、需求模糊或产品目标、边界、成功标准变化            | `web-define-product`                | `$web-define-product`                | `.agents/skills/web-define-product/`                |
+| 里程碑、发布候选或用户明确要求持久计划                    | `web-plan-change`                   | `$web-plan-change`                   | `.agents/skills/web-plan-change/`                   |
+| 实施范围清楚的请求或活动计划                              | `web-implement-change`              | `$web-implement-change`              | `.agents/skills/web-implement-change/`              |
+| 行为保持的 TypeScript 文件与模块整理                      | `web-refactor-code`                 | `$web-refactor-code`                 | `.agents/skills/web-refactor-code/`                 |
+| 抽取当前 Web 或 Extension 单包中的用户可见文案            | `web-extract-i18n-strings`          | `$web-extract-i18n-strings`          | `.agents/skills/web-extract-i18n-strings/`          |
+| 用户明确要求安全协调写入范围互不重叠的并行任务            | `web-run-parallel-worktrees`        | `$web-run-parallel-worktrees`        | `.agents/skills/web-run-parallel-worktrees/`        |
+| 新下游首次初始化，或命令已报出工具链/浏览器环境错误       | `web-check-development-environment` | `$web-check-development-environment` | `.agents/skills/web-check-development-environment/` |
+| 里程碑、发布候选或用户明确要求完整验收                    | `web-verify-delivery`               | `$web-verify-delivery`               | `.agents/skills/web-verify-delivery/`               |
+| 按验收契约对最终 Web 或 Extension 候选执行真实 Chrome E2E | `web-test-final-artifact-e2e`       | `$web-test-final-artifact-e2e`       | `.agents/skills/web-test-final-artifact-e2e/`       |
+| 定版本、更新发布元数据或准备发布                          | `web-prepare-release`               | `$web-prepare-release`               | `.agents/skills/web-prepare-release/`               |
+| 已初始化下游同步新版 Harness 工程规则                     | `web-upgrade-harness`               | `$web-upgrade-harness`               | `.agents/skills/web-upgrade-harness/`               |
 
 每个项目 Skill 的目录名必须等于 canonical id，`SKILL.md` frontmatter `name` 必须与目录名完全一致，frontmatter `description` 必须使用中文说明 Web 前端职责；`agents/openai.yaml` 的 `default_prompt` 必须显式调用对应的 `$web-*`。`display_name` 统一使用 `Web Harness：<中文动作>`，`short_description`、`default_prompt` 和 `SKILL.md` 正文以中文为默认；React、TypeScript、Web、Plasmo、Chrome、MV3、Git 等技术专名可以保留英文。canonical id、展示名、说明、提示和正文都只能描述本 Harness 的纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端职责，不得混入 Rust、Server 或其他非 Web Harness 语义，也不保留旧 canonical id 的兼容入口。
 

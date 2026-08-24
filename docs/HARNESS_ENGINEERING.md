@@ -37,8 +37,9 @@ Web 与 Extension 虽然都使用 React/TypeScript 和相近 UI/状态技术，�
 5. `pnpm instantiate` 在目标同级 sibling staging 中复制模板，并把底层 initializer 作为内部步骤调用；源 Harness 根、子路径与模板副本自身都不能成为初始化位置。
 6. 只渲染一个模板，写入 `.harness/project.json.projectType`、Logo 母版、三份受管环境、类型化 `APP_CONFIG` 与统一 logger。
 7. 同步当前宿主的 HTML/manifest、页面与品牌资产。
-8. 执行结构与解析检查，询问当次 E2E 选择，再运行唯一 `pnpm build -- --e2e=enabled|disabled`；该 Release 入口的完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2，失败时不发布 staging 内容。development/test profile 不生成候选。
-9. 原子发布目标，并删除只服务模板派生的 script、Skill 与内部 init/instantiate tooling，使输出成为不能继续派生项目的终端仓库。
+8. 在 staging 内删除只服务模板派生的 script、Skill 与内部 init/instantiate tooling，只格式化本次生成/改写文件，直接执行结构、身份、三环境与终端化校验，再运行一次 `pnpm install --no-frozen-lockfile --prefer-offline` 并建立独立 Git 根。
+9. 全部创建步骤成功后原子发布目标；任一预检、生成、校验、安装或 Git 错误都清理 staging，不发布半成品。初始化不询问 E2E、不运行 Release 构建，也不生成 `dist/`、`build/` 或 zip。
+10. 需要最终候选时，在成功下游中另行取得当次 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`；该 Release 入口的完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。development/test profile 不生成候选。
 
 源 Harness 不提供 `pnpm harness:init`；`pnpm harness init` 只负责明确拒绝原地初始化并引导到 `pnpm instantiate`，不是第二创建路径。
 
@@ -48,6 +49,7 @@ Web 与 Extension 虽然都使用 React/TypeScript 和相近 UI/状态技术，�
 - 标准路径只在跨会话、需要交接/失败恢复、步骤依赖明显或用户要求时保留持久 Todo；其他可逆多步骤工作直接实施并运行受影响检查。
 - 里程碑路径覆盖初始化器/项目创建契约、类型能力、品牌/身份、安全/权限、兼容性、不可逆或生产副作用和最终候选；新下游实例化使用 `$web-instantiate-project` 自带的完整门禁，不重复制造通用 Work Plan。
 - 每轮只读取任务相关事实，不用所有文档和 Skills 填满上下文。
+- Node.js/pnpm 只在首次初始化检查一次；普通开发、构建、新会话或 Agent 切换直接执行命令，只有实际错误指向环境时才诊断相关组件。Chrome 仅在已批准浏览器动作无法启动后进入环境诊断。
 
 ### 3.3 验收与发布
 

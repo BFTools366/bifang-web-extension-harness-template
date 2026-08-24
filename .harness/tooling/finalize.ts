@@ -322,7 +322,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 
 ## Web Harness 前端 Skill 地图
 
-- \`$web-check-development-environment\`：检查 Node.js、pnpm 与按需使用的 Google Chrome 前端环境。
+- \`$web-check-development-environment\`：只在首次初始化或命令已报出环境错误时检查 Node.js、pnpm 与按需使用的 Google Chrome。
 - \`$web-define-product\`：定义单一 React Web 或 Plasmo Chrome MV3 Extension 前端产品范围。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只为里程碑、发布候选或用户明确要求的前端变更建立持久计划。

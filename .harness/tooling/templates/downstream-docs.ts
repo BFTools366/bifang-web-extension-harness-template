@@ -147,7 +147,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 - \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖。
 - \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；每次先询问 E2E，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入 12 位页面版本后自动运行 \`pnpm release:inspect\`。
 
-Node.js、pnpm 与 Chrome 的开发环境探测不同于上述运行配置校验，触发时机见 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md)。
+Node.js、pnpm 与 Chrome 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。
 
 Extension 的 BaseURL 不会自动授予 \`host_permissions\`；真实网络消费者仍按 \`docs/DATA_ACCESS.md\` 审批最小权限。
 `

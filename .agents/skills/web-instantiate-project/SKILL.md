@@ -17,7 +17,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 1. 将源 Harness 根和目标目录解析为规范绝对路径。目标目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
 2. 写入前清点目标。目标必须不存在或完全为空，包括隐藏条目；发现任何用户文件都停止，不覆盖、合并或清理。
-3. 运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Git 缺失、模板验证失败或模板状态无法可信识别时停止。
+3. 本次首次初始化调用 `$web-check-development-environment` 一次，只检查 Node.js/pnpm；同时运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Chrome 不属于初始化门禁；Git 缺失、模板验证失败或模板状态无法可信识别时停止。
 4. 在复制前固定受维护种子文件清单，再按清单复制到目标同级 sibling staging。排除源 `.git`、`node_modules`、`dist`、`build`、`.plasmo`、缓存、覆盖率、发布产物、临时证据、下游项目、Harness 专用 `Version.md` 及全部日期项目记忆；下游版本事实来自根 `package.json`。
 5. 保留长期规范、许可证、`instantiate` 内部生成所需 tooling、适用 Skills 和锁文件。重置模板名称、示例标识、本机绝对路径、已完成声明和 Harness 历史；法律文本只允许按许可证规则替换精确项目名称。
 6. 不预建 Product Spec、Work Plan、ADR、Status、Verification 或 Changelog。项目记忆只在负责它的后续事件触发时创建。
@@ -30,18 +30,18 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 执行唯一创建入口
 
-1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、三个 BaseURL 与唯一类型；调用前询问用户是否为内部 Release 构建启用 E2E，非交互命令显式传入当次选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用普通 `pnpm install --no-frozen-lockfile` 建立首份与目标清单一致的 lockfile：
+1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、三个 BaseURL 与唯一类型。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
 
    ```text
    pnpm instantiate -- <absolute-target-outside-harness> --type <web|extension> \
      --name "<display-name>" --id <project-id> --description "<description>" \
      --development-base-url <url> --test-base-url <url> \
-     --release-base-url <https-url> --e2e <enabled|disabled>
+     --release-base-url <https-url>
    ```
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的原生 Fetch 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。
-4. 复核 `.harness/project.json`、三份环境、单 package 结构、类型互斥、身份残留、排除项、许可证、`pnpm env:validate`、`pnpm harness validate`、非空全量测试、`YYYYMMDDHHMM` 页面构建版本和真实 Release 构建；`build:release` 必须自动通过 `pnpm release:inspect`。当次选择启用 E2E 时，再对精确候选执行批准场景。
+4. 复核 `.harness/project.json`、三份环境、单 package 结构、类型互斥、身份残留、排除项、许可证、安装完成、独立 Git 根及初始化期不存在 `dist/`、`build/` 或 zip。初始化器已经在 staging 内直接执行结构、环境文件与终端化校验，不在外层重复运行格式、lint、类型、全量测试或构建。只有用户另外要求 Release 候选时，才在成功下游中取得当次 E2E 选择并显式运行唯一 `pnpm build`；Extension 打包同理。
 5. 默认只建立独立 Git 根，不创建 commit。只有用户另外明确授权提交时，才在完整脚手架验证后创建本地基线提交；初始化始终不授权远端、推送、标签或发布。
 
 ## 不变量
@@ -55,4 +55,4 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 完成输出
 
-报告模板根、目标根、唯一项目类型、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、复制与排除摘要、身份和历史重置、Agent Policy 决定、Git 边界、是否获得提交授权、实际提交（若有）、验证结果、未确定产品事实及下一项产品工作。
+报告模板根、目标根、唯一项目类型、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 边界、初始化期未生成 Release 产物、是否获得提交授权、实际提交（若有）、验证结果、未确定产品事实及下一项产品工作。

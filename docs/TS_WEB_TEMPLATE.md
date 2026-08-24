@@ -23,7 +23,7 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --description "示例 React Web 页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" --e2e disabled
+  --release-base-url "https://api.example.com"
 ```
 
 从同一个源 Harness 根创建独立 Extension 目录：
@@ -34,7 +34,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" --e2e disabled
+  --release-base-url "https://api.example.com"
 ```
 
 目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
@@ -48,7 +48,7 @@ pnpm instantiate -- /absolute/path/example-web --type web \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
   --release-base-url "https://api.example.com" \
-  --logo /absolute/path/logo.png --brand-color "#3B82F6" --e2e disabled
+  --logo /absolute/path/logo.png --brand-color "#3B82F6"
 ```
 
 - `--name` 是用户可见名称。
@@ -57,11 +57,11 @@ pnpm instantiate -- /absolute/path/example-web --type web \
 - `--development-base-url`、`--test-base-url` 与 `--release-base-url` 是三个环境的 API BaseURL；非交互调用全部必填，交互调用逐项询问且不得猜测默认值。三者必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 只接受 HTTPS。
 - `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
-- `--e2e enabled|disabled` 是非交互初始化内部 Release 构建的当次选择；交互式构建现场询问，`--skip-install` 不产生构建所以不要求该参数。
+- 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；只有后续显式 `pnpm build` 才现场询问或接收 `--e2e=enabled|disabled`。
 
-参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目，再完成安装和验证；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
+参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
-生成器在当前类型 manifest 写入后执行普通 `pnpm install`，首次解析并固定 `pnpm-lock.yaml`。`--skip-install` 仅供受控测试或自动化延后安装；后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。
+生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。`--skip-install` 仅供受控测试或自动化延后安装；后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。初始化不运行格式 CLI、lint、typecheck、全量测试或生产构建；这些完整门禁只由后续唯一 Release 构建入口拥有。
 
 ## 3. 项目身份与品牌事实
 
@@ -338,13 +338,13 @@ pnpm harness validate
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。
-5. 三份环境文件齐全且宿主前缀正确，`APP_CONFIG` 和 logger 测试非空；`pnpm env:validate` 验证全部环境，Release 配置使用 HTTPS 且日志最低级别为 `warn`。
+5. 三份环境文件齐全且宿主前缀正确，`APP_CONFIG` 和 logger 测试非空；初始化器直接验证全部环境，Release 配置使用 HTTPS 且日志最低级别为 `warn`。后续 `pnpm env:validate` 与最终构建仍独立复核该契约。
 6. `src/pagination/`、`src/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。manifest 不因该基础新增 Ky/Axios，Extension manifest 仍无预置权限。
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
-8. 普通首次安装已生成与 manifest 一致的 `pnpm-lock.yaml`；若受控自动化使用 `--skip-install`，结果明确报告安装和后续检查尚未执行。
-9. Web 的动态文件路由树已由命令生成，且生成项目的唯一 `pnpm build` 已自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test` 与 Release 生产构建；Extension 完成自身对应门禁。development/test profile 没有产物入口。初始化结果若明确使用 `--skip-install`，必须报告哪些生成与检查尚未执行，未运行不得记为通过。
-10. Release 构建已自动通过 `pnpm release:inspect`：候选文件名不含 `.env*`/`.map`，受支持的可读文本扩展未命中开发/测试 BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径或 `sourceMappingURL`；另行确认测试使用的 Token/continuation 值没有进入候选。Extension 还通过 `pnpm harness validate` 的 browser target 与运行时依赖自包含检查，记录的是 `build/chrome-mv3-prod` 检查结果，而不是通用秘密或 zip 解包扫描结论。
-11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、检查或构建失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
+8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；若受控自动化使用 `--skip-install`，结果明确报告安装尚未执行。
+9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
+10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
+11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
 12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 

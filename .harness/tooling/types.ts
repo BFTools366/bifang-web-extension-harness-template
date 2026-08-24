@@ -59,8 +59,6 @@ export interface InitOptions extends EnvironmentBaseUrls {
   brandColor: string
   // 描述 logoPath 接口成员的结构契约。
   logoPath?: string
-  // 描述 e2e 接口成员的当次构建选择。
-  e2e?: E2eSelection
   // 描述 skipInstall 接口成员的结构契约。
   skipInstall?: boolean
   // 描述 skipGit 接口成员的结构契约。

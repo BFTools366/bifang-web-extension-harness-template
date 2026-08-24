@@ -311,6 +311,51 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await expect(validateHarness(initializerRoot)).rejects.toThrow(
       /Harness initializer is missing await assertDownstreamInitializationRoot\(root\)/
     )
+
+    // 保存 postInitializationRoot 变量供创建期重复命令负例使用。
+    const postInitializationRoot = await copyRepository()
+    // 保存 postInitializationPath 变量供初始化器命令篡改使用。
+    const postInitializationPath = path.join(postInitializationRoot, ".harness/tooling/init.ts")
+    // 保存 postInitializationSource 变量供初始化器命令篡改使用。
+    const postInitializationSource = await readFile(postInitializationPath, "utf8")
+    await writeFile(
+      postInitializationPath,
+      postInitializationSource.replace('"--prefer-offline"', '"build"')
+    )
+    await expect(validateHarness(postInitializationRoot)).rejects.toThrow(
+      /missing the single install and Git initialization contract/
+    )
+
+    // 保存 e2eRoot 变量供初始化 E2E 参数回归负例使用。
+    const e2eRoot = await copyRepository()
+    // 保存 e2eEntryPath 变量供公开入口篡改使用。
+    const e2eEntryPath = path.join(e2eRoot, "scripts/instantiate.ts")
+    // 保存 e2eEntry 变量供公开入口篡改使用。
+    const e2eEntry = await readFile(e2eEntryPath, "utf8")
+    await writeFile(e2eEntryPath, e2eEntry.replace('"logo",', '"logo",\n    "--e2e",'))
+    await expect(validateHarness(e2eRoot)).rejects.toThrow(
+      /Public instantiate entry must not accept an E2E selection/
+    )
+
+    // 保存 environmentSkillRoot 变量供环境探测正文漂移负例使用。
+    const environmentSkillRoot = await copyRepository()
+    // 保存 environmentSkillPath 变量供环境 Skill 篡改使用。
+    const environmentSkillPath = path.join(
+      environmentSkillRoot,
+      ".agents/skills/web-check-development-environment/SKILL.md"
+    )
+    // 保存 environmentSkillSource 变量供环境触发条件篡改使用。
+    const environmentSkillSource = await readFile(environmentSkillPath, "utf8")
+    await writeFile(
+      environmentSkillPath,
+      environmentSkillSource.replace(
+        "最终 Release 构建、新会话、Agent 切换、宿主或版本约束变化都不触发预探测",
+        "最终 Release 构建前重新探测"
+      )
+    )
+    await expect(validateHarness(environmentSkillRoot)).rejects.toThrow(
+      /web-check-development-environment\/SKILL\.md is missing required workflow/
+    )
   })
 
   test("rejects Chinese comment gate wiring drift", /* 执行中文注释门禁接线负例测试。 */ async () => {
@@ -354,8 +399,8 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await writeFile(
       initializerPath,
       initializer.replace(
-        "await annotateTypeScriptProject(root)",
-        "// await annotateTypeScriptProject(root)\n  void root"
+        "const annotatedFiles = await annotateTypeScriptProject(root)",
+        "const annotatedFiles: string[] = []"
       )
     )
     await expect(validateHarness(initializerRoot)).rejects.toThrow(

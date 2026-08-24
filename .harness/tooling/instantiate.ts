@@ -195,7 +195,10 @@ async function cleanupStagingRoot(
   await rm(stagingRoot, { recursive: true, force: true })
 }
 
-type ProjectInitializer = (options: InitOptions) => Promise<ProjectConfig>
+type ProjectInitializer = (
+  options: InitOptions,
+  preparedLogo?: Uint8Array
+) => Promise<ProjectConfig>
 
 // 执行 instantiateProject 函数的处理逻辑。
 export async function instantiateProject(
@@ -216,15 +219,6 @@ export async function instantiateProject(
       : path.isAbsolute(options.init.logoPath)
         ? options.init.logoPath
         : path.resolve(requestedTarget, options.init.logoPath)
-  if (logoPath !== undefined) {
-    await createLogo({
-      root: requestedTarget,
-      name: previewConfig.name,
-      id: previewConfig.id,
-      color: previewConfig.brand.primaryColor,
-      logoPath
-    })
-  }
   // 保存 targetRoot 变量供当前逻辑使用。
   const targetRoot = await canonicalizeTarget(requestedTarget)
   if (path.basename(targetRoot) !== previewConfig.id) {
@@ -260,6 +254,14 @@ export async function instantiateProject(
   }
   // 保存 existingTarget 变量供当前逻辑使用。
   const existingTarget = await assertEmptyTarget(targetRoot)
+  // 保存 preparedLogo 变量，确保预检与正式写入复用同一次 Logo 压缩结果。
+  const preparedLogo = await createLogo({
+    root: requestedTarget,
+    name: previewConfig.name,
+    id: previewConfig.id,
+    color: previewConfig.brand.primaryColor,
+    logoPath
+  })
   // 保存 targetExisted 变量供当前逻辑使用。
   const targetExisted = existingTarget !== undefined
   // 保存 targetParent 变量供当前逻辑使用。
@@ -278,7 +280,7 @@ export async function instantiateProject(
     )
     await copyTemplateDirectory(sourceRoot, stagingRoot)
     // 保存 config 变量供当前逻辑使用。
-    const config = await initialize({ ...options.init, logoPath, root: stagingRoot })
+    const config = await initialize({ ...options.init, logoPath, root: stagingRoot }, preparedLogo)
     await commitStagedProject(stagingRoot, targetRoot, targetExisted)
     stagingOwned = false
     return config

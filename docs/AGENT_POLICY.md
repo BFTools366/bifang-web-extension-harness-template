@@ -37,7 +37,7 @@ milestone_e2e: ask
 
 - 用户明确要求并行时，先确认至少两个互不重叠的写入范围、干净已提交基线和整合顺序；否则保持单 Agent，不为追求并行创建额外结构。
 - 每次产物构建必须先取得当次 E2E `enabled|disabled` 选择；交互式脚本直接询问，非交互式 Agent/CI 必须显式传参。Agent 不得替用户静默选择。选择 `enabled` 后，构建成功仅代表候选已生成，仍必须对该精确候选调用 `$web-test-final-artifact-e2e`；选择 `disabled` 时记录 `Not run` 与 `Unverified` 范围。
-- 用户、产品、安全或渠道硬要求浏览器步骤时，E2E 只能选择 `enabled` 并探测 Chrome；否则 Chrome 是否探测取决于当次选择，不把 Chrome 缺失当作静态或单测任务的阻断项。
+- 用户、产品、安全或渠道硬要求浏览器步骤时，E2E 只能选择 `enabled` 并直接执行批准场景；Chrome 无法发现、启动或出现版本/宿主错误后才进入环境诊断。静态、单测、构建或尚未实际启动的浏览器步骤不预探测 Chrome。
 - Web 冒烟只验证 `pnpm build` 的最终输出，不用 Vite 开发页代替；Extension 冒烟从精确 Chrome MV3 候选加载，只覆盖明确要求的入口。
 - 冒烟/E2E 只接受通过 `pnpm env:validate` 并由逻辑 Release（`.env.production`）生成的精确候选；捕获的 console 必须符合 [`LOGGING.md`](LOGGING.md)，不能带入开发/测试 BaseURL 或敏感数据。
 - E2E 需要登录、真实账号、生产数据、付费、商店上传、凭据或不可逆副作用时，必须获得该操作的独立明确授权。

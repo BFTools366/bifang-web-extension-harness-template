@@ -41,12 +41,12 @@ interface SkillContract {
 const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
-      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于初始化、最终构建、故障诊断，以及当次启用的 E2E 或被硬要求的真实浏览器验证；普通开发任务不重复检查。",
+      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于新下游首次初始化，或命令已经失败且错误指向工具链/浏览器环境时的诊断；普通开发与构建前不预探测。",
     title: "# Web Harness：检查前端开发环境",
     displayName: "Web Harness：检查前端开发环境",
-    shortDescription: "检查 React Web 或 Plasmo MV3 Extension 的前端工具链",
+    shortDescription: "仅在初始化或环境报错后检查 React Web/Plasmo 工具链",
     defaultPrompt:
-      "使用 $web-check-development-environment 检查纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 与 Google Chrome 环境。"
+      "使用 $web-check-development-environment 仅在新下游首次初始化，或命令已报出疑似环境错误时检查纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 所需的 Node.js、pnpm 与按需使用的 Google Chrome。"
   },
   "web-define-product": {
     description:
@@ -157,6 +157,26 @@ const SKILL_CONTRACTS = {
       "使用 $web-verify-delivery 验收 Web Harness 源码里程碑、React Web Vite dist 或 Plasmo Chrome MV3 前端候选。"
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
+
+/** 锁定环境探测触发边界在调用方 Skill 正文中的必需语义。 */
+const SKILL_BODY_REQUIREMENTS: Partial<
+  Record<(typeof EXPECTED_SKILLS)[number], readonly string[]>
+> = {
+  "web-check-development-environment": [
+    "新下游首次初始化只检查一次 Node.js/pnpm",
+    "最终 Release 构建、新会话、Agent 切换、宿主或版本约束变化都不触发预探测",
+    "命令已经失败且错误明确指向",
+    "不静默安装或升级"
+  ],
+  "web-implement-change": [
+    "只有实际创建新下游时调用一次 `$web-check-development-environment`",
+    "最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测"
+  ],
+  "web-verify-delivery": [
+    "不为最终构建预先调用环境检查",
+    "只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时"
+  ]
+}
 
 /** 匹配 openai.yaml 唯一允许的 interface 与三个双引号字符串字段。 */
 const OPENAI_METADATA_PATTERN =
@@ -412,7 +432,7 @@ async function validateSkills(root: string, errors: string[]): Promise<string[]>
 /** 校验单个源 Skill 的目录、frontmatter、H1 和中文发现元数据。 */
 async function validateSkill(
   skillsRoot: string,
-  skill: string,
+  skill: (typeof EXPECTED_SKILLS)[number],
   contract: SkillContract
 ): Promise<string[]> {
   // 保存 skillErrors 变量供当前逻辑使用。
@@ -445,6 +465,15 @@ async function validateSkill(
   const headings = collectLevelOneHeadings(skillSource)
   if (headings.length !== 1 || headings[0] !== contract.title) {
     skillErrors.push(`${skill}/SKILL.md H1 must exactly equal ${contract.title}`)
+  }
+
+  // 保存 requiredBodyFragments 变量供环境探测调用边界校验使用。
+  const requiredBodyFragments = SKILL_BODY_REQUIREMENTS[skill] ?? []
+  // 保存 requiredBodyFragment 变量供逐项正文契约校验使用。
+  for (const requiredBodyFragment of requiredBodyFragments) {
+    if (!skillSource.includes(requiredBodyFragment)) {
+      skillErrors.push(`${skill}/SKILL.md is missing required workflow: ${requiredBodyFragment}`)
+    }
   }
 
   if (!(await pathExists(yamlPath))) {
@@ -758,22 +787,35 @@ function directAwaitedCallPosition(
   if (declaration?.body === undefined) return undefined
   // 保存 statement 变量供当前逻辑使用。
   for (const statement of declaration.body.statements) {
-    if (!ts.isExpressionStatement(statement) || !ts.isAwaitExpression(statement.expression)) {
-      continue
+    // 保存 awaitedExpressions 变量，兼容直接 await 与保存结果的 await 声明。
+    const awaitedExpressions: ts.Expression[] = []
+    if (ts.isExpressionStatement(statement) && ts.isAwaitExpression(statement.expression)) {
+      awaitedExpressions.push(statement.expression.expression)
+    } else if (ts.isVariableStatement(statement)) {
+      // 保存 declarationItem 变量供当前逻辑使用。
+      for (const declarationItem of statement.declarationList.declarations) {
+        if (
+          declarationItem.initializer !== undefined &&
+          ts.isAwaitExpression(declarationItem.initializer)
+        ) {
+          awaitedExpressions.push(declarationItem.initializer.expression)
+        }
+      }
     }
-    // 保存 expression 变量供当前逻辑使用。
-    const expression = statement.expression.expression
-    if (
-      ts.isCallExpression(expression) &&
-      ts.isIdentifier(expression.expression) &&
-      expression.expression.text === callee &&
-      expression.arguments.length === argumentTexts.length &&
-      expression.arguments.every(
-        /* 比较顶层 await 调用参数的规范源码。 */ (argument, index) =>
-          argument.getText(sourceFile) === argumentTexts[index]
-      )
-    ) {
-      return statement.getStart(sourceFile)
+    // 保存 expression 变量供调用契约匹配使用。
+    for (const expression of awaitedExpressions) {
+      if (
+        ts.isCallExpression(expression) &&
+        ts.isIdentifier(expression.expression) &&
+        expression.expression.text === callee &&
+        expression.arguments.length === argumentTexts.length &&
+        expression.arguments.every(
+          /* 比较顶层 await 调用参数的规范源码。 */ (argument, index) =>
+            argument.getText(sourceFile) === argumentTexts[index]
+        )
+      ) {
+        return statement.getStart(sourceFile)
+      }
     }
   }
   return undefined
@@ -1059,6 +1101,9 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
   if (usageText === undefined || !usageText.includes("pnpm instantiate")) {
     errors.push("Harness CLI is missing the pnpm instantiate help contract")
   }
+  if (usageText?.includes("--e2e") === true) {
+    errors.push("Harness initialization help must not accept an E2E selection")
+  }
   // 保存 runBrand 变量供当前逻辑使用。
   const runBrand = findFunctionDeclaration(cliSourceFile, "runBrand")
   if (
@@ -1080,12 +1125,48 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
   if (containsIdentifier(cliSourceFile, "initializeProject")) {
     errors.push("Harness CLI must not dispatch directly to initializeProject")
   }
+  // 保存 instantiationEntry 变量供公开创建入口契约校验使用。
+  const instantiationEntry = await readFile(path.join(root, "scripts/instantiate.ts"), "utf8")
+  if (instantiationEntry.includes("--e2e")) {
+    errors.push("Public instantiate entry must not accept an E2E selection")
+  }
+  if (!instantiationEntry.includes("Release artifacts were not built")) {
+    errors.push("Public instantiate entry must report that Release artifacts are deferred")
+  }
   // 保存 initializer 变量供当前逻辑使用。
   const initializer = await readFile(path.join(root, ".harness/tooling/init.ts"), "utf8")
   // 保存 initializerSourceFile 变量供当前逻辑使用。
   const initializerSourceFile = parseTypeScriptSource(initializer, ".harness/tooling/init.ts")
   // 保存 initializeProject 变量供当前逻辑使用。
   const initializeProject = findFunctionDeclaration(initializerSourceFile, "initializeProject")
+  if (
+    initializeProject === undefined ||
+    !containsIdentifier(initializeProject, "formatInitializationFiles")
+  ) {
+    errors.push(
+      "Harness initializer must format only its generated or rewritten files before validation"
+    )
+  }
+  // 保存 postInitialization 变量供创建期外部命令契约校验使用。
+  const postInitialization = findFunctionDeclaration(initializerSourceFile, "runPostInitialization")
+  if (
+    postInitialization === undefined ||
+    !containsStringLiteral(postInitialization, "pnpm") ||
+    !containsStringLiteral(postInitialization, "install") ||
+    !containsStringLiteral(postInitialization, "--no-frozen-lockfile") ||
+    !containsStringLiteral(postInitialization, "--prefer-offline") ||
+    !containsStringLiteral(postInitialization, "git") ||
+    !containsStringLiteral(postInitialization, "init")
+  ) {
+    errors.push("Harness initializer is missing the single install and Git initialization contract")
+  }
+  if (
+    postInitialization !== undefined &&
+    (containsStringLiteral(postInitialization, "format") ||
+      containsStringLiteral(postInitialization, "build"))
+  ) {
+    errors.push("Harness initializer must not run format or build commands after installation")
+  }
   // 保存 initializationCalls 变量供当前逻辑使用。
   const initializationCalls = [
     {
@@ -1105,8 +1186,8 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
     },
     {
       callee: "runPostInitialization",
-      args: ["resolvedOptions"],
-      contract: "await runPostInitialization(resolvedOptions)"
+      args: ["resolvedOptions", "commandRunner"],
+      contract: "await runPostInitialization(resolvedOptions, commandRunner)"
     }
   ] as const
   // 保存 initializationPositions 变量供当前逻辑使用。

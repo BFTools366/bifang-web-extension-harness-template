@@ -1,12 +1,14 @@
-import { realpath } from "node:fs/promises"
+import { readFile, realpath } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { format, resolveConfig } from "prettier"
 import { createProjectConfig, PROJECT_CONFIG_PATH, MASTER_LOGO_PATH } from "./config.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import {
   assertAbsent,
   pathExists,
   readJson,
+  writeAtomic,
   writeJsonAtomic,
   writeJsonNew,
   writeNew
@@ -28,6 +30,11 @@ const FORBIDDEN_LAYOUT_PATHS = ["pnpm-workspace.yaml", "apps", "packages"] as co
 const PLASMO_TYPE_PATH = ".plasmo/index.d.ts"
 // 保存 SOURCE_HARNESS_ROOT 变量供当前逻辑使用。
 const SOURCE_HARNESS_ROOT = fileURLToPath(new URL("../../", import.meta.url))
+// 保存 FORMATTABLE_EXTENSIONS 变量，限制初始化期只格式化本次生成或改写的文本文件。
+const FORMATTABLE_EXTENSIONS = new Set([".html", ".json", ".md", ".mjs", ".ts", ".tsx"])
+
+// 定义 InitializationCommandRunner 类型，允许回归测试观察创建期外部命令而不执行真实安装。
+export type InitializationCommandRunner = typeof runCommand
 
 // 保存 DOWNSTREAM_ONLY_INITIALIZATION_ERROR 变量供当前逻辑使用。
 export const DOWNSTREAM_ONLY_INITIALIZATION_ERROR =
@@ -121,25 +128,63 @@ function generatedRoots(projectType: ProjectConfig["projectType"]): string[] {
     : ["src", "assets"]
 }
 
-// 执行 runPostInitialization 函数的处理逻辑。
-async function runPostInitialization(options: InitOptions): Promise<void> {
+// 执行 formatInitializationFiles 函数，只整理初始化器本次创建或注释迁移的文本。
+async function formatInitializationFiles(
+  root: string,
+  relativePaths: Iterable<string>
+): Promise<void> {
+  // 保存 prettierConfig 变量，复用目标根随模板复制的正式格式配置。
+  const prettierConfig = (await resolveConfig(path.join(root, "package.json"))) ?? {}
+  // 保存 candidates 变量，去重并排除二进制、环境文件与法律文本。
+  const candidates = [...new Set(relativePaths)]
+    .filter(
+      // 执行 当前声明 函数的处理逻辑。
+      (relativePath) =>
+        !relativePath.startsWith("LICENSE.") &&
+        FORMATTABLE_EXTENSIONS.has(path.extname(relativePath))
+    )
+    .sort()
+  await Promise.all(
+    candidates.map(
+      // 执行 当前声明 函数的处理逻辑。
+      async (relativePath) => {
+        // 保存 absolutePath 变量供格式化读写使用。
+        const absolutePath = path.join(root, relativePath)
+        // 保存 source 变量供格式化差异判断使用。
+        const source = await readFile(absolutePath, "utf8")
+        // 保存 formatted 变量，按真实目标路径选择 Prettier parser。
+        const formatted = await format(source, { ...prettierConfig, filepath: absolutePath })
+        if (formatted !== source) await writeAtomic(absolutePath, formatted)
+      }
+    )
+  )
+}
+
+// 执行 runPostInitialization 函数，只安装一次依赖并按需建立独立 Git 根。
+export async function runPostInitialization(
+  options: InitOptions,
+  commandRunner: InitializationCommandRunner = runCommand
+): Promise<void> {
   if (options.skipInstall !== true) {
-    await runCommand("pnpm", ["install", "--no-frozen-lockfile"], options.root)
-    await runCommand("pnpm", ["format"], options.root)
-    // 保存 buildArgs 变量供交互式询问或显式 E2E 选择使用。
-    const buildArgs =
-      options.e2e === undefined ? ["build"] : ["build", "--", `--e2e=${options.e2e}`]
-    await runCommand("pnpm", buildArgs, options.root)
+    await commandRunner(
+      "pnpm",
+      ["install", "--no-frozen-lockfile", "--prefer-offline"],
+      options.root
+    )
   } else {
-    console.log("Skipped dependency installation and the Release build gates (--skip-install).")
+    console.log("Skipped dependency installation (--skip-install).")
   }
   if (options.skipGit !== true && !(await pathExists(path.join(options.root, ".git")))) {
-    await runCommand("git", ["init", "-b", "main"], options.root)
+    await commandRunner("git", ["init", "-b", "main"], options.root)
   }
 }
 
 // 执行 initializeProject 函数的处理逻辑。
-export async function initializeProject(options: InitOptions): Promise<ProjectConfig> {
+export async function initializeProject(
+  options: InitOptions,
+  preparedLogo?: Uint8Array,
+  commandRunner: InitializationCommandRunner = runCommand
+): Promise<ProjectConfig> {
   // 保存 root 变量供当前逻辑使用。
   const root = path.resolve(options.root)
   await assertDownstreamInitializationRoot(root)
@@ -165,13 +210,16 @@ export async function initializeProject(options: InitOptions): Promise<ProjectCo
   // 保存 projectManifest 变量供当前逻辑使用。
   const projectManifest = buildProjectManifest(existingManifest, config)
   // 保存 logo 变量供当前逻辑使用。
-  const logo = await createLogo({
-    root,
-    name: config.name,
-    id: config.id,
-    color: config.brand.primaryColor,
-    logoPath: resolvedOptions.logoPath
-  })
+  const logo =
+    preparedLogo === undefined
+      ? await createLogo({
+          root,
+          name: config.name,
+          id: config.id,
+          color: config.brand.primaryColor,
+          logoPath: resolvedOptions.logoPath
+        })
+      : Buffer.from(preparedLogo)
   // 保存 projectFiles 变量供当前逻辑使用。
   const projectFiles =
     config.projectType === "web"
@@ -199,8 +247,17 @@ export async function initializeProject(options: InitOptions): Promise<ProjectCo
   await writeJsonAtomic(path.join(root, "package.json"), projectManifest)
   await writeJsonNew(path.join(root, PROJECT_CONFIG_PATH), config)
   await finalizeDownstream(root, config, finalizationPlan)
-  await annotateTypeScriptProject(root)
+  // 保存 annotatedFiles 变量，纳入本次最小格式化集合。
+  const annotatedFiles = await annotateTypeScriptProject(root)
+  await formatInitializationFiles(root, [
+    ...projectFiles.keys(),
+    ...finalizationPlan.files.keys(),
+    ...annotatedFiles,
+    ...(normalizedTsconfig === undefined ? [] : ["tsconfig.json"]),
+    "package.json",
+    PROJECT_CONFIG_PATH
+  ])
   await validateProject(root)
-  await runPostInitialization(resolvedOptions)
+  await runPostInitialization(resolvedOptions, commandRunner)
   return config
 }

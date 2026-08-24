@@ -39,7 +39,7 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --description "示例 React Web 页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" --e2e disabled
+  --release-base-url "https://api.example.com"
 ```
 
 创建纯 Chrome 扩展时仍从同一个源 Harness 根调用，并使用另一个源外绝对目标：
@@ -50,20 +50,20 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" --e2e disabled
+  --release-base-url "https://api.example.com"
 ```
 
 不要复制模板后原地初始化。源 Harness 不再提供 `pnpm harness:init` script；`pnpm harness init` 会在解析项目输入或写入文件前明确拒绝，并指向源外的 `pnpm instantiate`。底层 initializer 只是 `instantiate` 在目标同级 sibling staging 中调用的内部步骤，不是受支持的用户或 Agent 入口。
 
-非交互调用还必须提供 `--development-base-url`、`--test-base-url`、`--release-base-url` 与当次 `--e2e enabled|disabled` 选择。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。交互式调用在内部构建开始时询问 E2E；跳过安装/构建时不要求该选择。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
+非交互调用还必须提供 `--development-base-url`、`--test-base-url` 与 `--release-base-url`。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。初始化不生成 Release 候选，因此不询问或接受 E2E 选择；E2E 只在后续显式 `pnpm build` 时决定。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
 
-`pnpm instantiate` 会先完成输入与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、执行静态下游校验，然后安装依赖并运行完整门禁；全部成功后才以原子 rename 发布到目标。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
+`pnpm instantiate` 会先完成输入、一次 Node.js/pnpm 环境检查与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、只格式化本次生成/改写文件并执行静态下游校验，然后安装一次依赖并建立独立 Git 根；全部成功后才以原子 rename 发布到目标。创建期不运行 lint、typecheck、全量测试、生产构建或 `release:inspect`，也不生成 `dist/`、`build/` 或 zip。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
 
 非交互初始化必须显式传入 `--type web` 或 `--type extension`。交互式 TTY 可以在开始时提示用户二选一，但提示不得提供默认类型，也不得接受 `both`、逗号列表或重复类型。生成后的 `projectType` 是仓库边界；不得通过在同一仓库补入另一套宿主来改变它。
 
 初始化命令的完整参数和三环境配置契约见 [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)；其他可用参数以根 [`package.json`](package.json) 中的真实脚本和命令帮助为准。不要根据文档示例推测尚不存在的参数。
 
-首次生成会先写入当前类型的 `package.json`，再执行普通 `pnpm install` 解析依赖并产出 `pnpm-lock.yaml`。`--skip-install` 只用于受控自动化；跳过时必须在交付前补做安装与验证。锁文件形成后，CI 和可复现检查使用 frozen lockfile，不在复现阶段静默重算依赖。
+首次生成会先写入当前类型的 `package.json`，再执行一次 `pnpm install --no-frozen-lockfile --prefer-offline` 解析依赖并产出 `pnpm-lock.yaml`；已有 pnpm store 可避免不必要的远端元数据等待，缺失内容仍正常联网获取。`--skip-install` 只用于受控自动化；跳过时必须在交付前补做安装。锁文件形成后，CI 和可复现检查使用 frozen lockfile，不在复现阶段静默重算依赖。初始化成功只证明工程基线已安全创建；需要最终候选时进入下游并显式运行 `pnpm build`。
 
 ## 初始化会写入什么
 

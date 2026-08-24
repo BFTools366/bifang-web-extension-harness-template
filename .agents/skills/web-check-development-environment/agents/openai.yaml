@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：检查前端开发环境"
-  short_description: "检查 React Web 或 Plasmo MV3 Extension 的前端工具链"
-  default_prompt: "使用 $web-check-development-environment 检查纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 与 Google Chrome 环境。"
+  short_description: "仅在初始化或环境报错后检查 React Web/Plasmo 工具链"
+  default_prompt: "使用 $web-check-development-environment 仅在新下游首次初始化，或命令已报出疑似环境错误时检查纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 所需的 Node.js、pnpm 与按需使用的 Google Chrome。"

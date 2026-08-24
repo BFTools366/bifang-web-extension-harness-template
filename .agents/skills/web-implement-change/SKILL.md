@@ -12,7 +12,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 1. 判定路径：局部、可逆且无硬触发器使用 `快速`；可逆的普通页面、路由、交互或跨职责变化使用 `标准`；初始化/项目类型契约、品牌/身份派生、已承诺的兼容性/对外契约、Extension 权限/站点匹配、隐私/安全边界、破坏性数据处理、生产副作用或发布候选等硬触发器升级里程碑并补计划。
 2. 先识别仓库：存在 `.harness/project.json` 时是唯一类型下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
 3. 确认 Git 顶层目录等于项目根，并保留所有用户修改。先检查 diff；重叠修改无法安全整合时停止，不重置、覆盖或顺手格式化无关文件。
-4. 普通代码、测试、lint 或 typecheck 不调用环境检查；只有任务包含初始化、即将执行最终 Release 构建，或已出现疑似工具链/宿主错误时才调用 `$web-check-development-environment`，并优先复用匹配证据。纯文档/元数据任务跳过。
+4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户明确要求并行、存在至少两个无重叠 Todo 且基线干净已提交时才调用 `$web-run-parallel-worktrees`；当前任务的明确要求按 Agent Policy 优先级覆盖默认 `disabled`，不能仅因历史字段为 `enabled` 主动并行。
 6. 快速路径和无持久计划的标准路径实现最小完整行为；存在活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 

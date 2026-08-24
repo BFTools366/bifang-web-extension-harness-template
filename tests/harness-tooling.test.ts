@@ -1,6 +1,7 @@
 import { cp, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
+import { format, resolveConfig } from "prettier"
 import sharp from "sharp"
 import { afterEach, describe, expect, test } from "vitest"
 import { parseArgs } from "../.harness/tooling/args.ts"
@@ -8,7 +9,7 @@ import { refreshBrand } from "../.harness/tooling/brand.ts"
 import { resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
 import { profileFromArgs, validateEnvironmentFiles } from "../.harness/tooling/environment.ts"
-import { initializeProject } from "../.harness/tooling/init.ts"
+import { initializeProject, runPostInitialization } from "../.harness/tooling/init.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { inspectReleaseArtifact } from "../.harness/tooling/release.ts"
 import { downstreamGovernanceFiles } from "../.harness/tooling/templates/downstream-docs.ts"
@@ -381,6 +382,18 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(manifest.scripts).not.toHaveProperty("instantiate")
     await expect(readFile(path.join(root, ".harness/tooling/init.ts"), "utf8")).rejects.toThrow()
     await expect(readFile(path.join(root, "scripts/instantiate.ts"), "utf8")).rejects.toThrow()
+    // 保存 prettierConfig 变量供动态输出格式回归使用。
+    const prettierConfig = (await resolveConfig(path.join(root, "package.json"))) ?? {}
+    // 保存 formattedPaths 变量覆盖 TypeScript 与 Markdown 动态输出。
+    const formattedPaths = ["src/i18n/language.ts", "docs/RUNTIME_CONFIGURATION.md"]
+    // 保存 relativePath 变量供逐文件格式断言使用。
+    for (const relativePath of formattedPaths) {
+      // 保存 absolutePath 变量供 Prettier parser 选择使用。
+      const absolutePath = path.join(root, relativePath)
+      // 保存 source 变量供格式稳定性比较使用。
+      const source = await readFile(absolutePath, "utf8")
+      expect(await format(source, { ...prettierConfig, filepath: absolutePath })).toBe(source)
+    }
     expect(await readFile(path.join(root, "LICENSE.en.md"), "utf8")).toBe(
       "Applicable Project Name: Aurora Notes. Preserve everything else.\n"
     )
@@ -529,6 +542,31 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     await expect(readFile(path.join(root, "index.html"), "utf8")).rejects.toThrow()
   })
 
+  test("reuses a preflighted uploaded Logo without reopening its source", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供预处理 Logo 复用测试使用。
+    const root = await seedTemplateRoot()
+    // 保存 preparedLogo 变量模拟源 Harness 已完成的单次上传压缩结果。
+    const preparedLogo = await sharp({
+      create: {
+        width: 1024,
+        height: 1024,
+        channels: 4,
+        background: { r: 38, g: 70, b: 83, alpha: 1 }
+      }
+    })
+      .png()
+      .toBuffer()
+    await initializeProject(
+      {
+        ...options(root, "extension"),
+        logoPath: path.join(root, "already-removed-upload.png")
+      },
+      preparedLogo
+    )
+    expect(await readFile(path.join(root, ".harness/brand/logo-1024.png"))).toEqual(preparedLogo)
+    expect(await readFile(path.join(root, "assets/icon.png"))).toEqual(preparedLogo)
+  })
+
   test("rejects combined, invalid, and repeated type options", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
@@ -590,7 +628,7 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     ).toThrow(/Usage/)
   })
 
-  test("uses the stable color default but requires type and identity when non-interactive", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+  test("uses the stable color default and keeps E2E outside initialization", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     // 保存 resolved 变量供当前逻辑使用。
@@ -609,35 +647,15 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
         "--test-base-url",
         TEST_BASE_URLS.testBaseUrl,
         "--release-base-url",
-        TEST_BASE_URLS.releaseBaseUrl,
-        "--e2e",
-        "disabled"
+        TEST_BASE_URLS.releaseBaseUrl
       ]),
       root
     )
     expect(resolved.brandColor).toBe("#4C6EF5")
-    expect(resolved.e2e).toBe("disabled")
-    await expect(
-      resolveInitOptions(
-        parseArgs([
-          "--type",
-          "web",
-          "--name",
-          "Missing E2E",
-          "--id",
-          "missing-e2e",
-          "--description",
-          "No build selection",
-          "--development-base-url",
-          TEST_BASE_URLS.developmentBaseUrl,
-          "--test-base-url",
-          TEST_BASE_URLS.testBaseUrl,
-          "--release-base-url",
-          TEST_BASE_URLS.releaseBaseUrl
-        ]),
-        root
-      )
-    ).rejects.toThrow(/requires --e2e/)
+    expect(resolved).not.toHaveProperty("e2e")
+    await expect(resolveInitOptions(parseArgs(["--e2e", "disabled"]), root)).rejects.toThrow(
+      /Unknown option\(s\): --e2e/
+    )
     await expect(
       resolveInitOptions(
         parseArgs(["--name", "Missing Type", "--id", "missing-type", "--description", "No type"]),
@@ -660,6 +678,54 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
         root
       )
     ).rejects.toThrow(/--development-base-url/)
+  })
+
+  test("installs once without formatting or building and stops before Git on failure", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 root 变量供创建期命令计划测试使用。
+    const root = await temporaryDirectory("web-harness-post-init-")
+    // 保存 commands 变量记录创建期实际请求的外部命令。
+    const commands: Array<{ command: string; args: string[]; root: string }> = []
+    // 保存 commandRunner 变量并定义无副作用的命令观察器。
+    const commandRunner = async (
+      command: string,
+      args: string[],
+      commandRoot: string
+    ): Promise<void> => {
+      commands.push({ command, args, root: commandRoot })
+    }
+    await runPostInitialization(
+      { ...options(root, "web"), skipInstall: false, skipGit: false },
+      commandRunner
+    )
+    expect(commands).toEqual([
+      {
+        command: "pnpm",
+        args: ["install", "--no-frozen-lockfile", "--prefer-offline"],
+        root
+      },
+      { command: "git", args: ["init", "-b", "main"], root }
+    ])
+    // 保存 requestedArguments 变量汇总全部创建期命令参数。
+    const requestedArguments = commands.flatMap(
+      /* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.args
+    )
+    expect(requestedArguments).not.toContain("format")
+    expect(requestedArguments).not.toContain("build")
+
+    // 保存 failedCommands 变量记录安装失败后的短路行为。
+    const failedCommands: string[] = []
+    // 保存 failingRunner 变量并定义确定性安装失败替身。
+    const failingRunner = async (command: string): Promise<void> => {
+      failedCommands.push(command)
+      throw new Error("install failed")
+    }
+    await expect(
+      runPostInitialization(
+        { ...options(root, "web"), skipInstall: false, skipGit: false },
+        failingRunner
+      )
+    ).rejects.toThrow("install failed")
+    expect(failedCommands).toEqual(["pnpm"])
   })
 
   test("rejects invalid or colliding environment configuration before completion", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
@@ -1178,6 +1244,52 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     await expect(readdir(hiddenTarget)).rejects.toThrow()
   })
 
+  test("keeps the target atomic when install or Git initialization fails", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+    // 保存 failedCommand 变量供两类后置命令失败回归使用。
+    for (const failedCommand of ["pnpm", "git"] as const) {
+      // 保存 parent 变量供失败原子性测试使用。
+      const parent = await temporaryDirectory(`web-harness-${failedCommand}-failure-`)
+      // 保存 id 变量供目标和 staging 命名使用。
+      const id = `${failedCommand}-failure`
+      // 保存 targetRoot 变量供目标零发布断言使用。
+      const targetRoot = path.join(parent, id)
+      // 保存 { root: ignoredRoot, ...init } 变量构造真实模板初始化输入。
+      const { root: ignoredRoot, ...init } = options(targetRoot, "web")
+      void ignoredRoot
+      await expect(
+        instantiateProject(
+          {
+            sourceRoot: repositoryRoot,
+            targetRoot,
+            init: {
+              ...init,
+              id,
+              skipInstall: false,
+              skipGit: false
+            }
+          },
+          // 执行 当前声明 函数的处理逻辑。
+          (initOptions, preparedLogo) =>
+            initializeProject(
+              initOptions,
+              preparedLogo,
+              // 执行 当前声明 函数的处理逻辑。
+              async (command) => {
+                if (command === failedCommand) throw new Error(`${command} failed`)
+              }
+            )
+        )
+      ).rejects.toThrow(`${failedCommand} failed`)
+      await expect(readdir(targetRoot)).rejects.toThrow()
+      expect(
+        (await readdir(parent)).filter(
+          // 执行 当前声明 函数的处理逻辑。
+          (entry) => entry.startsWith(`.${id}.harness-stage-`)
+        )
+      ).toEqual([])
+    }
+  })
+
   test("copies a clean template into a governed terminal project", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-copy-")
@@ -1274,6 +1386,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamAgents).toContain("create a persistent plan only when the user explicitly")
     expect(downstreamAgents).toContain("every artifact build asks the user")
     expect(downstreamAgents).toContain("they do not create or update Work Plans")
+    expect(downstreamAgents).toContain("只在首次初始化或命令已报出环境错误时检查")
     // 保存 downstreamVerifyDeliveryMetadata 变量供当前逻辑使用。
     const downstreamVerifyDeliveryMetadata = await readFile(
       path.join(targetRoot, ".agents/skills/web-verify-delivery/agents/openai.yaml"),
@@ -1322,6 +1435,12 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamEngineering).toContain("达到 1000 行必须按业务逻辑拆分")
     expect(downstreamEngineering).toContain("`pnpm build` 是唯一最终产物入口")
     expect(downstreamEngineering).toContain("不创建或更新 Work Plan、ADR、Status")
+    // 保存 downstreamRuntime 变量供工具链探测边界回归使用。
+    const downstreamRuntime = await readFile(
+      path.join(targetRoot, "docs/RUNTIME_CONFIGURATION.md"),
+      "utf8"
+    )
+    expect(downstreamRuntime).toContain("普通开发、构建、新会话或 Agent 切换不预探测")
     // 保存 downstreamMantineUi 变量供当前逻辑使用。
     const downstreamMantineUi = await readFile(
       path.join(targetRoot, "docs/MANTINE_UI_GUIDELINES.md"),

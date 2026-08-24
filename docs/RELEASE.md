@@ -30,11 +30,11 @@ Harness 候选至少满足：
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
 - 源 Harness 的 13 个项目 Skills、成功下游保留的 12 个维护 Skills 及创建 Skill 删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
-- 根 `package.json` 与首次普通安装产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
+- 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <absolute-target-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
-- 在源 Harness 之外的两个全新隔离目标分别以三份显式 BaseURL 执行 `--type web` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型且会逐项询问三个 BaseURL；两种输出均为单 package，且只包含一个 `projectType`；
+- 在源 Harness 之外的两个全新隔离目标分别以三份显式 BaseURL 执行 `--type web` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型且会逐项询问三个 BaseURL；初始化命令不接受 E2E 选择、不运行 Release 构建且不产生 `dist/`、`build/` 或 zip，两种输出均为单 package 且只包含一个 `projectType`；
 - 成功下游不再包含 `instantiate`、`harness:init`、源专用创建 Skill、内部 init/instantiate tooling 或其他项目派生入口，不能继续从自身生成项目；
-- `both`、类型/BaseURL 缺失、类型列表、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标、源 Harness 根/子路径和路径越界等预检失败保持目标零写入；`instantiate` 只在目标同级 sibling staging 中调用内部 initializer，并在全部生成、安装和检查成功后原子发布，任何失败都保持目标不存在或为空；
+- `both`、类型/BaseURL 缺失、类型列表、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标、源 Harness 根/子路径和路径越界等预检失败保持目标零写入；`instantiate` 只在目标同级 sibling staging 中调用内部 initializer，并在生成、定向格式化、静态结构/三环境/终端化校验、一次安装和 Git 初始化成功后原子发布，任何失败都保持目标不存在或为空；
 - Web 结果的 `public/logo.png`、`public/favicon.png`、根 `index.html` 与 Landing 身份一致；
 - Extension 结果的 `assets/icon.png`、manifest 身份、Popup 与 Options 一致，Plasmo 能从来源图标生成构建所需尺寸；`targets.default` 明确使用 browser context 与 `includeNodeModules: true`；
 - 两种生成项目都包含 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
@@ -43,7 +43,7 @@ Harness 候选至少满足：
 - 未实际执行的操作系统、Chrome 版本和分发渠道明确标记 `Unverified`；
 - 当前已知重要限制已记录在 [`TECH_DEBT.md`](TECH_DEBT.md)。
 
-模板本身没有业务产品。初始化器和中性 Landing/Popup 构建成功只能证明脚手架基线，不代表下游业务已经验收。
+模板本身没有业务产品。初始化成功只证明脚手架基线已安全创建；后续中性 Landing/Popup Release 构建成功也不代表下游业务已经验收。
 
 ## 4. Web 下游候选
 
@@ -73,7 +73,7 @@ Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露
 ## 6. 验收与发布顺序
 
 1. 完成并关闭当前里程碑 Todo。
-2. 固定源码提交与依赖锁，运行当前项目类型的唯一 `pnpm build` 完成逻辑 Release 构建；完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。
+2. 固定源码提交与依赖锁，不做工具链预探测，直接运行当前项目类型的唯一 `pnpm build` 完成逻辑 Release 构建；只有真实失败指向环境时才诊断相关组件。完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。
 3. 检查身份、Logo 母版、当前宿主品牌派生、manifest/HTML、配置与权限边界。
 4. 确认生成候选的 `build:release` 或 Extension `package` 已自动通过 `pnpm release:inspect`；需要独立复核既有目录时直接重跑该命令。任何命中先修复并生成新候选。
 5. 每次构建前询问用户是否启用当次 E2E；选择 `enabled` 或存在用户/产品/安全/渠道硬要求时，对刚生成的精确候选执行 E2E，选择 `disabled` 时记录 `Not run`、`not-required/not-probed` 与 `Unverified` 范围。浏览器流程不能覆盖环境、测试、版本注入、构建、扫描或渠道硬门禁。
