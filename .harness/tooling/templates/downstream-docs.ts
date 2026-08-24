@@ -56,7 +56,7 @@ function engineeringRules(config: ProjectConfig): string {
 - 产品日志只通过 \`src/observability/logger.ts\`，边界覆盖、敏感字段和 Release 裁剪遵循 \`docs/LOGGING.md\`。
 - 严格中文注释门禁覆盖人工维护与 Harness 生成的 .ts/.tsx：每个 interface 及成员、class 声明/表达式及字段/方法/访问器/构造函数/参数属性、所有函数形式，以及每个 const/let/var 声明（包括函数内部变量与 for 初始器），都必须紧邻一条包含汉字的注释；变量声明与其函数初始化器可共用同一条注释。
 - 只精确排除第三方或构建生成物${routeTreeExclusion}.plasmo/**、build/**、dist/**、coverage/**、node_modules/** 与 .git/**；不得用 *.gen.ts 等宽泛模式隐藏维护源码。注释应说明声明职责，不能用字符串、英文注释、尾随前一语句或隔空文件头冒充；pnpm lint 会自动运行 pnpm comments:check。
-- 文件接近 500 行时复核职责，超过 2,000 行必须拆分；生成文件与人工维护文件要有清晰边界。
+- 人工维护代码不超过 500 行为默认目标；501–999 行必须复核业务高内聚与单一职责并记录保留理由，达到 1000 行必须按业务逻辑拆分。拆分文件留在原功能或工具模块目录，不建立跨模块 \`utils\`/\`common\` 兜底层，也不得压缩格式规避；生成文件与人工维护文件保持清晰边界。源码体积门禁额外排除 GraphQL codegen 等 \`generated/**\` 输出目录，因为该类文件不受业务内聚拆分约束。
 
 ## 当前宿主规则
 
@@ -71,7 +71,9 @@ ${hostRules}
 ## 测试与交付
 
 - 行为变化必须有非空测试，至少覆盖核心成功路径和最高风险失败路径。
-- 局部可逆任务先运行受影响的最小充分检查。里程碑、Release 候选、跨配置/结构/构建链变化、用户明确要求，或窄检查不足以建立可信度时，运行 \`pnpm harness validate\`、\`pnpm format:check\`、\`pnpm lint\`、\`pnpm typecheck\`、\`pnpm test\` 与 \`pnpm build\`；Release build 自动执行配置与产物泄漏检查。
+- 局部可逆任务先运行受影响的最小充分检查和 \`pnpm test:related <changed-source...>\`；依赖图没有发现测试时，必须改跑所属非空测试文件或说明相称替代验证。全量 \`pnpm test\` 只在行为保持重构或最终构建/发布时运行。
+- \`pnpm build\` 是唯一最终产物入口并固定委托 \`build:release\`，无论本机还是 CI/其他平台都使用逻辑 Release。每次构建先询问当次 E2E 选择，非交互入口显式传 \`--e2e=enabled|disabled\`；它自动运行环境、Harness、格式、lint、类型与全量测试，按上海时区注入 \`YYYYMMDDHHMM\` 页面版本，再完成生产构建与含版本命中的 \`release:inspect\`。不得提供 development/test 产物构建脚本。
+- 构建命令、时间版本、E2E 选择及其测试、扫描或浏览器结果只进入命令输出和当前任务交付说明，不创建或更新 Work Plan、ADR、Status、Changelog、Verification 或其他持久项目记忆。
 - Mock 只能隔离外部依赖，不能替代最终构建验收。未运行的浏览器、操作系统或渠道写为 \`Unverified\`。
 - 发布、部署、商店上传、凭据、生产数据和不可逆外部副作用必须另行取得明确授权。
 `
@@ -98,10 +100,10 @@ function releaseRules(config: ProjectConfig): string {
 ## 候选门禁
 
 1. \`.harness/project.json.projectType\` 必须仍为 \`${config.projectType}\`，仓库保持单包且没有另一宿主入口。
-2. 对同一源码实际运行 \`pnpm harness validate\`、\`pnpm lint\`、\`pnpm typecheck\`、非空 \`pnpm test\` 与 \`pnpm build\`。
-3. \`pnpm build\` 必须先校验三份受管环境配置，并在构建后自动通过 \`pnpm release:inspect\`；${artifactChecks}
-4. Agent Policy 或产品/渠道硬要求选中浏览器验证时，只对上述精确 Release 候选运行；未选中时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
-5. 记录源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题。
+2. 每次构建前取得当次 E2E \`enabled|disabled\` 选择，再对同一源码实际运行 \`pnpm build -- --e2e=<selection>\`；该唯一 Release 构建入口必须自动完成 \`pnpm harness validate\`、格式、lint、typecheck 与非空全量单元测试，不在外层重复执行同一批门禁。
+3. \`pnpm build\` 必须校验三份受管环境配置和活动 Release profile，生成并展示上海时区 \`YYYYMMDDHHMM\` 构建版本，并在生产构建后自动通过包含版本命中的 \`pnpm release:inspect\`；${artifactChecks}development/test profile 不得生成候选产物。
+4. 当次 E2E 选择 \`enabled\` 或产品、安全、渠道硬要求浏览器验证时，只对上述精确 Release 候选运行；选择 \`disabled\` 时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
+5. 在当前任务交付说明中报告源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题；构建操作本身不写入 ADR、Changelog、Verification 或其他持久项目记忆。
 6. 必需检查失败、取消、超时或未执行时结论为 \`Not ready\`；不能用历史结果或部分成功替代。
 
 ## 外部操作
@@ -114,20 +116,15 @@ function releaseRules(config: ProjectConfig): string {
 function runtimeConfiguration(config: ProjectConfig): string {
   // 保存 prefix 变量供当前逻辑使用。
   const prefix = config.projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
-  // 保存 hostMapping 变量供当前逻辑使用。
-  const hostMapping =
-    config.projectType === "web"
-      ? "Vite mode `development`、`test`、`production`"
-      : "Plasmo `--env=.env.development|.env.test|.env.production`"
   return `# 运行配置与环境
 
 本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的运行配置事实。三份逻辑环境缺一不可；\`release\` 映射到 \`.env.production\`，不是第四份环境。
 
-| 逻辑环境        | 受管文件             | 构建入口                  | 默认日志级别 |
-| --------------- | -------------------- | ------------------------- | ------------ |
-| \`development\` | \`.env.development\` | \`pnpm build:development\` | \`debug\`  |
-| \`test\`        | \`.env.test\`        | \`pnpm build:test\`        | \`info\`   |
-| \`release\`     | \`.env.production\`  | \`pnpm build:release\`      | \`warn\`   |
+| 逻辑环境        | 受管文件             | 用途                       | 默认日志级别 |
+| --------------- | -------------------- | -------------------------- | ------------ |
+| \`development\` | \`.env.development\` | \`pnpm dev\` 本地运行        | \`debug\`    |
+| \`test\`        | \`.env.test\`        | Vitest 测试运行时          | \`info\`     |
+| \`release\`     | \`.env.production\`  | \`pnpm build\` 唯一最终产物 | \`warn\`     |
 
 ## 字段与边界
 
@@ -138,17 +135,19 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 浏览器公开前缀中的值会进入产物，绝不保存 Token、Cookie、密码、API key 或服务端秘密。业务代码只读 \`src/config/environment.ts\` 导出的冻结 \`APP_CONFIG\`，不得散落读取宿主环境变量或拼接任意 BaseURL。
 
+构建编排器只向宿主生产构建子进程注入只读的 \`${prefix}BUILD_VERSION\`，值为上海时区 \`YYYYMMDDHHMM\`；它不属于四个可配置 profile 键，不得写入 \`.env*\` 或 \`APP_CONFIG\`。页面通过 \`src/buildVersion.ts\` 展示该值，\`release:inspect\` 使用同一私有期望值确认候选命中。
+
 语言偏好、分页 session、\`X-Http-Request\` continuation 与 \`X-AUTH-TOKEN\` 都是运行时状态，不进入任何公开环境键；其存储、并发和清理规则见 \`docs/DATA_ACCESS.md\`。
 
-\`.env\`、\`.env.local\` 与三种 \`.env.*.local\` 会造成构建器静默覆盖，项目门禁明确拒绝其存在。选定 profile 只允许当前进程覆盖上述四个已声明键；未知 \`${prefix}*\` 键拒绝。${hostMapping} 是唯一构建映射。
+\`.env\`、\`.env.local\` 与三种 \`.env.*.local\` 会造成构建器静默覆盖，项目门禁明确拒绝其存在。选定 profile 只允许当前进程覆盖上述四个已声明键；未知 \`${prefix}*\` 键拒绝。development/test 只服务运行与测试，不允许生成最终候选；所有本机、CI 或其他平台的产物构建都固定使用逻辑 \`release\` 和 \`.env.production\`。
 
 ## 命令
 
 - \`pnpm env:validate\`：校验三份文件。
 - \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖。
-- \`pnpm build\`：\`pnpm build:release\` 的别名；构建后自动运行${
-    config.projectType === "extension" ? " `pnpm harness validate` 与" : ""
-  } \`pnpm release:inspect\`。
+- \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；每次先询问 E2E，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入 12 位页面版本后自动运行 \`pnpm release:inspect\`。
+
+Node.js、pnpm 与 Chrome 的开发环境探测不同于上述运行配置校验，触发时机见 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md)。
 
 Extension 的 BaseURL 不会自动授予 \`host_permissions\`；真实网络消费者仍按 \`docs/DATA_ACCESS.md\` 审批最小权限。
 `
@@ -176,11 +175,11 @@ function loggingRules(config: ProjectConfig): string {
 - body、headers、GraphQL variables、Storage、页面内容、完整标签页 URL 与任意对象快照禁止记录。
 - 日志构造、清理、时钟或 sink 失败不得中断业务路径。
 
-\`pnpm build:release\` 和 Extension \`pnpm package\` 在产物生成后自动运行 \`pnpm release:inspect\`。${
+\`pnpm build:release\` 和 Extension \`pnpm package\` 在注入当次 12 位页面版本并生成产物后自动运行 \`pnpm release:inspect\`。${
     config.projectType === "extension"
       ? "Extension 还会先运行 `pnpm harness validate`，拒绝错误 browser target 或运行时依赖 Parcel self-map。"
       : ""
-  }文件名层对所有候选文件拒绝 \`.env*\` 与 \`.map\`；内容扫描只读取 \`.css\`、\`.html\`、\`.js\`、\`.json\`、\`.mjs\`、\`.txt\` 与 \`.xml\`，并拒绝开发/测试 BaseURL、固定哨兵 \`debug_sentinel\`、\`info_sentinel\`、\`application_started\`、\`surface_started\`、\`do-not-ship\`、原始 \`console.debug\`/\`console.info\`、本机绝对路径与 \`sourceMappingURL\`。Extension 检查 \`build/chrome-mv3-prod\`，不会直接解包扫描 zip。该固定规则集不是通用秘密扫描器，也不能代替 logger 单元测试或策略选中的真实 Chrome 候选验证。
+  }文件名层对所有候选文件拒绝 \`.env*\` 与 \`.map\`；内容扫描只读取 \`.css\`、\`.html\`、\`.js\`、\`.json\`、\`.mjs\`、\`.txt\` 与 \`.xml\`，并拒绝开发/测试 BaseURL、固定哨兵 \`debug_sentinel\`、\`info_sentinel\`、\`application_started\`、\`surface_started\`、\`do-not-ship\`、原始 \`console.debug\`/\`console.info\`、本机绝对路径与 \`sourceMappingURL\`。Extension 检查 \`build/chrome-mv3-prod\`，不会直接解包扫描 zip。该固定规则集不是通用秘密扫描器，也不能代替 logger 单元测试或被硬要求的真实 Chrome 候选验证。
 `
 }
 

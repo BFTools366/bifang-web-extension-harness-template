@@ -46,10 +46,16 @@ declare namespace NodeJS {
   interface ProcessEnv {
     PLASMO_PUBLIC_APP_ENV?: "development" | "test" | "release"
     PLASMO_PUBLIC_API_BASE_URL?: string
+    PLASMO_PUBLIC_BUILD_VERSION?: string
     PLASMO_PUBLIC_LOG_LEVEL?: "debug" | "info" | "warn" | "error"
     PLASMO_PUBLIC_REQUEST_TIMEOUT_MS?: string
   }
 }
+`
+    ],
+    [
+      "src/buildVersion.ts",
+      `export const BUILD_VERSION = process.env.PLASMO_PUBLIC_BUILD_VERSION ?? "development"
 `
     ],
     [
@@ -75,6 +81,7 @@ void i18n.use(initReactI18next).init({
         popupReady: "Chrome extension ready",
         optionsReady: "Extension settings",
         action: "Test local state",
+        buildVersion: "Build version: {{version}}",
         count: "Interaction count: {{count}}",
         paginationNavigation: "Pagination",
         paginationPage: "Page {{page}}",
@@ -89,6 +96,7 @@ void i18n.use(initReactI18next).init({
         popupReady: "Chrome 扩展已就绪",
         optionsReady: "扩展设置",
         action: "测试本地状态",
+        buildVersion: "构建版本：{{version}}",
         count: "交互次数：{{count}}",
         paginationNavigation: "分页",
         paginationPage: "第 {{page}} 页",
@@ -146,6 +154,7 @@ import { useAtom } from "jotai"
 import { useTranslation } from "react-i18next"
 import { useEffect } from "react"
 import { BRAND } from "./brand"
+import { BUILD_VERSION } from "./buildVersion"
 import { createLogger } from "./observability/logger"
 import { launchCountAtom } from "./state"
 
@@ -198,6 +207,7 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
           </div>
           <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
           <Text size="sm" fw={600}>{t("count", { count })}</Text>
+          <Text c="dimmed" size="xs">{t("buildVersion", { version: BUILD_VERSION })}</Text>
         </Stack>
       </Paper>
     </main>
@@ -223,6 +233,7 @@ test("renders the branded popup interaction", async () => {
   )
 
   expect(screen.getByRole("heading", { name: BRAND.name })).toBeInTheDocument()
+  expect(screen.getByText("Build version: development")).toBeInTheDocument()
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByText("Interaction count: 1")).toBeInTheDocument()
 })

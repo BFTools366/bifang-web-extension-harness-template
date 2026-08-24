@@ -2,6 +2,8 @@
 export const PROJECT_TYPES = ["web", "extension"] as const
 
 export type ProjectType = (typeof PROJECT_TYPES)[number]
+// 定义 E2eSelection 类型约束单次构建选择。
+export type E2eSelection = "enabled" | "disabled"
 
 // 定义 BrandConfig 接口的结构契约。
 export interface BrandConfig {
@@ -57,6 +59,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   brandColor: string
   // 描述 logoPath 接口成员的结构契约。
   logoPath?: string
+  // 描述 e2e 接口成员的当次构建选择。
+  e2e?: E2eSelection
   // 描述 skipInstall 接口成员的结构契约。
   skipInstall?: boolean
   // 描述 skipGit 接口成员的结构契约。

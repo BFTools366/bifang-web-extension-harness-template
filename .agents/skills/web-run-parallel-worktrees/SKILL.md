@@ -1,11 +1,11 @@
 ---
 name: web-run-parallel-worktrees
-description: 为 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前端下游的已有标准/里程碑计划创建隔离 Git Worktree，并安全整合至少两个写入范围互不重叠的 Todo；也可只读审计或保守清理由本流程创建的 Worktree。创建模式要求 Agent Policy 启用且 Git 基线干净已提交。
+description: 为 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前端下游的已有标准/里程碑计划创建隔离 Git Worktree，并安全整合至少两个写入范围互不重叠的 Todo；也可只读审计或保守清理由本流程创建的 Worktree。创建模式要求用户明确要求且 Git 基线干净已提交。
 ---
 
 # Web Harness：运行前端并行工作树
 
-并行只用于真正独立的实施单元。`parallel_worktree_subagents: enabled` 是创建许可，不要求为了速度强行并行，也不扩大原任务授权。
+并行只用于用户明确要求的独立实施单元；默认策略关闭时不把它作为优化选项，也不扩大原任务授权。
 
 ## 模式
 
@@ -16,7 +16,7 @@ description: 为 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前�
 ## 创建准入
 
 1. 读取 `docs/AGENT_POLICY.md`、活动 Work Plan、工程规则和 Git 状态；存在 `.harness/project.json` 时再读取唯一 `projectType`，源 Harness 不要求该文件。
-2. 只有 `parallel_worktree_subagents: enabled` 才创建；`disabled` 或前置条件不满足时直接回到单 Agent，不重复询问。字段缺失/非法且无法按仓库规则推断时才询问一次。
+2. 只有用户明确要求并行时才创建；当前任务的明确要求按 Agent Policy 执行优先级覆盖默认 `parallel_worktree_subagents: disabled`。历史字段为 `enabled` 也不能代替本次用户要求；前置条件不满足时直接回到单 Agent，不建议开启、不重复询问。字段缺失或非法时按关闭处理。
 3. 要求至少两个 Todo 具有互不重叠的精确文件/模块所有权、独立验证和明确整合顺序。共享 package/锁文件、三环境文件与 Schema、统一 logger、品牌事实源、同一 React 入口、同一 Extension manifest 或同一消息契约必须串行。
 4. 要求当前项目是独立 Git 顶层目录，基线已有提交且 `git status --porcelain=v1 --untracked-files=all` 为空。绝不自动暂存或提交用户修改来满足门禁。
 
@@ -32,7 +32,7 @@ description: 为 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前�
 3. 分派写入前，从每个 Worktree 验证 Git 顶层、分支、HEAD 与负责路径均精确匹配。告知 Subagent 只能编辑已声明路径，必须保护他人修改，不得修改另一项目类型、扩张权限、创建远端、推送、发布或执行范围外副作用。
 4. 在开始、阻断、单元完成、整合和验证节点提供简洁状态并等待必需结果。范围或所有权变化时停止并重新切分，不让两个 Agent 竞态写同一文件。
 5. 审查每个完整 diff 与证据，拒绝越界编辑、缺失非空测试、敏感信息、绝对本机路径、另一类型入口或无事实支持的声明；按依赖顺序用可逆 Git 操作整合，语义冲突由一个 Agent 串行解决。
-6. 整合后运行受影响的最小充分检查；跨配置/结构/构建链变化、里程碑或候选任务再运行适用完整门禁。只有整合检查通过才把 Todo 标记 `done`；实施批次内不自动运行冒烟/E2E。
+6. 整合后运行受影响的最小充分检查和相关非空测试；行为保持重构运行全量测试。需要候选时先询问当次 E2E 选择，再只运行拥有完整门禁的 Release `pnpm build -- --e2e=enabled|disabled`；选择启用后的 E2E 交给精确候选验收，不混入 Worktree 实施批次。只有整合检查通过才把 Todo 标记 `done`。
 
 ## 审计与保守清理
 

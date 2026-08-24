@@ -30,18 +30,18 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 执行唯一创建入口
 
-1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、三个 BaseURL 与唯一类型。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用普通 `pnpm install --no-frozen-lockfile` 建立首份与目标清单一致的 lockfile：
+1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、三个 BaseURL 与唯一类型；调用前询问用户是否为内部 Release 构建启用 E2E，非交互命令显式传入当次选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用普通 `pnpm install --no-frozen-lockfile` 建立首份与目标清单一致的 lockfile：
 
    ```text
    pnpm instantiate -- <absolute-target-outside-harness> --type <web|extension> \
      --name "<display-name>" --id <project-id> --description "<description>" \
      --development-base-url <url> --test-base-url <url> \
-     --release-base-url <https-url>
+     --release-base-url <https-url> --e2e <enabled|disabled>
    ```
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的原生 Fetch 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。
-4. 复核 `.harness/project.json`、三份环境、单 package 结构、类型互斥、身份残留、排除项、许可证、`pnpm env:validate`、`pnpm harness validate`、非空测试和真实 Release 构建；`build:release` 必须自动通过 `pnpm release:inspect`。
+4. 复核 `.harness/project.json`、三份环境、单 package 结构、类型互斥、身份残留、排除项、许可证、`pnpm env:validate`、`pnpm harness validate`、非空全量测试、`YYYYMMDDHHMM` 页面构建版本和真实 Release 构建；`build:release` 必须自动通过 `pnpm release:inspect`。当次选择启用 E2E 时，再对精确候选执行批准场景。
 5. 默认只建立独立 Git 根，不创建 commit。只有用户另外明确授权提交时，才在完整脚手架验证后创建本地基线提交；初始化始终不授权远端、推送、标签或发布。
 
 ## 不变量

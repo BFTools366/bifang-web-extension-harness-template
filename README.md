@@ -39,7 +39,7 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --description "示例 React Web 页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" --e2e disabled
 ```
 
 创建纯 Chrome 扩展时仍从同一个源 Harness 根调用，并使用另一个源外绝对目标：
@@ -50,12 +50,12 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" --e2e disabled
 ```
 
 不要复制模板后原地初始化。源 Harness 不再提供 `pnpm harness:init` script；`pnpm harness init` 会在解析项目输入或写入文件前明确拒绝，并指向源外的 `pnpm instantiate`。底层 initializer 只是 `instantiate` 在目标同级 sibling staging 中调用的内部步骤，不是受支持的用户或 Agent 入口。
 
-非交互调用还必须提供 `--development-base-url`、`--test-base-url` 与 `--release-base-url`。三者都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
+非交互调用还必须提供 `--development-base-url`、`--test-base-url`、`--release-base-url` 与当次 `--e2e enabled|disabled` 选择。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。交互式调用在内部构建开始时询问 E2E；跳过安装/构建时不要求该选择。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
 
 `pnpm instantiate` 会先完成输入与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、执行静态下游校验，然后安装依赖并运行完整门禁；全部成功后才以原子 rename 发布到目标。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
 
@@ -96,19 +96,21 @@ Web 与 Extension 模板都必须提供同一组单包开发入口：
 ```bash
 pnpm dev
 pnpm build
-pnpm build:development
-pnpm build:test
-pnpm build:release
+pnpm build -- --e2e=disabled
 pnpm test
+pnpm test:related <changed-source...>
 pnpm typecheck
 pnpm lint
+pnpm source-size:check
 pnpm env:validate
 pnpm release:inspect
 ```
 
-这些命令在各自项目内运行；`dev`、`test`、`typecheck`、全部 `build:*`、`build` 和 `release:inspect` 会在其适用阶段校验三份受管环境，`lint` 执行 ESLint 和严格中文声明注释门禁，格式命令只检查格式，它们都不重复读取运行配置。注释门禁的声明矩阵、邻接语义与精确排除只见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §3.1。`pnpm dev` 使用 development，`pnpm test` 使用 test；`pnpm build` 固定等于 `pnpm build:release`，使用逻辑 release 与 `.env.production`。`build:release` 在对应宿主构建后自动运行 `pnpm release:inspect`（Web 同一脚本还运行 `tsc --noEmit`）；Extension 会先运行 `pnpm harness validate`，确认显式 Parcel browser target 已把运行时依赖打进 Chrome bundle，再执行产物扫描，`pnpm package` 也执行相同两道门禁。检查在文件名层拒绝 `.env*` 与 `.map`；仅对受支持的可读文本扩展扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径与 `sourceMappingURL`。Extension 检查 `build/chrome-mv3-prod`，不会直接解包扫描 zip；它也不是通用秘密扫描器。`build:development` 和 `build:test` 是诊断构建，不能冒充发布候选。完整范围见 [`docs/LOGGING.md`](docs/LOGGING.md)。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
+这些命令在各自项目内运行。日常实现运行受影响的格式、lint、类型检查与 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–999 行要求复核，达到 1000 行拒绝。
 
-Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`test` 与 `typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器和 lint 忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
+`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。构建器按 `Asia/Shanghai` 生成 `YYYYMMDDHHMM` 版本，分别通过 Vite/Plasmo 临时变量注入 Web Landing 或 Extension Popup/Options，并在对应宿主生产构建前自动完成三环境、Harness、格式、lint、类型与全量测试门禁，构建后由 `pnpm release:inspect` 确认版本确实进入候选。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。产物检查在文件名层拒绝 `.env*` 与 `.map`，并对受支持文本扫描非 Release BaseURL、低级日志哨兵、本机绝对路径与 `sourceMappingURL`；Extension 检查 `build/chrome-mv3-prod`，不会直接解包扫描 zip。完整范围见 [`docs/LOGGING.md`](docs/LOGGING.md)。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
+
+Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器、注释和源码体积门禁忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
 
 品牌变更后，重新派生当前宿主资产并校验项目：
 
@@ -218,7 +220,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 - Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收；`Version.md` 当前值、候选版本、源码提交、lockfile、Schema/协议版本、`manifest_version` 与 `projectType` 等身份或协议事实继续精确匹配。
 - 三份环境必须同时齐全并通过 Schema 校验；`pnpm release:inspect` 必须按 [`docs/LOGGING.md`](docs/LOGGING.md) 在文件名层拒绝 `.env*`/`.map`，并只在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机路径与 `sourceMappingURL`，作为 `build:release`/Extension `package` 的自动失败门禁；它不提供通用秘密扫描。
 - 行为变化至少运行相关非空单元/组件测试；文档与元数据变化运行链接、解析或差异检查。
-- Web/Extension 的真实浏览器检查在 Agent Policy 选择或产品/安全/渠道硬要求时执行；选中后必须针对最终构建验证当前项目真实需要的页面、入口与权限行为。
+- 每次 Web/Extension 产物构建都先询问当次 E2E 选择；选择启用或产品/安全/渠道硬要求时，必须针对刚生成的最终构建验证当前项目真实需要的页面、入口与权限行为。
 - Mock、占位页面、开发预览或仅检查源码不能替代最终产物验收。
 - 未实际运行的平台和浏览器范围必须标记为 `Unverified`。
 

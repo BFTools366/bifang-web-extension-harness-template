@@ -90,6 +90,7 @@ export default defineConfig(({ mode }) => ({
 interface ImportMetaEnv {
   readonly VITE_APP_ENV: "development" | "test" | "release"
   readonly VITE_API_BASE_URL: string
+  readonly VITE_BUILD_VERSION?: string
   readonly VITE_LOG_LEVEL: "debug" | "info" | "warn" | "error"
   readonly VITE_REQUEST_TIMEOUT_MS: string
 }
@@ -97,6 +98,11 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+`
+    ],
+    [
+      "src/buildVersion.ts",
+      `export const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION ?? "development"
 `
     ],
     [
@@ -123,6 +129,7 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
   notFoundTitle: "Page not found",
   notFoundDescription: "The requested page does not exist.",
   backHome: "Back to home",
+  buildVersion: "Build version: {{version}}",
   paginationNavigation: "Pagination",
   paginationPage: "Page {{page}}",
   paginationPrevious: "Previous page",
@@ -141,6 +148,7 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
   notFoundTitle: "页面不存在",
   notFoundDescription: "你访问的页面不存在。",
   backHome: "返回首页",
+  buildVersion: "构建版本：{{version}}",
   paginationNavigation: "分页",
   paginationPage: "第 {{page}} 页",
   paginationPrevious: "上一页",
@@ -257,6 +265,7 @@ export const welcomeCountAtom = atom(0)
 import { useAtom } from "jotai"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
+import { BUILD_VERSION } from "../../buildVersion"
 import { welcomeCountAtom } from "./welcomeCount.atom"
 
 export function WelcomePage() {
@@ -284,6 +293,9 @@ export function WelcomePage() {
               <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
               <Text fw={600}>{t("count", { count })}</Text>
             </Group>
+            <Text c="dimmed" size="xs">
+              {t("buildVersion", { version: BUILD_VERSION })}
+            </Text>
           </Stack>
         </Paper>
       </Container>
@@ -312,6 +324,7 @@ test("renders the branded landing interaction", async () => {
   )
 
   expect(screen.getByRole("heading", { name: BRAND.name })).toBeInTheDocument()
+  expect(screen.getByText("Build version: development")).toBeInTheDocument()
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByText("Interaction count: 1")).toBeInTheDocument()
 })

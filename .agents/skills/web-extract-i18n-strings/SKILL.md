@@ -16,7 +16,7 @@ description: 扫描当前纯 TypeScript React Web 或 Plasmo Chrome MV3 Extensio
 5. 排除标识符、CSS 类、URL、日志、错误码、测试夹具、注释、调试文本、协议字段和非用户可见常量。`package.json`/manifest 名称说明由 `$web-prepare-brand-identity` 管理，不在此转换为 Chrome `_locales`。
 6. 为每处文案生成或复用稳定的功能域层级 key，例如 `settings.language.label`；key 不得等于整句源文案。组件通过 `useTranslation`/`t()` 获取，并保持插值、复数和富文本的安全边界。
 7. 只为基准语言和已批准维护语言写真实翻译。不得臆造未批准译文；缺失译文按仓库规则记录原因、负责人和完成条件，不用机器翻译冒充确认结果。
-8. 默认语言的文字、无障碍名称、格式化参数和交互含义必须与迁移前一致。资源按真实功能域内聚，超过 500 行复核拆分，超过 2000 行必须拆分。
+8. 默认语言的文字、无障碍名称、格式化参数和交互含义必须与迁移前一致。资源按真实功能域内聚，超过 500 行复核拆分，达到 1000 行必须在同一功能目录按业务职责拆分。
 9. 运行相关 Vitest/Testing Library 测试，验证默认语言渲染、切换（若既有）、fallback、插值和 aria 文案；再运行适用格式、lint、类型、构建及 `pnpm harness validate`。
 10. 纯文案位置迁移不自动创建 Product Spec、ADR、Status、Changelog 或 Verification；真实文案含义变化按用户可见变化单独处理。
 

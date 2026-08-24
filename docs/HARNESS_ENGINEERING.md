@@ -37,7 +37,7 @@ Web 与 Extension 虽然都使用 React/TypeScript 和相近 UI/状态技术，�
 5. `pnpm instantiate` 在目标同级 sibling staging 中复制模板，并把底层 initializer 作为内部步骤调用；源 Harness 根、子路径与模板副本自身都不能成为初始化位置。
 6. 只渲染一个模板，写入 `.harness/project.json.projectType`、Logo 母版、三份受管环境、类型化 `APP_CONFIG` 与统一 logger。
 7. 同步当前宿主的 HTML/manifest、页面与品牌资产。
-8. 执行结构、三环境、解析、测试和三种 profile 构建检查；Release 构建自动运行 `pnpm release:inspect`，失败时不发布 staging 内容。
+8. 执行结构与解析检查，询问当次 E2E 选择，再运行唯一 `pnpm build -- --e2e=enabled|disabled`；该 Release 入口自动完成三环境、Harness、格式、lint、类型、全量测试、`YYYYMMDDHHMM` 页面版本注入、宿主生产构建和 `pnpm release:inspect`，失败时不发布 staging 内容。development/test profile 不生成候选。
 9. 原子发布目标，并删除只服务模板派生的 script、Skill 与内部 init/instantiate tooling，使输出成为不能继续派生项目的终端仓库。
 
 源 Harness 不提供 `pnpm harness:init`；`pnpm harness init` 只负责明确拒绝原地初始化并引导到 `pnpm instantiate`，不是第二创建路径。
@@ -51,7 +51,7 @@ Web 与 Extension 虽然都使用 React/TypeScript 和相近 UI/状态技术，�
 
 ### 3.3 验收与发布
 
-先完成必需 Todo，再固定真实候选，最后按当前 `projectType` 使用逻辑 Release 配置运行最终构建，并保留自动 `pnpm release:inspect` 证据。真实浏览器验证按 Agent Policy 和产品/渠道硬要求选择；一旦选中就必须针对精确候选完成。开发预览、Mock、测试替身和占位页面可帮助实现，但不能替代发布结论。外部上传和发布始终需要独立授权。
+先完成必需 Todo，再取得当次 E2E 用户选择，按当前 `projectType` 使用逻辑 Release 配置运行最终构建，并保留版本注入与自动 `pnpm release:inspect` 证据。选择启用或存在产品/渠道硬要求时，真实浏览器验证必须针对刚生成的精确候选完成。开发预览、Mock、测试替身和占位页面可帮助实现，但不能替代发布结论。外部上传和发布始终需要独立授权。
 
 ## 4. 品牌收敛
 

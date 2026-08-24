@@ -23,7 +23,7 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --description "示例 React Web 页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" --e2e disabled
 ```
 
 从同一个源 Harness 根创建独立 Extension 目录：
@@ -34,7 +34,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" --e2e disabled
 ```
 
 目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
@@ -48,7 +48,7 @@ pnpm instantiate -- /absolute/path/example-web --type web \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
   --release-base-url "https://api.example.com" \
-  --logo /absolute/path/logo.png --brand-color "#3B82F6"
+  --logo /absolute/path/logo.png --brand-color "#3B82F6" --e2e disabled
 ```
 
 - `--name` 是用户可见名称。
@@ -57,6 +57,7 @@ pnpm instantiate -- /absolute/path/example-web --type web \
 - `--development-base-url`、`--test-base-url` 与 `--release-base-url` 是三个环境的 API BaseURL；非交互调用全部必填，交互调用逐项询问且不得猜测默认值。三者必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 只接受 HTTPS。
 - `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
+- `--e2e enabled|disabled` 是非交互初始化内部 Release 构建的当次选择；交互式构建现场询问，`--skip-install` 不产生构建所以不要求该参数。
 
 参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目，再完成安装和验证；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
@@ -93,7 +94,7 @@ Web 初始化必须同步：
 - `public/logo.png`：页面使用的 Logo；
 - `public/favicon.png`：浏览器标签图标；
 - 根 `index.html`：title、description、favicon 引用与挂载点；
-- Landing 页面：Logo、项目名称、描述与当前主题色。
+- Landing 页面：Logo、项目名称、描述、当前主题色与当次构建版本。
 
 这些文件不得包含 Extension 项目名、Popup/Options 文案或 Chrome manifest 配置。
 
@@ -103,8 +104,8 @@ Extension 初始化必须同步：
 
 - `assets/icon.png`：Plasmo 用于生成 Chrome 所需图标尺寸的来源；
 - `package.json`：根包版本、Plasmo/Chrome manifest 的名称与描述，以及真实需要的权限；
-- `src/popup.tsx`：Popup 中的 Logo、名称、描述和主交互入口；
-- `src/options.tsx`：Options 中的 Logo、名称、描述和设置入口。
+- `src/popup.tsx`：Popup 中的 Logo、名称、描述、当次构建版本和主交互入口；
+- `src/options.tsx`：Options 中的 Logo、名称、描述、当次构建版本和设置入口。
 
 不要维护一组与 `assets/icon.png` 重复且易漂移的手工图标声明。只有产品真实需要时才新增 background、content script、side panel 或其他入口。
 
@@ -304,21 +305,21 @@ tsconfig.json
 ```bash
 pnpm dev
 pnpm build
-pnpm build:development
-pnpm build:test
-pnpm build:release
+pnpm build -- --e2e=disabled
 pnpm test
+pnpm test:related <changed-source...>
 pnpm typecheck
 pnpm lint
+pnpm source-size:check
 pnpm env:validate
 pnpm release:inspect
 ```
 
-命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev`、`test`、`typecheck`、全部构建和 `release:inspect` 在其适用阶段验证受管环境，`lint` 执行 ESLint 与中文声明注释门禁，格式命令只检查格式。注释声明矩阵和精确排除以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 为准。`dev` 使用 development，`test` 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。`build:development` 与 `build:test` 只生成诊断构建。`env:validate` 默认验证全部三份配置；指定 `--profile development|test|release` 时仍检查三份文件，只允许当前进程用当前宿主的四个已声明键覆盖所选 profile。`.env`、四种 `.env*.local` 或未知公开键都会失败。
+命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev` 使用 development，Vitest 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。development/test 不提供产物脚本。日常实现使用 `test:related`，空相关批次必须回退到所属非空测试文件；行为保持重构运行全量 `test`。`lint` 执行 ESLint、中文声明注释与 500/1000 行源码体积门禁，格式命令只检查格式。详细声明矩阵、精确排除与体积边界以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1、§4 为准。
 
-`build:release` 在宿主构建后自动运行 `release:inspect`（Web 同一脚本还运行 `tsc --noEmit`）。Extension 在 inspector 前还运行 `pnpm harness validate`，核对 browser target 并扫描 production JS 中未被打包的运行时依赖 self-map；`package` 在 zip 构建后执行同样两道门禁。产物检查针对 `build/chrome-mv3-prod`，不会直接解包 zip：文件名层拒绝 `.env*`/`.map`，仅在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径与 `sourceMappingURL`；它不提供通用秘密扫描。
+`build:release` 是唯一最终产物入口。每次构建先询问用户是否启用 E2E；非交互入口必须传 `--e2e=enabled|disabled`。随后在宿主生产构建前自动执行 `env:validate --profile release`、Harness、格式、lint、类型与非空全量测试，并按 `Asia/Shanghai` 生成 `YYYYMMDDHHMM`：Web 通过只存在于 Vite 子进程的 `VITE_BUILD_VERSION` 注入 Landing，Extension 通过只存在于 Plasmo 子进程的 `PLASMO_PUBLIC_BUILD_VERSION` 注入 Popup/Options。两者都由 `src/buildVersion.ts` 读取，开发/测试回退为 `development`。构建后 `release:inspect` 以私有的 `HARNESS_BUILD_VERSION` 期望值确认候选命中；这些临时构建元数据不进入三份 `.env`，也不是 `APP_CONFIG`。Extension `package` 对同一 Release profile 执行相同门禁后生成 zip。`env:validate` 默认验证全部三份配置；指定 `--profile development|test|release` 时仍检查三份文件，只允许当前进程用当前宿主的四个可配置键覆盖所选 profile。`.env`、四种 `.env*.local` 或其他未知公开键都会失败。产物检查针对 `build/chrome-mv3-prod`，不会直接解包扫描 zip：文件名层拒绝 `.env*`/`.map`，仅在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径与 `sourceMappingURL`；它不提供通用秘密扫描。
 
-Web 还提供 `pnpm routes:generate`。`dev`/`build` 通过 Vite plugin 再生路由树，`test`/`typecheck` 在自身命令中先生成；该生成文件不进入 Git。Extension 不包含 Router plugin、CLI 或路由生成脚本。
+Web 还提供 `pnpm routes:generate`。`dev`/`build` 通过 Vite plugin 再生路由树，`typecheck` 在自身命令中先生成；该生成文件不进入 Git，也不进入注释或源码体积门禁。Extension 不包含 Router plugin、CLI 或路由生成脚本。
 
 当前类型的品牌刷新与结构校验使用：
 
@@ -341,7 +342,7 @@ pnpm harness validate
 6. `src/pagination/`、`src/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。manifest 不因该基础新增 Ky/Axios，Extension manifest 仍无预置权限。
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
 8. 普通首次安装已生成与 manifest 一致的 `pnpm-lock.yaml`；若受控自动化使用 `--skip-install`，结果明确报告安装和后续检查尚未执行。
-9. Web 的动态文件路由树已由命令生成，且生成项目的 `lint`（含中文声明注释门禁）、`typecheck`、非空 `test` 与三种 profile 构建已实际执行并通过；Extension 完成自身对应门禁。初始化结果若明确使用 `--skip-install`，必须报告哪些生成与检查尚未执行，未运行不得记为通过。
+9. Web 的动态文件路由树已由命令生成，且生成项目的唯一 `pnpm build` 已自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test` 与 Release 生产构建；Extension 完成自身对应门禁。development/test profile 没有产物入口。初始化结果若明确使用 `--skip-install`，必须报告哪些生成与检查尚未执行，未运行不得记为通过。
 10. Release 构建已自动通过 `pnpm release:inspect`：候选文件名不含 `.env*`/`.map`，受支持的可读文本扩展未命中开发/测试 BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机绝对路径或 `sourceMappingURL`；另行确认测试使用的 Token/continuation 值没有进入候选。Extension 还通过 `pnpm harness validate` 的 browser target 与运行时依赖自包含检查，记录的是 `build/chrome-mv3-prod` 检查结果，而不是通用秘密或 zip 解包扫描结论。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、检查或构建失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
 12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。

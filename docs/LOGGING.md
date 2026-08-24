@@ -64,14 +64,14 @@ Release 候选除单元测试外必须运行真实脚本：
 pnpm release:inspect
 ```
 
-Web `pnpm build:release` 在 Vite 构建与 `tsc --noEmit` 后自动运行该命令；Extension `pnpm build:release` 与 `pnpm package` 在 Plasmo 构建后先运行 `pnpm harness validate`，确认 browser target 和运行时依赖自包含，再运行该命令。`release:inspect` 先按 release profile 验证全部环境，再检查 Web `dist/` 或 Extension `build/chrome-mv3-prod`；Extension `package` 虽先生成 zip，该检查仍针对构建目录，不会直接解包扫描 zip。任一命中都会使上层构建/打包失败。
+Web `pnpm build:release` 在 Vite 生产构建前自动完成环境、Harness、格式、lint、类型与全量测试门禁，注入当次 `YYYYMMDDHHMM` 页面构建版本后运行该命令；Extension `pnpm build:release` 与 `pnpm package` 对同一 Release profile 执行相同门禁，并分别在 Plasmo 生产构建或 zip 后运行该命令。`release:inspect` 先按 release profile 验证全部环境，再检查 Web `dist/` 或 Extension `build/chrome-mv3-prod`，并在构建编排器提供 `HARNESS_BUILD_VERSION` 时确认同一 12 位值存在于候选；Extension `package` 虽先生成 zip，该检查仍针对构建目录，不会直接解包扫描 zip。任一命中都会使上层构建/打包失败。
 
 自动检查包括：
 
 1. 候选目录必须存在且非空；文件名层对所有候选文件拒绝 `.env*` 与 `.map`。
 2. 内容扫描只读取 `.css`、`.html`、`.js`、`.json`、`.mjs`、`.txt` 与 `.xml`。这些文本不得包含与 Release URL 不同的 development/test BaseURL、固定哨兵 `debug_sentinel`、`info_sentinel`、`application_started`、`surface_started`、`do-not-ship`、原始 `console.debug`/`console.info`、macOS/Linux/Windows 用户目录绝对路径或 `sourceMappingURL`。
 3. 该固定规则集不是通用秘密扫描器，也不扫描其他扩展名或直接解包 Extension zip；敏感键、URL、Error 与上下文裁剪仍由 logger 测试验证。
-4. 真实 Chrome 冒烟/E2E 仍需捕获 console；观察到的记录符合 Release 级别和脱敏规则，且没有未处理异常。
-5. `release:inspect` 是确定性静态门禁，不能代替 logger 行为测试或按策略执行的真实浏览器验证；任何必需项失败都产生新修复 Todo，不能声明 `Ready`。
+4. 用户、产品、安全或渠道硬要求真实 Chrome 冒烟/E2E 时仍需捕获 console；观察到的记录符合 Release 级别和脱敏规则，且没有未处理异常。
+5. `release:inspect` 是确定性静态门禁，不能代替 logger 行为测试或被硬要求的真实浏览器验证；任何必需项失败都产生新修复 Todo，不能声明 `Ready`。
 
 具体候选顺序、授权和证据字段见 [`RELEASE.md`](RELEASE.md)。

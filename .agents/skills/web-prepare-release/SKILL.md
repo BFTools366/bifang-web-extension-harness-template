@@ -20,7 +20,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 ### Harness 源
 
 1. 候选是绑定到 `Version.md`、源码提交和 lockfile 的源树；根没有应用 `build` 门禁，也不自行发明 zip、npm 发布包或另一种归档。
-2. 要求 `pnpm validate:harness` 及根级适用门禁通过，并复核 `$web-verify-delivery` 已在两个隔离目录验证带三 BaseURL 的 Web/Extension 输出、三种 profile 构建，以及 `build:release`/Extension `package` 自动通过 `pnpm release:inspect`。
+2. 要求 `pnpm validate:harness` 及根级适用门禁通过，并复核 `$web-verify-delivery` 已在两个隔离目录验证带三 BaseURL 的 Web/Extension 输出、每个下游唯一 Release 构建，以及 `build:release`/Extension `package` 自动通过 `pnpm release:inspect`；development/test 不生成候选。
 3. 记录精确提交、版本、锁文件状态和生成候选证据；外部归档、包注册表上传或 GitHub Release 都需要另行授权。
 
 ### Web
@@ -37,9 +37,9 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 
 ## 发布元数据与门禁
 
-1. 只在候选包含符合仓库规则的用户可见新增、变化、移除、安全事项或重要已知问题时更新当天 Changelog；普通内部重构不制造空记录。
+1. 只在候选包含符合仓库规则的用户可见新增、变化、移除、安全事项或重要已知问题，且用户明确要求持久记录时更新当天 Changelog；构建命令、时间版本、E2E 选择和测试/扫描结果本身不触发 Changelog、ADR、Verification 或其他项目记忆。
 2. 用面向用户的语言汇总变化和已知限制，不用原始提交列表代替说明。
-3. 对精确候选复核：版本/提交、文件与哈希、三环境校验、Release profile、`pnpm release:inspect` 实际结果、`Milestone accepted`、必需 smoke/E2E、真实 Chrome/OS、未验证范围、Changelog 和项目状态。
+3. 对精确候选复核：版本/提交、文件与哈希、三环境校验、由唯一构建入口完成的类型/全量测试与页面构建版本、Release profile、`pnpm release:inspect` 实际结果、`Milestone accepted`、当次选择启用或被硬要求的 smoke/E2E、真实 Chrome/OS、未验证范围、Changelog 和项目状态。
 4. 本 Skill 不运行冒烟/E2E，不补签验证结论；证据缺失时回到 `$web-verify-delivery`。
 5. 全部门禁通过才声明 `Ready`；否则声明 `Not ready` 并列出精确阻断项。不得用 `Partially ready` 隐藏必需失败。
 
@@ -52,4 +52,4 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 
 ## 完成输出
 
-报告 `Ready|Not ready`、仓库种类/项目类型、确认版本、源码提交、唯一候选/产物、SHA-256/清单、三环境与 Release 日志/扫描、验收和策略证据、Changelog、未验证范围、阻断项与剩余风险。
+报告 `Ready|Not ready`、仓库种类/项目类型、确认版本、源码提交、唯一候选/产物、SHA-256/清单、三环境与 Release 日志/扫描、验收和策略证据、未验证范围、阻断项与剩余风险；不因准备候选自动写入项目记忆。

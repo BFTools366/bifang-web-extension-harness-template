@@ -75,6 +75,7 @@ async function seedTemplateRoot(): Promise<string> {
   // 保存 root 变量供当前逻辑使用。
   const root = await temporaryDirectory("web-harness-test-")
   await mkdir(path.join(root, "docs"))
+  await mkdir(path.join(root, "tests"))
   await mkdir(path.join(root, ".harness/tooling"), { recursive: true })
   await cp(path.join(repositoryRoot, ".agents"), path.join(root, ".agents"), {
     recursive: true
@@ -106,6 +107,14 @@ async function seedTemplateRoot(): Promise<string> {
   await writeFile(
     path.join(root, ".harness/tooling/comment-policy.ts"),
     await readFile(path.join(repositoryRoot, ".harness/tooling/comment-policy.ts"), "utf8")
+  )
+  await writeFile(
+    path.join(root, ".harness/tooling/source-size-policy.ts"),
+    await readFile(path.join(repositoryRoot, ".harness/tooling/source-size-policy.ts"), "utf8")
+  )
+  await writeFile(
+    path.join(root, "tests/source-size-policy.test.ts"),
+    await readFile(path.join(repositoryRoot, "tests/source-size-policy.test.ts"), "utf8")
   )
   await writeFile(
     path.join(root, "package.json"),
@@ -226,6 +235,10 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const queryClient = await readFile(path.join(root, "src/app/queryClient.ts"), "utf8")
     // 保存 main 变量供当前逻辑使用。
     const main = await readFile(path.join(root, "src/main.tsx"), "utf8")
+    // 保存 buildVersion 变量供 Web 构建版本契约断言使用。
+    const buildVersion = await readFile(path.join(root, "src/buildVersion.ts"), "utf8")
+    // 保存 buildTooling 变量供统一构建入口断言使用。
+    const buildTooling = await readFile(path.join(root, ".harness/tooling/build.ts"), "utf8")
     // 保存 tsconfig 变量供当前逻辑使用。
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
@@ -236,6 +249,15 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(index).toContain('content="A focused notes workspace."')
     expect(index).toContain('content="#5B5BD6"')
     expect(landing).toContain("BRAND.description")
+    expect(landing).toContain("BUILD_VERSION")
+    expect(englishLocale).toContain('buildVersion: "Build version: {{version}}"')
+    expect(chineseLocale).toContain('buildVersion: "构建版本：{{version}}"')
+    expect(buildVersion).toContain("import.meta.env.VITE_BUILD_VERSION")
+    expect(buildTooling).toContain('args: ["test"]')
+    expect(buildTooling).toContain("本次构建完成后是否启用 E2E 测试")
+    expect(buildTooling).toContain("HARNESS_BUILD_VERSION")
+    expect(buildTooling).toContain("VITE_BUILD_VERSION")
+    expect(buildTooling).not.toContain("PLASMO_PUBLIC_BUILD_VERSION")
     expect(indexRoute).toContain('createFileRoute("/")')
     expect(indexRoute).toContain("WelcomePage")
     expect(rootRoute).toContain("createRootRoute")
@@ -343,13 +365,17 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(manifest.scripts["env:validate"]).toBe("tsx .harness/tooling/environment.ts validate")
     expect(manifest.scripts.build).toBe("pnpm build:release")
     expect(manifest.scripts["release:inspect"]).toBe("tsx .harness/tooling/release.ts inspect")
-    expect(manifest.scripts["build:development"]).toContain("--profile development")
-    expect(manifest.scripts["build:test"]).toContain("--profile test")
-    expect(manifest.scripts["build:release"]).toContain("--profile release")
-    expect(manifest.scripts["build:release"]).toContain("pnpm release:inspect")
+    expect(manifest.scripts["source-size:check"]).toBe(
+      "tsx .harness/tooling/source-size-policy.ts check"
+    )
+    expect(manifest.scripts.lint).toBe("eslint . && pnpm comments:check && pnpm source-size:check")
+    expect(manifest.scripts).not.toHaveProperty("build:development")
+    expect(manifest.scripts).not.toHaveProperty("build:test")
+    expect(manifest.scripts["build:release"]).toBe("tsx .harness/tooling/build.ts build")
     expect(Object.values(manifest.scripts).join("\n")).not.toContain("env:validate -- --profile")
     expect(manifest.scripts.typecheck).toContain("pnpm routes:generate")
-    expect(manifest.scripts.test).toContain("pnpm routes:generate")
+    expect(manifest.scripts.test).toBe("vitest run")
+    expect(manifest.scripts["test:related"]).toBe("vitest related --run")
     expectOptionalIntegrationPackagesNotInstalled(manifest)
     expect(manifest.scripts).not.toHaveProperty("harness:init")
     expect(manifest.scripts).not.toHaveProperty("instantiate")
@@ -393,6 +419,10 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
     // 保存 extensionShell 变量供当前逻辑使用。
     const extensionShell = await readFile(path.join(root, "src/ExtensionShell.tsx"), "utf8")
+    // 保存 buildVersion 变量供 Extension 构建版本契约断言使用。
+    const buildVersion = await readFile(path.join(root, "src/buildVersion.ts"), "utf8")
+    // 保存 buildTooling 变量供 Extension 单宿主构建断言使用。
+    const buildTooling = await readFile(path.join(root, ".harness/tooling/build.ts"), "utf8")
     // 保存 providers 变量供当前逻辑使用。
     const providers = await readFile(path.join(root, "src/providers.tsx"), "utf8")
     // 保存 logger 变量供当前逻辑使用。
@@ -453,6 +483,14 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     )
     expect(extensionShell).toContain('logger.error("unhandled_rejection"')
     expect(extensionShell).toContain('process.env.PLASMO_PUBLIC_APP_ENV !== "release"')
+    expect(extensionShell).toContain("BUILD_VERSION")
+    expect(i18n).toContain('buildVersion: "Build version: {{version}}"')
+    expect(i18n).toContain('buildVersion: "构建版本：{{version}}"')
+    expect(buildVersion).toContain("process.env.PLASMO_PUBLIC_BUILD_VERSION")
+    expect(buildTooling).toContain("PLASMO_PUBLIC_BUILD_VERSION")
+    expect(buildTooling).not.toContain("VITE_BUILD_VERSION")
+    expect(buildTooling).toContain('args: ["test"]')
+    expect(buildTooling).toContain("本次构建完成后是否启用 E2E 测试")
     expect(providers).toContain('logger.error("mutation_failed"')
     expect(logger).toContain(
       'const RELEASE_BUILD = process.env.PLASMO_PUBLIC_APP_ENV === "release"'
@@ -482,6 +520,11 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(manifest).not.toHaveProperty("scripts.routes:generate")
     expectOptionalIntegrationPackagesNotInstalled(manifest)
     expect(manifest.devDependencies.plasmo).toBe("0.90.5")
+    expect(manifest.scripts).not.toHaveProperty("build:development")
+    expect(manifest.scripts).not.toHaveProperty("build:test")
+    expect(manifest.scripts["test:related"]).toBe("vitest related --run")
+    expect(manifest.scripts["build:release"]).toBe("tsx .harness/tooling/build.ts build")
+    expect(manifest.scripts.package).toBe("tsx .harness/tooling/build.ts package")
     expect(Object.values(manifest.scripts).join("\n")).not.toContain("env:validate -- --profile")
     await expect(readFile(path.join(root, "index.html"), "utf8")).rejects.toThrow()
   })
@@ -518,6 +561,27 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     ).rejects.toThrow(/exactly "web" or "extension"/)
   })
 
+  test.each(["web", "extension"] as const)(
+    "rejects a non-Release artifact script in a generated %s project",
+    /* 执行 当前声明 函数的处理逻辑。 */ async (projectType) => {
+      // 保存 root 变量供当前逻辑使用。
+      const root = await seedTemplateRoot()
+      await initializeProject(options(root, projectType))
+      // 保存 manifestPath 变量供当前逻辑使用。
+      const manifestPath = path.join(root, "package.json")
+      // 保存 manifest 变量供当前逻辑使用。
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
+        scripts: Record<string, string>
+      }
+      manifest.scripts["build:test"] = "echo forbidden"
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+
+      await expect(validateProject(root)).rejects.toThrow(
+        /Final artifacts must be Release-only; remove build:test/
+      )
+    }
+  )
+
   test("parses the profile arguments exactly as pnpm forwards them", /* 执行 当前声明 函数的处理逻辑。 */ () => {
     expect(profileFromArgs([])).toBeUndefined()
     expect(profileFromArgs(["--profile", "test"])).toBe("test")
@@ -545,11 +609,35 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
         "--test-base-url",
         TEST_BASE_URLS.testBaseUrl,
         "--release-base-url",
-        TEST_BASE_URLS.releaseBaseUrl
+        TEST_BASE_URLS.releaseBaseUrl,
+        "--e2e",
+        "disabled"
       ]),
       root
     )
     expect(resolved.brandColor).toBe("#4C6EF5")
+    expect(resolved.e2e).toBe("disabled")
+    await expect(
+      resolveInitOptions(
+        parseArgs([
+          "--type",
+          "web",
+          "--name",
+          "Missing E2E",
+          "--id",
+          "missing-e2e",
+          "--description",
+          "No build selection",
+          "--development-base-url",
+          TEST_BASE_URLS.developmentBaseUrl,
+          "--test-base-url",
+          TEST_BASE_URLS.testBaseUrl,
+          "--release-base-url",
+          TEST_BASE_URLS.releaseBaseUrl
+        ]),
+        root
+      )
+    ).rejects.toThrow(/requires --e2e/)
     await expect(
       resolveInitOptions(
         parseArgs(["--name", "Missing Type", "--id", "missing-type", "--description", "No type"]),
@@ -1045,7 +1133,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
 
     expect(release).toContain("`pnpm package`")
     expect(release).toContain("自动执行 `pnpm harness validate` 与 `pnpm release:inspect`")
-    expect(release).toContain("Agent Policy 或产品/渠道硬要求选中浏览器验证时")
+    expect(release).toContain("当次 E2E 选择 `enabled`")
   })
 
   test("preflights environment failures before creating the target", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
@@ -1163,7 +1251,12 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
       readFile(path.join(targetRoot, "tests/extension-runtime.test.ts"), "utf8")
     ).rejects.toThrow()
     // 保存 retainedTest 变量供当前逻辑使用。
-    for (const retainedTest of ["tests/release-inspection.test.ts", "tests/version.test.ts"]) {
+    for (const retainedTest of [
+      "tests/build-tooling.test.ts",
+      "tests/release-inspection.test.ts",
+      "tests/source-size-policy.test.ts",
+      "tests/version.test.ts"
+    ]) {
       await expect(readFile(path.join(targetRoot, retainedTest), "utf8")).resolves.toContain(
         "test("
       )
@@ -1178,8 +1271,9 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamAgents).toContain("`src/routes/`")
     expect(downstreamAgents).toContain("`src/api/client/`")
     expect(downstreamAgents).toContain("`src/pagination/`")
-    expect(downstreamAgents).toContain("create a persistent plan only for cross-session work")
-    expect(downstreamAgents).toContain("smoke and E2E run only when policy selects them")
+    expect(downstreamAgents).toContain("create a persistent plan only when the user explicitly")
+    expect(downstreamAgents).toContain("every artifact build asks the user")
+    expect(downstreamAgents).toContain("they do not create or update Work Plans")
     // 保存 downstreamVerifyDeliveryMetadata 变量供当前逻辑使用。
     const downstreamVerifyDeliveryMetadata = await readFile(
       path.join(targetRoot, ".agents/skills/web-verify-delivery/agents/openai.yaml"),
@@ -1204,12 +1298,18 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamReadme).toContain("native Fetch and pagination foundations")
     expect(downstreamReadme).toContain("docs/MANTINE_UI_GUIDELINES.md")
     expect(downstreamReadme).toContain("pnpm routes:generate")
-    expect(downstreamReadme).toContain("run the smallest sufficient affected checks")
+    expect(downstreamReadme).toContain("pnpm test:related <changed-source...>")
+    expect(downstreamReadme).toContain("single Release artifact entry point")
+    expect(downstreamReadme).toContain("YYYYMMDDHHMM")
+    expect(downstreamReadme).toContain("--e2e=enabled|disabled")
     // 保存 downstreamPolicy 变量供当前逻辑使用。
     const downstreamPolicy = await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")
     expect(downstreamPolicy).toContain("schema_version: 2")
-    expect(downstreamPolicy).toContain("standard_work_plan: optional")
-    expect(downstreamPolicy).toContain("milestone_smoke: optional")
+    expect(downstreamPolicy).toContain("standard_work_plan: disabled")
+    expect(downstreamPolicy).toContain("parallel_worktree_subagents: disabled")
+    expect(downstreamPolicy).toContain("milestone_smoke: disabled")
+    expect(downstreamPolicy).toContain("milestone_e2e: ask")
+    expect(downstreamPolicy).toContain("这些构建操作本身不创建或更新 Work Plan")
     // 保存 downstreamEngineering 变量供当前逻辑使用。
     const downstreamEngineering = await readFile(
       path.join(targetRoot, "docs/ENGINEERING_RULES.md"),
@@ -1217,6 +1317,9 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     )
     expect(downstreamEngineering).toContain("局部可逆任务先运行受影响的最小充分检查")
     expect(downstreamEngineering).toContain("docs/MANTINE_UI_GUIDELINES.md")
+    expect(downstreamEngineering).toContain("达到 1000 行必须按业务逻辑拆分")
+    expect(downstreamEngineering).toContain("`pnpm build` 是唯一最终产物入口")
+    expect(downstreamEngineering).toContain("不创建或更新 Work Plan、ADR、Status")
     // 保存 downstreamMantineUi 变量供当前逻辑使用。
     const downstreamMantineUi = await readFile(
       path.join(targetRoot, "docs/MANTINE_UI_GUIDELINES.md"),
@@ -1231,10 +1334,11 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamMantineUi).not.toContain("MV3/CSP")
     // 保存 downstreamRelease 变量供当前逻辑使用。
     const downstreamRelease = await readFile(path.join(targetRoot, "docs/RELEASE.md"), "utf8")
-    expect(downstreamRelease).toContain("Agent Policy 或产品/渠道硬要求选中浏览器验证时")
+    expect(downstreamRelease).toContain("当次 E2E 选择 `enabled`")
+    expect(downstreamRelease).toContain("构建操作本身不写入 ADR")
     // 保存 downstreamLogging 变量供当前逻辑使用。
     const downstreamLogging = await readFile(path.join(targetRoot, "docs/LOGGING.md"), "utf8")
-    expect(downstreamLogging).toContain("策略选中的真实 Chrome 候选验证")
+    expect(downstreamLogging).toContain("被硬要求的真实 Chrome 候选验证")
     // 保存 downstreamDocsReadme 变量供当前逻辑使用。
     const downstreamDocsReadme = await readFile(path.join(targetRoot, "docs/README.md"), "utf8")
     expect(downstreamDocsReadme).toContain("DATA_ACCESS.md")

@@ -1,6 +1,6 @@
 ---
 name: web-plan-change
-description: 为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游创建可直接实施的精简 Todo。用于需要跨会话、交接、失败恢复或显著依赖的标准任务，以及所有前端里程碑、发布候选或用户明确要求持久计划的任务；快速路径和无需持久上下文的普通标准任务不调用。
+description: 为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游创建可直接实施的精简 Todo。只用于前端里程碑、发布候选或用户明确要求持久计划的任务；普通快速与标准任务直接实施。
 ---
 
 # Web Harness：规划前端变更
@@ -10,7 +10,7 @@ description: 为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Ext
 ## 路径判定
 
 1. `快速`：清楚、局部、可逆、不改变公开契约、权限或数据边界。不要创建 Work Plan，直接调用 `$web-implement-change`。
-2. `标准`：可逆的多步骤或跨职责工作。只有跨会话、需要交接/失败恢复、步骤依赖明显，或用户明确要求时才调用本 Skill 创建精简 Todo；普通页面、路由或交互变化不因“用户可见”自动升级。
+2. `标准`：可逆的多步骤或跨职责工作。默认不调用本 Skill，在当前任务直接实施；只有用户明确要求持久计划时才创建精简 Todo。普通页面、路由或交互变化不因“用户可见”自动升级。
 3. `里程碑`：初始化/项目类型、品牌或身份派生、已承诺的兼容性/对外契约、Extension 权限/站点匹配/后台安全边界、破坏性数据变化、生产副作用、发布候选，或用户要求完整验收。始终创建 Todo 和真实产物验收里程碑。
 4. 范围仍会改变产品目标、边界或成功标准时，先转 `$web-define-product`。
 
@@ -25,8 +25,8 @@ description: 为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Ext
 5. 按依赖顺序创建最少 Todo。每项必须包含稳定 ID、`pending|in_progress|blocked|done`、一个可观察结果、精确文件/模块所有权、依赖、风险、相关非空测试或相称替代验证，以及必要的格式/lint/类型/集成检查。
 6. 按普通前端内聚边界安排职责：React 组件负责渲染和交互，feature hooks/services 负责该功能的数据与协调；Extension 的 background/content/popup/options 可以拥有各自宿主生命周期。只在存在真实复用时提取共享模块，不创建 monorepo 或强制共享业务层。
 7. 每个公开行为记录“用户入口 → 实现模块 → 测试”的映射。涉及配置时加入三环境、宿主前缀、`APP_CONFIG`、隐式覆盖/未知键拒绝和构建前全量校验；涉及日志时加入稳定事件、Release 允许字段清单/脱敏、单测，以及 `build:release`/Extension `package` 自动运行 `pnpm release:inspect`。Extension Todo 额外记录权限、host permission、消息方向和最小授权依据。
-8. 标准路径到开发检查即可，不自动追加 smoke/E2E。里程碑路径追加准入条件：全部 Todo `done`、可绑定源码状态、真实 Release `dist/` 或 Chrome MV3 候选、三环境/构建/测试/`release:inspect` 证据、批准场景、smoke 与 E2E 策略解析和失败回流；浏览器步骤只有被策略选择或硬要求启用时才运行。
-9. `parallel_worktree_subagents: enabled` 只表示至少两个无重叠写入范围且基线干净时可调用 `$web-run-parallel-worktrees`；否则单 Agent，不重复询问。
+8. 标准路径只规划受影响检查与相关非空测试，不自动追加全量测试、构建、smoke 或 E2E；行为保持重构追加全量测试。里程碑路径追加准入条件：全部 Todo `done`、可绑定源码状态、唯一 Release `dist/` 或 Chrome MV3 候选、由 `pnpm build` 自动完成的三环境/类型/全量测试/`YYYYMMDDHHMM` 版本注入/`release:inspect` 证据、当次 E2E 用户选择、批准场景和失败回流；E2E 只有当次选择 `enabled` 或存在硬要求时运行。
+9. 默认单 Agent。只有用户明确要求并行、至少两个写入范围互不重叠且基线干净时才调用 `$web-run-parallel-worktrees`；当前任务的明确要求按 Agent Policy 优先级覆盖默认 `disabled`，不能仅因历史字段为 `enabled` 主动并行。
 10. 按仓库命名规则创建或更新当天 Work Plan。只在重要阻断、交接或用户要求时同步 Status；计划本身不触发 Product Spec、ADR、Verification 或 Changelog。
 
 ## 质量规则

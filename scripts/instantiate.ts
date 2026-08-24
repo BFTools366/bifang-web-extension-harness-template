@@ -21,12 +21,13 @@ async function main(): Promise<void> {
     "release-base-url",
     "brand-color",
     "logo",
+    "e2e",
     "skip-install",
     "skip-git"
   ])
   if (parsed.positionals.length !== 1 || parsed.positionals[0] === undefined) {
     throw new Error(
-      "Usage: pnpm instantiate -- <empty-target-outside-harness> --type web|extension --name <name> --id <id> --description <description> --development-base-url <url> --test-base-url <url> --release-base-url <https-url>"
+      "Usage: pnpm instantiate -- <empty-target-outside-harness> --type web|extension --name <name> --id <id> --description <description> --development-base-url <url> --test-base-url <url> --release-base-url <https-url> [--e2e enabled|disabled]"
     )
   }
 
@@ -51,6 +52,7 @@ async function main(): Promise<void> {
       testBaseUrl: init.testBaseUrl,
       releaseBaseUrl: init.releaseBaseUrl,
       logoPath: init.logoPath,
+      e2e: init.e2e,
       skipInstall: init.skipInstall,
       skipGit: init.skipGit
     }

@@ -126,22 +126,12 @@ async function runPostInitialization(options: InitOptions): Promise<void> {
   if (options.skipInstall !== true) {
     await runCommand("pnpm", ["install", "--no-frozen-lockfile"], options.root)
     await runCommand("pnpm", ["format"], options.root)
-    // 保存 command 变量供当前逻辑使用。
-    for (const command of [
-      ["harness", "validate"],
-      ["format:check"],
-      ["lint"],
-      ["typecheck"],
-      ["test"],
-      ["build"],
-      ["harness", "validate"]
-    ]) {
-      await runCommand("pnpm", command, options.root)
-    }
+    // 保存 buildArgs 变量供交互式询问或显式 E2E 选择使用。
+    const buildArgs =
+      options.e2e === undefined ? ["build"] : ["build", "--", `--e2e=${options.e2e}`]
+    await runCommand("pnpm", buildArgs, options.root)
   } else {
-    console.log(
-      "Skipped dependency installation, lint, typecheck, tests, and build (--skip-install)."
-    )
+    console.log("Skipped dependency installation and the Release build gates (--skip-install).")
   }
   if (options.skipGit !== true && !(await pathExists(path.join(options.root, ".git")))) {
     await runCommand("git", ["init", "-b", "main"], options.root)

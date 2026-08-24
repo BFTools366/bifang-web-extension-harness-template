@@ -19,6 +19,8 @@ const RELEASE_SENTINELS = [
 const RELEASE_LOW_LEVEL_LOG_CALLS = ["console.debug", "console.info"] as const
 // 保存 HTTP_URL_PATTERN 变量供当前逻辑使用。
 const HTTP_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g
+// 保存 BUILD_VERSION_PATTERN 变量供候选版本注入校验使用。
+const BUILD_VERSION_PATTERN = /^\d{12}$/
 
 // 定义 ReleaseInspection 接口的结构契约。
 export interface ReleaseInspection {
@@ -26,6 +28,14 @@ export interface ReleaseInspection {
   artifactRoot: string
   // 描述 files 接口成员的结构契约。
   files: number
+  // 描述 buildVersion 接口成员的已验证构建版本。
+  buildVersion?: string
+}
+
+// 定义 ReleaseInspectionOptions 接口承载候选版本期望。
+export interface ReleaseInspectionOptions {
+  // 描述 expectedBuildVersion 接口成员的当次构建版本。
+  expectedBuildVersion?: string
 }
 
 // 执行 normalizeHttpUrl 函数的处理逻辑。
@@ -54,7 +64,10 @@ function collectHttpUrls(contents: string): Set<string> {
 }
 
 // 执行 inspectReleaseArtifact 函数的处理逻辑。
-export async function inspectReleaseArtifact(rootInput: string): Promise<ReleaseInspection> {
+export async function inspectReleaseArtifact(
+  rootInput: string,
+  options: ReleaseInspectionOptions = {}
+): Promise<ReleaseInspection> {
   // 保存 root 变量供当前逻辑使用。
   const root = path.resolve(rootInput)
   // 保存 project 变量供当前逻辑使用。
@@ -72,6 +85,11 @@ export async function inspectReleaseArtifact(rootInput: string): Promise<Release
   // 保存 files 变量供当前逻辑使用。
   const files = await walkFiles(artifactRoot)
   if (files.length === 0) throw new Error(`Release artifact is empty: ${relativeArtifactRoot}`)
+  // 保存 expectedBuildVersion 变量供候选内容校验使用。
+  const expectedBuildVersion = options.expectedBuildVersion
+  if (expectedBuildVersion !== undefined && !BUILD_VERSION_PATTERN.test(expectedBuildVersion)) {
+    throw new Error("Expected build version must use YYYYMMDDHHMM")
+  }
   // 保存 releaseBaseUrl 变量供当前逻辑使用。
   const releaseBaseUrl = environments.release.apiBaseUrl
   // 保存 nonReleaseBaseUrls 变量供当前逻辑使用。
@@ -83,7 +101,7 @@ export async function inspectReleaseArtifact(rootInput: string): Promise<Release
   )
 
   // 保存 perFileErrors 变量供当前逻辑使用。
-  const perFileErrors = await Promise.all(
+  const perFileReports = await Promise.all(
     files.map(
       /* 执行 当前声明 函数的处理逻辑。 */ async (absolute) => {
         // 保存 relative 变量供当前逻辑使用。
@@ -94,9 +112,11 @@ export async function inspectReleaseArtifact(rootInput: string): Promise<Release
         const fileErrors: string[] = []
         if (basename.startsWith(".env") || absolute.endsWith(".map")) {
           fileErrors.push(`${relative} must not be present in a release artifact`)
-          return fileErrors
+          return { containsBuildVersion: false, errors: fileErrors }
         }
-        if (!TEXT_EXTENSIONS.has(path.extname(absolute))) return fileErrors
+        if (!TEXT_EXTENSIONS.has(path.extname(absolute))) {
+          return { containsBuildVersion: false, errors: fileErrors }
+        }
         // 保存 contents 变量供当前逻辑使用。
         const contents = await readFile(absolute, "utf8")
         // 保存 artifactUrls 变量供当前逻辑使用。
@@ -123,17 +143,35 @@ export async function inspectReleaseArtifact(rootInput: string): Promise<Release
         if (/sourceMappingURL\s*=/.test(contents)) {
           fileErrors.push(`${relative} references a source map`)
         }
-        return fileErrors
+        return {
+          containsBuildVersion:
+            expectedBuildVersion !== undefined && contents.includes(expectedBuildVersion),
+          errors: fileErrors
+        }
       }
     )
   )
   // 保存 errors 变量供当前逻辑使用。
-  const errors = perFileErrors.flat()
+  const errors = perFileReports.flatMap(
+    /* 执行当前文件报告到错误列表的映射。 */ (report) => report.errors
+  )
+  if (
+    expectedBuildVersion !== undefined &&
+    !perFileReports.some(
+      /* 执行当前文件报告的版本命中判断。 */ (report) => report.containsBuildVersion
+    )
+  ) {
+    errors.push(`Release artifact does not contain build version ${expectedBuildVersion}`)
+  }
 
   if (errors.length > 0) {
     throw new Error(`Release artifact inspection failed:\n- ${errors.join("\n- ")}`)
   }
-  return { artifactRoot: relativeArtifactRoot, files: files.length }
+  return {
+    artifactRoot: relativeArtifactRoot,
+    buildVersion: expectedBuildVersion,
+    files: files.length
+  }
 }
 
 // 保存 executedPath 变量供当前逻辑使用。
@@ -146,7 +184,9 @@ if (executedPath === import.meta.url) {
     console.error("Usage: pnpm release:inspect")
     process.exitCode = 1
   } else {
-    inspectReleaseArtifact(process.cwd())
+    inspectReleaseArtifact(process.cwd(), {
+      expectedBuildVersion: process.env.HARNESS_BUILD_VERSION
+    })
       .then(
         /* 执行 当前声明 函数的处理逻辑。 */ (report) => {
           console.log(

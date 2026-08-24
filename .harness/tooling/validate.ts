@@ -159,6 +159,22 @@ function assertScripts(
   }
 }
 
+/** 拒绝任何可能生成 development 或 test 最终产物的构建脚本。 */
+function assertReleaseOnlyBuildScripts(scripts: Record<string, string>, errors: string[]): void {
+  // 保存 allowedBuildScripts 变量供当前逻辑使用。
+  const allowedBuildScripts = new Set(["build", "build:release"])
+  // 保存 unexpectedBuildScripts 变量供当前逻辑使用。
+  const unexpectedBuildScripts = Object.keys(scripts).filter(
+    /* 执行 当前声明 函数的处理逻辑。 */ (name) =>
+      name.startsWith("build:") && !allowedBuildScripts.has(name)
+  )
+  if (unexpectedBuildScripts.length > 0) {
+    errors.push(
+      `Final artifacts must be Release-only; remove ${unexpectedBuildScripts.sort().join(", ")}`
+    )
+  }
+}
+
 // 执行 packageNameOf 函数的处理逻辑。
 function packageNameOf(specifier: string): string | undefined {
   // 保存 segments 变量供当前逻辑使用。
@@ -368,6 +384,7 @@ async function validateWeb(root: string, config: ProjectConfig, errors: string[]
       "src/features/welcome/WelcomePage.tsx",
       "src/features/welcome/WelcomePage.test.tsx",
       "src/features/welcome/welcomeCount.atom.ts",
+      "src/buildVersion.ts",
       "src/i18n/index.ts",
       "src/i18n/locales/en.ts",
       "src/i18n/locales/zh.ts",
@@ -391,6 +408,35 @@ async function validateWeb(root: string, config: ProjectConfig, errors: string[]
     if (!index.includes(config.description)) errors.push("index.html description is stale")
     if (!index.includes(config.brand.primaryColor)) errors.push("index.html theme color is stale")
     if (!index.includes("/favicon.png")) errors.push("index.html favicon is missing")
+  }
+  // 保存 buildVersionPath 变量供 Web 构建版本契约校验使用。
+  const buildVersionPath = path.join(root, "src/buildVersion.ts")
+  if (await pathExists(buildVersionPath)) {
+    // 保存 buildVersion 变量供注入键校验使用。
+    const buildVersion = await readFile(buildVersionPath, "utf8")
+    if (!buildVersion.includes("import.meta.env.VITE_BUILD_VERSION")) {
+      errors.push("Web build version must use the Vite build injection")
+    }
+  }
+  // 保存 welcomePath 变量供页面版本展示校验使用。
+  const welcomePath = path.join(root, "src/features/welcome/WelcomePage.tsx")
+  if (await pathExists(welcomePath)) {
+    // 保存 welcome 变量供页面展示契约校验使用。
+    const welcome = await readFile(welcomePath, "utf8")
+    if (!welcome.includes("BUILD_VERSION") || !welcome.includes('t("buildVersion"')) {
+      errors.push("Web landing page must display the injected build version")
+    }
+  }
+  // 遍历 Web 语言资源并校验构建版本文案。
+  for (const relativePath of ["src/i18n/locales/en.ts", "src/i18n/locales/zh.ts"]) {
+    // 保存 translationPath 变量供构建版本翻译校验使用。
+    const translationPath = path.join(root, relativePath)
+    if (!(await pathExists(translationPath))) continue
+    // 保存 translation 变量供翻译键检查使用。
+    const translation = await readFile(translationPath, "utf8")
+    if (!translation.includes("buildVersion:")) {
+      errors.push(`Build version translation is missing in ${relativePath}`)
+    }
   }
   // 保存 gitignorePath 变量供当前逻辑使用。
   const gitignorePath = path.join(root, ".gitignore")
@@ -449,6 +495,7 @@ async function validateExtension(
       "src/popup.tsx",
       "src/options.tsx",
       "src/ExtensionShell.tsx",
+      "src/buildVersion.ts",
       "src/i18n.ts",
       "src/providers.tsx",
       "src/observability/logger.ts",
@@ -484,6 +531,27 @@ async function validateExtension(
     }
     if (!shell.includes('process.env.PLASMO_PUBLIC_APP_ENV !== "release"')) {
       errors.push("Extension startup logging must use a same-module compile-time release guard")
+    }
+    if (!shell.includes("BUILD_VERSION") || !shell.includes('t("buildVersion"')) {
+      errors.push("Extension surfaces must display the injected build version")
+    }
+  }
+  // 保存 buildVersionPath 变量供 Extension 构建版本契约校验使用。
+  const buildVersionPath = path.join(root, "src/buildVersion.ts")
+  if (await pathExists(buildVersionPath)) {
+    // 保存 buildVersion 变量供注入键校验使用。
+    const buildVersion = await readFile(buildVersionPath, "utf8")
+    if (!buildVersion.includes("process.env.PLASMO_PUBLIC_BUILD_VERSION")) {
+      errors.push("Extension build version must use the Plasmo build injection")
+    }
+  }
+  // 保存 i18nPath 变量供 Extension 构建版本翻译校验使用。
+  const i18nPath = path.join(root, "src/i18n.ts")
+  if (await pathExists(i18nPath)) {
+    // 保存 i18n 变量供双语翻译键检查使用。
+    const i18n = await readFile(i18nPath, "utf8")
+    if (i18n.split("buildVersion:").length - 1 < 2) {
+      errors.push("Extension build version translations are incomplete")
     }
   }
   // 保存 browserManifest 变量供当前逻辑使用。
@@ -571,9 +639,11 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     root,
     [
       ".harness/tooling/cli.ts",
+      ".harness/tooling/build.ts",
       ".harness/tooling/comment-policy.ts",
       ".harness/tooling/environment.ts",
       ".harness/tooling/release.ts",
+      ".harness/tooling/source-size-policy.ts",
       ".harness/tooling/version.ts",
       "tsconfig.json",
       ...Object.values(ENVIRONMENT_FILES),
@@ -592,6 +662,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       "src/observability/logger.test.ts",
       "src/observability/AppErrorBoundary.tsx",
       "src/observability/AppErrorBoundary.test.tsx",
+      "tests/source-size-policy.test.ts",
+      "tests/build-tooling.test.ts",
       MASTER_LOGO_PATH,
       "docs/README.md",
       "docs/DATA_ACCESS.md",
@@ -661,13 +733,31 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     scripts,
     {
       "comments:check": "tsx .harness/tooling/comment-policy.ts check",
+      "source-size:check": "tsx .harness/tooling/source-size-policy.ts check",
       "env:validate": "tsx .harness/tooling/environment.ts validate",
       "release:inspect": "tsx .harness/tooling/release.ts inspect",
       build: "pnpm build:release",
-      lint: "eslint . && pnpm comments:check"
+      lint: "eslint . && pnpm comments:check && pnpm source-size:check"
     },
     errors
   )
+  assertReleaseOnlyBuildScripts(scripts, errors)
+  // 保存 buildToolingPath 变量供统一构建契约校验使用。
+  const buildToolingPath = path.join(root, ".harness/tooling/build.ts")
+  // 保存 buildTooling 变量供构建门禁与选择校验使用。
+  const buildTooling = (await pathExists(buildToolingPath))
+    ? await readFile(buildToolingPath, "utf8")
+    : ""
+  // 保存 contract 变量供统一构建器必需片段校验使用。
+  for (const contract of [
+    'args: ["test"]',
+    "Asia/Shanghai",
+    "HARNESS_BUILD_VERSION",
+    "本次构建完成后是否启用 E2E 测试",
+    "Non-interactive builds require --e2e=enabled or --e2e=disabled"
+  ]) {
+    if (!buildTooling.includes(contract)) errors.push(`Build tooling is missing ${contract}`)
+  }
   // 保存 required 变量供当前逻辑使用。
   for (const required of [
     "react",
@@ -724,6 +814,12 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   }
 
   if (config.projectType === "web") {
+    if (!buildTooling.includes("VITE_BUILD_VERSION")) {
+      errors.push("Web build tooling is missing VITE_BUILD_VERSION")
+    }
+    if (buildTooling.includes("PLASMO_PUBLIC_BUILD_VERSION") || buildTooling.includes("plasmo")) {
+      errors.push("Web build tooling contains Extension host logic")
+    }
     if (!("@tanstack/react-router" in dependencies))
       errors.push("Web project is missing TanStack Router")
     // 保存 required 变量供当前逻辑使用。
@@ -736,14 +832,11 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     assertScripts(
       scripts,
       {
-        dev: "pnpm env:validate --profile development && vite --mode development",
-        "build:development":
-          "pnpm env:validate --profile development && vite build --mode development && tsc --noEmit",
-        "build:test": "pnpm env:validate --profile test && vite build --mode test && tsc --noEmit",
-        "build:release":
-          "pnpm env:validate --profile release && vite build --mode production && tsc --noEmit && pnpm release:inspect",
-        test: "pnpm env:validate --profile test && pnpm routes:generate && vitest run",
-        typecheck: "pnpm env:validate && pnpm routes:generate && tsc --noEmit"
+        dev: "vite --mode development",
+        "build:release": "tsx .harness/tooling/build.ts build",
+        test: "vitest run",
+        "test:related": "vitest related --run",
+        typecheck: "pnpm routes:generate && tsc --noEmit"
       },
       errors,
       "Web script"
@@ -753,6 +846,12 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     }
     await validateWeb(root, config, errors)
   } else {
+    if (!buildTooling.includes("PLASMO_PUBLIC_BUILD_VERSION")) {
+      errors.push("Extension build tooling is missing PLASMO_PUBLIC_BUILD_VERSION")
+    }
+    if (buildTooling.includes("VITE_BUILD_VERSION") || buildTooling.includes("vite")) {
+      errors.push("Extension build tooling contains Web host logic")
+    }
     if ("@tanstack/react-router" in dependencies)
       errors.push("Extension must not include TanStack Router")
     // 保存 forbidden 变量供当前逻辑使用。
@@ -766,16 +865,12 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     assertScripts(
       scripts,
       {
-        dev: "pnpm env:validate --profile development && plasmo dev --env=.env.development",
-        "build:development":
-          "pnpm env:validate --profile development && plasmo build --tag=development --env=.env.development",
-        "build:test": "pnpm env:validate --profile test && plasmo build --tag=test --env=.env.test",
-        "build:release":
-          "pnpm env:validate --profile release && plasmo build --env=.env.production && pnpm harness validate && pnpm release:inspect",
-        package:
-          "pnpm env:validate --profile release && plasmo build --zip --env=.env.production && pnpm harness validate && pnpm release:inspect",
-        test: "pnpm env:validate --profile test && vitest run",
-        typecheck: "pnpm env:validate && tsc --noEmit"
+        dev: "plasmo dev --env=.env.development",
+        "build:release": "tsx .harness/tooling/build.ts build",
+        package: "tsx .harness/tooling/build.ts package",
+        test: "vitest run",
+        "test:related": "vitest related --run",
+        typecheck: "tsc --noEmit"
       },
       errors,
       "Extension script"

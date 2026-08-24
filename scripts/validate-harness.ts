@@ -41,7 +41,7 @@ interface SkillContract {
 const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
-      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。用于首次实例化、首次前端代码开发、工具链约束或宿主变化、既有环境证据失效，以及运行真实浏览器验证前；纯文档任务跳过。",
+      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于初始化、最终构建、故障诊断，以及被硬要求的真实浏览器验证；普通开发任务不重复检查。",
     title: "# Web Harness：检查前端开发环境",
     displayName: "Web Harness：检查前端开发环境",
     shortDescription: "检查 React Web 或 Plasmo MV3 Extension 的前端工具链",
@@ -86,7 +86,7 @@ const SKILL_CONTRACTS = {
   },
   "web-plan-change": {
     description:
-      "为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游创建可直接实施的精简 Todo。用于需要跨会话、交接、失败恢复或显著依赖的标准任务，以及所有前端里程碑、发布候选或用户明确要求持久计划的任务；快速路径和无需持久上下文的普通标准任务不调用。",
+      "为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游创建可直接实施的精简 Todo。只用于前端里程碑、发布候选或用户明确要求持久计划的任务；普通快速与标准任务直接实施。",
     title: "# Web Harness：规划前端变更",
     displayName: "Web Harness：规划前端变更",
     shortDescription: "规划 Web Harness 或其 React Web、Plasmo MV3 前端下游变更",
@@ -122,7 +122,7 @@ const SKILL_CONTRACTS = {
   },
   "web-run-parallel-worktrees": {
     description:
-      "为 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前端下游的已有标准/里程碑计划创建隔离 Git Worktree，并安全整合至少两个写入范围互不重叠的 Todo；也可只读审计或保守清理由本流程创建的 Worktree。创建模式要求 Agent Policy 启用且 Git 基线干净已提交。",
+      "为 Web Harness 或其 React Web、Plasmo Chrome MV3 Extension 前端下游的已有标准/里程碑计划创建隔离 Git Worktree，并安全整合至少两个写入范围互不重叠的 Todo；也可只读审计或保守清理由本流程创建的 Worktree。创建模式要求用户明确要求且 Git 基线干净已提交。",
     title: "# Web Harness：运行前端并行工作树",
     displayName: "Web Harness：运行前端并行工作树",
     shortDescription: "用隔离 Git 工作树协调互不重叠的 Web Harness 前端任务",
@@ -149,7 +149,7 @@ const SKILL_CONTRACTS = {
   },
   "web-verify-delivery": {
     description:
-      "对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；按策略或硬要求使用真实 Chrome。仅在全部 Todo 完成或用户明确要求完整前端验收时使用。",
+      "对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；仅在硬要求时使用真实 Chrome。只在全部 Todo 完成或用户明确要求完整前端验收时使用。",
     title: "# Web Harness：验证前端交付",
     displayName: "Web Harness：验证前端交付",
     shortDescription: "验收 Web Harness、Vite dist 或 Plasmo Chrome MV3 前端候选",
@@ -189,18 +189,23 @@ const REQUIRED_FILES = [
   "docs/TECH_DEBT.md",
   "docs/TS_WEB_TEMPLATE.md",
   ".harness/tooling/cli.ts",
+  ".harness/tooling/build.ts",
   ".harness/tooling/comment-policy.ts",
+  ".harness/tooling/source-size-policy.ts",
   ".harness/tooling/init.ts",
   ".harness/tooling/instantiate.ts",
   ".harness/tooling/brand.ts",
   ".harness/tooling/environment.ts",
   ".harness/tooling/release.ts",
+  ".harness/tooling/templates/build.ts",
   ".harness/tooling/templates/environment.ts",
   ".harness/tooling/templates/http.ts",
   ".harness/tooling/templates/logging.ts",
   ".harness/tooling/templates/pagination.ts",
   ".harness/tooling/version.ts",
-  "scripts/instantiate.ts"
+  "scripts/instantiate.ts",
+  "tests/build-tooling.test.ts",
+  "tests/source-size-policy.test.ts"
 ] as const
 
 // 保存 GOVERNED_MARKDOWN_ROOTS 变量供当前逻辑使用。
@@ -274,10 +279,10 @@ function parseFrontmatter(contents: string): Record<string, string> | undefined 
 const AGENT_POLICY_FIELDS = {
   schema_version: ["2"],
   decision_mode: ["reuse_then_infer_then_ask"],
-  standard_work_plan: ["required", "optional"],
-  parallel_worktree_subagents: ["enabled", "disabled"],
-  milestone_smoke: ["enabled", "optional", "disabled"],
-  milestone_e2e: ["enabled", "optional", "disabled"]
+  standard_work_plan: ["disabled"],
+  parallel_worktree_subagents: ["disabled"],
+  milestone_smoke: ["disabled"],
+  milestone_e2e: ["ask"]
 } as const
 
 // 执行 validateAgentPolicy 函数的处理逻辑。
@@ -1193,9 +1198,57 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
   }
   if (
     commonScripts === undefined ||
-    !hasStringProperty(commonScripts, "lint", "eslint . && pnpm comments:check")
+    !hasStringProperty(
+      commonScripts,
+      "source-size:check",
+      "tsx .harness/tooling/source-size-policy.ts check"
+    )
+  ) {
+    errors.push("Downstream manifest tooling is missing source-size:check")
+  }
+  if (
+    commonScripts === undefined ||
+    !hasStringProperty(
+      commonScripts,
+      "lint",
+      "eslint . && pnpm comments:check && pnpm source-size:check"
+    )
   ) {
     errors.push("Downstream manifest tooling is missing lint")
+  }
+  if (commonScripts === undefined || !hasStringProperty(commonScripts, "test", "vitest run")) {
+    errors.push("Downstream manifest tooling is missing the full test script")
+  }
+  if (
+    commonScripts === undefined ||
+    !hasStringProperty(commonScripts, "test:related", "vitest related --run")
+  ) {
+    errors.push("Downstream manifest tooling is missing test:related")
+  }
+  // 保存 buildProjectManifest 变量供当前逻辑使用。
+  const buildProjectManifest = findFunctionDeclaration(
+    manifestToolingSourceFile,
+    "buildProjectManifest"
+  )
+  if (
+    buildProjectManifest === undefined ||
+    containsStringLiteral(buildProjectManifest, "build:development") ||
+    containsStringLiteral(buildProjectManifest, "build:test")
+  ) {
+    errors.push("Downstream manifest tooling must not generate non-Release build scripts")
+  }
+  // 遍历终端产物脚本并锁定唯一 Release 构建链。
+  for (const [name, value] of [
+    ["build", "pnpm build:release"],
+    ["build:release", "tsx .harness/tooling/build.ts build"],
+    ["package", "tsx .harness/tooling/build.ts package"]
+  ] as const) {
+    if (
+      buildProjectManifest === undefined ||
+      !hasStringProperty(buildProjectManifest, name, value)
+    ) {
+      errors.push(`Downstream manifest tooling is missing governed ${name}`)
+    }
   }
   // 保存 downstreamValidator 变量供当前逻辑使用。
   const downstreamValidator = await readFile(
@@ -1209,6 +1262,11 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
   )
   // 保存 validateProject 变量供当前逻辑使用。
   const validateProject = findFunctionDeclaration(downstreamValidatorSourceFile, "validateProject")
+  // 保存 assertReleaseOnlyBuildScripts 变量供当前逻辑使用。
+  const assertReleaseOnlyBuildScripts = findFunctionDeclaration(
+    downstreamValidatorSourceFile,
+    "assertReleaseOnlyBuildScripts"
+  )
   if (
     !hasNamedImport(
       downstreamValidatorSourceFile,
@@ -1223,6 +1281,12 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
     !requirePathsContains(validateProject, ".harness/tooling/comment-policy.ts")
   ) {
     errors.push("Downstream validator is missing .harness/tooling/comment-policy.ts")
+  }
+  if (
+    validateProject === undefined ||
+    !requirePathsContains(validateProject, ".harness/tooling/source-size-policy.ts")
+  ) {
+    errors.push("Downstream validator is missing .harness/tooling/source-size-policy.ts")
   }
   if (
     validateProject === undefined ||
@@ -1247,9 +1311,35 @@ async function validateToolingContract(root: string, errors: string[]): Promise<
   }
   if (
     validateProject === undefined ||
-    !hasStringProperty(validateProject, "lint", "eslint . && pnpm comments:check")
+    !hasStringProperty(
+      validateProject,
+      "source-size:check",
+      "tsx .harness/tooling/source-size-policy.ts check"
+    )
+  ) {
+    errors.push("Downstream validator is missing source-size:check")
+  }
+  if (
+    validateProject === undefined ||
+    !hasStringProperty(
+      validateProject,
+      "lint",
+      "eslint . && pnpm comments:check && pnpm source-size:check"
+    )
   ) {
     errors.push("Downstream validator is missing lint")
+  }
+  if (
+    assertReleaseOnlyBuildScripts === undefined ||
+    validateProject === undefined ||
+    identifierCallPositions(
+      validateProject,
+      downstreamValidatorSourceFile,
+      "assertReleaseOnlyBuildScripts",
+      ["scripts", "errors"]
+    ).length === 0
+  ) {
+    errors.push("Downstream validator is missing the Release-only build-script gate")
   }
 }
 

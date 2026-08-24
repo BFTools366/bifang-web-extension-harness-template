@@ -40,7 +40,7 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 2. 只对批准的 `managed` 路径使用 `apply_patch` 逐项应用。`mixed` 按已复核章节/键串行合并；`add`/`delete_proposed` 需要单独批准。绝不整文件覆盖 mixed/protected 内容。
 3. 每次应用后重新生成并复核只读预演；源、目标、候选、计划或所有权发生漂移时在写入下一路径前停止。
 4. 保留目标技术基线和唯一类型。不得导入源的项目身份、Logo、产品代码、日期记忆、批准结论、验证历史、版本发布记录或 Git 历史。
-5. 运行目标的 `pnpm env:validate`、`pnpm harness validate`，以及受影响的格式、lint、类型、非空测试和 development/test/release 构建。涉及 logger 或 Release 行为时确认 `build:release`（以及 Extension `package`）自动通过 `pnpm release:inspect`；代码行为变化按路径要求验证，里程碑全部 Todo 完成后交给 `$web-verify-delivery`。
+5. 先运行目标受影响的格式、lint、类型与相关非空测试；升级属于行为保持重构时再运行全量 `pnpm test`。需要最终候选时先询问当次 E2E 选择，只运行 `pnpm build -- --e2e=enabled|disabled`，确认它固定委托 `build:release` 并自动完成环境、Harness、全量测试、版本注入与 `pnpm release:inspect`；Extension `package` 同样只使用 Release profile 和当次选择。不得生成 development/test 候选。里程碑全部 Todo 完成后交给 `$web-verify-delivery`。
 6. 重新执行只读预演，要求没有未解决的更新、新增/删除、人工合并、冲突或阻断。只有收敛且验证通过后，才按仓库已有格式更新 `.harness/upstream-lock.json` 的源版本/提交与受管理摘要；格式未定义时不自行发明锁结构。
 7. 更新过升级规则自身后，再用更新后的规则重新审计一次。只按独立触发事件更新目标记忆，不导入源记忆。
 8. 遇到 Skill 目录名与源 `SKILL.md` frontmatter `name` 不一致（canonical name 已迁移，如历史上的 `web-` 前缀引入）时，把该迁移视为显式的 `add` + `delete_proposed`：逐项展示旧目录删除、新目录增加、调用名变化和终端创建 Skill 墓碑，不把路径重命名伪装成普通内容更新；只有用户批准后才应用。

@@ -2,6 +2,7 @@ import { readFile, readdir, rm } from "node:fs/promises"
 import path from "node:path"
 import { HARNESS_ONLY_PATHS } from "./config.ts"
 import { lstatIfPresent, writeAtomic } from "./files.ts"
+import { buildToolingFiles } from "./templates/build.ts"
 import { downstreamGovernanceFiles } from "./templates/downstream-docs.ts"
 import type { ProjectConfig } from "./types.ts"
 
@@ -145,6 +146,7 @@ export async function refreshBrand(root: string, options: BrandRefreshOptions = 
 
 // 保存 TERMINAL_TYPES 变量供当前逻辑使用。
 const TERMINAL_TYPES = `export type ProjectType = "web" | "extension"
+export type E2eSelection = "enabled" | "disabled"
 
 export interface BrandConfig {
   primaryColor: string
@@ -268,17 +270,17 @@ Mantine theme, tokens, layout, component hierarchy, interaction states, responsi
 
 - \`pnpm dev\` — start development.
 ${routeCommand}- \`pnpm env:validate\` — validate all three runtime profiles.
-- \`pnpm build:development\` and \`pnpm build:test\` — create diagnostic artifacts.
-- \`pnpm build\` / \`pnpm build:release\` — create and inspect the Release artifact.
+- \`pnpm build\` / \`pnpm build:release\` — the single Release artifact entry point; every run asks whether to enable E2E, then runs environment, Harness, format, lint, type, and full test gates, injects the Shanghai \`YYYYMMDDHHMM\` version into the UI, and inspects the artifact. Non-interactive runs pass \`--e2e=enabled|disabled\`. Development and test profiles never produce a final artifact.
 - \`pnpm release:inspect\` — rescan the existing Release artifact for configuration or source leakage.
-- \`pnpm test\` — run component tests.
+- \`pnpm test\` — run the full test suite.
+- \`pnpm test:related <changed-source...>\` — run only tests related to changed sources, for daily work.
 - \`pnpm lint\` and \`pnpm typecheck\` — run static checks.
 - \`pnpm harness brand refresh\` — regenerate brand assets from \`.harness/project.json\`.
 - \`pnpm harness validate\` — validate project identity, layout, and assets.
 
 ## Validation scopes
 
-For a small, reversible change, run the smallest sufficient affected checks. For a milestone, Release candidate, cross-cutting configuration/structure/build change, or when narrower evidence is insufficient, run \`pnpm harness validate && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build\`. Release building validates all three environment files and automatically runs the artifact inspection.
+Daily work runs the smallest sufficient affected format/lint/type checks plus \`pnpm test:related\`; a zero-test batch is not evidence, so fall back to the owning test file. Behavior-preserving refactors run the full \`pnpm test\`. Any final artifact goes through \`pnpm build\`, which already owns the full environment/Harness/format/lint/type/test/inspect chain — do not re-run those gates manually around it.
 `
 }
 
@@ -299,9 +301,9 @@ Always inspect the workspace and protect existing changes. Read this file and \`
 
 ## Three delivery paths
 
-1. Small, local, reversible changes: inspect the owning file, implement narrowly, and run the smallest sufficient affected checks.
-2. Reversible standard feature or refactor work: create a persistent plan only for cross-session work, handoff/recovery, significant step dependencies, or an explicit user request; otherwise use \`$web-implement-change\` directly and complete the smallest sufficient affected checks. Ordinary UI or route changes do not become milestones merely because they are visible.
-3. Milestone work includes project-creation contracts, project-type capabilities, brand/identity derivation, Release, compatibility contracts, security/permissions, production side effects, and irreversible changes. Plan explicit boundaries, use isolated worktrees only when eligible, preserve evidence, and invoke \`$web-verify-delivery\`; smoke and E2E run only when policy selects them or a product/channel requirement makes them mandatory.
+1. Small, local, reversible changes: inspect the owning file, implement narrowly, and run the smallest sufficient affected checks and related non-empty tests.
+2. Reversible standard feature work uses \`$web-implement-change\` directly and keeps progress in the current task; create a persistent plan only when the user explicitly requests one. Behavior-preserving refactors run the full unit suite, but ordinary UI or route changes do not become milestones merely because they are visible.
+3. Milestone work includes project-creation contracts, project-type capabilities, brand/identity derivation, Release, compatibility contracts, security/permissions, production side effects, and irreversible changes. Plan explicit boundaries, preserve evidence, and invoke \`$web-verify-delivery\`; parallel Worktrees and browser smoke remain explicit extras, while every artifact build asks the user for that build's E2E choice.
 
 ## Sources of truth
 
@@ -323,11 +325,11 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`$web-check-development-environment\`：检查 Node.js、pnpm 与按需使用的 Google Chrome 前端环境。
 - \`$web-define-product\`：定义单一 React Web 或 Plasmo Chrome MV3 Extension 前端产品范围。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
-- \`$web-plan-change\`：为需要交接、恢复或里程碑治理的前端变更建立持久计划。
+- \`$web-plan-change\`：只为里程碑、发布候选或用户明确要求的前端变更建立持久计划。
 - \`$web-implement-change\`：实施并验证已批准的 Web Harness 前端变更。
 - \`$web-refactor-code\`：在保持行为不变时整理 TypeScript/TSX 前端代码。
 - \`$web-prepare-brand-identity\`：同步当前前端宿主的 Logo 与品牌元数据。
-- \`$web-run-parallel-worktrees\`：隔离写入范围互不重叠的前端并行工作。
+- \`$web-run-parallel-worktrees\`：仅在用户明确要求时隔离并协调写入范围互不重叠的前端并行工作。
 - \`$web-test-final-artifact-e2e\`：在真实 Chrome 中测试精确前端候选产物。
 - \`$web-prepare-release\`：整理 Web Harness、Vite dist 或 Chrome MV3 zip 发布候选。
 - \`$web-upgrade-harness\`：保留产品所有权并同步较新的 Web Harness 前端工程层。
@@ -335,9 +337,9 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 
 ## Validation loop
 
-Use \`pnpm harness brand refresh\` after intentional identity changes. For daily work, run the smallest sufficient affected format, lint, type, and non-empty test checks. Run \`pnpm harness validate\`, \`pnpm format:check\`, \`pnpm lint\`, \`pnpm typecheck\`, \`pnpm test\`, and \`pnpm build\` for milestones, Release candidates, cross-cutting configuration/structure/build changes, explicit requests, or when narrower evidence is insufficient. Release build includes environment validation${
+Use \`pnpm harness brand refresh\` after intentional identity changes. Daily work runs the smallest sufficient affected format/lint/type checks and \`pnpm test:related <changed-source...>\`; a zero-test batch is not evidence, so run the owning test file when dependency discovery finds none. Run the full unit suite only through \`pnpm build\`/Release or an explicit behavior-preserving refactor. Before every artifact build, ask the user for the current E2E choice and pass \`--e2e=enabled|disabled\`. Every artifact-producing build is \`pnpm build\` → \`build:release\`; it owns environment validation, Harness/format/lint/type/full-test gates, \`YYYYMMDDHHMM\` UI version injection${
     config.projectType === "extension" ? ", browser-bundle self-containment validation," : ""
-  } and \`pnpm release:inspect\`. Report any skipped or blocked check explicitly; do not claim success from partial evidence.
+  } and \`pnpm release:inspect\`. Build commands, timestamp versions, E2E choices, and test/inspection results stay in command output and the current task report; they do not create or update Work Plans, ADRs, Status, Changelogs, Verifications, or other persistent project memory. Development and test profiles never produce final artifacts. Manually maintained code is reviewed above 500 lines and must be split at 1000 lines. Report skipped or blocked checks explicitly; do not claim success from partial evidence.
 `
 }
 
@@ -416,6 +418,10 @@ export async function prepareDownstreamFinalization(
     canonicalDataAccess,
     canonicalMantineUiGuidelines
   )) {
+    files.set(relativePath, contents)
+  }
+  // 保存 [relativePath, contents] 变量供当前宿主构建器终端化使用。
+  for (const [relativePath, contents] of buildToolingFiles(config)) {
     files.set(relativePath, contents)
   }
   // 保存 [relativePath, contents] 变量供当前逻辑使用。

@@ -64,11 +64,13 @@ function commonScripts(): Record<string, string> {
   return {
     harness: "tsx .harness/tooling/cli.ts",
     "comments:check": "tsx .harness/tooling/comment-policy.ts check",
+    "source-size:check": "tsx .harness/tooling/source-size-policy.ts check",
     "env:validate": "tsx .harness/tooling/environment.ts validate",
     "release:inspect": "tsx .harness/tooling/release.ts inspect",
-    test: "pnpm env:validate --profile test && vitest run",
-    typecheck: "pnpm env:validate && tsc --noEmit",
-    lint: "eslint . && pnpm comments:check",
+    test: "vitest run",
+    "test:related": "vitest related --run",
+    typecheck: "tsc --noEmit",
+    lint: "eslint . && pnpm comments:check && pnpm source-size:check",
     format: "prettier --write .",
     "format:check": "prettier --check ."
   }
@@ -106,29 +108,17 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
     ...(config.projectType === "web"
       ? {
           "routes:generate": "tsr generate",
-          dev: "pnpm env:validate --profile development && vite --mode development",
+          dev: "vite --mode development",
           build: "pnpm build:release",
-          "build:development":
-            "pnpm env:validate --profile development && vite build --mode development && tsc --noEmit",
-          "build:test":
-            "pnpm env:validate --profile test && vite build --mode test && tsc --noEmit",
-          "build:release":
-            "pnpm env:validate --profile release && vite build --mode production && tsc --noEmit && pnpm release:inspect",
+          "build:release": "tsx .harness/tooling/build.ts build",
           preview: "vite preview",
-          test: "pnpm env:validate --profile test && pnpm routes:generate && vitest run",
-          typecheck: "pnpm env:validate && pnpm routes:generate && tsc --noEmit"
+          typecheck: "pnpm routes:generate && tsc --noEmit"
         }
       : {
-          dev: "pnpm env:validate --profile development && plasmo dev --env=.env.development",
+          dev: "plasmo dev --env=.env.development",
           build: "pnpm build:release",
-          "build:development":
-            "pnpm env:validate --profile development && plasmo build --tag=development --env=.env.development",
-          "build:test":
-            "pnpm env:validate --profile test && plasmo build --tag=test --env=.env.test",
-          "build:release":
-            "pnpm env:validate --profile release && plasmo build --env=.env.production && pnpm harness validate && pnpm release:inspect",
-          package:
-            "pnpm env:validate --profile release && plasmo build --zip --env=.env.production && pnpm harness validate && pnpm release:inspect"
+          "build:release": "tsx .harness/tooling/build.ts build",
+          package: "tsx .harness/tooling/build.ts package"
         })
   }
 

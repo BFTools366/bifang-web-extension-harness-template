@@ -195,4 +195,22 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     await writeFile(indexPath, '<script>const localPath = "/home/alice/project"</script>\n')
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
   })
+
+  test("requires the current YYYYMMDDHHMM build version in the artifact", /* 执行当前测试用例的验证逻辑。 */ async () => {
+    // 保存 { root } 变量供版本注入断言使用。
+    const { root } = await createFixture(
+      baseUrls,
+      '<script>const buildVersion = "202608241234"</script>\n'
+    )
+
+    await expect(
+      inspectReleaseArtifact(root, { expectedBuildVersion: "202608241234" })
+    ).resolves.toMatchObject({ buildVersion: "202608241234" })
+    await expect(
+      inspectReleaseArtifact(root, { expectedBuildVersion: "202608241235" })
+    ).rejects.toThrow(/does not contain build version/)
+    await expect(
+      inspectReleaseArtifact(root, { expectedBuildVersion: "2026-08-24" })
+    ).rejects.toThrow(/must use YYYYMMDDHHMM/)
+  })
 })

@@ -69,8 +69,8 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
       "utf8"
     )
     expect(verifyDelivery).toContain("# Web Harness：验证前端交付")
-    expect(verifyDelivery).toContain("Extension 候选无论运行时验收使用构建目录还是 zip")
-    expect(verifyDelivery).toContain("都必须另运行 `pnpm package`")
+    expect(verifyDelivery).toContain("Extension 候选另以当次选择运行 `pnpm package")
+    expect(verifyDelivery).toContain("生成同一 Release profile 的受验收 zip")
     expect(verifyDeliveryMetadata).toContain('display_name: "Web Harness：验证前端交付"')
   })
 
@@ -238,7 +238,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     const missingPath = path.join(missingRoot, "docs/AGENT_POLICY.md")
     // 保存 missingPolicy 变量供当前逻辑使用。
     const missingPolicy = await readFile(missingPath, "utf8")
-    await writeFile(missingPath, missingPolicy.replace("standard_work_plan: optional\n", ""))
+    await writeFile(missingPath, missingPolicy.replace("standard_work_plan: disabled\n", ""))
     await expect(validateHarness(missingRoot)).rejects.toThrow(/is missing standard_work_plan/)
 
     // 保存 invalidRoot 变量供当前逻辑使用。
@@ -249,7 +249,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     const invalidPolicy = await readFile(invalidPath, "utf8")
     await writeFile(
       invalidPath,
-      invalidPolicy.replace("milestone_smoke: optional", "milestone_smoke: automatic")
+      invalidPolicy.replace("milestone_smoke: disabled", "milestone_smoke: automatic")
     )
     await expect(validateHarness(invalidRoot)).rejects.toThrow(/invalid milestone_smoke/)
 
@@ -337,8 +337,8 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await writeFile(
       manifestToolingPath,
       manifestTooling.replace(
-        'lint: "eslint . && pnpm comments:check"',
-        '/* lint: "eslint . && pnpm comments:check" */ lint: "eslint ."'
+        'lint: "eslint . && pnpm comments:check && pnpm source-size:check"',
+        '/* governed lint removed */ lint: "eslint ."'
       )
     )
     await expect(validateHarness(downstreamScriptRoot)).rejects.toThrow(
@@ -377,6 +377,42 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
     await expect(validateHarness(validatorRoot)).rejects.toThrow(
       /Downstream validator is missing inspectProjectChineseComments\(root\)/
+    )
+  })
+
+  test("rejects Release-only and source-size gate wiring drift", /* 执行终端构建与体积门禁接线负例测试。 */ async () => {
+    // 保存 manifestRoot 变量供当前逻辑使用。
+    const manifestRoot = await copyRepository()
+    // 保存 manifestPath 变量供当前逻辑使用。
+    const manifestPath = path.join(manifestRoot, ".harness/tooling/manifest.ts")
+    // 保存 manifestSource 变量供当前逻辑使用。
+    const manifestSource = await readFile(manifestPath, "utf8")
+    await writeFile(
+      manifestPath,
+      manifestSource.replace(
+        '"test:related": "vitest related --run",',
+        '"test:related": "vitest run",'
+      )
+    )
+    await expect(validateHarness(manifestRoot)).rejects.toThrow(
+      /Downstream manifest tooling is missing test:related/
+    )
+
+    // 保存 validatorRoot 变量供当前逻辑使用。
+    const validatorRoot = await copyRepository()
+    // 保存 validatorPath 变量供当前逻辑使用。
+    const validatorPath = path.join(validatorRoot, ".harness/tooling/validate.ts")
+    // 保存 validatorSource 变量供当前逻辑使用。
+    const validatorSource = await readFile(validatorPath, "utf8")
+    await writeFile(
+      validatorPath,
+      validatorSource.replace(
+        "assertReleaseOnlyBuildScripts(scripts, errors)",
+        "/* Release-only gate removed */ void scripts"
+      )
+    )
+    await expect(validateHarness(validatorRoot)).rejects.toThrow(
+      /Downstream validator is missing the Release-only build-script gate/
     )
   })
 

@@ -19,6 +19,7 @@ const INIT_OPTIONS = [
   "release-base-url",
   "brand-color",
   "logo",
+  "e2e",
   "skip-install",
   "skip-git"
 ] as const
@@ -31,7 +32,7 @@ Project creation (the target must be outside this Harness repository):
   pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
     --description <description> --development-base-url <url> \\
     --test-base-url <url> --release-base-url <https-url> \\
-    [--brand-color <#RRGGBB>] [--logo <path>]
+    [--brand-color <#RRGGBB>] [--logo <path>] [--e2e enabled|disabled]
 
 Maintenance commands:
   pnpm harness brand refresh [--logo <path>] [--brand-color <#RRGGBB>]
@@ -88,6 +89,16 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
   assertProjectType(identity.projectType)
+  // 保存 e2e 变量供非交互构建选择校验使用。
+  const e2e = readStringOption(args, "e2e")
+  if (e2e !== undefined && e2e !== "enabled" && e2e !== "disabled") {
+    throw new Error("--e2e must be enabled or disabled")
+  }
+  // 保存 skipInstall 变量供无需构建的自动化例外使用。
+  const skipInstall = readBooleanOption(args, "skip-install")
+  if (!interactive && !skipInstall && e2e === undefined) {
+    throw new Error("Non-interactive initialization requires --e2e enabled|disabled")
+  }
   return {
     root,
     projectType: identity.projectType,
@@ -99,7 +110,8 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
     testBaseUrl: identity.testBaseUrl ?? "",
     releaseBaseUrl: identity.releaseBaseUrl ?? "",
     logoPath: readStringOption(args, "logo"),
-    skipInstall: readBooleanOption(args, "skip-install"),
+    e2e,
+    skipInstall,
     skipGit: readBooleanOption(args, "skip-git")
   }
 }

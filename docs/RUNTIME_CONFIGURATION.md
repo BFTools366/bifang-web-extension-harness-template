@@ -4,11 +4,11 @@
 
 ## 1. 环境与文件
 
-| 逻辑环境      | 受管文件           | 主要入口                                     | 默认日志级别 |
-| ------------- | ------------------ | -------------------------------------------- | ------------ |
-| `development` | `.env.development` | `pnpm dev`、`pnpm build:development`         | `debug`      |
-| `test`        | `.env.test`        | `pnpm test`、`pnpm build:test`               | `info`       |
-| `release`     | `.env.production`  | `pnpm build`、`pnpm build:release`、打包候选 | `warn`       |
+| 逻辑环境      | 受管文件           | 主要入口                                  | 默认日志级别 |
+| ------------- | ------------------ | ----------------------------------------- | ------------ |
+| `development` | `.env.development` | `pnpm dev` 本地运行                       | `debug`      |
+| `test`        | `.env.test`        | Vitest 测试运行时                         | `info`       |
+| `release`     | `.env.production`  | `pnpm build` / `build:release` 与打包候选 | `warn`       |
 
 `release` 是 Harness 的逻辑环境名；它映射到 `.env.production`，以保持 Vite 与 Plasmo 的生产构建约定。不得再建立语义重复的 `.env.release`。构建 Release 配置不代表已经获得部署、商店上传或正式发布授权。
 
@@ -38,7 +38,7 @@
 
 ## 4. 初始化输入
 
-非交互创建除身份和唯一项目类型外，还必须显式提供三份 API BaseURL。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
+非交互创建除身份和唯一项目类型外，还必须显式提供三份 API BaseURL 与当次内部构建的 E2E 选择。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
 
 ```bash
 pnpm instantiate -- /absolute/path/example-web --type web \
@@ -46,7 +46,7 @@ pnpm instantiate -- /absolute/path/example-web --type web \
   --description "示例 React Web 页面" \
   --development-base-url http://localhost:3000/api \
   --test-base-url http://localhost:3100/api \
-  --release-base-url https://api.example.com
+  --release-base-url https://api.example.com --e2e disabled
 ```
 
 命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建逐项询问，不为 Release endpoint 猜测默认值。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
@@ -62,15 +62,15 @@ pnpm env:validate --profile test
 pnpm env:validate --profile release
 ```
 
-不带 `--profile` 时只读取并校验全部三份受管文件，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个已声明公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或当前进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。
+不带 `--profile` 时只读取并校验全部三份受管文件，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`，并由 `release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
 
-所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate`、`typecheck`、`test` 与所有构建入口也必须执行适用环境校验。
+所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
 
-- `pnpm dev` 固定使用 `development`。
-- `pnpm test` 固定使用 `test`。
-- `pnpm build` 是 `pnpm build:release` 的别名，固定使用逻辑 `release` 和 `.env.production`。
-- `pnpm build:development`、`pnpm build:test` 只生成诊断候选，不能冒充发布产物。
-- Web 使用 Vite mode 装载相应文件；Extension 显式把相应文件交给 Plasmo。
-- `pnpm build:release` 在宿主构建后自动运行 `pnpm release:inspect`（Web 同一脚本还运行 `tsc --noEmit`）；Extension 会先运行 `pnpm harness validate` 检查 browser target 与运行时依赖自包含，`pnpm package` 也在 zip 构建后执行相同两道门禁。任一检查失败都会使整个命令失败。
+- `pnpm dev` 固定使用 `.env.development`，但普通开发不为预探测重复执行独立环境命令；出现配置错误时按故障诊断处理。
+- `pnpm test` 与 `pnpm test:related` 固定使用 `.env.test` 提供的测试运行时值。
+- `pnpm build` 是 `pnpm build:release` 的别名，固定使用逻辑 `release` 和 `.env.production`；每次先询问当次 E2E 选择，非交互调用显式传 `--e2e=enabled|disabled`。
+- development/test profile 只服务运行和测试，不提供产物构建脚本；所有本机、CI 或其他平台的候选都固定使用 Release。
+- Web 生产构建使用 Vite `production` mode；Extension 显式把 `.env.production` 交给 Plasmo。
+- `pnpm build:release` 在宿主生产构建前自动运行三环境、Harness、格式、lint、类型与非空全量测试门禁，按上海时区注入 `YYYYMMDDHHMM` 页面版本，并在构建后运行含版本命中的 `pnpm release:inspect`。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。任一检查失败都会使整个命令失败。
 
-修改任一配置后至少运行 `pnpm env:validate`、相关测试和受影响构建。Release 候选还必须证明开发/测试 BaseURL、低级别日志和敏感信息未进入最终产物，详细门禁见 [`LOGGING.md`](LOGGING.md) 与 [`RELEASE.md`](RELEASE.md)。
+修改任一配置后至少运行 `pnpm env:validate`、相关测试和唯一 `pnpm build`。Release 候选还必须证明开发/测试 BaseURL、低级别日志和敏感信息未进入最终产物，详细门禁见 [`LOGGING.md`](LOGGING.md) 与 [`RELEASE.md`](RELEASE.md)。
