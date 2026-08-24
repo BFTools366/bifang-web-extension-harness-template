@@ -36,7 +36,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 1. 行为变化新增或更新非空测试：成功路径、最高风险失败和缺陷回归。组件交互用 Testing Library；纯函数/服务用 Vitest；Extension 消息、storage 和权限拒绝覆盖相应契约。
 2. 日常实现从窄到宽运行受影响的格式、lint、类型与 `pnpm test:related <changed-source...>`；相关图返回零测试时改跑所属测试文件或记录相称替代验证，不得把空批次声明为通过。除行为保持重构与最终构建/发布外，不运行全量 `pnpm test`。纯文档/元数据任务只运行相称静态检查。
-3. 配置、项目结构、跨切面、构建链或 Release 行为变化在完成窄检查后运行唯一 `pnpm build`。每次调用前都询问用户是否为当次候选启用 E2E，并传入 `--e2e=enabled|disabled`；不得从默认策略或历史选择替用户决定。构建固定委托 `build:release`，并拥有环境、Harness、格式、lint、类型、全量测试、`YYYYMMDDHHMM` 版本注入、生产构建和 `release:inspect` 门禁。模板输出契约变化还要在隔离目录生成并验证 Web 与 Extension，但每个下游只生成自身 Release 候选，不生成 development/test 产物。
+3. 配置文件、项目目录结构、跨模块共享契约（如 logger、`APP_CONFIG`、分页基础或 HTTP client）、构建链或 Release 行为变化在完成窄检查后运行唯一 `pnpm build`。每次调用前都询问用户是否为当次候选启用 E2E，并传入 `--e2e=enabled|disabled`；不得从默认策略或历史选择替用户决定。构建固定委托 `build:release`，并拥有环境、Harness、格式、lint、类型、全量测试、`YYYYMMDDHHMM` 版本注入、生产构建和 `release:inspect` 门禁。模板输出契约变化还要在隔离目录生成并验证 Web 与 Extension，但每个下游只生成自身 Release 候选，不生成 development/test 产物。
 4. 检查人工维护文件的职责和体积：终端下游超过 500 行复核业务高内聚与单一职责，达到 1000 行必须按业务职责拆分到同一功能或工具模块目录；源 Harness 按其 `docs/ENGINEERING_RULES.md` 的 500/2000 受管文本边界执行。不得压缩格式或建立跨模块兜底目录规避。
 5. 修复范围内失败并重跑。涉及 Release 构建时确认 `build:release`（及 Extension `package`）在宿主命令后自动通过 `pnpm release:inspect`，并验证页面包含当次构建版本；需要复核既有产物时直接运行该脚本。本 Skill 不直接运行冒烟或 E2E；当次选择 `enabled` 时把精确候选交给 `$web-verify-delivery` 执行批准的 E2E，选择 `disabled` 时记录 `Not run`，不把开发服务器或单元测试声明为真实产物验收。
 6. 里程碑全部 Todo `done` 后交给 `$web-verify-delivery`；标准/快速路径在开发检查通过后直接报告。

@@ -1,6 +1,6 @@
 ---
 name: web-check-development-environment
-description: 检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于初始化、最终构建、故障诊断，以及被硬要求的真实浏览器验证；普通开发任务不重复检查。
+description: 检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于初始化、最终构建、故障诊断，以及当次启用的 E2E 或被硬要求的真实浏览器验证；普通开发任务不重复检查。
 ---
 
 # Web Harness：检查前端开发环境

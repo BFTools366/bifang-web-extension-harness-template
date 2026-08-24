@@ -62,7 +62,7 @@ pnpm env:validate --profile test
 pnpm env:validate --profile release
 ```
 
-不带 `--profile` 时只读取并校验全部三份受管文件，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`，并由 `release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
+不带 `--profile` 时只读取并校验全部三份受管文件，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`；页面通过 `src/buildVersion.ts` 读取并展示该值，`release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
 
 所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
 
@@ -71,6 +71,6 @@ pnpm env:validate --profile release
 - `pnpm build` 是 `pnpm build:release` 的别名，固定使用逻辑 `release` 和 `.env.production`；每次先询问当次 E2E 选择，非交互调用显式传 `--e2e=enabled|disabled`。
 - development/test profile 只服务运行和测试，不提供产物构建脚本；所有本机、CI 或其他平台的候选都固定使用 Release。
 - Web 生产构建使用 Vite `production` mode；Extension 显式把 `.env.production` 交给 Plasmo。
-- `pnpm build:release` 在宿主生产构建前自动运行三环境、Harness、格式、lint、类型与非空全量测试门禁，按上海时区注入 `YYYYMMDDHHMM` 页面版本，并在构建后运行含版本命中的 `pnpm release:inspect`。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。任一检查失败都会使整个命令失败。
+- `pnpm build:release` 在宿主生产构建前后自动运行完整门禁（清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2），任一检查失败都会使整个命令失败。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
 
 修改任一配置后至少运行 `pnpm env:validate`、相关测试和唯一 `pnpm build`。Release 候选还必须证明开发/测试 BaseURL、低级别日志和敏感信息未进入最终产物，详细门禁见 [`LOGGING.md`](LOGGING.md) 与 [`RELEASE.md`](RELEASE.md)。

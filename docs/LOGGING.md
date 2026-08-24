@@ -64,7 +64,7 @@ Release 候选除单元测试外必须运行真实脚本：
 pnpm release:inspect
 ```
 
-Web `pnpm build:release` 在 Vite 生产构建前自动完成环境、Harness、格式、lint、类型与全量测试门禁，注入当次 `YYYYMMDDHHMM` 页面构建版本后运行该命令；Extension `pnpm build:release` 与 `pnpm package` 对同一 Release profile 执行相同门禁，并分别在 Plasmo 生产构建或 zip 后运行该命令。`release:inspect` 先按 release profile 验证全部环境，再检查 Web `dist/` 或 Extension `build/chrome-mv3-prod`，并在构建编排器提供 `HARNESS_BUILD_VERSION` 时确认同一 12 位值存在于候选；Extension `package` 虽先生成 zip，该检查仍针对构建目录，不会直接解包扫描 zip。任一命中都会使上层构建/打包失败。
+Web `pnpm build:release` 在 Vite 生产构建前自动完成环境、Harness、格式、lint、类型与全量测试门禁，注入当次 `YYYYMMDDHHMM` 页面构建版本后运行该命令；Extension `pnpm build:release` 与 `pnpm package` 对同一 Release profile 执行相同门禁，并分别在 Plasmo 生产构建或 zip 后运行该命令。`release:inspect` 先按 release profile 验证全部环境，再检查 Web `dist/` 或 Extension `build/chrome-mv3-prod`，并确认构建编排器注入的 `HARNESS_BUILD_VERSION` 同一 12 位值存在于候选；Extension `package` 虽先生成 zip，该检查仍针对构建目录，不会直接解包扫描 zip。任一命中都会使上层构建/打包失败。
 
 自动检查包括：
 

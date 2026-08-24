@@ -1,6 +1,6 @@
 ---
 name: web-verify-delivery
-description: 对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；仅在硬要求时使用真实 Chrome。只在全部 Todo 完成或用户明确要求完整前端验收时使用。
+description: 对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；只在当次候选启用 E2E 或存在浏览器硬要求时使用真实 Chrome。只在全部 Todo 完成或用户明确要求完整前端验收时使用。
 ---
 
 # Web Harness：验证前端交付
@@ -13,7 +13,7 @@ description: 对 Web Harness 前端里程碑或单一类型纯 TypeScript React 
 2. 要求候选批次每个 Todo 均为 `done`，代码行为有非空单元/回归测试，非代码候选有计划声明的相称验证。否则停止并返回 `$web-implement-change`。
 3. 要求 Git 顶层等于项目根，并记录当前源码提交和工作区状态。产物必须能精确绑定到该提交、候选版本、lock/hash 与当前环境；工具/依赖版本只按最低版本准入，身份/协议事实不采用“至少”语义。脏状态会影响绑定时必须重建或停止。
 4. 拒绝 mock、stub、占位、初始化空壳、开发预览、源码直接调用、历史产物和目录名猜测。
-5. 每次产物构建前询问用户是否为当次精确候选启用 E2E：`enabled` 标为 `required`，`disabled` 标为 `not-required`，选择不得跨构建复用或由 Agent 推断；产品、安全或渠道硬要求时只能选择 `enabled`。记录当次选择、场景与授权边界。
+5. 每次产物构建前询问用户是否为当次精确候选启用 E2E：`enabled` 标为 `required`，`disabled` 标为 `not-required`，选择不得跨构建复用或由 Agent 推断；用户、产品、安全或渠道硬要求时只能选择 `enabled`。同时按 `docs/AGENT_POLICY.md` 的 `milestone_smoke` 解析冒烟门禁：默认 `not-required`，只有用户、产品、安全或渠道硬要求时标为 `required`；该结果与 E2E 选择相互独立，不互相替代。记录当次选择、场景与授权边界。
 
 ## 构建与静态证据
 

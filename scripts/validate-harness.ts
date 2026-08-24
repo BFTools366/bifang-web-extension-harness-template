@@ -41,7 +41,7 @@ interface SkillContract {
 const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
-      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于初始化、最终构建、故障诊断，以及被硬要求的真实浏览器验证；普通开发任务不重复检查。",
+      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于初始化、最终构建、故障诊断，以及当次启用的 E2E 或被硬要求的真实浏览器验证；普通开发任务不重复检查。",
     title: "# Web Harness：检查前端开发环境",
     displayName: "Web Harness：检查前端开发环境",
     shortDescription: "检查 React Web 或 Plasmo MV3 Extension 的前端工具链",
@@ -149,7 +149,7 @@ const SKILL_CONTRACTS = {
   },
   "web-verify-delivery": {
     description:
-      "对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；仅在硬要求时使用真实 Chrome。只在全部 Todo 完成或用户明确要求完整前端验收时使用。",
+      "对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；只在当次候选启用 E2E 或存在浏览器硬要求时使用真实 Chrome。只在全部 Todo 完成或用户明确要求完整前端验收时使用。",
     title: "# Web Harness：验证前端交付",
     displayName: "Web Harness：验证前端交付",
     shortDescription: "验收 Web Harness、Vite dist 或 Plasmo Chrome MV3 前端候选",

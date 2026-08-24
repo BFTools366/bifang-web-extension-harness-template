@@ -1309,7 +1309,9 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamPolicy).toContain("parallel_worktree_subagents: disabled")
     expect(downstreamPolicy).toContain("milestone_smoke: disabled")
     expect(downstreamPolicy).toContain("milestone_e2e: ask")
-    expect(downstreamPolicy).toContain("这些构建操作本身不创建或更新 Work Plan")
+    expect(downstreamPolicy).toContain(
+      "持久记录边界见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §7"
+    )
     // 保存 downstreamEngineering 变量供当前逻辑使用。
     const downstreamEngineering = await readFile(
       path.join(targetRoot, "docs/ENGINEERING_RULES.md"),

@@ -108,7 +108,7 @@ pnpm release:inspect
 
 这些命令在各自项目内运行。日常实现运行受影响的格式、lint、类型检查与 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–999 行要求复核，达到 1000 行拒绝。
 
-`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。构建器按 `Asia/Shanghai` 生成 `YYYYMMDDHHMM` 版本，分别通过 Vite/Plasmo 临时变量注入 Web Landing 或 Extension Popup/Options，并在对应宿主生产构建前自动完成三环境、Harness、格式、lint、类型与全量测试门禁，构建后由 `pnpm release:inspect` 确认版本确实进入候选。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。产物检查在文件名层拒绝 `.env*` 与 `.map`，并对受支持文本扫描非 Release BaseURL、低级日志哨兵、本机绝对路径与 `sourceMappingURL`；Extension 检查 `build/chrome-mv3-prod`，不会直接解包扫描 zip。完整范围见 [`docs/LOGGING.md`](docs/LOGGING.md)。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
+`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。构建器按 `Asia/Shanghai` 生成 `YYYYMMDDHHMM` 版本，分别通过 Vite/Plasmo 临时变量注入 Web Landing 或 Extension Popup/Options；完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
 
 Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器、注释和源码体积门禁忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
 

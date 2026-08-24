@@ -72,7 +72,7 @@
 
 - 新生成终端项目的人工维护 TypeScript/TSX 使用 500/1000 两级治理：500 行及以内不因行数触发专项复核；501–999 行必须复核业务高内聚、单一职责和职责相近性并记录保留理由；达到 1000 行必须按业务职责拆分到原功能或工具模块目录。
 - 终端项目的 `pnpm lint` 必须运行 `.harness/tooling/source-size-policy.ts`：501–999 行输出复核提示，达到 1000 行失败。只精确排除 `src/routeTree.gen.ts`，以及目录段为 `.git`、`.plasmo`、`build`、`coverage`、`dist`、`generated` 或 `node_modules` 的生成/外部内容；`src/feature.gen.ts` 等普通维护源码不能因命名被隐藏。
-- 源 Harness 继续对所有受管人工文本使用既有 500/2000 边界：501–2000 行人工复核，超过 2000 行由 `pnpm validate:harness` 的 `validateFileSize` 拒绝。源模板和跨宿主生成器包含三个既有超千行文件，本里程碑不把它们的结构重构混入终端规则反向同步；后续修改仍必须复核职责，不能借此新增无界大文件。
+- 源 Harness 继续对所有受管人工文本使用既有 500/2000 边界：501–2000 行人工复核，超过 2000 行由 `pnpm validate:harness` 的 `validateFileSize` 拒绝。源模板和跨宿主生成器现有 `tests/harness-tooling.test.ts`、`scripts/validate-harness.ts`、`.harness/tooling/templates/http.ts` 三个既有超千行文件，本里程碑不把它们的结构重构混入终端规则反向同步；后续修改仍必须复核职责，不能借此新增无界大文件，任何其他文件新增超过阈值仍须按上述规则复核或拆分。
 - 不得通过压缩可读性、合并无关代码、删除必要注释或建立空壳转发层规避门禁。
 - 锁文件、生成物和原样隔离的第三方文件可以排除，但其生成器、模板与维护说明仍受治理。
 - 未超过 500 行不证明职责正确；单包边界、状态职责和权限规则仍需独立审查。
@@ -106,7 +106,7 @@
 - 生成项目日常开发先运行受影响的格式、lint、类型与 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或相称替代验证。行为保持重构运行全量 `pnpm test`。纯文档/元数据任务使用相称静态检查。
 - `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。每次调用先取得当次 E2E `enabled|disabled` 选择；交互式入口直接询问，非交互入口显式传参。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试，按上海时区生成 `YYYYMMDDHHMM` 版本并注入当前前端页面，再完成宿主生产构建和 `pnpm release:inspect`；不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当次 12 位构建版本存在于候选。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
-- 构建命令、时间版本、E2E 选择和构建门禁结果只进入命令输出与当前任务交付说明，不因执行或验收构建而创建或更新 ADR、Changelog、Verification、Status、Work Plan 等持久记录。
+- 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
 - 当次 E2E 选择启用或用户、产品、安全、渠道存在硬要求时，Web 使用 Playwright 或可用浏览器能力打开最终构建，验证品牌、构建版本、关键路由、核心成功路径与风险失败路径。
 - 当次 E2E 选择启用或用户、产品、安全、渠道存在硬要求时，Extension 在真实 Chrome 中加载最终 MV3 构建，验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及真实 Chrome API 行为。
 - 未运行的浏览器、操作系统或渠道标记为 `Unverified`。开发服务器、Mock、占位和源码片段不能替代最终候选。
@@ -121,7 +121,7 @@
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`，上海时间版本采用 `YYYYMMDDHHMM`。
-- 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建。
+- 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。
 
 | 文件                            | 唯一职责                                            |
 | ------------------------------- | --------------------------------------------------- |

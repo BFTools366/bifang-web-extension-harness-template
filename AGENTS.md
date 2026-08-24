@@ -52,7 +52,7 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 
 ### 里程碑路径
 
-适用于初始化器/项目创建契约变化、新增/移除 Harness 支持类型、品牌或身份派生、权限或安全边界、已承诺的兼容性/对外契约、生产副作用、发布候选、不可逆迁移，或用户明确要求完整验收的工作。Todo 全部完成后必须验收精确 Release 候选；并行 Worktree 与冒烟只有用户或产品、安全、渠道硬要求时才启用，每次产物构建则按当次用户选择决定 E2E。新下游实例化本身使用 `$web-instantiate-project` 的完整创建门禁，不重复创建通用 Work Plan。
+适用于初始化器/项目创建契约变化、新增/移除 Harness 支持类型、品牌或身份派生、权限或安全边界、已承诺的兼容性/对外契约、生产副作用、发布候选、不可逆迁移，或用户明确要求完整验收的工作。Todo 全部完成后必须验收精确 Release 候选；并行 Worktree 只有用户明确要求时才启用，冒烟只有用户、产品、安全或渠道硬要求时才启用，每次产物构建则按当次用户选择决定 E2E。新下游实例化本身使用 `$web-instantiate-project` 的完整创建门禁，不重复创建通用 Work Plan。
 
 ## 硬约束
 
@@ -78,8 +78,8 @@ AI Agent 是工程规则的第一消费者；人类负责产品方向、关键�
 - 受管 `.ts`/`.tsx` 中的 interface、class、函数和 `const`/`let`/`var` 声明必须有紧邻且含汉字的注释；`pnpm lint` 必须执行该门禁，精确声明矩阵、邻接语义与排除范围只见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)。
 - 新生成终端项目的 `pnpm lint` 还必须执行人工维护 TypeScript/TSX 源码体积门禁：501–999 行提示复核，达到 1000 行拒绝；生成物与外部目录只能按精确规则排除。源 Harness 自身的受管文本硬阈值仍由 `pnpm validate:harness` 按 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) 执行。
 - 行为变化必须有相关非空测试，至少覆盖核心成功路径与最高风险失败路径。Mock 可隔离外部依赖，但不能作为最终产物已可用的证据。
-- 终端项目日常开发使用 `pnpm test:related <changed-source...>`；零测试批次不是通过，不自动增加持久计划、并行、全量构建或浏览器步骤。行为保持重构运行全量测试；任何最终产物只允许由 `pnpm build` → `build:release` 生成，并由该入口自动完成环境、Harness、格式、lint、类型、全量测试、上海时区 `YYYYMMDDHHMM` 构建版本注入和 `release:inspect`。每次构建前必须询问用户是否启用 E2E，非交互命令显式传 `--e2e=enabled|disabled`；development/test profile 不生成最终候选。
-- 构建命令、构建时间版本、E2E 选择及其测试或扫描结果只在命令输出与当前任务交付说明中报告；这些构建操作本身不创建或更新 Work Plan、ADR、Status、Changelog、Verification 或其他持久项目记忆。
+- 终端项目日常开发使用 `pnpm test:related <changed-source...>`；零测试批次不是通过，不自动增加持久计划、并行、全量构建或浏览器步骤。行为保持重构运行全量测试；任何最终产物只允许由 `pnpm build` → `build:release` 生成，完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2。每次构建前必须询问用户是否启用 E2E，非交互命令显式传 `--e2e=enabled|disabled`；development/test profile 不生成最终候选。
+- 构建命令、构建时间版本、E2E 选择及其测试或扫描结果的报告与持久记录边界见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §7。
 - 文档中的命令、路径、配置和验证结论必须来自真实仓库或明确规范；未运行写“未执行”，未验证写 `Unverified`。
 - 不覆盖或撤销用户和其他 Agent 的既有修改；并行写入必须先划分互不重叠的文件所有权。
 - 发布、外部上传、凭据、商店提交、生产数据和不可逆副作用需要独立明确授权。
@@ -131,7 +131,7 @@ Harness 源只保留 `$web-instantiate-project` 作为创建 Skill。成功生�
 1. 读取最少事实并检查工作区；在已生成下游或宿主相关任务中确认 `.harness/project.json` 的唯一 `projectType`。
 2. 选择快速、标准或里程碑路径；只有里程碑或用户明确要求时维护精简 Todo。
 3. 实施当前范围，保持单包和单宿主边界。
-4. 日常运行受影响的格式、lint、类型与相关非空测试；行为保持重构运行全量测试；最终候选运行唯一 Release 构建。只有硬要求启用时才运行真实浏览器检查，立即处理失败。
+4. 日常运行受影响的格式、lint、类型与相关非空测试；行为保持重构运行全量测试；最终候选运行唯一 Release 构建。只有当次 E2E 选择启用或用户、产品、安全、渠道硬要求时才运行真实浏览器检查，立即处理失败。
 5. 只更新被触发的长期文档；最终只报告适用于本任务的变更、实际验证、未执行项与剩余风险，不列空类别。
 
 ## 当前限制
