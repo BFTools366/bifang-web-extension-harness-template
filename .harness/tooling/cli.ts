@@ -1,11 +1,17 @@
 import { pathToFileURL } from "node:url"
 import path from "node:path"
-import { assertKnownOptions, parseArgs, readBooleanOption, readStringOption } from "./args.ts"
+import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
 import { refreshBrand } from "./brand.ts"
 import { assertProjectType } from "./config.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
-import { isInteractiveTerminal, promptForIdentity } from "./prompts.ts"
-import type { InitOptions, ParsedArgs } from "./types.ts"
+import {
+  isInteractiveTerminal,
+  promptForIdentity,
+  type PromptDefaults,
+  type PromptedIdentity
+} from "./prompts.ts"
+import { recommendedAgentPolicy } from "./agent-policy.ts"
+import type { AgentPolicyChoice, AgentPolicySelection, InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
 
 // 保存 INIT_OPTIONS 变量供当前逻辑使用。
@@ -19,8 +25,12 @@ const INIT_OPTIONS = [
   "release-base-url",
   "brand-color",
   "logo",
-  "skip-install",
-  "skip-git"
+  "policy-mode",
+  "confirmed-by",
+  "superpowers",
+  "parallel-worktree-subagents",
+  "milestone-smoke",
+  "milestone-e2e"
 ] as const
 
 // 执行 usage 函数的处理逻辑。
@@ -31,6 +41,10 @@ Project creation (the target must be outside this Harness repository):
   pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
     --description <description> --development-base-url <url> \\
     --test-base-url <url> --release-base-url <https-url> \\
+    --policy-mode recommended|custom --confirmed-by <source> \\
+    [--superpowers enabled|disabled] \\
+    [--parallel-worktree-subagents enabled|disabled] \\
+    [--milestone-smoke enabled|disabled] [--milestone-e2e enabled|disabled] \\
     [--brand-color <#RRGGBB>] [--logo <path>]
 
 Maintenance commands:
@@ -38,19 +52,97 @@ Maintenance commands:
   pnpm harness validate
 
 In-place initialization is forbidden. Project creation requires exactly one type.
-Use --skip-install and --skip-git only in controlled automation.
 `
 }
 
+/** 描述初始化参数解析时可注入的交互环境。 */
+export interface InitOptionsResolutionRuntime {
+  interactive?: boolean
+  targetRoot?: string
+  promptIdentity?: (defaults: PromptDefaults) => Promise<PromptedIdentity>
+  onPolicyModeResolved?: (mode: "recommended" | "custom") => void
+  onInputSourcesResolved?: (sources: Readonly<Record<string, string>>) => void
+}
+
+/** 将非交互能力参数约束为 enabled 或 disabled。 */
+function policyChoice(value: string | undefined, label: string): AgentPolicyChoice {
+  if (value === "enabled" || value === "disabled") return value
+  throw new Error(`${label} must be exactly enabled or disabled`)
+}
+
+/** 从非交互参数完全解析推荐或自定义 Agent policy。 */
+function nonInteractiveAgentPolicy(supplied: {
+  policyMode?: string
+  confirmedBy?: string
+  superpowers?: string
+  parallelWorktreeSubagents?: string
+  milestoneSmoke?: string
+  milestoneE2e?: string
+}): AgentPolicySelection {
+  const confirmedBy = supplied.confirmedBy?.trim()
+  if (confirmedBy === undefined || confirmedBy === "") {
+    throw new Error("Non-interactive initialization requires --confirmed-by")
+  }
+  if (supplied.policyMode === "recommended") {
+    if (
+      supplied.superpowers !== undefined ||
+      supplied.parallelWorktreeSubagents !== undefined ||
+      supplied.milestoneSmoke !== undefined ||
+      supplied.milestoneE2e !== undefined
+    ) {
+      throw new Error("Recommended policy mode does not accept individual policy overrides")
+    }
+    return recommendedAgentPolicy(confirmedBy)
+  }
+  if (supplied.policyMode !== "custom") {
+    throw new Error("Non-interactive initialization requires --policy-mode recommended or custom")
+  }
+  return {
+    confirmedBy,
+    confirmedAt: new Date().toISOString(),
+    superpowers: policyChoice(supplied.superpowers, "--superpowers"),
+    parallelWorktreeSubagents: policyChoice(
+      supplied.parallelWorktreeSubagents,
+      "--parallel-worktree-subagents"
+    ),
+    milestoneSmoke: policyChoice(supplied.milestoneSmoke, "--milestone-smoke"),
+    milestoneE2e: policyChoice(supplied.milestoneE2e, "--milestone-e2e")
+  }
+}
+
+/** 判断交互初始化是否仍需收集自定义 Agent policy 条件字段。 */
+export function requiresInteractiveAgentPolicyPrompt(supplied: {
+  policyMode?: string
+  superpowers?: string
+  parallelWorktreeSubagents?: string
+  milestoneSmoke?: string
+  milestoneE2e?: string
+}): boolean {
+  return (
+    supplied.policyMode === "custom" &&
+    [
+      supplied.superpowers,
+      supplied.parallelWorktreeSubagents,
+      supplied.milestoneSmoke,
+      supplied.milestoneE2e
+    ].some((value) => value === undefined)
+  )
+}
+
 // 执行 resolveInitOptions 函数的处理逻辑。
-export async function resolveInitOptions(args: ParsedArgs, root: string): Promise<InitOptions> {
+export async function resolveInitOptions(
+  args: ParsedArgs,
+  root: string,
+  runtime: InitOptionsResolutionRuntime = {}
+): Promise<InitOptions> {
   assertKnownOptions(args, INIT_OPTIONS)
   // 保存 interactive 变量供当前逻辑使用。
-  const interactive = isInteractiveTerminal()
+  const interactive = runtime.interactive ?? isInteractiveTerminal()
   // 保存 suppliedBrandColor 变量供当前逻辑使用。
   const suppliedBrandColor = readStringOption(args, "brand-color")
   // 保存 supplied 变量供当前逻辑使用。
   const supplied = {
+    targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
     name: readStringOption(args, "name"),
     id: readStringOption(args, "id"),
@@ -58,17 +150,26 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
     brandColor: suppliedBrandColor ?? (interactive ? undefined : "#4C6EF5"),
     developmentBaseUrl: readStringOption(args, "development-base-url"),
     testBaseUrl: readStringOption(args, "test-base-url"),
-    releaseBaseUrl: readStringOption(args, "release-base-url")
+    releaseBaseUrl: readStringOption(args, "release-base-url"),
+    policyMode: readStringOption(args, "policy-mode"),
+    confirmedBy: readStringOption(args, "confirmed-by"),
+    superpowers: readStringOption(args, "superpowers"),
+    parallelWorktreeSubagents: readStringOption(args, "parallel-worktree-subagents"),
+    milestoneSmoke: readStringOption(args, "milestone-smoke"),
+    milestoneE2e: readStringOption(args, "milestone-e2e")
   }
   // 保存 required 变量供当前逻辑使用。
   const required = [
+    ["<absolute-target>", supplied.targetRoot],
     ["--type", supplied.projectType],
     ["--name", supplied.name],
     ["--id", supplied.id],
     ["--description", supplied.description],
     ["--development-base-url", supplied.developmentBaseUrl],
     ["--test-base-url", supplied.testBaseUrl],
-    ["--release-base-url", supplied.releaseBaseUrl]
+    ["--release-base-url", supplied.releaseBaseUrl],
+    ["--policy-mode", supplied.policyMode],
+    ["--confirmed-by", supplied.confirmedBy]
   ] as const
   // 保存 missing 变量供当前逻辑使用。
   const missing = required
@@ -76,20 +177,28 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
     .map(/* 执行 当前声明 函数的处理逻辑。 */ ([flag]) => flag)
 
   // 保存 identity 变量供当前逻辑使用。
-  let identity = supplied
-  if (missing.length > 0 || (interactive && suppliedBrandColor === undefined)) {
-    if (!interactive) {
-      throw new Error(
-        `Non-interactive initialization is missing required option(s): ${missing.join(", ")}`
-      )
-    }
-    identity = await promptForIdentity(supplied)
+  let identity:
+    | (typeof supplied & { agentPolicy?: AgentPolicySelection })
+    | Awaited<ReturnType<typeof promptForIdentity>> = supplied
+  if (interactive) {
+    identity = await (runtime.promptIdentity ?? promptForIdentity)(supplied)
+  } else if (missing.length > 0) {
+    throw new Error(
+      `Non-interactive initialization is missing required option(s): ${missing.join(", ")}`
+    )
   }
+
+  const agentPolicy =
+    "agentPolicy" in identity && identity.agentPolicy !== undefined
+      ? identity.agentPolicy
+      : nonInteractiveAgentPolicy(supplied)
+  runtime.onPolicyModeResolved?.(identity.policyMode === "custom" ? "custom" : "recommended")
+  if ("inputSources" in identity) runtime.onInputSourcesResolved?.(identity.inputSources)
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
   assertProjectType(identity.projectType)
   return {
-    root,
+    root: identity.targetRoot ?? root,
     projectType: identity.projectType,
     name: identity.name ?? "",
     id: identity.id ?? "",
@@ -98,9 +207,8 @@ export async function resolveInitOptions(args: ParsedArgs, root: string): Promis
     developmentBaseUrl: identity.developmentBaseUrl ?? "",
     testBaseUrl: identity.testBaseUrl ?? "",
     releaseBaseUrl: identity.releaseBaseUrl ?? "",
-    logoPath: readStringOption(args, "logo"),
-    skipInstall: readBooleanOption(args, "skip-install"),
-    skipGit: readBooleanOption(args, "skip-git")
+    agentPolicy,
+    logoPath: readStringOption(args, "logo")
   }
 }
 

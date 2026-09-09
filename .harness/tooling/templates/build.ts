@@ -41,23 +41,28 @@ import { loadProjectConfig } from "./config.ts"
 import type { E2eSelection } from "./types.ts"
 
 const BUILD_TIME_ZONE = "Asia/Shanghai" as const
+/** 说明 BUILD_VERSION_PATTERN 的稳定结构与职责边界。 */
 export const BUILD_VERSION_PATTERN = /^\\d{12}$/
 const PROJECT_TYPE = "${config.projectType}" as const
 
+/** 说明 BuildTarget 的稳定结构与职责边界。 */
 export type BuildTarget = ${targetType}
 export type { E2eSelection } from "./types.ts"
 
+/** 说明 BuildArguments 的稳定结构与职责边界。 */
 export interface BuildArguments {
   e2e?: E2eSelection
   target: BuildTarget
 }
 
+/** 说明 BuildCommand 的稳定结构与职责边界。 */
 export interface BuildCommand {
   args: string[]
   command: string
   env?: Readonly<Record<string, string>>
 }
 
+/** 说明 formatBuildVersion 的稳定结构与职责边界。 */
 export function formatBuildVersion(now: Date): string {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
@@ -79,6 +84,7 @@ export function formatBuildVersion(now: Date): string {
   return version
 }
 
+/** 说明 parseBuildArguments 的稳定结构与职责边界。 */
 export function parseBuildArguments(argv: readonly string[]): BuildArguments {
   const target = argv[0]
   if (${targetGuard}) throw new Error("Usage: ${usage}")
@@ -96,10 +102,12 @@ export function parseBuildArguments(argv: readonly string[]): BuildArguments {
   return { e2e, target }
 }
 
+/** 说明 createHostCommand 的稳定结构与职责边界。 */
 function createHostCommand(target: BuildTarget, buildVersion: string): BuildCommand {
   ${hostCommand}
 }
 
+/** 说明 createBuildCommandPlan 的稳定结构与职责边界。 */
 export function createBuildCommandPlan(
   target: BuildTarget,
   buildVersion: string
@@ -123,6 +131,7 @@ export function createBuildCommandPlan(
   ]
 }
 
+/** 说明 promptForE2eSelection 的稳定结构与职责边界。 */
 async function promptForE2eSelection(): Promise<E2eSelection> {
   const prompt = createInterface({ input: stdin, output: stdout })
   try {
@@ -139,6 +148,7 @@ async function promptForE2eSelection(): Promise<E2eSelection> {
   }
 }
 
+/** 说明 resolveE2eSelection 的稳定结构与职责边界。 */
 export async function resolveE2eSelection(
   explicit: E2eSelection | undefined,
   interactive: boolean
@@ -150,6 +160,7 @@ export async function resolveE2eSelection(
   )
 }
 
+/** 说明 runCommand 的稳定结构与职责边界。 */
 async function runCommand(specification: BuildCommand, root: string): Promise<void> {
   const child = spawn(specification.command, specification.args, {
     cwd: root,
@@ -164,6 +175,7 @@ async function runCommand(specification: BuildCommand, root: string): Promise<vo
   )
 }
 
+/** 说明 runBuild 的稳定结构与职责边界。 */
 export async function runBuild(
   rootInput: string,
   args: BuildArguments,
@@ -189,6 +201,7 @@ export async function runBuild(
   return { buildVersion, e2e }
 }
 
+/** 说明 runCli 的稳定结构与职责边界。 */
 async function runCli(): Promise<void> {
   try {
     const args = parseBuildArguments(process.argv.slice(2))
@@ -234,12 +247,14 @@ import {
 } from "../.harness/tooling/build.ts"
 
 describe("release build orchestration", () => {
+  /** 验证当前场景的核心成功或风险边界。 */
   test("formats the Shanghai build version", () => {
     const version = formatBuildVersion(new Date("2026-08-24T04:34:59.000Z"))
     expect(version).toBe("202608241234")
     expect(version).toMatch(BUILD_VERSION_PATTERN)
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("requires an E2E decision outside an interactive terminal", async () => {
     await expect(resolveE2eSelection(undefined, false)).rejects.toThrow(
       /Non-interactive builds require/
@@ -250,6 +265,7 @@ describe("release build orchestration", () => {
     })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("runs the full unit suite before the ${config.projectType} host build", () => {
     const commands = createBuildCommandPlan("build", "202608241234")
     expect(commands.map((command) => command.command + " " + command.args.join(" "))).toEqual([

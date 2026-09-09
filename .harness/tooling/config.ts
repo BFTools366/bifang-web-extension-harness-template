@@ -7,31 +7,52 @@ export const PROJECT_CONFIG_PATH = ".harness/project.json" as const
 // 保存 MASTER_LOGO_PATH 变量供当前逻辑使用。
 export const MASTER_LOGO_PATH = ".harness/brand/logo-1024.png" as const
 
-// Source-only and legacy project-creation paths that finalizeDownstream removes and
-// validateProject must keep absent from every terminal project. Single source of truth for both.
+// Source-only project-creation paths that every terminal project must keep absent.
 // 保存 HARNESS_ONLY_PATHS 变量供当前逻辑使用。
 export const HARNESS_ONLY_PATHS = [
   ".agents/skills/initialize-web-project",
   ".agents/skills/instantiate-project",
   ".agents/skills/web-instantiate-project",
+  ".agents/skills/web-curate-harness-memory",
   ".agents/skills/manage-project-surfaces",
   ".harness/tooling/init.ts",
   ".harness/tooling/instantiate.ts",
   ".harness/tooling/manifest.ts",
   ".harness/tooling/process.ts",
   ".harness/tooling/prompts.ts",
+  ".harness/tooling/source-snapshot.ts",
   ".harness/tooling/templates",
   ".harness/tooling/finalize.ts",
   "scripts/instantiate.ts",
   "scripts/validate-harness.ts",
+  "scripts/harness-validation",
+  "tests/agent-policy.test.ts",
   "tests/extension-runtime.test.ts",
+  "tests/harness-agents-entrypoint.test.ts",
+  "tests/harness-governance.test.ts",
+  "tests/harness-initialization.test.ts",
+  "tests/harness-instantiation.test.ts",
+  "tests/harness-memory.test.ts",
+  "tests/harness-tooling-support.ts",
   "tests/harness-tooling.test.ts",
   "tests/harness-validator.test.ts",
   "tests/initialization-atomicity.test.ts",
+  "tests/line-limits.test.ts",
   "docs/TS_WEB_TEMPLATE.md",
   "docs/HARNESS_ENGINEERING.md",
-  "docs/work_plan",
+  "docs/harness_engineering",
   "Version.md"
+] as const
+
+/** 保存只在实例化时排除、但终端后续事件可以合法创建的记忆与验证路径。 */
+export const INSTANTIATION_ONLY_EXCLUDED_PATHS = [
+  "docs/product_spec",
+  "docs/project_status",
+  "docs/work_plan",
+  "docs/adr",
+  "docs/changelog",
+  "docs/VERIFICATION.md",
+  "docs/verification"
 ] as const
 
 // 执行 normalizeColor 函数的处理逻辑。

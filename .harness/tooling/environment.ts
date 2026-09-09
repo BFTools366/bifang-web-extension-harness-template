@@ -22,7 +22,9 @@ export const FORBIDDEN_ENVIRONMENT_FILES = [
   ".env.production.local"
 ] as const
 
+/** 枚举应用允许使用的三种运行环境。 */
 export type ApplicationEnvironment = keyof typeof ENVIRONMENT_FILES
+/** 枚举结构化日志允许使用的等级。 */
 export type LogLevel = "debug" | "info" | "warn" | "error"
 
 // 定义 ApplicationConfig 接口的结构契约。

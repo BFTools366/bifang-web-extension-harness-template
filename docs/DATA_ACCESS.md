@@ -93,7 +93,7 @@ client 把 HTTP 非成功、timeout、网络失败、取消和响应/提取校�
 2. 基线只记录稳定 scope/event、状态码和安全 code/reason/retryable；不得记录三个 header 的值、请求/响应 body、Token、continuation、完整 URL、Error stack/cause 或本机路径。真实域层只有提供不含标识符的静态 endpoint 模板后才可记录该模板。
 3. 同一会话失效周期内，共享一个 in-flight Promise 调用 `UnauthorizedHandler`；并发 401 只能触发一次 handler/导航。新的显式认证会话重置该 latch；handler 自身失败只记录稳定 `unauthorized-handler` 错误且不递归调用，原 request 仍向调用方抛出 `authentication_required` 401。
 4. Web 只有在产品已经存在真实、可访问的登录路由后，才在 app/route 组合层注入类型化 `router.navigate` adapter；登录目标与可选 return target 必须显式、同源且受控。模板不得硬编码不存在的 `/login`，也不得在 client 中使用 `window.location`。
-5. Extension 不使用 TanStack Router。只有产品明确真实登录入口后，Popup/Options 才呈现重新认证状态或由宿主 adapter 打开批准的入口；模板不虚构登录页面、background 或 Chrome 导航。跨 Popup/Options 的 single-flight 与会话共享不能依赖模块全局变量，必须另行设计 background/message/Storage 所有者并进入权限里程碑。
+5. Extension 不使用 TanStack Router。只有产品明确真实登录入口后，Popup/Options 才呈现重新认证状态或由宿主 adapter 打开批准的入口；模板不虚构登录页面、background 或 Chrome 导航。跨 Popup/Options 的 single-flight 与会话共享不能依赖模块全局变量，必须另行设计 background/message/Storage 所有者并取得权限与隐私专项批准。
 
 refresh endpoint、Cookie/credentials 策略、自动重放和非幂等幂等键都不属于初始化基线。真实产品增加这些能力时必须只有一个重试/重放所有者，防止 client 与 TanStack Query 次数相乘，并覆盖 refresh 自身 401、并发、重放上限和副作用安全。
 
@@ -162,7 +162,7 @@ SSE 是长连接，不应作为永不 resolve 的 TanStack Query `queryFn`。连
 - 明确 heartbeat/stall、指数退避与 jitter、最大重连间隔、`Last-Event-ID`/恢复语义，以及认证过期后的重新建连策略。
 - 自动重连不得无限高频；4xx、权限拒绝和确定性协议错误通常应停止并向用户暴露可恢复动作。
 - Web 的页面或路由生命周期必须关闭旧连接，避免隐藏页面、重复挂载或 target 切换产生重复订阅。
-- Extension 的 Popup/Options 关闭时会销毁页面；MV3 service worker 也可能被回收，因此不能承诺把持久 SSE 连接长期托管在 service worker。需要持续连接时必须重新设计成符合宿主生命周期的架构并进入权限/后台行为里程碑评审。
+- Extension 的 Popup/Options 关闭时会销毁页面；MV3 service worker 也可能被回收，因此不能承诺把持久 SSE 连接长期托管在 service worker。需要持续连接时必须重新设计成符合宿主生命周期的架构并进入权限与后台行为专项评审。
 
 ## 6. 可选 RxJS 事件流编排
 
@@ -202,12 +202,12 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 2. 生成 HTTP/语言测试至少覆盖动态 `X-Lang`、continuation/Token 后续携带、异步 Token extractor、同源 2xx 信任边界、乱序 response、迟到旧 401、新会话 latch reset、并发 401 单次 handler、handler 失败、timeout、取消、受控 URL 和安全日志。
 3. 首次真实 endpoint 记录 target、认证方式、分页字段映射、数据所有者、取消/重试策略、真实登录入口，以及 Web CORS/CSP/cache 或 Extension 最小权限与执行上下文影响；不得把初始化配置冒充服务可达证据。
 4. 只安装真实使用的可选依赖，检查维护状态、许可证、浏览器支持和 bundle 影响并固定 lockfile。Ky/openapi-fetch/Axios adapter 必须复用三个 header、revision、401、`ApiError` 与日志契约，并测试不会形成第二套重试/认证状态机。
-5. Web 的真实跨域集成验证服务端 Allow/Expose/Vary/Cache-Control 与 credentials 配置；真实登录页存在后才测试导航。Extension 的真实网络或跨上下文认证必须覆盖权限拒绝、上下文销毁、消息 sender 校验和 service worker 重建，并升级里程碑在真实 Chrome 验证。
+5. Web 的真实跨域集成验证服务端 Allow/Expose/Vary/Cache-Control 与 credentials 配置；真实登录页存在后才测试导航。Extension 的真实网络或跨上下文认证必须覆盖权限拒绝、上下文销毁、消息 sender 校验和 service worker 重建，并把真实 Chrome 验证列为硬要求。
 6. 多 GraphQL target 至少覆盖正确路由、动态 headers、非法 target 拒绝、各 schema 的生成类型和包含 target/语言的 Query key。
 7. SSE 至少覆盖消息校验、错误/重连决策、显式关闭，以及不会因重新挂载产生重复连接。
 8. RxJS 首次接入至少覆盖有效/无效事件映射、单来源失败隔离、重试停止与取消、监听/连接数量和最后一个订阅退出后的 teardown。
 9. 使用 `share` 或 replay 时覆盖共享底层订阅、error/complete/refCount reset、晚订阅结果、缓冲边界与清理；多来源更新还要覆盖重复、乱序和旧版本拒绝。
-10. 事件投影至少证明 Query/Jotai 各自只有一个状态所有者；Extension 还要覆盖非法 sender/message、Port 断开、页面卸载和 service worker 重启后的重建。涉及后台行为或权限时升级里程碑并在真实 Chrome 验证。
+10. 事件投影至少证明 Query/Jotai 各自只有一个状态所有者；Extension 还要覆盖非法 sender/message、Port 断开、页面卸载和 service worker 重启后的重建。涉及后台行为或权限时进入完整候选验收并在真实 Chrome 验证。
 11. 运行 `pnpm env:validate`、`pnpm harness validate`、`pnpm lint`、`pnpm typecheck`、相关非空 `pnpm test` 与 `pnpm build`；验证 client 只读 `APP_CONFIG`，日志符合脱敏边界，Release 产物不包含开发/测试 BaseURL、Token/continuation fixture 或敏感数据。真实服务、CORS、登录导航、浏览器与权限场景未执行时写为 `Unverified`。
 
 ## 8. 官方参考

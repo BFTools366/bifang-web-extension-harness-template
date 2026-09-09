@@ -1,6 +1,6 @@
 ---
 name: web-test-final-artifact-e2e
-description: 按 $web-verify-delivery 已批准的执行契约，在隔离的真实 Google Chrome 中对精确 React Web Vite dist 或 Plasmo Chrome MV3 Extension 前端候选执行端到端场景并返回证据。不得自行决定策略、候选准入、Todo 回流或里程碑结论，也不得用于开发预览、规划、普通编码或单元测试替代。
+description: 按 $web-verify-delivery 已批准的执行契约，在隔离的真实 Google Chrome 中对精确 React Web Vite dist 或 Plasmo Chrome MV3 Extension 前端候选执行端到端场景并返回证据。不得自行决定策略、候选准入、Todo 回流或候选验收结论，也不得用于开发预览、规划、普通编码或单元测试替代。
 ---
 
 # Web Harness：测试前端最终产物 E2E
@@ -38,9 +38,9 @@ description: 按 $web-verify-delivery 已批准的执行契约，在隔离的真
 
 1. 每步前后读取最新页面/扩展状态，记录候选哈希、提交、Release profile、Chrome/OS、步骤、预期/观察、截图或 trace、清理后的控制台摘要、关闭和清理。
 2. 结束时停止静态服务，关闭临时 Chrome，移除本次精确临时 profile/解压目录；不得删除用户目录或未知文件。
-3. 任何场景失败、超时、取消、阻断或未执行时返回精确场景、证据和建议修复范围，由 `$web-verify-delivery` 统一决定候选结论与 Todo 回流；本 Skill 不直接拒绝里程碑或修改计划。
+3. 任何场景失败、超时、取消、阻断或未执行时返回精确场景、证据和建议修复范围，由 `$web-verify-delivery` 统一决定候选结论与 Todo 回流；本 Skill 不直接拒绝候选或修改计划。
 4. 未实际执行的浏览器、OS、入口和渠道标记 `Unverified`；不签署人工复核字段。
 
 ## 完成输出
 
-报告精确候选与 hash、Chrome/OS、逐场景 `passed|failed|blocked|not-run`、证据、清理、未验证范围和剩余风险，不输出独立里程碑结论。
+报告精确候选与 hash、Chrome/OS、逐场景 `passed|failed|blocked|not-run`、证据、清理、未验证范围和剩余风险，不输出独立候选验收结论。

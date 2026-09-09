@@ -23,7 +23,8 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --description "示例 React Web 页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" \
+  --policy-mode recommended --confirmed-by project-owner
 ```
 
 从同一个源 Harness 根创建独立 Extension 目录：
@@ -34,7 +35,8 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" \
+  --policy-mode recommended --confirmed-by project-owner
 ```
 
 目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
@@ -48,20 +50,22 @@ pnpm instantiate -- /absolute/path/example-web --type web \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
   --release-base-url "https://api.example.com" \
+  --policy-mode recommended --confirmed-by project-owner \
   --logo /absolute/path/logo.png --brand-color "#3B82F6"
 ```
 
 - `--name` 是用户可见名称。
 - `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
 - `--description` 是页面元数据或 Extension manifest/界面的简短说明。
-- `--development-base-url`、`--test-base-url` 与 `--release-base-url` 是三个环境的 API BaseURL；非交互调用全部必填，交互调用逐项询问且不得猜测默认值。三者必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 只接受 HTTPS。
+- `--development-base-url`、`--test-base-url` 与 `--release-base-url` 是三个环境的 API BaseURL；非交互调用全部必填，交互调用在首轮基础字段中收集且不得猜测默认值。三者必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 只接受 HTTPS。
+- `--policy-mode recommended|custom` 与 `--confirmed-by <source>` 在非交互调用中必填；自定义模式还必须逐项显式提供四个 `enabled|disabled` 选择，推荐模式不得混入覆盖值。
 - `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
 - 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；只有后续显式 `pnpm build` 才现场询问或接收 `--e2e=enabled|disabled`。
 
 参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
-生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。`--skip-install` 仅供受控测试或自动化延后安装；后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。初始化不运行格式 CLI、lint、typecheck、全量测试或生产构建；这些完整门禁只由后续唯一 Release 构建入口拥有。
+生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。公开 CLI 不接受跳过安装或 Git 的参数；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。初始化不运行格式 CLI、lint、typecheck、全量测试或生产构建；这些完整门禁只由后续唯一 Release 构建入口拥有。
 
 ## 3. 项目身份与品牌事实
 
@@ -147,7 +151,7 @@ Extension 初始化必须同步：
 | 国际化      | i18next                                        | 用户可见文案使用翻译键                                                           |
 | 运行时配置  | 类型化 `APP_CONFIG`                            | `VITE_` 三环境公开配置，不承载秘密                                               |
 | 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                 |
-| 测试        | Vitest + Testing Library                       | 测用户可观察行为；里程碑可加 Playwright                                          |
+| 测试        | Vitest + Testing Library                       | 测用户可观察行为；当前构建启用 E2E 或存在浏览器硬要求时加 Playwright             |
 
 Web 输出是普通浏览器页面，不携带 Chrome Extension 权限、manifest、Popup 或 Options。需要浏览器特有能力时，应先判断产品是否应该作为新的独立 Extension 项目初始化。生成的分页/原生 Fetch 基础与未来 REST/OpenAPI、GraphQL、SSE、可选 RxJS 的认证、CORS、缓存和状态所有权边界以 [`DATA_ACCESS.md`](DATA_ACCESS.md) 为准；模板没有真实登录 route 时不得宣称 401 已能跳转。
 
@@ -211,11 +215,11 @@ src/
 | 国际化      | i18next                                        | Popup/Options 等用户可见文案使用翻译键                                              |
 | 运行时配置  | 类型化 `APP_CONFIG`                            | `PLASMO_PUBLIC_` 三环境公开配置，不承载秘密                                         |
 | 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                    |
-| 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；里程碑使用真实 Chrome                                        |
+| 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；当前构建启用 E2E 或存在浏览器硬要求时使用真实 Chrome         |
 
 Extension 基线不使用 TanStack Router。Popup 与 Options 是独立入口；如果某个入口内部没有真实多页需求，不应引入站内路由抽象。
 
-Extension 与 Web 生成相同的 `src/pagination/` 和 `src/api/client/` 本地工程契约，但每个 Popup、Options、content script 或 service worker 都有独立的 JavaScript 执行上下文。sessionStorage、内存 Token/continuation 与 401 single-flight 不跨上下文；初始化不为了共享它们增加 background、`storage`、消息入口或权限。产品确需跨上下文认证时必须先定义唯一所有者、类型化消息、生命周期和拒绝路径，再进入里程碑验证。
+Extension 与 Web 生成相同的 `src/pagination/` 和 `src/api/client/` 本地工程契约，但每个 Popup、Options、content script 或 service worker 都有独立的 JavaScript 执行上下文。sessionStorage、内存 Token/continuation 与 401 single-flight 不跨上下文；初始化不为了共享它们增加 background、`storage`、消息入口或权限。产品确需跨上下文认证时必须先定义唯一所有者、类型化消息、生命周期和拒绝路径，再取得权限/隐私批准并进入真实 Chrome 验证门禁。
 
 Extension 的 `package.json.targets.default` 必须显式声明 `context: "browser"` 与 `includeNodeModules: true`。这不是 Chrome manifest 权限，而是 Parcel 打包边界：React、Mantine、TanStack Query、Jotai、i18next 等运行时依赖必须进入最终浏览器 bundle，不得留下浏览器无法解析的裸包 self-map。
 
@@ -315,7 +319,7 @@ pnpm env:validate
 pnpm release:inspect
 ```
 
-命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev` 使用 development，Vitest 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。development/test 不提供产物脚本。日常实现使用 `test:related`，空相关批次必须回退到所属非空测试文件；行为保持重构运行全量 `test`。`lint` 执行 ESLint、中文声明注释与 500/1000 行源码体积门禁，格式命令只检查格式。详细声明矩阵、精确排除与体积边界以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1、§4 为准。
+命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev` 使用 development，Vitest 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。development/test 不提供产物脚本。日常实现只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `test:related`，空相关批次必须回退到所属非空测试文件；不自动追加格式、lint、类型、全仓检查或构建，行为保持重构才运行全量 `test`。`lint` 执行 ESLint、中文声明注释与 500/1000 行源码体积门禁，格式命令只检查格式。详细声明矩阵、精确排除与体积边界以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1、§4 为准。
 
 `build:release` 是唯一最终产物入口。每次构建先询问用户是否启用 E2E；非交互入口必须传 `--e2e=enabled|disabled`。随后在宿主生产构建前后自动执行完整环境、Harness、格式、lint、类型、测试与版本注入门禁，详见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 与 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) §5；Extension `package` 对同一 Release profile 执行相同门禁后生成 zip。`env:validate` 的 profile 覆盖规则见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) §5，产物扫描规则见 [`LOGGING.md`](LOGGING.md)。
 
@@ -341,7 +345,7 @@ pnpm harness validate
 5. 三份环境文件齐全且宿主前缀正确，`APP_CONFIG` 和 logger 测试非空；初始化器直接验证全部环境，Release 配置使用 HTTPS 且日志最低级别为 `warn`。后续 `pnpm env:validate` 与最终构建仍独立复核该契约。
 6. `src/pagination/`、`src/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。manifest 不因该基础新增 Ky/Axios，Extension manifest 仍无预置权限。
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
-8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；若受控自动化使用 `--skip-install`，结果明确报告安装尚未执行。
+8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；公开 CLI 不提供跳过安装入口，内部单元测试注入跳过状态时必须明确断言安装未执行。
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
@@ -354,7 +358,7 @@ Harness 维护者未来可以增加新的**独立项目类型**或更新某一�
 
 - 一个新的显式 `projectType` 枚举值与 CLI 校验；
 - 独立单包模板，不依赖现有 Web/Extension 仓库；
-- 自己的品牌派生、开发脚本、测试与里程碑验收；
+- 自己的品牌派生、开发脚本、测试与完整候选验收；
 - 初始化器回归，证明所有已有类型仍然互斥且可生成；
 - README、AGENTS、本文档、发布规则和适用 Skills 同步更新。
 

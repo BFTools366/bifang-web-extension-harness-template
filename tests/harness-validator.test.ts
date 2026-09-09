@@ -54,10 +54,11 @@ afterEach(
 )
 
 describe("Harness template validator", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  /** 验证 accepts the complete clean template contract 场景。 */
   test("accepts the complete clean template contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 report 变量供当前逻辑使用。
     const report = await validateHarness(repositoryRoot)
-    expect(report.skills).toHaveLength(13)
+    expect(report.skills).toHaveLength(15)
     // 保存 verifyDelivery 变量供当前逻辑使用。
     const verifyDelivery = await readFile(
       path.join(repositoryRoot, ".agents/skills/web-verify-delivery/SKILL.md"),
@@ -74,6 +75,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     expect(verifyDeliveryMetadata).toContain('display_name: "Web Harness：验证前端交付"')
   })
 
+  /** 验证 rejects a restored pre-namespace Skill directory 场景。 */
   test("rejects a restored pre-namespace Skill directory", /* 执行当前旧目录负例测试。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -89,6 +91,19 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证当前规范不能重新引入已废弃的三档任务路径。 */
+  test("rejects obsolete tiered workflow language in current rules", async () => {
+    // 保存 targetRoot 与 readmePath 变量供注入旧路径语义使用。
+    const targetRoot = await copyRepository()
+    const readmePath = path.join(targetRoot, "README.md")
+    await writeFile(readmePath, `${await readFile(readmePath, "utf8")}\n## 快速路径\n`)
+
+    await expect(validateHarness(targetRoot)).rejects.toThrow(
+      /obsolete tiered workflow remains in README\.md: 快速路径/
+    )
+  })
+
+  /** 验证 rejects Skill frontmatter identity and description drift 场景。 */
   test("rejects Skill frontmatter identity and description drift", /* 执行当前 frontmatter 负例测试。 */ async () => {
     // 保存 nameRoot 变量供当前逻辑使用。
     const nameRoot = await copyRepository()
@@ -114,6 +129,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects a drifting or duplicate Skill H1 场景。 */
   test("rejects a drifting or duplicate Skill H1", /* 执行当前 H1 负例测试。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -134,6 +150,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects English or non-canonical openai.yaml metadata 场景。 */
   test("rejects English or non-canonical openai.yaml metadata", /* 执行当前发现元数据负例测试。 */ async () => {
     // 保存 englishRoot 变量供当前逻辑使用。
     const englishRoot = await copyRepository()
@@ -167,6 +184,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 requires the exact Skill call in one Chinese default_prompt sentence 场景。 */
   test("requires the exact Skill call in one Chinese default_prompt sentence", /* 执行当前默认提示负例测试。 */ async () => {
     // 保存 callRoot 变量供当前逻辑使用。
     const callRoot = await copyRepository()
@@ -197,6 +215,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects Rust or Server language only in Skill identity metadata 场景。 */
   test("rejects Rust or Server language only in Skill identity metadata", /* 执行当前越界身份负例测试。 */ async () => {
     // 逐项证明两个其他 Harness 身份关键词都会被拒绝。
     for (const forbidden of ["Rust", "Server"]) {
@@ -231,6 +250,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await expect(validateHarness(bodyRoot)).resolves.toMatchObject({ skills: expect.any(Array) })
   })
 
+  /** 验证 rejects missing, unknown, or invalid Agent Policy fields 场景。 */
   test("rejects missing, unknown, or invalid Agent Policy fields", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 missingRoot 变量供当前逻辑使用。
     const missingRoot = await copyRepository()
@@ -238,8 +258,10 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     const missingPath = path.join(missingRoot, "docs/AGENT_POLICY.md")
     // 保存 missingPolicy 变量供当前逻辑使用。
     const missingPolicy = await readFile(missingPath, "utf8")
-    await writeFile(missingPath, missingPolicy.replace("standard_work_plan: disabled\n", ""))
-    await expect(validateHarness(missingRoot)).rejects.toThrow(/is missing standard_work_plan/)
+    await writeFile(missingPath, missingPolicy.replace("confirmed_by: pending\n", ""))
+    await expect(validateHarness(missingRoot)).rejects.toThrow(
+      /Agent policy is missing confirmed_by/
+    )
 
     // 保存 invalidRoot 变量供当前逻辑使用。
     const invalidRoot = await copyRepository()
@@ -249,9 +271,11 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     const invalidPolicy = await readFile(invalidPath, "utf8")
     await writeFile(
       invalidPath,
-      invalidPolicy.replace("milestone_smoke: disabled", "milestone_smoke: automatic")
+      invalidPolicy.replace("milestone_smoke: pending", "milestone_smoke: automatic")
     )
-    await expect(validateHarness(invalidRoot)).rejects.toThrow(/invalid milestone_smoke/)
+    await expect(validateHarness(invalidRoot)).rejects.toThrow(
+      /Agent policy milestone_smoke must be enabled, disabled, or pending/
+    )
 
     // 保存 unknownRoot 变量供当前逻辑使用。
     const unknownRoot = await copyRepository()
@@ -264,8 +288,26 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
       unknownPolicy.replace("decision_mode:", "extra_switch: enabled\ndecision_mode:")
     )
     await expect(validateHarness(unknownRoot)).rejects.toThrow(/unknown field: extra_switch/)
+
+    // 保存 resolvedSourceRoot 变量供源默认值漂移负例使用。
+    const resolvedSourceRoot = await copyRepository()
+    // 保存 resolvedSourcePath 变量供源默认值篡改使用。
+    const resolvedSourcePath = path.join(resolvedSourceRoot, "docs/AGENT_POLICY.md")
+    // 保存 resolvedSourcePolicy 变量供源默认值篡改使用。
+    const resolvedSourcePolicy = await readFile(resolvedSourcePath, "utf8")
+    await writeFile(
+      resolvedSourcePath,
+      resolvedSourcePolicy.replace(
+        "parallel_worktree_subagents: pending",
+        "parallel_worktree_subagents: enabled"
+      )
+    )
+    await expect(validateHarness(resolvedSourceRoot)).rejects.toThrow(
+      /Harness source Agent policy parallel_worktree_subagents must default to pending/
+    )
   })
 
+  /** 验证 rejects restored in-place creation entry points and removed deep gates 场景。 */
   test("rejects restored in-place creation entry points and removed deep gates", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 scriptRoot 变量供当前逻辑使用。
     const scriptRoot = await copyRepository()
@@ -358,6 +400,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects Chinese comment gate wiring drift 场景。 */
   test("rejects Chinese comment gate wiring drift", /* 执行中文注释门禁接线负例测试。 */ async () => {
     // 保存 rootScriptRoot 变量供当前逻辑使用。
     const rootScriptRoot = await copyRepository()
@@ -390,21 +433,21 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
       /Downstream manifest tooling is missing lint/
     )
 
-    // 保存 initializerRoot 变量供当前逻辑使用。
-    const initializerRoot = await copyRepository()
-    // 保存 initializerPath 变量供当前逻辑使用。
-    const initializerPath = path.join(initializerRoot, ".harness/tooling/init.ts")
-    // 保存 initializer 变量供当前逻辑使用。
-    const initializer = await readFile(initializerPath, "utf8")
+    // 保存 staticTemplateRoot 变量供静态模板注释负例使用。
+    const staticTemplateRoot = await copyRepository()
+    // 保存 staticTemplatePath 变量供品牌模板篡改使用。
+    const staticTemplatePath = path.join(staticTemplateRoot, ".harness/tooling/finalize.ts")
+    // 保存 staticTemplate 变量供品牌模板篡改使用。
+    const staticTemplate = await readFile(staticTemplatePath, "utf8")
     await writeFile(
-      initializerPath,
-      initializer.replace(
-        "const annotatedFiles = await annotateTypeScriptProject(root)",
-        "const annotatedFiles: string[] = []"
+      staticTemplatePath,
+      staticTemplate.replace(
+        "/** 说明 refreshBrand 的稳定结构与职责边界。 */\nexport async function refreshBrand",
+        "export async function refreshBrand"
       )
     )
-    await expect(validateHarness(initializerRoot)).rejects.toThrow(
-      /Harness initializer is missing await annotateTypeScriptProject\(root\)/
+    await expect(validateHarness(staticTemplateRoot)).rejects.toThrow(
+      /Downstream brand template must contain static Chinese structure comments/
     )
 
     // 保存 validatorRoot 变量供当前逻辑使用。
@@ -425,6 +468,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects Release-only and source-size gate wiring drift 场景。 */
   test("rejects Release-only and source-size gate wiring drift", /* 执行终端构建与体积门禁接线负例测试。 */ async () => {
     // 保存 manifestRoot 变量供当前逻辑使用。
     const manifestRoot = await copyRepository()
@@ -461,6 +505,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects a template missing the canonical data-access knowledge 场景。 */
   test("rejects a template missing the canonical data-access knowledge", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -471,6 +516,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects a template missing the canonical Mantine UI guidelines 场景。 */
   test("rejects a template missing the canonical Mantine UI guidelines", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -481,6 +527,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 rejects a template missing a generated data foundation 场景。 */
   test("rejects a template missing a generated data foundation", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 relativePath 变量供当前逻辑使用。
     for (const relativePath of [
@@ -497,6 +544,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     }
   })
 
+  /** 验证 accepts compatible version declarations above every minimum 场景。 */
   test("accepts compatible version declarations above every minimum", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -516,6 +564,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await expect(validateHarness(targetRoot)).resolves.toMatchObject({ skills: expect.any(Array) })
   })
 
+  /** 验证 rejects versions below a minimum and non-exact packageManager ranges 场景。 */
   test("rejects versions below a minimum and non-exact packageManager ranges", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 lowNodeRoot 变量供当前逻辑使用。
     const lowNodeRoot = await copyRepository()
@@ -542,6 +591,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
   })
 
+  /** 验证 requires engines to express an open minimum rather than equality or capped ranges 场景。 */
   test("requires engines to express an open minimum rather than equality or capped ranges", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 node 变量供当前逻辑使用。
     for (const node of ["22.22.2", "=22.22.2", "^22.22.2", "~22.22.2", ">=22.22.2 <23.0.0"]) {
@@ -559,6 +609,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     }
   })
 
+  /** 验证 rejects a maintained text file over the 2000-line hard split threshold 场景。 */
   test("rejects a maintained text file over the 2000-line hard split threshold", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -567,20 +618,22 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await writeFile(oversizedPath, `${"line\n".repeat(2001)}`)
 
     await expect(validateHarness(targetRoot)).rejects.toThrow(
-      /docs\/TECH_DEBT\.md has 2002 lines, over the 2000-line hard split threshold/
+      /maintained_text file exceeds its hard 2000-line limit: docs\/TECH_DEBT\.md \(2001 lines\)/
     )
   })
 
+  /** 验证 accepts a maintained text file at exactly the 2000-line threshold 场景。 */
   test("accepts a maintained text file at exactly the 2000-line threshold", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
     // 保存 boundaryPath 变量供当前逻辑使用。
     const boundaryPath = path.join(targetRoot, "docs/TECH_DEBT.md")
-    await writeFile(boundaryPath, `${"line\n".repeat(1999)}`)
+    await writeFile(boundaryPath, `${"line\n".repeat(2000)}`)
 
     await expect(validateHarness(targetRoot)).resolves.toMatchObject({ skills: expect.any(Array) })
   })
 
+  /** 验证 does not flag an oversized lock file 场景。 */
   test("does not flag an oversized lock file", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = await copyRepository()
@@ -591,6 +644,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await expect(validateHarness(targetRoot)).resolves.toMatchObject({ skills: expect.any(Array) })
   })
 
+  /** 验证 rejects prerelease or non-canonical versions and a pin below the declared minimum 场景。 */
   test("rejects prerelease or non-canonical versions and a pin below the declared minimum", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 prereleaseRoot 变量供当前逻辑使用。
     const prereleaseRoot = await copyRepository()

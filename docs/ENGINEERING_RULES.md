@@ -53,26 +53,25 @@
 - 运行时配置集中在 `src/config/`，业务代码只读冻结的 `APP_CONFIG`；组件、route、feature、service 与扩展入口不得直接散落 `import.meta.env`、`process.env` 或硬编码服务 URL。字段、前缀和三环境映射见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 - 应用日志集中在 `src/observability/logger.ts`。产品代码不得直接使用 `console.*`；只允许 logger 默认 sink、测试替身或工具脚本在明确边界使用 console。事件字段、级别、Release allowlist 与脱敏规则见 [`LOGGING.md`](LOGGING.md)。
 - Promise 必须被等待、返回或显式处理；用户触发的异步操作需要加载、成功与失败反馈，取消或卸载后不得更新失效 UI。
-- 公共类型、组件 props、消息契约和持久化结构要保持向后兼容；破坏性变化进入里程碑路径并提供迁移或明确重建边界。
+- 公共类型、组件 props、消息契约和持久化结构要保持向后兼容；破坏性变化必须先取得显式批准，提供迁移或明确重建边界，并执行适用的安全与候选门禁。
 - 代码标识符使用英文。注释应说明声明职责、约束、错误或副作用，不逐行翻译代码；以下机械门禁只证明注释邻接且含汉字，语义是否准确仍由评审负责。
 - `TODO`、`FIXME`、`HACK` 必须说明原因和完成/删除条件；当前任务不解决时同步登记 [`TECH_DEBT.md`](TECH_DEBT.md)。
 
 ### 3.1 中文声明注释硬门禁
 
 - 门禁覆盖 Harness、生成器模板及终端下游中所有由 Harness 维护或生成的 `.ts`、`.tsx` 文件；`.d.ts` 也因 `.ts` 后缀受管。每个受管声明都必须有一条直接关联、至少包含一个汉字的行注释、块注释或 JSDoc。
-- interface declaration 及其每个 property、method、call、construct 和 index signature 都分别受管。
-- class declaration/expression 及其字段、方法、getter、setter、constructor 都分别受管；带 `public`、`protected`、`private`、`readonly` 或 `override` 等修饰符并同时声明字段的 constructor 参数属性也必须有自己的紧邻中文注释。
-- 所有函数形态都受管，包括 function declaration/expression、arrow function、对象或 class 方法、getter、setter、constructor 与匿名 callback。变量以函数作为初始化器时，变量与该函数可以共用同一条同时说明两者职责的注释；class 方法、访问器或 constructor 的一条注释也可同时满足成员与函数要求。
-- 每条 `const`、`let`、`var` 声明在所有作用域都受管，包括函数内部局部变量以及 `for`、`for…in`、`for…of` 初始化器；同一 declaration list 中的多个绑定可以共用一条说明整组职责的注释。import binding、普通函数参数、catch binding、type alias 与 enum member 不因自身类别进入本门禁，除非同时属于上述受管声明。
+- 机械范围只包括 interface、type alias、enum、class、具名函数、方法/访问器/constructor、直接或后置命名/默认导出的箭头函数组件与 hook，以及测试文件或显式 `vitest` 导入中的 `test`/`it` 测试场景。
+- 显而易见的字段、局部变量、循环绑定和普通匿名或极短内联 callback 不逐项检查，由所属结构或函数的中文注释统一覆盖；非直观字段、单位、来源、安全约束和副作用仍必须在最接近的职责边界说明。
 - “紧邻”只接受声明正上方没有空行或其他 token 隔开的注释，或语法允许位置中直接置于声明前的块注释/JSDoc。与声明不邻接的文件头注释、隔空注释、纯英文注释、字符串中的中文、前一声明的行尾注释或关联到其他节点的注释均不能代替当前声明。
 - 排除范围只包括精确文件 `src/routeTree.gen.ts`，以及路径任一目录段为 `.plasmo`、`build`、`dist`、`coverage`、`node_modules` 或 `.git` 的内容。不得用 `*.gen.ts`、`*.generated.ts`、名称包含 `gen` 或笼统“生成目录”等 blanket 规则扩大排除；例如 `src/nested/routeTree.gen.ts`、`src/feature.gen.ts` 与 `src/plasmo.d.ts` 仍受门禁。
 - 根 Harness 与两类下游的 `pnpm lint` 都必须在 ESLint 后运行该 AST 门禁；`comments:check` 可用于直接诊断，但不能替代 `lint`。Harness validator 与下游 `pnpm harness validate` 必须锁定策略模块、脚本接线、精确排除和当前源码通过状态，删除注释或绕过接线都应失败。
 
 ## 4. 文件规模
 
-- 新生成终端项目的人工维护 TypeScript/TSX 使用 500/1000 两级治理：500 行及以内不因行数触发专项复核；501–999 行必须复核业务高内聚、单一职责和职责相近性并记录保留理由；达到 1000 行必须按业务职责拆分到原功能或工具模块目录。
-- 终端项目的 `pnpm lint` 必须运行 `.harness/tooling/source-size-policy.ts`：501–999 行输出复核提示，达到 1000 行失败。只精确排除 `src/routeTree.gen.ts`，以及目录段为 `.git`、`.plasmo`、`build`、`coverage`、`dist`、`generated` 或 `node_modules` 的生成/外部内容；`src/feature.gen.ts` 等普通维护源码不能因命名被隐藏。
-- 源 Harness 继续对所有受管人工文本使用既有 500/2000 边界：501–2000 行人工复核，超过 2000 行由 `pnpm validate:harness` 的 `validateFileSize` 拒绝。源模板和跨宿主生成器现有 `tests/harness-tooling.test.ts`、`scripts/validate-harness.ts`、`.harness/tooling/templates/http.ts` 三个既有超千行文件，本里程碑不把它们的结构重构混入终端规则反向同步；后续修改仍必须复核职责，不能借此新增无界大文件，任何其他文件新增超过阈值仍须按上述规则复核或拆分。
+- 根 `AGENTS.md` 是所有 Agent 首先读取的轻量入口，必须是合法 UTF-8、最多 20000 bytes 且最多 120 个物理行。它只保留启动门禁、按任务渐进读取、始终生效边界、Skills/约束地图和最小闭环；初始化、三环境、构建、发布与完整验收的实现级配方只存在于本文件及对应唯一事实源和 Skills，不得复制回根入口独立演化。`pnpm validate:harness` 同时锁定预算、章节顺序、关键渐进语义和代表性重复配方负例。
+- 新生成终端项目的人工维护 TypeScript/TSX 使用 500/1000 两级治理：500 行及以内不因行数触发专项复核；501–1000 行必须复核业务高内聚、单一职责和职责相近性并记录保留理由；1001 行起必须按业务职责拆分到原功能或工具模块目录。
+- 终端项目的 `pnpm lint` 必须运行 `.harness/tooling/source-size-policy.ts`：501–1000 行输出复核提示，1001 行起失败。只精确排除 `src/routeTree.gen.ts`，以及目录段为 `.git`、`.plasmo`、`build`、`coverage`、`dist`、`generated` 或 `node_modules` 的生成/外部内容；`src/feature.gen.ts` 等普通维护源码不能因命名被隐藏。
+- 源 Harness 对所有受管人工文本使用 500/2000 边界：501–2000 行人工复核，超过 2000 行由 `pnpm validate:harness` 拒绝。验证器、初始化测试和 HTTP 模板按职责拆分在 `scripts/harness-validation/`、多个 `tests/harness-*.test.ts` 与 `.harness/tooling/templates/http-*.ts`；后续修改仍必须复核内聚性，不能新增无界大文件或用空壳转发规避门禁。
 - 不得通过压缩可读性、合并无关代码、删除必要注释或建立空壳转发层规避门禁。
 - 锁文件、生成物和原样隔离的第三方文件可以排除，但其生成器、模板与维护说明仍受治理。
 - 未超过 500 行不证明职责正确；单包边界、状态职责和权限规则仍需独立审查。
@@ -101,10 +100,10 @@
 - 测试替身只能证明代码边界行为，不能证明最终页面或扩展已在真实浏览器可用。
 - 快照只用于稳定且可审阅的结构，不替代语义断言，也不得用大面积更新掩盖行为变化。
 
-### 6.2 构建与里程碑
+### 6.2 构建与完整候选验收
 
-- 生成项目日常开发先运行受影响的格式、lint、类型与 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或相称替代验证。行为保持重构运行全量 `pnpm test`。纯文档/元数据任务使用相称静态检查。
-- `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖和建立 Git 根；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。初始化器/模板契约里程碑仍须在两个真实下游创建成功后另行显式构建精确 Release 候选。
+- 生成项目日常开发只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或说明相称替代验证，不得自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`；纯文档、元数据或机械变化只做解析或差异完整性所需的最小检查。
+- `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖和建立 Git 根；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。用户明确要求完整验收或当前变更触发候选硬门禁时，才在两个真实下游创建成功后另行显式构建精确 Release 候选。
 - `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。每次调用先取得当次 E2E `enabled|disabled` 选择；交互式入口直接询问，非交互入口显式传参。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试，按上海时区生成 `YYYYMMDDHHMM` 版本并注入当前前端页面，再完成宿主生产构建和 `pnpm release:inspect`；不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当次 12 位构建版本存在于候选。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
@@ -119,6 +118,7 @@
 ## 7. 文档与单一事实来源
 
 - 文档中的命令、路径、依赖和能力必须来自真实仓库。计划中的能力标记为“计划”，未执行检查写“未执行”。
+- 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 对当前表格格式及兼容标题格式执行该矛盾检查。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`，上海时间版本采用 `YYYYMMDDHHMM`。
@@ -127,9 +127,9 @@
 | 文件                            | 唯一职责                                            |
 | ------------------------------- | --------------------------------------------------- |
 | `README.md`                     | 用途、初始化方式、目录、命令、维护状态与产品边界    |
-| `AGENTS.md`                     | Agent 阅读顺序、任务路径、硬约束、Skills 与约束地图 |
+| `AGENTS.md`                     | Agent 渐进读取、事件路由、硬约束、Skills 与约束地图 |
 | `Version.md`                    | Harness 当前时间版本与发布状态                      |
-| `docs/AGENT_POLICY.md`          | 任务路径、持久计划、并行、冒烟与 E2E 偏好           |
+| `docs/AGENT_POLICY.md`          | 能力偏好、统一标题、持久计划、并行与候选浏览器偏好  |
 | `docs/ENGINEERING_RULES.md`     | 文件、TypeScript、注释、文档、测试与例外规则        |
 | `docs/MANTINE_UI_GUIDELINES.md` | Mantine UI 令牌、布局、组件、状态与无障碍规范       |
 | `docs/TS_WEB_TEMPLATE.md`       | 单类型初始化与两种技术基线                          |

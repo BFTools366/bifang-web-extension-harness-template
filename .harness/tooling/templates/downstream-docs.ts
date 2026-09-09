@@ -54,9 +54,9 @@ function engineeringRules(config: ProjectConfig): string {
 - 用户可见文案进入 i18next，至少保留英文回退和项目声明的实际语言资源。
 - 三份公开运行配置与 BaseURL 只通过 \`src/config/environment.ts\` 的 \`APP_CONFIG\` 进入业务代码，遵循 \`docs/RUNTIME_CONFIGURATION.md\`。
 - 产品日志只通过 \`src/observability/logger.ts\`，边界覆盖、敏感字段和 Release 裁剪遵循 \`docs/LOGGING.md\`。
-- 严格中文注释门禁覆盖人工维护与 Harness 生成的 .ts/.tsx：每个 interface 及成员、class 声明/表达式及字段/方法/访问器/构造函数/参数属性、所有函数形式，以及每个 const/let/var 声明（包括函数内部变量与 for 初始器），都必须紧邻一条包含汉字的注释；变量声明与其函数初始化器可共用同一条注释。
+- 严格中文注释门禁覆盖人工维护与 Harness 生成的 .ts/.tsx 中的稳定结构声明：interface、type alias、enum、class、具名函数、方法/访问器/constructor、直接或后置命名/默认导出的箭头函数组件与 hook，以及测试文件或显式 Vitest 导入中的 test/it 场景，都必须紧邻一条包含汉字的注释。显而易见的字段、局部变量、循环绑定和普通匿名/极短内联 callback 由所属结构或函数注释覆盖；非直观约束仍在最近职责边界说明。
 - 只精确排除第三方或构建生成物${routeTreeExclusion}.plasmo/**、build/**、dist/**、coverage/**、node_modules/** 与 .git/**；不得用 *.gen.ts 等宽泛模式隐藏维护源码。注释应说明声明职责，不能用字符串、英文注释、尾随前一语句或隔空文件头冒充；pnpm lint 会自动运行 pnpm comments:check。
-- 人工维护代码不超过 500 行为默认目标；501–999 行必须复核业务高内聚与单一职责并记录保留理由，达到 1000 行必须按业务逻辑拆分。拆分文件留在原功能或工具模块目录，不建立跨模块 \`utils\`/\`common\` 兜底层，也不得压缩格式规避；生成文件与人工维护文件保持清晰边界。源码体积门禁额外排除 GraphQL codegen 等 \`generated/**\` 输出目录，因为该类文件不受业务内聚拆分约束。
+- 人工维护代码不超过 500 行为默认目标；501–1000 行必须复核业务高内聚与单一职责并记录保留理由，1001 行起必须按业务逻辑拆分。拆分文件留在原功能或工具模块目录，不建立跨模块 \`utils\`/\`common\` 兜底层，也不得压缩格式规避；生成文件与人工维护文件保持清晰边界。源码体积门禁额外排除 GraphQL codegen 等 \`generated/**\` 输出目录，因为该类文件不受业务内聚拆分约束。
 
 ## 当前宿主规则
 
@@ -71,7 +71,7 @@ ${hostRules}
 ## 测试与交付
 
 - 行为变化必须有非空测试，至少覆盖核心成功路径和最高风险失败路径。
-- 局部可逆任务先运行受影响的最小充分检查和 \`pnpm test:related <changed-source...>\`；依赖图没有发现测试时，必须改跑所属非空测试文件或说明相称替代验证。全量 \`pnpm test\` 只在行为保持重构或最终构建/发布时运行。
+- 日常任务只运行本次变化需要的相关非空测试或最小替代检查，通常使用 \`pnpm test:related <changed-source...>\`；依赖图没有发现测试时，必须改跑所属非空测试文件或说明相称替代验证。不得自动追加格式、lint、类型、全仓检查或构建；全量 \`pnpm test\` 只在行为保持重构或最终构建/发布时运行。
 - \`pnpm build\` 是唯一最终产物入口并固定委托 \`build:release\`，无论本机还是 CI/其他平台都使用逻辑 Release。每次构建先询问当次 E2E 选择，非交互入口显式传 \`--e2e=enabled|disabled\`；它自动运行环境、Harness、格式、lint、类型与全量测试，按上海时区注入 \`YYYYMMDDHHMM\` 页面版本，再完成生产构建与含版本命中的 \`release:inspect\`。不得提供 development/test 产物构建脚本。
 - 构建命令、时间版本、E2E 选择及其测试、扫描或浏览器结果只进入命令输出和当前任务交付说明，不创建或更新 Work Plan、ADR、Status、Changelog、Verification 或其他持久项目记忆。
 - Mock 只能隔离外部依赖，不能替代最终构建验收。未运行的浏览器、操作系统或渠道写为 \`Unverified\`。

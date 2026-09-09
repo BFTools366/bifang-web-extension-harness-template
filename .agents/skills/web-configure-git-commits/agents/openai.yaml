@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：配置 Git 提交"
+  short_description: "检查并安全配置仓库本地 Git 身份与受管提交模板约定"
+  default_prompt: "使用 $web-configure-git-commits；仅当我明确要求配置 Git，或下一步将实际创建提交时，才检查有效身份、只为缺失字段写仓库本地回退，并安装检查受管提交模板。"

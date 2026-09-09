@@ -38,7 +38,7 @@
 
 ## 4. 初始化输入
 
-非交互创建除身份和唯一项目类型外，还必须显式提供三份 API BaseURL。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
+非交互创建除身份和唯一项目类型外，还必须显式提供三份 API BaseURL、Agent policy 模式与真实确认来源。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
 
 ```bash
 pnpm instantiate -- /absolute/path/example-web --type web \
@@ -46,10 +46,11 @@ pnpm instantiate -- /absolute/path/example-web --type web \
   --description "示例 React Web 页面" \
   --development-base-url http://localhost:3000/api \
   --test-base-url http://localhost:3100/api \
-  --release-base-url https://api.example.com
+  --release-base-url https://api.example.com \
+  --policy-mode recommended --confirmed-by project-owner
 ```
 
-命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建逐项询问，不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
+命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建首轮收集尚未明确的基础字段与策略模式，自定义策略此后每轮只询问一个缺失字段；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
 
 初始化器为当前唯一宿主生成并直接校验三份配置、类型化 schema、运行时 adapter、非空测试与统一 logger。它还生成只读取 `APP_CONFIG` 的原生 Fetch 基础 client，但不生成真实 endpoint 或请求调用，也不预装 Ky/Axios 等传输依赖。语言、分页、continuation 与认证 Token 是运行时状态，不得加入公开环境文件；其存储和安全边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md)。创建期不执行最终构建；后续 `pnpm build` 仍在其他门禁之前重新验证三份文件与活动 Release profile。
 

@@ -7,6 +7,7 @@ import {
 } from "../.harness/tooling/version.ts"
 
 describe("stable minimum-version gates", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  /** 验证 accepts only an uncapped >= engine minimum 场景。 */
   test("accepts only an uncapped >= engine minimum", /* 执行 当前声明 函数的处理逻辑。 */ () => {
     expect(declaresMinimumVersion(">=22.22.2", "22.22.2")).toBe(true)
     expect(declaresMinimumVersion(">=23.0.0", "22.22.2")).toBe(true)
@@ -23,6 +24,7 @@ describe("stable minimum-version gates", /* 执行 当前声明 函数的处理�
     }
   })
 
+  /** 验证 allows supported dependency declaration styles only above the floor 场景。 */
   test("allows supported dependency declaration styles only above the floor", /* 执行 当前声明 函数的处理逻辑。 */ () => {
     // 保存 declaration 变量供当前逻辑使用。
     for (const declaration of ["6.0.3", "^6.1.0", "~6.2.0", ">=7.0.0"]) {
@@ -34,6 +36,7 @@ describe("stable minimum-version gates", /* 执行 当前声明 函数的处理�
     }
   })
 
+  /** 验证 rejects non-canonical exact versions while preserving an exact package-manager pin 场景。 */
   test("rejects non-canonical exact versions while preserving an exact package-manager pin", /* 执行 当前声明 函数的处理逻辑。 */ () => {
     expect(parseExactVersion("v10.33.3+build.1")).toEqual({ major: 10, minor: 33, patch: 3 })
     expect(parseExactVersion("10.033.3")).toBeUndefined()

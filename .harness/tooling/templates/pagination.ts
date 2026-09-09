@@ -5,14 +5,18 @@ import { tsString } from "./helpers.ts"
 const PAGINATION_SOURCE = `import { useCallback, useEffect, useRef, useState } from "react"
 import { BRAND } from "../brand"
 
+/** 说明 PAGE_SIZES 的稳定结构与职责边界。 */
 export const PAGE_SIZES = [10, 20, 50, 100] as const
+/** 说明 PageSize 的稳定结构与职责边界。 */
 export type PageSize = (typeof PAGE_SIZES)[number]
 
+/** 说明 PageRequest 的稳定结构与职责边界。 */
 export interface PageRequest {
   readonly page: number
   readonly pageSize: PageSize
 }
 
+/** 说明 PageResult 的稳定结构与职责边界。 */
 export interface PageResult<Item> {
   readonly requestedPage: number
   readonly requestedPageSize: PageSize
@@ -20,6 +24,7 @@ export interface PageResult<Item> {
   readonly total: number
 }
 
+/** 说明 PageQueryState 的稳定结构与职责边界。 */
 export interface PageQueryState<Item> {
   readonly status: "pending" | "error" | "success"
   readonly isFetching: boolean
@@ -27,11 +32,13 @@ export interface PageQueryState<Item> {
   readonly result?: PageResult<Item>
 }
 
+/** 说明 UseSessionPaginationOptions 的稳定结构与职责边界。 */
 export interface UseSessionPaginationOptions<Item> {
   readonly scope: string
   readonly query: PageQueryState<Item>
 }
 
+/** 说明 SessionPagination 的稳定结构与职责边界。 */
 export interface SessionPagination {
   readonly request: Readonly<PageRequest>
   readonly storageKey: string
@@ -39,10 +46,12 @@ export interface SessionPagination {
   readonly setPageSize: (pageSize: PageSize) => void
 }
 
+/** 说明 StoredPageRequest 的稳定结构与职责边界。 */
 interface StoredPageRequest extends PageRequest {
   readonly version: 1
 }
 
+/** 说明 HookState 的稳定结构与职责边界。 */
 interface HookState {
   readonly storageKey: string
   readonly request: PageRequest
@@ -50,24 +59,29 @@ interface HookState {
 
 const DEFAULT_REQUEST: Readonly<PageRequest> = { page: 1, pageSize: 20 }
 
+/** 说明 isRecord 的稳定结构与职责边界。 */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
 }
 
+/** 说明 isPositiveSafeInteger 的稳定结构与职责边界。 */
 function isPositiveSafeInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value > 0
 }
 
+/** 说明 isPageSize 的稳定结构与职责边界。 */
 export function isPageSize(value: unknown): value is PageSize {
   return value === 10 || value === 20 || value === 50 || value === 100
 }
 
+/** 说明 paginationStorageKey 的稳定结构与职责边界。 */
 export function paginationStorageKey(scope: string): string {
   const normalizedScope = scope.trim()
   if (normalizedScope.length === 0) throw new Error("Pagination scope must not be empty")
   return BRAND.id + ":pagination:v1:" + encodeURIComponent(normalizedScope)
 }
 
+/** 说明 sessionStorageOrUndefined 的稳定结构与职责边界。 */
 function sessionStorageOrUndefined(): Storage | undefined {
   try {
     return typeof window === "undefined" ? undefined : window.sessionStorage
@@ -76,6 +90,7 @@ function sessionStorageOrUndefined(): Storage | undefined {
   }
 }
 
+/** 说明 parseStoredRequest 的稳定结构与职责边界。 */
 function parseStoredRequest(raw: string | null): PageRequest {
   if (raw === null) return DEFAULT_REQUEST
   try {
@@ -94,6 +109,7 @@ function parseStoredRequest(raw: string | null): PageRequest {
   }
 }
 
+/** 说明 readStoredRequest 的稳定结构与职责边界。 */
 function readStoredRequest(storageKey: string): PageRequest {
   try {
     return parseStoredRequest(sessionStorageOrUndefined()?.getItem(storageKey) ?? null)
@@ -102,6 +118,7 @@ function readStoredRequest(storageKey: string): PageRequest {
   }
 }
 
+/** 说明 writeStoredRequest 的稳定结构与职责边界。 */
 function writeStoredRequest(storageKey: string, request: PageRequest): void {
   const record: StoredPageRequest = { version: 1, ...request }
   try {
@@ -111,6 +128,7 @@ function writeStoredRequest(storageKey: string, request: PageRequest): void {
   }
 }
 
+/** 说明 createPageResult 的稳定结构与职责边界。 */
 export function createPageResult<Item>(
   request: Readonly<PageRequest>,
   items: readonly Item[],
@@ -127,6 +145,7 @@ export function createPageResult<Item>(
   }
 }
 
+/** 说明 shouldReturnToFirstPage 的稳定结构与职责边界。 */
 export function shouldReturnToFirstPage<Item>(
   request: Readonly<PageRequest>,
   query: Readonly<PageQueryState<Item>>
@@ -144,6 +163,7 @@ export function shouldReturnToFirstPage<Item>(
   )
 }
 
+/** 说明 useSessionPagination 的稳定结构与职责边界。 */
 export function useSessionPagination<Item>({
   scope,
   query
@@ -202,10 +222,13 @@ const PAGINATION_CONTROLS_SOURCE = `import { Group, Pagination, Select } from "@
 import {
   PAGE_SIZES,
   isPageSize,
+  /** 说明 PageRequest 的稳定结构与职责边界。 */
   type PageRequest,
+  /** 说明 PageSize 的稳定结构与职责边界。 */
   type PageSize
 } from "./useSessionPagination"
 
+/** 说明 PaginationControlsLabels 的稳定结构与职责边界。 */
 export interface PaginationControlsLabels {
   readonly navigation: string
   readonly page: (page: number) => string
@@ -214,6 +237,7 @@ export interface PaginationControlsLabels {
   readonly pageSize: string
 }
 
+/** 说明 PaginationControlsProps 的稳定结构与职责边界。 */
 export interface PaginationControlsProps {
   readonly request: Readonly<PageRequest>
   readonly total: number
@@ -223,10 +247,12 @@ export interface PaginationControlsProps {
   readonly disabled?: boolean
 }
 
+/** 说明 normalizedTotal 的稳定结构与职责边界。 */
 function normalizedTotal(total: number): number {
   return Number.isSafeInteger(total) && total >= 0 ? total : 0
 }
 
+/** 说明 PaginationControls 的稳定结构与职责边界。 */
 export function PaginationControls({
   request,
   total,
@@ -286,10 +312,13 @@ import {
   paginationStorageKey,
   shouldReturnToFirstPage,
   useSessionPagination,
+  /** 说明 PageQueryState 的稳定结构与职责边界。 */
   type PageQueryState,
+  /** 说明 PageRequest 的稳定结构与职责边界。 */
   type PageRequest
 } from "./useSessionPagination"
 
+/** 说明 queryState 的稳定结构与职责边界。 */
 function queryState<Item>(
   overrides: Partial<PageQueryState<Item>> = {}
 ): PageQueryState<Item> {
@@ -307,6 +336,7 @@ afterEach(() => {
 })
 
 describe(${tsString(`${config.projectType} session pagination`)}, () => {
+  /** 验证当前场景的核心成功或风险边界。 */
   test("restores valid state with project, schema, and collection scope isolation", () => {
     const ordersKey = paginationStorageKey("orders")
     const auditKey = paginationStorageKey("audit/events")
@@ -328,6 +358,7 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
     expect(audit.result.current.request).toEqual({ page: 1, pageSize: 20 })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test.each([
     ["malformed JSON", "{"],
     ["unknown schema", JSON.stringify({ version: 2, page: 2, pageSize: 20 })],
@@ -341,6 +372,7 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
     expect(result.current.request).toEqual({ page: 1, pageSize: 20 })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("survives Storage read and write failures without losing in-memory navigation", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("denied")
@@ -358,6 +390,7 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
     expect(result.current.request).toEqual({ page: 3, pageSize: 20 })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("persists page changes and resets page one only when page size changes", () => {
     const storageKey = paginationStorageKey("orders")
     const { result, unmount } = renderHook(() =>
@@ -383,6 +416,7 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
     expect(restored.result.current.request).toEqual({ page: 1, pageSize: 50 })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("creates normalized results and rejects an invalid total", () => {
     const request: PageRequest = { page: 2, pageSize: 20 }
     expect(createPageResult(request, ["item"], 21)).toEqual({
@@ -394,6 +428,7 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
     expect(() => createPageResult(request, [], -1)).toThrow(/non-negative/)
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("returns to page one for the exact current successful empty result", async () => {
     const initialQuery = queryState<string>()
     const { result, rerender } = renderHook(
@@ -459,10 +494,12 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
     ]
   ]
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test.each(statesThatKeepPage)("does not return for %s state", (_name, query) => {
     expect(shouldReturnToFirstPage(request, query)).toBe(false)
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("keeps a successful empty first page", () => {
     const request: PageRequest = { page: 1, pageSize: 20 }
     const query = queryState<string>({
@@ -473,6 +510,7 @@ describe(${tsString(`${config.projectType} session pagination`)}, () => {
   })
 })
 
+/** 验证当前场景的核心成功或风险边界。 */
 test("renders controlled accessible pagination without deriving state from an empty total", async () => {
   const user = userEvent.setup()
   const onPageChange = vi.fn()

@@ -58,7 +58,7 @@ export function countSourceLines(source: string): number {
 export function inspectSourceSize(file: string, source: string): SourceSizeFinding | undefined {
   // 保存 lines 变量供当前逻辑使用。
   const lines = countSourceLines(source)
-  if (lines >= SOURCE_SIZE_HARD_LIMIT) return { file, lines, severity: "error" }
+  if (lines > SOURCE_SIZE_HARD_LIMIT) return { file, lines, severity: "error" }
   if (lines > SOURCE_SIZE_REVIEW_LIMIT) return { file, lines, severity: "review" }
   return undefined
 }

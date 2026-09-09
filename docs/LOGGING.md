@@ -6,7 +6,7 @@
 
 生成项目使用 `src/observability/logger.ts`，业务模块按稳定 scope 创建 logger。产品代码不得直接调用 `console.debug/info/warn/error`；只有统一 sink 和 Harness CLI 的受控终端输出可以使用 console。CLI 只输出必要进度与安全错误摘要，不打印完整环境、凭据、请求体或不必要的个人绝对路径。
 
-默认 logger 只写浏览器 console，不持久化，也不上传到远端。新增文件、网络或第三方遥测 sink 会改变隐私与数据边界，必须先获得产品批准并进入里程碑路径。
+默认 logger 只写浏览器 console，不持久化，也不上传到远端。新增文件、网络或第三方遥测 sink 会改变隐私与数据边界，必须先获得产品批准并执行隐私、安全及适用候选门禁。
 
 ## 2. 日志记录
 

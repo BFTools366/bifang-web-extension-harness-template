@@ -12,23 +12,23 @@
 - Node.js、pnpm 与受控依赖的兼容门禁按声明的稳定 SemVer（`x.y.z`）最低版本判断；合法更高版本需要继续运行完整门禁，而不是因不等于基线而失败，prerelease 或无法解析的声明失败。`packageManager` 仍为精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。
 - 最低版本规则不适用于身份或协议事实：Harness/软件当前版本、候选版本、源码提交、lockfile/hash、Schema/协议版本、`manifest_version`、`projectType` 与验收记录必须精确匹配。
 
-## 2. 路径选择
+## 2. 候选与外部操作准入
 
-普通局部开发可走快速或标准路径。以下工作必须进入里程碑路径：
+日常开发不会因为复杂度、多模块或用户可见而自动形成候选。以下事件进入对应的候选、完整验收或外部操作门禁：
 
 - Harness 项目创建命令、内部初始化门禁、`projectType` 枚举或模板输出契约变化；
 - Logo 生成、身份/manifest 同步或 Extension 权限变化；
 - 新增或移除 Harness 支持的独立项目类型；
 - 创建发布候选、对外上传、Chrome Web Store 提交或用户明确要求完整验收。
 
-里程碑 Todo 未全部完成时不得进入候选验收。
+存在用户要求的活动 Work Plan 时，当前候选相关 Todo 必须全部 `done`；没有 Work Plan 本身不阻断用户明确请求的构建或完整验收。
 
 ## 3. Harness 模板发布门禁
 
 Harness 候选至少满足：
 
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
-- 源 Harness 的 13 个项目 Skills、成功下游保留的 12 个维护 Skills 及创建 Skill 删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
+- 源 Harness 的 15 个项目 Skills、成功下游保留的 13 个维护 Skills 及创建/源记忆治理 Skill 删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <absolute-target-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
@@ -72,7 +72,7 @@ Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露
 
 ## 6. 验收与发布顺序
 
-1. 完成并关闭当前里程碑 Todo。
+1. 如果存在用户要求的活动 Work Plan，完成并关闭当前候选相关 Todo；没有 Work Plan 不阻断明确请求的候选验收。
 2. 固定源码提交与依赖锁，不做工具链预探测，直接运行当前项目类型的唯一 `pnpm build` 完成逻辑 Release 构建；只有真实失败指向环境时才诊断相关组件。完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。
 3. 检查身份、Logo 母版、当前宿主品牌派生、manifest/HTML、配置与权限边界。
 4. 确认生成候选的 `build:release` 或 Extension `package` 已自动通过 `pnpm release:inspect`；需要独立复核既有目录时直接重跑该命令。任何命中先修复并生成新候选。

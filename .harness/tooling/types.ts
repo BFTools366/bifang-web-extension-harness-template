@@ -1,9 +1,30 @@
 // 保存 PROJECT_TYPES 变量供当前逻辑使用。
 export const PROJECT_TYPES = ["web", "extension"] as const
 
+/** 枚举 Harness 支持且互斥的终端项目类型。 */
 export type ProjectType = (typeof PROJECT_TYPES)[number]
 // 定义 E2eSelection 类型约束单次构建选择。
 export type E2eSelection = "enabled" | "disabled"
+/** 枚举初始化时可选择的 Agent 策略模式。 */
+export type AgentPolicyMode = "recommended" | "custom"
+/** 枚举持久 Agent 能力选择。 */
+export type AgentPolicyChoice = "enabled" | "disabled"
+
+/** 描述完成初始化前必须完全解析的 Agent 策略。 */
+export interface AgentPolicySelection {
+  // 描述 confirmedBy 接口成员的结构契约。
+  confirmedBy: string
+  // 描述 confirmedAt 接口成员的结构契约。
+  confirmedAt: string
+  // 描述 superpowers 接口成员的结构契约。
+  superpowers: AgentPolicyChoice
+  // 描述 parallelWorktreeSubagents 接口成员的结构契约。
+  parallelWorktreeSubagents: AgentPolicyChoice
+  // 描述 milestoneSmoke 接口成员的结构契约。
+  milestoneSmoke: AgentPolicyChoice
+  // 描述 milestoneE2e 接口成员的结构契约。
+  milestoneE2e: AgentPolicyChoice
+}
 
 // 定义 BrandConfig 接口的结构契约。
 export interface BrandConfig {
@@ -59,6 +80,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   brandColor: string
   // 描述 logoPath 接口成员的结构契约。
   logoPath?: string
+  // 描述 agentPolicy 接口成员的结构契约。
+  agentPolicy: AgentPolicySelection
   // 描述 skipInstall 接口成员的结构契约。
   skipInstall?: boolean
   // 描述 skipGit 接口成员的结构契约。

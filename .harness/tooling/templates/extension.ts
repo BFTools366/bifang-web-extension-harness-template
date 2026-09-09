@@ -7,7 +7,8 @@ import { paginationFiles } from "./pagination.ts"
 
 // 执行 renderExtensionBrand 函数的处理逻辑。
 export function renderExtensionBrand(config: ProjectConfig): string {
-  return `export const BRAND = {
+  return `/** 保存项目身份与 Extension 品牌展示常量。 */
+export const BRAND = {
   name: ${tsString(config.name)},
   id: ${tsString(config.id)},
   description: ${tsString(config.description)},
@@ -43,6 +44,7 @@ export function extensionFiles(
 declare module "*.css"
 
 declare namespace NodeJS {
+  /** 说明 ProcessEnv 的稳定结构与职责边界。 */
   interface ProcessEnv {
     PLASMO_PUBLIC_APP_ENV?: "development" | "test" | "release"
     PLASMO_PUBLIC_API_BASE_URL?: string
@@ -135,6 +137,7 @@ const queryClient = new QueryClient({
   })
 })
 
+/** 说明 Providers 的稳定结构与职责边界。 */
 export function Providers({ children }: PropsWithChildren) {
   return (
     <MantineProvider theme={theme}>
@@ -158,11 +161,13 @@ import { BUILD_VERSION } from "./buildVersion"
 import { createLogger } from "./observability/logger"
 import { launchCountAtom } from "./state"
 
+/** 说明 ExtensionShellProps 的稳定结构与职责边界。 */
 interface ExtensionShellProps {
   iconUrl: string
   surface: "popup" | "options"
 }
 
+/** 说明 ExtensionShell 的稳定结构与职责边界。 */
 export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
   const { t } = useTranslation()
   const [count, setCount] = useAtom(launchCountAtom)
@@ -226,8 +231,10 @@ import { BRAND } from "./brand"
 import { ExtensionShell } from "./ExtensionShell"
 import { Providers } from "./providers"
 
+/** 验证当前场景的核心成功或风险边界。 */
 test("renders the branded popup interaction", async () => {
   const user = userEvent.setup()
+  /** 说明当前方法的稳定职责与行为边界。 */
   render(
     <Providers><ExtensionShell iconUrl="data:image/png;base64,test" surface="popup" /></Providers>
   )
@@ -246,6 +253,7 @@ import { ExtensionShell } from "./ExtensionShell"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
 import { Providers } from "./providers"
 
+/** 说明 Popup 的稳定结构与职责边界。 */
 export default function Popup() {
   return <AppErrorBoundary><Providers><ExtensionShell iconUrl={iconUrl} surface="popup" /></Providers></AppErrorBoundary>
 }
@@ -258,6 +266,7 @@ import { ExtensionShell } from "./ExtensionShell"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
 import { Providers } from "./providers"
 
+/** 说明 Options 的稳定结构与职责边界。 */
 export default function Options() {
   return <AppErrorBoundary><Providers><ExtensionShell iconUrl={iconUrl} surface="options" /></Providers></AppErrorBoundary>
 }

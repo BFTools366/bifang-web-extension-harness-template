@@ -1,6 +1,6 @@
 # Bifang Web Harness Template
 
-这是一个面向 AI Agent 的纯 TypeScript 项目 Harness，只生成两种互斥的终端下游：**纯 React Web 页面**或 **Chrome MV3 Plasmo 扩展**。任务分级、最少读取、工程约束、验证与发布治理共同形成可验证的交付闭环。
+这是一个面向 AI Agent 的纯 TypeScript 项目 Harness，只生成两种互斥的终端下游：**纯 React Web 页面**或 **Chrome MV3 Plasmo 扩展**。事件触发、渐进读取、工程约束、验证与发布治理共同形成可验证的交付闭环。
 
 每次初始化只生成一个平铺的 pnpm 单包项目。下游仓库不会同时包含 Web 与 Extension，不使用 pnpm workspace、`apps/`、`packages/` 或共享 core。若同一产品需要两种宿主，应分别初始化两个独立仓库，并独立维护版本、品牌、状态和测试。
 
@@ -14,11 +14,11 @@
 
 ## 固定技术选型
 
-| 项目类型    | 技术基线                                                                                                                          |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `web`       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai、i18next                                       |
-| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Query、Jotai、i18next                                           |
-| 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；里程碑按适用性增加真实 Chrome 验证 |
+| 项目类型    | 技术基线                                                                                                                                                 |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web`       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai、i18next                                                              |
+| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Query、Jotai、i18next                                                                  |
+| 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；当前构建启用 E2E 或存在浏览器硬要求时增加真实 Chrome 验证 |
 
 初始化器会生成不含业务 endpoint 的原生 Fetch client、语言偏好和分页基础层，统一 `X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、401、错误日志与 sessionStorage 分页语义。Ky、OpenAPI、GraphQL、SSE 与 RxJS 等集成仍只随真实消费者按需加入；初始化不预装这些依赖、不生成占位请求/事件总线，也不预置 Extension 权限。完整协议见 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。
 
@@ -39,7 +39,8 @@ pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --
   --description "示例 React Web 页面" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" \
+  --policy-mode recommended --confirmed-by project-owner
 ```
 
 创建纯 Chrome 扩展时仍从同一个源 Harness 根调用，并使用另一个源外绝对目标：
@@ -50,12 +51,13 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
   --description "示例 Chrome 扩展" \
   --development-base-url "http://localhost:3000" \
   --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com"
+  --release-base-url "https://api.example.com" \
+  --policy-mode recommended --confirmed-by project-owner
 ```
 
 不要复制模板后原地初始化。源 Harness 不再提供 `pnpm harness:init` script；`pnpm harness init` 会在解析项目输入或写入文件前明确拒绝，并指向源外的 `pnpm instantiate`。底层 initializer 只是 `instantiate` 在目标同级 sibling staging 中调用的内部步骤，不是受支持的用户或 Agent 入口。
 
-非交互调用还必须提供 `--development-base-url`、`--test-base-url` 与 `--release-base-url`。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。初始化不生成 Release 候选，因此不询问或接受 E2E 选择；E2E 只在后续显式 `pnpm build` 时决定。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
+非交互调用还必须提供 `--development-base-url`、`--test-base-url`、`--release-base-url`、`--policy-mode recommended|custom` 与 `--confirmed-by <source>`；自定义模式还必须显式提供四项策略选择。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。初始化不生成 Release 候选，因此不询问或接受 E2E 选择；E2E 只在后续显式 `pnpm build` 时决定。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
 
 `pnpm instantiate` 会先完成输入、一次 Node.js/pnpm 环境检查与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、只格式化本次生成/改写文件并执行静态下游校验，然后安装一次依赖并建立独立 Git 根；全部成功后才以原子 rename 发布到目标。创建期不运行 lint、typecheck、全量测试、生产构建或 `release:inspect`，也不生成 `dist/`、`build/` 或 zip。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
 
@@ -63,7 +65,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 
 初始化命令的完整参数和三环境配置契约见 [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)；其他可用参数以根 [`package.json`](package.json) 中的真实脚本和命令帮助为准。不要根据文档示例推测尚不存在的参数。
 
-首次生成会先写入当前类型的 `package.json`，再执行一次 `pnpm install --no-frozen-lockfile --prefer-offline` 解析依赖并产出 `pnpm-lock.yaml`；已有 pnpm store 可避免不必要的远端元数据等待，缺失内容仍正常联网获取。`--skip-install` 只用于受控自动化；跳过时必须在交付前补做安装。锁文件形成后，CI 和可复现检查使用 frozen lockfile，不在复现阶段静默重算依赖。初始化成功只证明工程基线已安全创建；需要最终候选时进入下游并显式运行 `pnpm build`。
+首次生成会先写入当前类型的 `package.json`，再执行一次 `pnpm install --no-frozen-lockfile --prefer-offline` 解析依赖并产出 `pnpm-lock.yaml`；已有 pnpm store 可避免不必要的远端元数据等待，缺失内容仍正常联网获取。公开 CLI 不允许跳过安装；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。锁文件形成后，CI 和可复现检查使用 frozen lockfile，不在复现阶段静默重算依赖。初始化成功只证明工程基线已安全创建；需要最终候选时进入下游并显式运行 `pnpm build`。
 
 ## 初始化会写入什么
 
@@ -106,7 +108,7 @@ pnpm env:validate
 pnpm release:inspect
 ```
 
-这些命令在各自项目内运行。日常实现运行受影响的格式、lint、类型检查与 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–999 行要求复核，达到 1000 行拒绝。
+这些命令在各自项目内运行。日常实现只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证，不自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–1000 行要求复核，1001 行起拒绝。
 
 `pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。构建器按 `Asia/Shanghai` 生成 `YYYYMMDDHHMM` 版本，分别通过 Vite/Plasmo 临时变量注入 Web Landing 或 Extension Popup/Options；完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
 
@@ -202,8 +204,8 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 
 | 路径                                                                      | 作用                                                |
 | ------------------------------------------------------------------------- | --------------------------------------------------- |
-| [`AGENTS.md`](AGENTS.md)                                                  | Agent 的最少读取、任务路径、Skills 与约束地图       |
-| [`.agents/skills/`](.agents/skills/)                                      | 13 个按触发条件读取的 `web-*` 项目 Skills           |
+| [`AGENTS.md`](AGENTS.md)                                                  | Agent 的渐进读取、事件路由、Skills 与约束地图       |
+| [`.agents/skills/`](.agents/skills/)                                      | 15 个按触发条件读取的源 `web-*` 项目 Skills         |
 | [`.harness/tooling/`](.harness/tooling/)                                  | 初始化、品牌刷新和下游校验的 TypeScript 工具        |
 | 生成项目中的 `.harness/project.json`                                      | 下游项目身份、唯一 `projectType` 与品牌的单一事实源 |
 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                              | 数据访问、SSE 与可选 RxJS 事件流编排                |

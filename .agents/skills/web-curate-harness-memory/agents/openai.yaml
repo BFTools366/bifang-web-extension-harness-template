@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：治理源记忆历史"
+  short_description: "仅在源 Harness 中保守迁移已完整取代的 ADR/Changelog"
+  default_prompt: "使用 $web-curate-harness-memory 整理 Web Harness 源中已被完整取代且不再被引用的 ADR 或 Changelog 条目，并原文追加到历史卷。"

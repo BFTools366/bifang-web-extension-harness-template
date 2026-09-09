@@ -8,6 +8,7 @@ import {
 } from "../.harness/tooling/build.ts"
 
 describe("release build orchestration", /* 执行当前测试分组的验证逻辑。 */ () => {
+  /** 验证 formats the build version in Asia/Shanghai 场景。 */
   test("formats the build version in Asia/Shanghai", /* 执行当前测试用例的验证逻辑。 */ () => {
     // 保存 version 变量供格式断言使用。
     const version = formatBuildVersion(new Date("2026-08-24T04:34:59.000Z"))
@@ -15,6 +16,7 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
     expect(version).toMatch(BUILD_VERSION_PATTERN)
   })
 
+  /** 验证 requires an explicit E2E decision for non-interactive builds 场景。 */
   test("requires an explicit E2E decision for non-interactive builds", /* 执行当前测试用例的验证逻辑。 */ async () => {
     await expect(resolveE2eSelection(undefined, false)).rejects.toThrow(
       /Non-interactive builds require/
@@ -30,6 +32,7 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
     })
   })
 
+  /** 验证 runs the full unit suite before injecting the Web build version 场景。 */
   test("runs the full unit suite before injecting the Web build version", /* 执行当前测试用例的验证逻辑。 */ () => {
     // 保存 commands 变量供顺序与环境断言使用。
     const commands = createBuildCommandPlan("web", "build", "202608241234")
@@ -51,6 +54,7 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
     expect(commands[7]?.env).toEqual({ HARNESS_BUILD_VERSION: "202608241234" })
   })
 
+  /** 验证 injects the same version into Extension build and package commands 场景。 */
   test("injects the same version into Extension build and package commands", /* 执行当前测试用例的验证逻辑。 */ () => {
     // 保存 build 变量供普通构建断言使用。
     const build = createBuildCommandPlan("extension", "build", "202608241235")

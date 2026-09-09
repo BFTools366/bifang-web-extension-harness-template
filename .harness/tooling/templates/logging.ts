@@ -10,8 +10,10 @@ function loggerSource(projectType: ProjectType): string {
   return `import { APP_CONFIG } from "../config/environment"
 import type { AppConfig, LogLevel } from "../config/environment.schema"
 
+/** 说明 LogContext 的稳定结构与职责边界。 */
 export type LogContext = Record<string, unknown>
 
+/** 说明 LogEntry 的稳定结构与职责边界。 */
 export interface LogEntry {
   timestamp: string
   level: LogLevel
@@ -21,10 +23,13 @@ export interface LogEntry {
   context?: LogContext
 }
 
+/** 说明 LogSink 的稳定结构与职责边界。 */
 export interface LogSink {
+  /** 说明当前方法的稳定职责与行为边界。 */
   write(entry: LogEntry): void
 }
 
+/** 说明 LoggerOptions 的稳定结构与职责边界。 */
 interface LoggerOptions {
   config?: Readonly<AppConfig>
   sink?: LogSink
@@ -53,6 +58,7 @@ const MAX_ARRAY_ITEMS = 50
 const MAX_STRING_LENGTH = 1000
 
 const DEFAULT_SINK: LogSink = {
+  /** 说明当前方法的稳定职责与行为边界。 */
   write(entry) {
     if (entry.level === "error") console.error(entry)
     else if (entry.level === "warn") console.warn(entry)
@@ -61,6 +67,7 @@ const DEFAULT_SINK: LogSink = {
   }
 }
 
+/** 说明 sanitizeString 的稳定结构与职责边界。 */
 function sanitizeString(value: string, release: boolean): string {
   let sanitized = value.length > MAX_STRING_LENGTH ? value.slice(0, MAX_STRING_LENGTH) + "…" : value
   if (!release) return sanitized
@@ -79,6 +86,7 @@ function sanitizeString(value: string, release: boolean): string {
   })
 }
 
+/** 说明 sanitizeValue 的稳定结构与职责边界。 */
 function sanitizeValue(
   value: unknown,
   release: boolean,
@@ -124,6 +132,7 @@ function sanitizeValue(
   return result
 }
 
+/** 说明 sanitizeContext 的稳定结构与职责边界。 */
 function sanitizeContext(context: LogContext | undefined, release: boolean): LogContext | undefined {
   if (context === undefined) return undefined
   const result: LogContext = {}
@@ -140,16 +149,19 @@ function sanitizeContext(context: LogContext | undefined, release: boolean): Log
   return Object.keys(result).length === 0 ? undefined : result
 }
 
+/** 说明 stableName 的稳定结构与职责边界。 */
 function stableName(value: string, fallback: string): string {
   return /^[a-z][a-z0-9_.-]*$/.test(value) ? value : fallback
 }
 
+/** 说明 createLogger 的稳定结构与职责边界。 */
 export function createLogger(scope: string, options: LoggerOptions = {}) {
   const config = options.config ?? APP_CONFIG
   const sink = options.sink ?? DEFAULT_SINK
   const now = options.now ?? (() => new Date())
   const safeScope = stableName(scope, "invalid_scope")
 
+  /** 说明 emit 的稳定结构与职责边界。 */
   function emit(level: LogLevel, event: string, context?: LogContext): void {
     try {
       const configuredWeight = LEVEL_WEIGHT[config.logLevel] ?? LEVEL_WEIGHT.warn
@@ -188,6 +200,7 @@ const LOGGER_TEST = `import { describe, expect, test } from "vitest"
 import type { AppConfig } from "../config/environment.schema"
 import { createLogger, type LogEntry } from "./logger"
 
+/** 说明 config 的稳定结构与职责边界。 */
 function config(environment: AppConfig["environment"], logLevel: AppConfig["logLevel"]): AppConfig {
   return {
     environment,
@@ -198,6 +211,7 @@ function config(environment: AppConfig["environment"], logLevel: AppConfig["logL
 }
 
 describe("structured logger", () => {
+  /** 验证当前场景的核心成功或风险边界。 */
   test("emits development detail safely and survives circular data", () => {
     const entries: LogEntry[] = []
     const circular: Record<string, unknown> = { value: "safe", token: "private" }
@@ -216,6 +230,7 @@ describe("structured logger", () => {
     })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("suppresses low-level release logs and strips unnecessary or sensitive context", () => {
     const entries: LogEntry[] = []
     const error = new Error("failed under /Users/example/private")
@@ -247,6 +262,7 @@ describe("structured logger", () => {
     })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("never lets hostile context, clocks, or sinks break the observed path", () => {
     const revoked = Proxy.revocable({}, {})
     revoked.revoke()
@@ -266,39 +282,47 @@ const ERROR_BOUNDARY_SOURCE = `import { Component, type ErrorInfo, type ReactNod
 import { useTranslation } from "react-i18next"
 import { createLogger } from "./logger"
 
+/** 说明 AppErrorBoundaryProps 的稳定结构与职责边界。 */
 interface AppErrorBoundaryProps {
   children: ReactNode
 }
 
+/** 说明 LoggedErrorBoundaryProps 的稳定结构与职责边界。 */
 interface LoggedErrorBoundaryProps extends AppErrorBoundaryProps {
   fallback: ReactNode
 }
 
+/** 说明 AppErrorBoundaryState 的稳定结构与职责边界。 */
 interface AppErrorBoundaryState {
   failed: boolean
 }
 
 const logger = createLogger("render")
 
+/** 说明 LoggedErrorBoundary 的稳定结构与职责边界。 */
 class LoggedErrorBoundary extends Component<
   LoggedErrorBoundaryProps,
   AppErrorBoundaryState
 > {
   state: AppErrorBoundaryState = { failed: false }
 
+  /** 说明当前方法的稳定职责与行为边界。 */
   static getDerivedStateFromError(): AppErrorBoundaryState {
     return { failed: true }
   }
 
+  /** 说明当前方法的稳定职责与行为边界。 */
   componentDidCatch(error: Error, info: ErrorInfo): void {
     logger.error("render_failed", { component: "react", error, details: info.componentStack })
   }
 
+  /** 说明当前方法的稳定职责与行为边界。 */
   render(): ReactNode {
     return this.state.failed ? this.props.fallback : this.props.children
   }
 }
 
+/** 说明 AppErrorBoundary 的稳定结构与职责边界。 */
 export function AppErrorBoundary({ children }: AppErrorBoundaryProps) {
   const { t } = useTranslation()
   return (
@@ -318,13 +342,16 @@ import { AppErrorBoundary } from "./AppErrorBoundary"
 
 afterEach(() => vi.restoreAllMocks())
 
+/** 验证当前场景的核心成功或风险边界。 */
 test("contains render failures without rethrowing into the host surface", () => {
   vi.spyOn(console, "error").mockImplementation(() => undefined)
+  /** 说明 Broken 的稳定结构与职责边界。 */
   function Broken(): never {
     throw new Error("render failed")
   }
 
   expect(() =>
+    /** 说明当前方法的稳定职责与行为边界。 */
     render(
       <AppErrorBoundary>
         <Broken />

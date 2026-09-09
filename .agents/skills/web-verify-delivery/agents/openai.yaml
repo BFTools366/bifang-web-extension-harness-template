@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：验证前端交付"
   short_description: "验收 Web Harness、Vite dist 或 Plasmo Chrome MV3 前端候选"
-  default_prompt: "使用 $web-verify-delivery 验收 Web Harness 源码里程碑、React Web Vite dist 或 Plasmo Chrome MV3 前端候选。"
+  default_prompt: "使用 $web-verify-delivery 验收 Web Harness 源码候选、React Web Vite dist 或 Plasmo Chrome MV3 前端候选。"

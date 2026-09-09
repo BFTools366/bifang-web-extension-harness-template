@@ -129,6 +129,7 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     release: "https://api.example.com/v1"
   }
 
+  /** 验证 compares complete URLs without prefix, path-version, similar-host, or URL-path false positives 场景。 */
   test("compares complete URLs without prefix, path-version, similar-host, or URL-path false positives", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 { root } 变量供当前逻辑使用。
     const { root } = await createFixture(
@@ -147,6 +148,7 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     })
   })
 
+  /** 验证 rejects the complete %s BaseURL 场景。 */
   test.each([
     ["development", baseUrls.development],
     ["test with a normalized trailing slash", `${baseUrls.test}/`]
@@ -163,6 +165,7 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     }
   )
 
+  /** 验证 retains low-level log, sentinel, source-map, environment-file, and local-path gates 场景。 */
   test("retains low-level log, sentinel, source-map, environment-file, and local-path gates", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 safeContents 变量供当前逻辑使用。
     const safeContents = '<a href="https://public.example.com/Users/alice/project">Safe URL</a>\n'
@@ -196,6 +199,7 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
   })
 
+  /** 验证 requires the current YYYYMMDDHHMM build version in the artifact 场景。 */
   test("requires the current YYYYMMDDHHMM build version in the artifact", /* 执行当前测试用例的验证逻辑。 */ async () => {
     // 保存 { root } 变量供版本注入断言使用。
     const { root } = await createFixture(

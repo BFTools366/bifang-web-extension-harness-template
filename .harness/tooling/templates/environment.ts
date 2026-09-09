@@ -3,11 +3,15 @@ import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 
 // 保存 ENVIRONMENT_SCHEMA 变量供当前逻辑使用。
 const ENVIRONMENT_SCHEMA = `export const APPLICATION_ENVIRONMENTS = ["development", "test", "release"] as const
+/** 说明 LOG_LEVELS 的稳定结构与职责边界。 */
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const
 
+/** 说明 ApplicationEnvironment 的稳定结构与职责边界。 */
 export type ApplicationEnvironment = (typeof APPLICATION_ENVIRONMENTS)[number]
+/** 说明 LogLevel 的稳定结构与职责边界。 */
 export type LogLevel = (typeof LOG_LEVELS)[number]
 
+/** 说明 AppConfig 的稳定结构与职责边界。 */
 export interface AppConfig {
   environment: ApplicationEnvironment
   apiBaseUrl: string
@@ -15,6 +19,7 @@ export interface AppConfig {
   requestTimeoutMs: number
 }
 
+/** 说明 AppConfigInput 的稳定结构与职责边界。 */
 export interface AppConfigInput {
   appEnv?: string
   apiBaseUrl?: string
@@ -22,6 +27,7 @@ export interface AppConfigInput {
   requestTimeoutMs?: string
 }
 
+/** 说明 normalizeBaseUrl 的稳定结构与职责边界。 */
 function normalizeBaseUrl(value: string | undefined, environment: ApplicationEnvironment): string {
   if (value === undefined || value.trim() === "") throw new Error("API_BASE_URL is required")
   let url: URL
@@ -45,6 +51,7 @@ function normalizeBaseUrl(value: string | undefined, environment: ApplicationEnv
   return url.toString().replace(/\\/$/, "")
 }
 
+/** 说明 createAppConfig 的稳定结构与职责边界。 */
 export function createAppConfig(input: AppConfigInput): Readonly<AppConfig> {
   if (!APPLICATION_ENVIRONMENTS.includes(input.appEnv as ApplicationEnvironment)) {
     throw new Error("APP_ENV must be development, test, or release")
@@ -94,8 +101,10 @@ function runtimeAdapter(projectType: ProjectConfig["projectType"]): string {
   if (projectType === "web") {
     return `import { createAppConfig } from "./environment.schema"
 
+/** 说明 IS_RELEASE_BUILD 的稳定结构与职责边界。 */
 export const IS_RELEASE_BUILD = import.meta.env.VITE_APP_ENV === "release"
 
+/** 说明 APP_CONFIG 的稳定结构与职责边界。 */
 export const APP_CONFIG = createAppConfig({
   appEnv: import.meta.env.VITE_APP_ENV,
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
@@ -106,8 +115,10 @@ export const APP_CONFIG = createAppConfig({
   }
   return `import { createAppConfig } from "./environment.schema"
 
+/** 说明 IS_RELEASE_BUILD 的稳定结构与职责边界。 */
 export const IS_RELEASE_BUILD = process.env.PLASMO_PUBLIC_APP_ENV === "release"
 
+/** 说明 APP_CONFIG 的稳定结构与职责边界。 */
 export const APP_CONFIG = createAppConfig({
   appEnv: process.env.PLASMO_PUBLIC_APP_ENV,
   apiBaseUrl: process.env.PLASMO_PUBLIC_API_BASE_URL,
@@ -122,6 +133,7 @@ const ENVIRONMENT_TEST = `import { describe, expect, test } from "vitest"
 import { createAppConfig } from "./environment.schema"
 
 describe("application environment", () => {
+  /** 验证当前场景的核心成功或风险边界。 */
   test("parses a complete typed configuration", () => {
     expect(
       createAppConfig({
@@ -138,6 +150,7 @@ describe("application environment", () => {
     })
   })
 
+  /** 验证当前场景的核心成功或风险边界。 */
   test("rejects an unsafe or incomplete release configuration", () => {
     expect(() =>
       createAppConfig({

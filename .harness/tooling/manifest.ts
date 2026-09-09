@@ -1,5 +1,6 @@
 import type { ProjectConfig } from "./types.ts"
 
+/** 描述需要安全改写的 package.json 松散结构。 */
 type PackageJson = Record<string, unknown>
 
 // 保存 runtimeVersions 变量供当前逻辑使用。

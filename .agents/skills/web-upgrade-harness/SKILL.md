@@ -5,53 +5,91 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 
 # Web Harness：升级前端工程基线
 
-通过“发现事实 → 所有权分类 → 只读预演 → 用户批准 → 路径级应用 → 验证 → 基线记录”升级终端前端项目。不要依赖仓库中尚不存在的升级脚本；使用现有 Git、差异和校验能力完成同一审计闭环。
+通过“冻结事实 → 渲染候选 → 三方计划 → 路径级批准 → 重规划 → 目标验证 → 记录基线”升级终端前端项目。生产所有权清单和 TypeScript helper 必须精确位于目标仓库内本 Skill 的 `references/ownership-manifest.json` 与 `scripts/harness-upgrade.ts`；另一个仓库的 helper 或清单不得替目标授权，不得用临时脚本或弱化清单代替。
 
-## 建立边界
+## 冻结边界
 
-1. 读取目标的 `.harness/project.json`、`.harness/upstream-lock.json`（若存在）、AGENTS、Agent Policy、工程规则、相关 ADR/技术债和 Git 状态。项目记忆只读取与当前升级冲突或验证相关的部分。
-2. 要求用户明确提供源 Harness 根；将源与目标解析为不同的规范绝对路径。每个 Git 顶层必须等于声明根，拒绝符号链接根、嵌套歧义、路径越界和源目标相同。
-3. 要求源工作树干净、有可识别提交，并先在源 Harness 根运行 `pnpm validate:harness`。源没有 `.harness/project.json`，不得误用下游的 `pnpm harness validate`。记录源版本/提交、目标提交/分支/脏状态；验证失败时不信任候选。
-4. 固定目标 `.harness/project.json.projectType`。候选只能渲染该类型的单 package 工程层，绝不增加另一类型、workspace、目标管理或类型切换入口。
+1. 读取目标 `.harness/project.json`、可选 `.harness/upstream-lock.json`、AGENTS、Agent Policy、工程规则、相关 ADR/技术债和 Git 状态。只读取与升级冲突或验证相关的项目记忆。
+2. 用户必须明确提供 source Harness 根。source、渲染候选和目标必须是三个互不嵌套、拒绝符号链接的真实绝对目录；source 和目标的 Git 顶层分别等于声明根，source 工作树必须 clean 且有确定 HEAD。
+3. 在 source 根运行 `pnpm validate:harness`，从 `Version.md` 读取 12 位版本并记录 source HEAD。验证失败时不信任候选。
+4. 固定目标 `.harness/project.json.projectType`。候选只渲染该单一宿主的工程层，不增加另一类型、workspace、初始化入口或类型切换能力。
+5. 渲染候选必须保留目标名称、标识、说明、三环境公开配置结构及已决策略，但传给 plan 的候选投影只包含生产清单允许的 `managed`、`managed-self`、`merge-sections` 与 `conditional` 路径。产品源码、品牌、项目身份、记忆、策略值、许可证和 tombstone 不进入候选投影。
 
-## 所有权模型
+## 所有权
 
-优先使用仓库已有且已记录的所有权清单；没有清单时按下列保守类别创建本次只读计划，未知项一律视为 `protected`：
+- `managed`：Harness 独占文件；只有目标仍匹配已记录基线时才允许 helper 原子更新一个现有文件。
+- `managed-self`：升级器自身；规则同 `managed`，但必须在普通 managed 后按路径稳定顺序更新，CLI runner 始终最后。
+- `merge-sections`：AGENTS、README、ENGINEERING_RULES、RELEASE、package 等混合文件；只人工合并已复核章节或键。
+- `conditional`：三环境等依赖目标真实值的文件；只人工处理，不复制源值。
+- `protected`：产品源码/测试、`.harness/project.json`、品牌、项目记忆、Agent Policy、许可证和未登记本地文件；候选包含即阻断。
+- `tombstone`：终端下游不得恢复的一次性实例化、源验证、源记忆治理、另一宿主模板和 Harness 方法论入口；候选或目标包含即阻断。
 
-- `managed`：明确由 Harness 独占、且本地内容/普通权限模式仍匹配已记录基线的长期 Skills、规范、配置 Schema、分页/HTTP 基线、logger 基线或维护工具。
-- `mixed`：同时包含 Harness 约束与项目决定的文件，如 AGENTS、package scripts/config 片段及三份受管环境文件；字段名、前缀和 profile 结构可合并，实际 BaseURL 与批准的公开值必须保留。
-- `protected`：产品源码和测试、`.harness/project.json`、`.harness/brand/**`、`public/`/`assets/` 品牌、项目记忆、许可证、Git 配置/历史、环境秘密及未登记本地文件。禁止的 `.env`/`.env*.local` 不得读取或覆盖；其存在会阻断新门禁，直到用户明确迁移或移除。
-- `tombstone`：终端项目不应恢复的一次性实例化/初始化 Skill、目标增减入口、另一项目类型模板和任何可派生或切换类型的入口。
+未知候选路径按显式 `defaultMode: protected` 失败关闭；所有权漂移、符号链接、特殊文件/权限、required 缺失或路径越界同样阻断。所有权是最低保护策略，不是复制 source 树的许可。
 
-所有权是最低保护策略，不是复制每个源匹配文件的许可。
+## 只读计划
 
-## 只读预演
+每轮默认使用一个位于候选和目标之外、父目录已存在的全新证据文件；省略 `--output` 时只向 stdout 输出单个稳定 JSON，且不写入文件：
 
-1. 从源受维护文件生成任务局部候选，并把目标名称、标识、说明、`projectType`、策略和已批准例外渲染进去；不能直接把源目录当候选。
-2. 逐路径比较候选、目标和存在时的上游基线，输出不写入的分类表：`add`、`update`、`unchanged`、`manual_merge`、`preserve_local`、`delete_proposed`、`conflict`、`blocked`。
-3. 计划必须列出所有权、旧/新摘要、权限模式、理由、目标 diff、依赖和验证。符号链接、特殊文件、路径越界、所有权漂移、protected/tombstone 候选、未知共同祖先或本地修改冲突均为阻断。
-4. `.harness/upstream-lock.json` 不存在时执行初始基线审计：把每个重叠 managed/mixed 文件当作冲突，不能猜共同祖先。只有人工收敛并验证后才能建立首份基线；信息不足则保持锁文件不存在。
-5. 新基线要求 development/test/release 配置而目标缺失时，将缺失项标为 `blocked`，收集三个真实 BaseURL 后才生成 `.env.development`、`.env.test`、`.env.production`；Release 必须使用 HTTPS，Extension 不因此自动增加 host permission。发现 `.env`、四种 `.env*.local` 或未知公开键时保持阻断，要求用户明确迁移/移除或修正；本 Skill 不自行读取秘密或删除用户文件。
-6. 默认到此停止，向用户展示只读预演并取得明确的路径级批准。调用本 Skill 本身不授权写入。
+```bash
+pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts plan \
+  --source-root <absolute-source> \
+  --source-version <YYYYMMDDHHMM> \
+  --source-commit <40-or-64-hex-head> \
+  --candidate-root <absolute-rendered-projection> \
+  --target-root <absolute-target> \
+  --ownership <absolute-target>/.agents/skills/web-upgrade-harness/references/ownership-manifest.json \
+  --lock <absolute-target>/.harness/upstream-lock.json \
+  --output <absolute-external-evidence>/plan-001.json
+```
 
-## 应用与验证
+显式提供 `--output` 时，该路径必须预先不存在并位于候选、目标两棵树之外；helper 只独占创建，不覆盖既有文件。无论是否提供输出文件，stdout 都只包含同一个可机器解析的稳定 JSON，不混入日志。计划顶层同时汇总 `blocked`、`manualRequired` 与结构性 `problems`；阻断计划仍完整输出 JSON，但进程返回 2。参数、schema 或 I/O 失败只向 stderr 输出 `{ "ok": false, "error": "..." }` 稳定 JSON 并返回 2。
 
-1. Harness 升级至少使用标准路径；若改变公开运行时行为、Extension 权限/安全边界、发布流程或用户要求完整验收，升级为里程碑路径。
-2. 只对批准的 `managed` 路径使用 `apply_patch` 逐项应用。`mixed` 按已复核章节/键串行合并；`add`/`delete_proposed` 需要单独批准。绝不整文件覆盖 mixed/protected 内容。
-3. 每次应用后重新生成并复核只读预演；源、目标、候选、计划或所有权发生漂移时在写入下一路径前停止。
-4. 保留目标技术基线和唯一类型。不得导入源的项目身份、Logo、产品代码、日期记忆、批准结论、验证历史、版本发布记录或 Git 历史。
-5. 先运行目标受影响的格式、lint、类型与相关非空测试；升级属于行为保持重构时再运行全量 `pnpm test`。需要最终候选时先询问当次 E2E 选择，只运行 `pnpm build -- --e2e=enabled|disabled`，确认它固定委托 `build:release` 并自动完成环境、Harness、全量测试、版本注入与 `pnpm release:inspect`；Extension `package` 同样只使用 Release profile 和当次选择。不得生成 development/test 候选。里程碑全部 Todo 完成后交给 `$web-verify-delivery`。
-6. 重新执行只读预演，要求没有未解决的更新、新增/删除、人工合并、冲突或阻断。只有收敛且验证通过后，才按仓库已有格式更新 `.harness/upstream-lock.json` 的源版本/提交与受管理摘要；格式未定义时不自行发明锁结构。
-7. 更新过升级规则自身后，再用更新后的规则重新审计一次。只按独立触发事件更新目标记忆，不导入源记忆。
-8. 遇到 Skill 目录名与源 `SKILL.md` frontmatter `name` 不一致（canonical name 已迁移，如历史上的 `web-` 前缀引入）时，把该迁移视为显式的 `add` + `delete_proposed`：逐项展示旧目录删除、新目录增加、调用名变化和终端创建 Skill 墓碑，不把路径重命名伪装成普通内容更新；只有用户批准后才应用。
+1. 输出逐路径三方快照、普通权限模式、所有权、原因和稳定分类。`update` 仅表示现有 managed 目标仍匹配 baseline；`manual_merge`、`add`、`delete`、`conflict`、`bootstrap_conflict` 与 `blocked` 都不会自动写入。
+2. 没有 lock 时是 bootstrap 审计：相同路径为 `converged`，不同 managed 路径为 `bootstrap_conflict`，混合路径为 `manual_merge`。不得猜共同祖先。
+3. 默认到此停止，展示分类、目标 diff 与验证影响，并取得用户对精确路径的批准。调用本 Skill 或 CLI 固定 approval 词都不替代用户授权。
+
+## 路径级应用
+
+仅对用户已批准、分类为 `update` 的单个现有 `managed`/`managed-self` 文件运行：
+
+```bash
+pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts apply \
+  --plan <absolute-external-evidence>/plan-001.json \
+  --path <one-repo-relative-path> \
+  --approval apply-managed-changes
+```
+
+helper 会重新绑定 source、候选、目标、Git 状态、目标仓库内的清单和 lock；任何漂移或任一 `blocked` 项都会在写入前停止。它从已绑定的候选或目标根开始，逐级拒绝符号链接并绑定真实目录身份，只在最终稳定目录中原子替换这个已存在普通文件；替换前复验目标，并 fsync 新文件与父目录。不新增、不删除、不合并 mixed，也不提交。
+
+每次写入后必须创建新的 plan 文件。`managed-self` 只有普通 managed 更新全部完成后才应用，多个自更新按路径稳定顺序逐个执行，`scripts/harness-upgrade.ts` 最后。经用户逐路径批准的 `add`、`delete`、`manual_merge` 和 bootstrap 收敛使用 `apply_patch` 手工完成；保留产品值与本地决定，随后重规划。不得整文件覆盖 mixed/protected 内容。
+
+## 验证与记录
+
+1. 代码行为变化只运行本次升级实际影响的相关非空测试；纯文档或元数据升级只运行必要的最小替代检查。不得因 Harness 升级自动追加格式、lint、类型、全仓检查、独立构建、冒烟或 E2E；行为保持重构运行全量测试，只有发布、用户明确完整验收、当次 E2E 启用或浏览器硬要求触发完整候选验收。
+2. 需要最终候选时，构建前询问本次 E2E 选择，只使用当前 Web Harness 的 `pnpm build -- --e2e=enabled|disabled`；Extension `package` 同样沿用当前 Release profile。不得导入桌面客户端或桌面发布链。
+3. 再次创建全新 plan，要求只剩 `unchanged`、`converged`、`preserve_local` 或已逐项复核的 `manual_merge`。记录已有基线：
+
+```bash
+pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts record \
+  --plan <absolute-external-evidence>/plan-final.json \
+  --source-version <YYYYMMDDHHMM> \
+  --source-commit <40-or-64-hex-head> \
+  --approval record-verified-baseline \
+  --resolved-manual <one-reviewed-manual-path>
+```
+
+4. 首份人工核验基线改用 `--bootstrap --approval bootstrap-verified-baseline`。`--resolved-manual` 必须重复列出 plan 中全部且仅有的 `manual_merge`；没有则省略。
+5. `.harness/upstream-lock.json` 只在事实未漂移且计划完全收敛时原子记录；生成锁内容后、真正写入前还必须再次复验完整 plan。`preserve_local` 保留旧 upstream baseline，使后续升级仍能区分本地偏离与上游变化。
+6. 升级器自身变化后，用新规则再审计一次。项目记忆只按当前升级的独立触发事件更新，不导入 source 记忆。
 
 ## 安全边界
 
-- 绝不自动暂存、提交、建分支/Worktree、推送、建标签或发布。
-- 绝不覆盖用户修改、秘密、产品源码、品牌、projectType、许可证、项目策略或项目记忆。
-- 绝不恢复一次性初始化、多宿主界面管理、组合项目、另一类型或 monorepo 能力。
-- 无法确定所有权、基线、身份渲染或批准范围时停止并询问用户。
+- 不自动暂存、提交、建分支/Worktree、推送、建标签、发布或删除分支。
+- 不覆盖秘密、产品源码、品牌、projectType、许可证、Agent Policy、项目记忆或未登记本地修改。
+- 不恢复一次性创建、多宿主、组合项目、另一类型或 monorepo 能力。
+- `.env` 与四种 `.env*.local` 不读取；其存在或未知公开键触发目标既有门禁，由用户明确迁移/移除或修正。
+- 身份渲染、所有权、基线或批准范围不确定时停止并向用户报告。
 
 ## 完成输出
 
-报告源/目标身份、路径、提交、基线状态、只读预演分类、批准与应用路径、保留修改、冲突、测试/构建、适用时里程碑结论、锁更新、未验证范围和剩余风险。仅只读预演成功不等于升级完成。
+报告 source/目标身份与提交、baseline 状态、每轮计划证据、批准和实际应用路径、人工合并、保留修改、冲突、测试/构建、适用的完整候选验收结论、lock 更新、未验证范围和剩余风险。只读计划成功不等于升级完成。

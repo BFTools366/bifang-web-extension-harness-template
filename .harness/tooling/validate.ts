@@ -9,10 +9,13 @@ import { deriveLogoAssets } from "./logo.ts"
 import { ENVIRONMENT_FILES, validateEnvironmentFiles } from "./environment.ts"
 import { assertPackageManagerPins, declaredVersionAtLeast } from "./version.ts"
 import { inspectProjectChineseComments } from "./comment-policy.ts"
+import { validateAgentPolicyBody, validateAgentPolicyDocument } from "./agent-policy.ts"
+import { validateOptionalProjectMemory } from "./project-memory.ts"
 
 /** 保存终端项目必须精确保留的 Web Harness 前端维护 Skill。 */
 const EXPECTED_TERMINAL_SKILLS = [
   "web-check-development-environment",
+  "web-configure-git-commits",
   "web-define-product",
   "web-extract-i18n-strings",
   "web-implement-change",
@@ -640,8 +643,10 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     [
       ".harness/tooling/cli.ts",
       ".harness/tooling/build.ts",
+      ".harness/tooling/agent-policy.ts",
       ".harness/tooling/comment-policy.ts",
       ".harness/tooling/environment.ts",
+      ".harness/tooling/project-memory.ts",
       ".harness/tooling/release.ts",
       ".harness/tooling/source-size-policy.ts",
       ".harness/tooling/version.ts",
@@ -666,6 +671,7 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       "tests/build-tooling.test.ts",
       MASTER_LOGO_PATH,
       "docs/README.md",
+      "docs/AGENT_POLICY.md",
       "docs/DATA_ACCESS.md",
       "docs/ENGINEERING_RULES.md",
       "docs/MANTINE_UI_GUIDELINES.md",
@@ -676,7 +682,20 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     ],
     errors
   )
+  // 保存 agentPolicyPath 变量供终端策略完整解析使用。
+  const agentPolicyPath = path.join(root, "docs/AGENT_POLICY.md")
+  if (await pathExists(agentPolicyPath)) {
+    // 保存 agentPolicyDocument 变量供终端已决 schema 与正文验证使用。
+    const agentPolicyDocument = await readFile(agentPolicyPath, "utf8")
+    // 保存 agentPolicyErrors 变量供终端已决策略验证使用。
+    const agentPolicyErrors = [
+      ...validateAgentPolicyDocument(agentPolicyDocument, { allowPending: false }),
+      ...validateAgentPolicyBody(agentPolicyDocument)
+    ]
+    errors.push(...agentPolicyErrors.map((message) => `Invalid Agent policy: ${message}`))
+  }
   await validateTerminalSkills(root, errors)
+  await validateOptionalProjectMemory(root, errors)
 
   // 保存 forbiddenMonorepoPaths 变量供当前逻辑使用。
   const forbiddenMonorepoPaths = ["pnpm-workspace.yaml", "apps", "packages"] as const
@@ -887,12 +906,14 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     )
   }
   await validateLogos(root, config, errors)
-  // 保存 commentViolations 变量供当前逻辑使用。
-  const commentViolations = await inspectProjectChineseComments(root)
+  // 保存 commentReport 变量供当前逻辑使用。
+  const commentReport = await inspectProjectChineseComments(root)
   errors.push(
-    ...commentViolations.map(
+    ...commentReport.errors,
+    ...commentReport.violations.map(
       // 执行 当前声明 函数的处理逻辑。
-      (violation) => `${violation.file}:${violation.line}:${violation.column} ${violation.message}`
+      (violation) =>
+        `${violation.file}:${violation.line}:${violation.column} ${violation.kind} ${violation.name}: ${violation.message}`
     )
   )
   if (errors.length > 0) throw new Error(`Project validation failed:\n- ${errors.join("\n- ")}`)

@@ -1,7 +1,17 @@
+import { execFile } from "node:child_process"
 import { readFile, realpath } from "node:fs/promises"
+import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
 import { format, resolveConfig } from "prettier"
+import {
+  bootstrapGitIdentity,
+  checkCommitConfiguration,
+  checkGitIdentity,
+  installCommitConfiguration,
+  reportGitIdentity
+} from "../../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { createProjectConfig, PROJECT_CONFIG_PATH, MASTER_LOGO_PATH } from "./config.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import {
@@ -22,7 +32,6 @@ import { extensionFiles } from "./templates/extension.ts"
 import { webFiles } from "./templates/web.ts"
 import type { InitOptions, ProjectConfig } from "./types.ts"
 import { validateProject } from "./validate.ts"
-import { annotateTypeScriptProject } from "./comment-policy.ts"
 
 // 保存 FORBIDDEN_LAYOUT_PATHS 变量供当前逻辑使用。
 const FORBIDDEN_LAYOUT_PATHS = ["pnpm-workspace.yaml", "apps", "packages"] as const
@@ -36,9 +45,66 @@ const FORMATTABLE_EXTENSIONS = new Set([".html", ".json", ".md", ".mjs", ".ts", 
 // 定义 InitializationCommandRunner 类型，允许回归测试观察创建期外部命令而不执行真实安装。
 export type InitializationCommandRunner = typeof runCommand
 
+// 定义 InitializationGitConfigurator 类型，允许回归测试隔离真实 Git 元数据写入。
+export type InitializationGitConfigurator = (
+  root: string,
+  commandRunner: InitializationCommandRunner
+) => Promise<void>
+
 // 保存 DOWNSTREAM_ONLY_INITIALIZATION_ERROR 变量供当前逻辑使用。
 export const DOWNSTREAM_ONLY_INITIALIZATION_ERROR =
   "Refusing to initialize inside the source Harness. No files were changed. Create a downstream project outside this repository with `pnpm instantiate -- <absolute-target> ...`."
+
+// 保存 execFileAsync 变量，用于不经 Shell 读取 Git 仓库事实。
+const execFileAsync = promisify(execFile)
+
+// 执行 gitOutput 函数并返回去除末尾换行的标准输出。
+async function gitOutput(root: string, args: string[]): Promise<string> {
+  const result = await execFileAsync("git", args, { cwd: root, encoding: "utf8" })
+  return result.stdout.replace(/\r?\n$/u, "")
+}
+
+// 执行 fallbackGitUsername 函数，从设备账号确定性派生安全 ASCII fallback。
+function fallbackGitUsername(): string {
+  const normalized = os
+    .userInfo()
+    .username.normalize("NFKD")
+    .replace(/[^A-Za-z0-9._-]+/gu, "-")
+    .replace(/^[^A-Za-z]+/u, "")
+    .replace(/[^A-Za-z0-9]+$/u, "")
+  if (normalized === "") {
+    throw new Error("Cannot derive a safe ASCII Git identity from the device username")
+  }
+  return normalized
+}
+
+// 执行 initializeBaselineRepository 函数，建立唯一、干净且无远端的本地基线提交。
+export async function initializeBaselineRepository(
+  root: string,
+  commandRunner: InitializationCommandRunner = runCommand
+): Promise<void> {
+  const identity = await reportGitIdentity(root)
+  if (identity.effectiveName.value === undefined || identity.effectiveEmail.value === undefined) {
+    await bootstrapGitIdentity(root, fallbackGitUsername())
+  }
+  await checkGitIdentity(root)
+  await installCommitConfiguration(root)
+  await checkCommitConfiguration(root)
+  await commandRunner("git", ["add", "--all"], root)
+  const pending = await gitOutput(root, ["status", "--porcelain=v1"])
+  if (pending === "") throw new Error("Generated project has no files for its baseline commit")
+  await commandRunner("git", ["commit", "-m", "chore: initialize project"], root)
+
+  const [branch, commitCount, remotes, status] = await Promise.all([
+    gitOutput(root, ["branch", "--show-current"]),
+    gitOutput(root, ["rev-list", "--count", "HEAD"]),
+    gitOutput(root, ["remote"]),
+    gitOutput(root, ["status", "--porcelain=v1"])
+  ])
+  if (branch !== "main" || commitCount !== "1" || remotes !== "" || status !== "") {
+    throw new Error("Generated Git baseline must be one clean local commit on main without remotes")
+  }
+}
 
 // 执行 isSameOrNestedPath 函数的处理逻辑。
 function isSameOrNestedPath(parent: string, candidate: string): boolean {
@@ -163,7 +229,8 @@ async function formatInitializationFiles(
 // 执行 runPostInitialization 函数，只安装一次依赖并按需建立独立 Git 根。
 export async function runPostInitialization(
   options: InitOptions,
-  commandRunner: InitializationCommandRunner = runCommand
+  commandRunner: InitializationCommandRunner = runCommand,
+  gitConfigurator: InitializationGitConfigurator = initializeBaselineRepository
 ): Promise<void> {
   if (options.skipInstall !== true) {
     await commandRunner(
@@ -172,10 +239,11 @@ export async function runPostInitialization(
       options.root
     )
   } else {
-    console.log("Skipped dependency installation (--skip-install).")
+    console.log("Skipped dependency installation through internal test injection.")
   }
   if (options.skipGit !== true && !(await pathExists(path.join(options.root, ".git")))) {
     await commandRunner("git", ["init", "-b", "main"], options.root)
+    await gitConfigurator(options.root, commandRunner)
   }
 }
 
@@ -229,7 +297,7 @@ export async function initializeProject(
   const [normalizedTsconfig, logoAssets, finalizationPlan] = await Promise.all([
     prepareProjectTsconfig(root, config.projectType),
     deriveLogoAssets(config.projectType, logo),
-    prepareDownstreamFinalization(root, config)
+    prepareDownstreamFinalization(root, config, resolvedOptions.agentPolicy)
   ])
 
   if (normalizedTsconfig !== undefined) {
@@ -246,13 +314,10 @@ export async function initializeProject(
   }
   await writeJsonAtomic(path.join(root, "package.json"), projectManifest)
   await writeJsonNew(path.join(root, PROJECT_CONFIG_PATH), config)
-  await finalizeDownstream(root, config, finalizationPlan)
-  // 保存 annotatedFiles 变量，纳入本次最小格式化集合。
-  const annotatedFiles = await annotateTypeScriptProject(root)
+  await finalizeDownstream(root, config, resolvedOptions.agentPolicy, finalizationPlan)
   await formatInitializationFiles(root, [
     ...projectFiles.keys(),
     ...finalizationPlan.files.keys(),
-    ...annotatedFiles,
     ...(normalizedTsconfig === undefined ? [] : ["tsconfig.json"]),
     "package.json",
     PROJECT_CONFIG_PATH

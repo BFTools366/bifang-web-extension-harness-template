@@ -9,23 +9,24 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 收集输入
 
-1. 确认展示名称、跨平台安全的 ASCII kebab-case 项目标识、简短说明、development/test/release 三个 BaseURL、负责人和源 Harness 之外的完整绝对目标目录。Release URL 必须使用 HTTPS；不得为未知 endpoint 猜测值。
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。首轮用一份编号表单批量收集全部尚未明确的基础字段：展示名称、跨平台安全的 ASCII kebab-case 项目标识、简短说明、development/test/release 三个 BaseURL、源 Harness 之外的完整绝对目标目录、唯一项目类型、策略模式和确认来源；只重问缺失或非法项。非交互命令必须把绝对目标作为位置参数；交互式终端未给位置参数时，把目标与其他缺失字段并入同一首轮。Release URL 必须使用 HTTPS；不得为未知 endpoint 猜测值。真实确认主体只记录为 Agent Policy 的 `confirmed_by`，不另设项目责任字段。
 2. 要求用户明确选择且只能选择一种项目类型：`web` 或 `extension`。不得默认、推断、同时选择或保留稍后转换类型的入口。
-3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。只询问尚未给出的决定，记录真实确认人和日期，不把模板值当作用户决定。
+3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式此后每轮只询问一个仍缺失的策略字段，用户在一次回答中主动提供的多个合法值全部复用。记录真实确认人和日期，不把模板值当作用户决定。
 
 ## 安全复制
 
-1. 将源 Harness 根和目标目录解析为规范绝对路径。目标目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
+1. 目标目录的原始输入本身必须是绝对路径；不得先用当前目录把相对输入静默转绝对。将源 Harness 根和目标目录继续解析为规范绝对路径，在最终汇总中同时展示原始值、规范值与输入来源。目标目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
 2. 写入前清点目标。目标必须不存在或完全为空，包括隐藏条目；发现任何用户文件都停止，不覆盖、合并或清理。
-3. 本次首次初始化调用 `$web-check-development-environment` 一次，只检查 Node.js/pnpm；同时运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Chrome 不属于初始化门禁；Git 缺失、模板验证失败或模板状态无法可信识别时停止。
-4. 在复制前固定受维护种子文件清单，再按清单复制到目标同级 sibling staging。排除源 `.git`、`node_modules`、`dist`、`build`、`.plasmo`、缓存、覆盖率、发布产物、临时证据、下游项目、Harness 专用 `Version.md` 及全部日期项目记忆；下游版本事实来自根 `package.json`。
-5. 保留长期规范、许可证、`instantiate` 内部生成所需 tooling、适用 Skills 和锁文件。重置模板名称、示例标识、本机绝对路径、已完成声明和 Harness 历史；法律文本只允许按许可证规则替换精确项目名称。
-6. 不预建 Product Spec、Work Plan、ADR、Status、Verification 或 Changelog。项目记忆只在负责它的后续事件触发时创建。
+3. 正式创建在目标父目录建立同目标唯一的 sibling 租约，并绑定父目录、staging、holding 与预存空目标的设备、inode 和模式；任何身份漂移都停止发布。父目录漂移时不得沿替代路径递归清理，而要报告无法安全回收的原 staging/租约。
+4. 本次首次初始化调用 `$web-check-development-environment` 一次，只检查 Node.js/pnpm；同时运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Chrome 不属于初始化门禁；Git 缺失、模板验证失败或模板状态无法可信识别时停止。
+5. 在复制前固定受维护种子文件清单，再按清单复制到目标同级 sibling staging。排除源 `.git`、`node_modules`、`dist`、`build`、`.plasmo`、缓存、覆盖率、发布产物、临时证据、下游项目、Harness 专用 `Version.md`、`docs/VERIFICATION.md`、`docs/verification/**` 及全部日期项目记忆；下游版本事实来自根 `package.json`。
+6. 保留长期规范、许可证、`instantiate` 内部生成所需 tooling、适用 Skills 和锁文件。重置模板名称、示例标识、本机绝对路径、已完成声明和 Harness 历史；法律文本只允许按许可证规则替换精确项目名称。
+7. 不预建 Product Spec、Work Plan、ADR、Status、Verification 或 Changelog。项目记忆只在负责它的后续事件触发时创建。
 
 ## 建立独立仓库
 
-1. 调用 `pnpm instantiate` 前保持目标完全为空，不要先在目标运行 `git init`；否则 `.git` 会触发非空目标保护。初始化器在生成、安装和门禁通过后默认运行 `git init -b main`。
-2. 命令成功后验证 `git rev-parse --show-toplevel` 的规范路径等于目标根、当前分支为 `main`、`git remote` 为空且 `HEAD` 尚不存在。`--skip-git` 只用于受控测试，不是本 Skill 的终端交付路径。
+1. 调用 `pnpm instantiate` 前保持目标完全为空，不要先在目标运行 `git init`；否则 `.git` 会触发非空目标保护。初始化器只在 staging 中完成生成、安装、结构验证和一次性裁剪后建立 `main` 独立 Git 根；紧邻唯一提交按 `$web-configure-git-commits` 契约执行 `identity-report`、必要时 `identity-bootstrap`、`identity-check`、模板 `install` 与 `check`，随后创建恰好一个 `chore: initialize project` 中性基线提交，全部成功后才允许原子发布。
+2. 命令成功后验证 `git rev-parse --show-toplevel` 的规范路径等于目标根、当前分支为 `main`、`git remote` 为空、`HEAD` 存在且仓库恰好只有一个 root commit，提交主题为 `chore: initialize project`，工作区与暂存区为空。测试可通过直接调用内部 TypeScript 接口注入跳过 Git 或安装；公开 `pnpm instantiate` 不接受 `--skip-git` 或 `--skip-install`。
 3. 不复制源历史，不创建远端、标签、托管仓库，不推送，也不修改全局 Git 配置。
 
 ## 执行唯一创建入口
@@ -36,13 +37,18 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
    pnpm instantiate -- <absolute-target-outside-harness> --type <web|extension> \
      --name "<display-name>" --id <project-id> --description "<description>" \
      --development-base-url <url> --test-base-url <url> \
-     --release-base-url <https-url>
+     --release-base-url <https-url> \
+     --policy-mode <recommended|custom> --confirmed-by "<confirmation-source>"
    ```
+
+   自定义策略模式还必须显式传入 `--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--milestone-smoke enabled|disabled` 与 `--milestone-e2e enabled|disabled`；推荐模式不得混入逐项覆盖。
+
+   交互模式先批量解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数与 `--confirmed-by` 表达本次已确认输入，不追加隐式默认确认。
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的原生 Fetch 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。
 4. 复核 `.harness/project.json`、三份环境、单 package 结构、类型互斥、身份残留、排除项、许可证、安装完成、独立 Git 根及初始化期不存在 `dist/`、`build/` 或 zip。初始化器已经在 staging 内直接执行结构、环境文件与终端化校验，不在外层重复运行格式、lint、类型、全量测试或构建。只有用户另外要求 Release 候选时，才在成功下游中取得当次 E2E 选择并显式运行唯一 `pnpm build`；Extension 打包同理。
-5. 默认只建立独立 Git 根，不创建 commit。只有用户另外明确授权提交时，才在完整脚手架验证后创建本地基线提交；初始化始终不授权远端、推送、标签或发布。
+5. 本次初始化授权只覆盖在完整脚手架验证和一次性裁剪后创建上述唯一 local 基线提交，以及其紧邻的 repo-local 身份/模板配置；不需要另行询问提交授权，也不授权第二个提交、远端、推送、标签、托管仓库或发布。
 
 ## 不变量
 
@@ -55,4 +61,4 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 完成输出
 
-报告模板根、目标根、唯一项目类型、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 边界、初始化期未生成 Release 产物、是否获得提交授权、实际提交（若有）、验证结果、未确定产品事实及下一项产品工作。
+报告模板根、目标根、唯一项目类型、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 顶层/分支、有效身份及其来源、受管提交模板检查、唯一基线 commit、无远端与 clean 状态、初始化期未生成 Release 产物、验证结果及下一步；不得复述源根已拒绝的产品需求。

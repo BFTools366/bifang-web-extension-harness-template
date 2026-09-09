@@ -33,7 +33,8 @@ export function renderWebIndex(config: ProjectConfig): string {
 
 // 执行 renderWebBrand 函数的处理逻辑。
 export function renderWebBrand(config: ProjectConfig): string {
-  return `export const BRAND = {
+  return `/** 保存项目身份与 Web 品牌展示常量。 */
+export const BRAND = {
   name: ${tsString(config.name)},
   id: ${tsString(config.id)},
   description: ${tsString(config.description)},
@@ -87,6 +88,7 @@ export default defineConfig(({ mode }) => ({
       "src/vite-env.d.ts",
       `/// <reference types="vite/client" />
 
+/** 说明 ImportMetaEnv 的稳定结构与职责边界。 */
 interface ImportMetaEnv {
   readonly VITE_APP_ENV: "development" | "test" | "release"
   readonly VITE_API_BASE_URL: string
@@ -95,6 +97,7 @@ interface ImportMetaEnv {
   readonly VITE_REQUEST_TIMEOUT_MS: string
 }
 
+/** 说明 ImportMeta 的稳定结构与职责边界。 */
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
@@ -223,10 +226,12 @@ import type { ReactNode } from "react"
 import { queryClient } from "./queryClient"
 import { theme } from "./theme"
 
+/** 说明 AppProvidersProps 的稳定结构与职责边界。 */
 interface AppProvidersProps {
   children: ReactNode
 }
 
+/** 说明 AppProviders 的稳定结构与职责边界。 */
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <MantineProvider theme={theme}>
@@ -246,6 +251,7 @@ import { routeTree } from "../routeTree.gen"
 export const router = createRouter({ routeTree })
 
 declare module "@tanstack/react-router" {
+  /** 说明 Register 的稳定结构与职责边界。 */
   interface Register {
     router: typeof router
   }
@@ -268,6 +274,7 @@ import { BRAND } from "../../brand"
 import { BUILD_VERSION } from "../../buildVersion"
 import { welcomeCountAtom } from "./welcomeCount.atom"
 
+/** 说明 WelcomePage 的稳定结构与职责边界。 */
 export function WelcomePage() {
   const { t } = useTranslation()
   const [count, setCount] = useAtom(welcomeCountAtom)
@@ -315,8 +322,10 @@ import { AppProviders } from "../../app/AppProviders"
 import { BRAND } from "../../brand"
 import { WelcomePage } from "./WelcomePage"
 
+/** 验证当前场景的核心成功或风险边界。 */
 test("renders the branded landing interaction", async () => {
   const user = userEvent.setup()
+  /** 说明当前方法的稳定职责与行为边界。 */
   render(
     <AppProviders>
       <WelcomePage />
@@ -336,6 +345,7 @@ test("renders the branded landing interaction", async () => {
 import { Link } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 
+/** 说明 NotFoundPage 的稳定结构与职责边界。 */
 export function NotFoundPage() {
   const { t } = useTranslation()
 
@@ -362,6 +372,7 @@ export function NotFoundPage() {
       `import { Outlet, createRootRoute } from "@tanstack/react-router"
 import { NotFoundPage } from "../features/not-found/NotFoundPage"
 
+/** 说明 Route 的稳定结构与职责边界。 */
 export const Route = createRootRoute({
   component: Outlet,
   notFoundComponent: NotFoundPage
@@ -373,6 +384,7 @@ export const Route = createRootRoute({
       `import { createFileRoute } from "@tanstack/react-router"
 import { WelcomePage } from "../features/welcome/WelcomePage"
 
+/** 说明 Route 的稳定结构与职责边界。 */
 export const Route = createFileRoute("/")({
   component: WelcomePage
 })

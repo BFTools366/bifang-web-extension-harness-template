@@ -1,6 +1,6 @@
 ---
 name: web-verify-delivery
-description: 对 Web Harness 前端里程碑或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；只在当次候选启用 E2E 或存在浏览器硬要求时使用真实 Chrome。只在全部 Todo 完成或用户明确要求完整前端验收时使用。
+description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；由发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求触发。
 ---
 
 # Web Harness：验证前端交付
@@ -9,8 +9,8 @@ description: 对 Web Harness 前端里程碑或单一类型纯 TypeScript React 
 
 ## 准入门禁
 
-1. 确认任务是里程碑路径并识别仓库：存在 `.harness/project.json` 时读取唯一 `projectType`；不存在但根 manifest 暴露源专用 `instantiate` 入口时按 Harness 候选读取 `Version.md`。源 Harness 不应存在 `harness:init`，`pnpm harness init` 只能稳定拒绝；下游不得存在任何项目派生或内部初始化入口。同时读取 Agent Policy、活动 Work Plan、相关 Product Spec/ADR、工程规则和既有验证证据。
-2. 要求候选批次每个 Todo 均为 `done`，代码行为有非空单元/回归测试，非代码候选有计划声明的相称验证。否则停止并返回 `$web-implement-change`。
+1. 确认存在发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求，并识别仓库：存在 `.harness/project.json` 时读取唯一 `projectType`；不存在但根 manifest 暴露源专用 `instantiate` 入口时按 Harness 候选读取 `Version.md`。源 Harness 不应存在 `harness:init`，`pnpm harness init` 只能稳定拒绝；下游不得存在任何项目派生或内部初始化入口。同时读取 Agent Policy、工程规则和既有验证证据；只有用户要求的活动 Work Plan、相关 Product Spec/ADR 实际存在时才读取。
+2. 只有存在用户要求的活动 Work Plan 时，才要求当前候选相关 Todo 均为 `done`；没有 Work Plan 不阻断验收。代码行为必须有非空单元/回归测试，纯文档、元数据或不可合理单测的候选必须有相称替代验证。否则停止并返回 `$web-implement-change`。
 3. 要求 Git 顶层等于项目根，并记录当前源码提交和工作区状态。产物必须能精确绑定到该提交、候选版本、lock/hash 与当前环境；工具/依赖版本只按最低版本准入，身份/协议事实不采用“至少”语义。脏状态会影响绑定时必须重建或停止。
 4. 拒绝 mock、stub、占位、初始化空壳、开发预览、源码直接调用、历史产物和目录名猜测。
 5. 每次产物构建前询问用户是否为当次精确候选启用 E2E：`enabled` 标为 `required`，`disabled` 标为 `not-required`，选择不得跨构建复用或由 Agent 推断；用户、产品、安全或渠道硬要求时只能选择 `enabled`。同时按 `docs/AGENT_POLICY.md` 的 `milestone_smoke` 解析冒烟门禁：默认 `not-required`，只有用户、产品、安全或渠道硬要求时标为 `required`；该结果与 E2E 选择相互独立，不互相替代。记录当次选择、场景与授权边界。
@@ -30,13 +30,13 @@ description: 对 Web Harness 前端里程碑或单一类型纯 TypeScript React 
 1. 明确关键成功路径、最高风险失败路径、真实输入/输出、外部前置项、清理和超时。
 2. 当次 E2E 选择为 `disabled` 且 smoke 也为 `not-required` 时记录 `Not run` 与 `Unverified` 范围，不启动 Chrome。关闭浏览器流程不跳过三环境、全量单测、版本注入、Release 构建、日志/敏感信息扫描或其他固定门禁。
 3. 只有 smoke 为 `required` 时才对真实候选运行有边界的 Chrome 冒烟：Web 从 `dist/` 启动本地静态服务；Extension 从精确 MV3 候选加载到隔离 Chrome profile。不得用 Vite/Plasmo 开发服务器代替。
-4. 只有 E2E 为 `required` 时调用 `$web-test-final-artifact-e2e`，传入精确候选路径/hash、`projectType`、Release profile、已批准场景、超时、外部授权边界和清理要求；子 Skill 只返回场景证据，不重新解析策略、重开 Todo 或决定里程碑结论。记录实际 Chrome/OS，不推断其他浏览器或平台。
+4. 只有 E2E 为 `required` 时调用 `$web-test-final-artifact-e2e`，传入精确候选路径/hash、`projectType`、Release profile、已批准场景、超时、外部授权边界和清理要求；子 Skill 只返回场景证据，不重新解析策略、重开 Todo 或决定候选验收结论。记录实际 Chrome/OS，不推断其他浏览器或平台。
 5. 保存候选路径、SHA-256、提交/版本、环境 profile、命令/场景、预期与观察、Release console/扫描、截图（适用时）、清理、跳过项和未验证范围。敏感信息与个人路径最小化。
 6. 后续重新构建、重新打包或任何改变候选字节的操作都会产生新候选，必须重新验证。
 
 ## 失败回流与结论
 
-1. 任一硬门禁或已标记 `required` 的检查失败、超时、取消、未运行，或产物与批准范围不符时，记录失败证据，重开/新增具体 Todo，并立即返回 `$web-implement-change`。修复后重新运行完整里程碑。
+1. 任一硬门禁或已标记 `required` 的检查失败、超时、取消、未运行，或产物与批准范围不符时，记录失败证据；只有用户要求的活动 Work Plan 存在时才重开/新增具体 Todo，并立即返回 `$web-implement-change`。修复后重新运行完整候选验收。
 2. 场景返回 `blocked` 时先分类：源码/产品缺陷重开具体 Todo 并返回 `$web-implement-change`；缺少账号、凭据、外部服务、人工决定或独立授权时保持 `Awaiting human review`，报告精确前置项，不创建伪修复 Todo、不扩大授权，也不得接受候选。
 3. 产品边界变化转 `$web-define-product`；新凭据、生产副作用或不可逆动作必须另行授权。
 4. 只使用：`Milestone accepted`、`Awaiting human review`、`Milestone rejected`。不得使用“部分通过”掩盖必需失败。
