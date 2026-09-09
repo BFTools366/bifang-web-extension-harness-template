@@ -213,6 +213,10 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(manifest.scripts).not.toHaveProperty("harness:init")
     expect(manifest.scripts).not.toHaveProperty("instantiate")
     expect(manifest.scripts).not.toHaveProperty("validate:harness")
+    // 保存 terminalTypes 变量供保留下游 Agent policy 类型契约回归使用。
+    const terminalTypes = await readFile(path.join(targetRoot, ".harness/tooling/types.ts"), "utf8")
+    expect(terminalTypes).toContain('export type AgentPolicyChoice = "enabled" | "disabled"')
+    expect(terminalTypes).toContain("export interface AgentPolicySelection")
     // 保存 removedCreationPath 变量供当前逻辑使用。
     for (const removedCreationPath of [
       ".harness/tooling/init.ts",

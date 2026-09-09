@@ -160,6 +160,18 @@ const TERMINAL_TYPES = `/** 说明 ProjectType 的唯一前端宿主类型。 */
 export type ProjectType = "web" | "extension"
 /** 说明 E2eSelection 的稳定结构与职责边界。 */
 export type E2eSelection = "enabled" | "disabled"
+/** 说明 AgentPolicyChoice 的持久能力选择。 */
+export type AgentPolicyChoice = "enabled" | "disabled"
+
+/** 说明 AgentPolicySelection 的完整策略决议。 */
+export interface AgentPolicySelection {
+  confirmedBy: string
+  confirmedAt: string
+  superpowers: AgentPolicyChoice
+  parallelWorktreeSubagents: AgentPolicyChoice
+  milestoneSmoke: AgentPolicyChoice
+  milestoneE2e: AgentPolicyChoice
+}
 
 /** 说明 BrandConfig 的稳定结构与职责边界。 */
 export interface BrandConfig {

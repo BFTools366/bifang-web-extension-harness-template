@@ -40,7 +40,7 @@ const PLASMO_TYPE_PATH = ".plasmo/index.d.ts"
 // 保存 SOURCE_HARNESS_ROOT 变量供当前逻辑使用。
 const SOURCE_HARNESS_ROOT = fileURLToPath(new URL("../../", import.meta.url))
 // 保存 FORMATTABLE_EXTENSIONS 变量，限制初始化期只格式化本次生成或改写的文本文件。
-const FORMATTABLE_EXTENSIONS = new Set([".html", ".json", ".md", ".mjs", ".ts", ".tsx"])
+const FORMATTABLE_EXTENSIONS = new Set([".css", ".html", ".json", ".md", ".mjs", ".ts", ".tsx"])
 
 // 定义 InitializationCommandRunner 类型，允许回归测试观察创建期外部命令而不执行真实安装。
 export type InitializationCommandRunner = typeof runCommand

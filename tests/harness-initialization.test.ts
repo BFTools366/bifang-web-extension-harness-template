@@ -308,6 +308,12 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
     }
+    // 保存 extensionStylePath 变量供初始化 CSS 格式稳定性回归使用。
+    const extensionStylePath = path.join(root, "src/style.css")
+    // 保存 extensionStyle 变量供初始化 CSS 格式稳定性比较使用。
+    const extensionStyle = await readFile(extensionStylePath, "utf8")
+    // 保存 prettierConfig 变量供初始化 CSS 使用目标仓库正式格式配置。
+    const prettierConfig = (await resolveConfig(path.join(root, "package.json"))) ?? {}
     expect(popup).toContain("data-base64:../assets/icon.png")
     expect(popup).toContain('surface="popup"')
     expect(extensionBrand).toContain("Aurora Clipper")
@@ -368,6 +374,9 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(pagination).not.toContain("chrome.storage")
     expect(paginationControls).toContain("onPageSizeChange")
     expect(tsconfig.include[0]).toBe(".plasmo/index.d.ts")
+    expect(await format(extensionStyle, { ...prettierConfig, filepath: extensionStylePath })).toBe(
+      extensionStyle
+    )
 
     // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
