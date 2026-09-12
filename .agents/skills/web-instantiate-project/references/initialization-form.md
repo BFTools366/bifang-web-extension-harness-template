@@ -8,7 +8,7 @@
 - 非交互 CLI 始终要求第一个位置参数是用户原始输入的完整绝对目标目录。交互式终端可以复用该位置参数；未提供时必须把 `targetRoot` 与其他缺失基础字段放进同一首轮表单。无论来源如何，相对路径都必须在发生任何写入前拒绝，不能用当前目录静默补成绝对路径。
 - 项目类型、显示名称、ASCII kebab-case `id`、说明、三个 BaseURL、Agent 策略模式与确认来源是基础字段。交互式 CLI 用一份清晰编号的表单一次列出全部尚未解析项；当前 CLI 以单行 JSON 接收这一轮回答，JSON key 必须与表单一致。
 - 首轮回复后校验全部基础字段。若有缺失或非法值，下一轮只列出仍需修正的字段、约束和原值问题；已经合法的字段继续复用。基础字段全部解析前不得进入条件问询。
-- 用户一次主动提供多个合法字段时全部解析。选择 `custom` 后，依次解析四项 Agent 策略，每轮只询问当前一个缺失或非法字段；选择 `recommended` 时四项直接由确定性预设解析，不制造多余问询。
+- 用户一次主动提供多个合法字段时全部解析。选择 `custom` 后，依次解析五项 Agent 策略，每轮只询问当前一个缺失或非法字段；选择 `recommended` 时五项直接由确定性预设解析，不制造多余问询。
 - 所有字段解析后展示唯一完整汇总，包含源根与目标根的原始值、规范值、每个输入的来源、项目身份、三 BaseURL、品牌色及完整 Agent Policy。本轮只询问一次“按此创建？”。
 - 用户确认完整汇总前只允许读取规则、解析参数和规范路径，不得创建目标或 sibling staging、复制文件、运行安装、初始化 Git 或修改源文件。拒绝或任何非确认回答都以零写入结束。
 - 本表单不收集产品业务、页面、权限、endpoint、凭据、发布需求或 E2E 选择。初始化完成后，这些事实由终端下游的独立产品与候选事件处理。
@@ -36,18 +36,20 @@
 
 `custom` 模式按下列顺序逐项询问，每项只能是 `enabled` 或 `disabled`：
 
-1. `superpowers`
-2. `parallel_worktree_subagents`
-3. `milestone_smoke`
-4. `milestone_e2e`
+1. `user_owned_tasks`
+2. `superpowers`
+3. `parallel_worktree_subagents`
+4. `acceptance_smoke`
+5. `e2e_hint`
 
-`milestone_e2e` 只保存以后每次候选构建询问时展示的建议值，不替代任何一次真实构建前的用户选择。`recommended` 模式一次确定性物化为：
+`user_owned_tasks` 的推荐/default 值都是 `disabled`。`e2e_hint` 只保存以后每次候选构建询问时展示的建议值，不替代任何一次真实构建前的用户选择。`recommended` 模式一次确定性物化为：
 
 ```yaml
+user_owned_tasks: disabled
 superpowers: disabled
 parallel_worktree_subagents: enabled
-milestone_smoke: enabled
-milestone_e2e: disabled
+acceptance_smoke: enabled
+e2e_hint: disabled
 ```
 
 ## 路径与来源汇总
@@ -57,7 +59,7 @@ milestone_e2e: disabled
 - 源 Harness 根的脚本输入值与 `realpath` 规范值，来源标记为固定 Harness 创建入口；
 - 目标原始绝对值与解析已存在符号链接祖先后的规范值，来源标记为命令行绝对位置参数或交互表单；
 - 每个基础字段来自命令行、交互表单还是 Harness 默认值；
-- 四项策略来自命令行、自定义条件问询还是推荐预设；
+- 五项策略来自命令行、自定义条件问询还是推荐预设；
 - 完整身份、环境与 policy 结果。
 
 路径汇总只是写入前确认事实；正式 initializer 仍必须独立执行空目录、符号链接、源外位置、目录名与 source freeze 门禁。目标不存在时只读解析最近已存在祖先，不得为了得到规范路径而提前创建目录。
@@ -77,7 +79,7 @@ milestone_e2e: disabled
 
 - 所有基础字段均为 `已解析`，条件策略字段均为 `已解析` 或 `不适用`；
 - 目标原始输入本身是绝对路径，原始与规范 source/target 已进入汇总；
-- 推荐预设或四项自定义策略已完全解析，无 `pending`；
+- 推荐预设或五项自定义策略已完全解析，无 `pending`；
 - 每个输入来源已明确；
 - 用户已对唯一完整汇总作出最终确认，或非交互命令已显式提供全部字段与 `--confirmed-by`；
 - 确认前没有发生任何写入，取消或失败没有留下目标与 staging。

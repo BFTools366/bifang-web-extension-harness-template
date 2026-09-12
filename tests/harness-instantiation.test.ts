@@ -297,14 +297,19 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamReadme).toContain("--e2e=enabled|disabled")
     // 保存 downstreamPolicy 变量供当前逻辑使用。
     const downstreamPolicy = await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")
-    expect(downstreamPolicy).toContain("schema_version: 1")
+    expect(downstreamPolicy).toContain("schema_version: 3")
+    expect(downstreamPolicy).not.toMatch(/^schema_version: 1$/mu)
     expect(downstreamPolicy).toContain("confirmed_by: test-owner")
     expect(downstreamPolicy).toContain("confirmed_at: 2026-09-09T00:00:00.000Z")
+    expect(downstreamPolicy).toContain("user_owned_tasks: disabled")
     expect(downstreamPolicy).toContain("parallel_worktree_subagents: enabled")
-    expect(downstreamPolicy).toContain("milestone_smoke: enabled")
-    expect(downstreamPolicy).toContain("milestone_e2e: disabled")
+    expect(downstreamPolicy).toContain("acceptance_smoke: enabled")
+    expect(downstreamPolicy).toContain("e2e_hint: disabled")
+    expect(downstreamPolicy).not.toMatch(/^milestone_smoke:/mu)
+    expect(downstreamPolicy).not.toMatch(/^milestone_e2e:/mu)
     expect(downstreamPolicy).not.toContain("standard_work_plan")
-    expect(downstreamPolicy).toContain("{序号}|{Task简述}|{当前进度} |{功能摘要}")
+    expect(downstreamPolicy).toContain("Task {序号} | {当前进度} | {单一结果}")
+    expect(downstreamPolicy).not.toContain("{序号}|{Task简述}|{当前进度} |{功能摘要}")
     expect(downstreamPolicy).toContain("构建、E2E、扫描和验收继续完全遵循当前仓库")
     // 保存 downstreamEngineering 变量供当前逻辑使用。
     const downstreamEngineering = await readFile(

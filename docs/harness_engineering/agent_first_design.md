@@ -18,15 +18,15 @@ Harness 的首要产物不是文件数量，而是一组能被 Agent、用户和
 
 ## 会话、Task 与 Subagent
 
-普通当前 Session、用户可见 Worktree/Local 左侧 Task 与内部 Subagent/agent thread 使用同一逻辑标题：
+用户可见左侧 Task 使用三字段标题：
 
 ```text
-{序号}|{Task简述}|{当前进度} |{功能摘要}
+Task {序号} | {当前进度} | {单一结果}
 ```
 
-进度只取 `已分配`、`运行中`、`检查中`、`已完成`；同一结果中序号、简述和摘要稳定。每次真实阶段转换至多尝试一次更新并有界复读。标题 API 失败不覆盖工程结果，但未完成、未发布或被阻断的工作不得虚写完成。
+进度只取 `已分配`、`运行中`、`检查中`、`已完成`；同一结果中序号和单一结果稳定。内部 plan、Subagent 与单元 Worktree 不使用该标题合同，也不占用项目序号。每次真实阶段转换至多尝试一次更新并有界复读。标题 API 失败不覆盖工程结果，但未完成、未发布或被阻断的工作不得虚写完成。
 
-左侧 Task 只在用户明确要求时创建，并精确绑定已保存项目；Git Task 使用独立登记 Worktree 和 `codex/task-*`。内部 Subagent 属于当前 Task，不调用创建左侧 Task 的入口；内部单元使用 `codex/unit-*` 和 Git common-dir 中的所有权登记。显示标题、技术 `task_name`、Git ref、Worktree 路径和项目身份相互独立。
+`user_owned_tasks: disabled` 时只在用户明确要求时创建左侧 Task；`enabled` 时结果边界变化前自动创建。Git Task 使用独立登记 Worktree 和 `codex/task-*`。内部 Subagent 属于当前 Task，不调用创建左侧 Task 的入口；内部单元使用 `codex/unit-*` 和 Git common-dir 中的所有权登记。显示标题、技术 `task_name`、Git ref、Worktree 路径和项目身份相互独立。
 
 ## 失败关闭
 

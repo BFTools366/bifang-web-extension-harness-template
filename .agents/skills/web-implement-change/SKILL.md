@@ -9,9 +9,12 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 ## 工作流程
 
+用户可见 Task 的序号按同一 `hostId` 和精确 `projectId` 清点：先读取 `list_threads`，再逐页读取 `list_archived_threads` 清点归档 Task，从最大有效序号继续递增；空历史才从 1 开始，缺号不回填。内部 Subagent 不使用 `Task {序号} | {当前进度} | {单一结果}` 标题合同且不占用序号。
+
 1. 直接实现当前授权范围。多步骤、多模块、中等风险或 Agent 偏好本身不创建 Work Plan、全仓检查、构建、冒烟或 E2E；安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、对外兼容契约和正式发布分别进入解决该风险所需的专用门禁。
+   `user_owned_tasks: disabled` 时当前请求直接在当前 Task 中完成，不自动调用 `create_thread`；用户明确要求创建时仍执行。`enabled` 时，若交付物类型、生命周期阶段、外部副作用、禁止范围或验收责任使结果越出当前固定边界，任何写入前结束或暂停当前 Task 并以 `Task {序号} | 已分配 | {单一结果}` 创建新的 user-owned Task。证明同一结果的测试、review、checkpoint 和必要同范围修复不拆。每项目同一时间只允许一个写入型 active Task，Task0 只协调。用户可见 Task 必须使用 `Task {序号} | {当前进度} | {单一结果}`；编号和单一结果全程稳定，进度只能是 `已分配`、`运行中`、`检查中`、`已完成`。可读取线程元数据时以真实 `threadId` 对账标题、`projectId`、cwd 和状态，不靠标题承担身份。
 2. 先识别仓库：存在 `.harness/project.json` 时是唯一类型下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
-3. 确认 Git 顶层目录等于项目根，并保留所有用户修改。先检查 diff；重叠修改无法安全整合时停止，不重置、覆盖或顺手格式化无关文件。
+3. 确认 Git 顶层目录等于项目根，并保留所有用户修改。先检查 diff；重叠修改无法安全整合时停止，不重置、覆盖或顺手格式化无关文件。若当前说明来自左侧 user-owned Task，首次编辑前必须核对描述中的 Task 编号、单一结果、范围、禁止范围、完成条件、保存项目完整路径、`projectId`、repository identity、环境和起始提交。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
 6. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
@@ -35,7 +38,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 ## 测试与验证
 
 1. 行为变化新增或更新非空测试：成功路径、最高风险失败和缺陷回归。组件交互用 Testing Library；纯函数/服务用 Vitest；Extension 消息、storage 和权限拒绝覆盖相应契约。
-2. 日常实现只运行第 1 项新增或更新的相关非空测试；通常使用 `pnpm test:related <changed-source...>`，相关图返回零测试时改跑所属测试文件或记录相称最小替代检查，不得把空批次声明为通过。纯文档、元数据、格式或不可合理单测的机械变化不制造空洞测试，只运行证明解析或差异完整所必需的最小检查。
+2. 日常实现只运行第 1 项新增或更新的相关非空测试；通常使用 `pnpm test:related <changed-source...>`，相关图返回零测试时改跑所属测试文件或记录相称最小替代检查，不得把空批次声明为通过。用户可见 Task 真实进入这些测试、review 或 checkpoint 前把标题进度更新为 `检查中`；检查失败并返回同范围修复时更新为 `运行中`，再次检查再进入 `检查中`。每次真实转换至多尝试一次，并按真实 `threadId` 用 `list_threads` 有界复读。内部 Subagent 不适用用户可见 Task 标题合同。纯文档、元数据、格式或不可合理单测的机械变化不制造空洞测试，只运行证明解析或差异完整所必需的最小检查。
 3. 日常开发不得自动追加格式化、lint、typecheck、集成/契约、全仓测试、构建、文件行数、中文声明注释、冒烟或 E2E。只有本次变化确实需要、用户明确请求，或正式候选/产品/安全/权限/渠道硬要求时才运行对应门禁；任一已经运行的检查失败仍在当前授权范围内修复并重跑。行为保持重构按 `$web-refactor-code` 运行全量测试。
 4. 只有用户明确请求最终产物/完整验收、当前任务正在形成发布候选，或产品、安全、权限、渠道存在真实候选硬要求时才运行唯一 `pnpm build`。每次调用前都询问用户是否为当次候选启用 E2E，并传入 `--e2e=enabled|disabled`；不得从默认策略或历史选择替用户决定。构建固定委托 `build:release`，并拥有环境、Harness、格式、lint、类型、全量测试、`YYYYMMDDHHMM` 版本注入、生产构建和 `release:inspect` 门禁。模板输出契约需要完整验收时，还要在隔离目录生成并验证 Web 与 Extension，但每个下游只生成自身 Release 候选，不生成 development/test 产物。
 5. 本次变化确实涉及职责或体积时，检查人工维护文件：终端下游 501–1000 行复核业务高内聚与单一职责，1001 行起必须按业务职责拆分到同一功能或工具模块目录；源 Harness 按其 `docs/ENGINEERING_RULES.md` 的 500/2000 受管文本边界执行。不得压缩格式或建立跨模块兜底目录规避。
@@ -48,4 +51,4 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 ## 完成输出
 
-报告路径、变更、每项公开行为的“入口 → 实现 → 测试”映射、权限变化、检查与修复、Todo 状态、未运行项和剩余风险。实施授权不包含发布、推送、标签、凭据或不可逆外部操作。
+报告路径、变更、每项公开行为的“入口 → 实现 → 测试”映射、权限变化、检查与修复、Todo 状态、未运行项、剩余风险和适用的用户可见 Task 进度标题状态。授权结果、全部必需检查以及请求要求的提交/推送/远端复读完成后，用户可见 Task 才把标题进度更新为终态 `已完成`。实施授权不包含发布、推送、标签、凭据或不可逆外部操作。

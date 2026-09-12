@@ -26,9 +26,10 @@ export interface PromptDefaults {
   policyMode?: string
   confirmedBy?: string
   superpowers?: string
+  userOwnedTasks?: string
   parallelWorktreeSubagents?: string
-  milestoneSmoke?: string
-  milestoneE2e?: string
+  acceptanceSmoke?: string
+  e2eHint?: string
 }
 
 /** 描述基础表单解析完成后的项目身份与 Agent 策略。 */
@@ -198,9 +199,10 @@ function normalizeBasicField(
     const policyMode = parsePolicyMode(requiredText(value, "Agent policy mode"))
     const hasIndividualPolicy = [
       allValues.superpowers,
+      allValues.userOwnedTasks,
       allValues.parallelWorktreeSubagents,
-      allValues.milestoneSmoke,
-      allValues.milestoneE2e
+      allValues.acceptanceSmoke,
+      allValues.e2eHint
     ].some((choice) => choice !== undefined)
     if (policyMode === "recommended" && hasIndividualPolicy) {
       throw new Error(
@@ -346,12 +348,19 @@ export async function collectPromptedIdentity(
   if (policyMode === "recommended") {
     agentPolicy = recommendedAgentPolicy(confirmedBy)
     policySources = {
+      userOwnedTasks: "recommended 确定性预设",
       superpowers: "recommended 确定性预设",
       parallelWorktreeSubagents: "recommended 确定性预设",
-      milestoneSmoke: "recommended 确定性预设",
-      milestoneE2e: "recommended 确定性预设"
+      acceptanceSmoke: "recommended 确定性预设",
+      e2eHint: "recommended 确定性预设"
     }
   } else {
+    const userOwnedTasks = await collectPolicyChoice(
+      basic.userOwnedTasks,
+      "user-owned-tasks",
+      "左侧 user-owned Task 自动拆分（enabled 或 disabled；推荐 disabled）：",
+      ask
+    )
     const superpowers = await collectPolicyChoice(
       basic.superpowers,
       "superpowers",
@@ -364,15 +373,15 @@ export async function collectPromptedIdentity(
       "并行 Worktree/Subagent（enabled 或 disabled）：",
       ask
     )
-    const milestoneSmoke = await collectPolicyChoice(
-      basic.milestoneSmoke,
-      "milestone-smoke",
+    const acceptanceSmoke = await collectPolicyChoice(
+      basic.acceptanceSmoke,
+      "acceptance-smoke",
       "完整候选冒烟（enabled 或 disabled）：",
       ask
     )
-    const milestoneE2e = await collectPolicyChoice(
-      basic.milestoneE2e,
-      "milestone-e2e",
+    const e2eHint = await collectPolicyChoice(
+      basic.e2eHint,
+      "e2e-hint",
       "构建 E2E 建议默认值（enabled 或 disabled；不替代以后每次构建询问）：",
       ask
     )
@@ -380,15 +389,17 @@ export async function collectPromptedIdentity(
       confirmedBy,
       confirmedAt: new Date().toISOString(),
       superpowers: superpowers.choice,
+      userOwnedTasks: userOwnedTasks.choice,
       parallelWorktreeSubagents: parallelWorktreeSubagents.choice,
-      milestoneSmoke: milestoneSmoke.choice,
-      milestoneE2e: milestoneE2e.choice
+      acceptanceSmoke: acceptanceSmoke.choice,
+      e2eHint: e2eHint.choice
     }
     policySources = {
+      userOwnedTasks: userOwnedTasks.source,
       superpowers: superpowers.source,
       parallelWorktreeSubagents: parallelWorktreeSubagents.source,
-      milestoneSmoke: milestoneSmoke.source,
-      milestoneE2e: milestoneE2e.source
+      acceptanceSmoke: acceptanceSmoke.source,
+      e2eHint: e2eHint.source
     }
   }
 
@@ -440,7 +451,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - Development BaseURL：${summary.init.developmentBaseUrl}
 - Test BaseURL：${summary.init.testBaseUrl}
 - Release BaseURL：${summary.init.releaseBaseUrl}
-- Agent Policy：superpowers=${policy.superpowers}, parallel_worktree_subagents=${policy.parallelWorktreeSubagents}, milestone_smoke=${policy.milestoneSmoke}, milestone_e2e=${policy.milestoneE2e}
+- Agent Policy：user_owned_tasks=${policy.userOwnedTasks}, superpowers=${policy.superpowers}, parallel_worktree_subagents=${policy.parallelWorktreeSubagents}, acceptance_smoke=${policy.acceptanceSmoke}, e2e_hint=${policy.e2eHint}
 - 策略确认来源：${policy.confirmedBy}
 - 策略确认时间：${policy.confirmedAt}
 - 输入来源：

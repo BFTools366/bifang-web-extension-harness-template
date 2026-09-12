@@ -168,9 +168,10 @@ export interface AgentPolicySelection {
   confirmedBy: string
   confirmedAt: string
   superpowers: AgentPolicyChoice
+  userOwnedTasks: AgentPolicyChoice
   parallelWorktreeSubagents: AgentPolicyChoice
-  milestoneSmoke: AgentPolicyChoice
-  milestoneE2e: AgentPolicyChoice
+  acceptanceSmoke: AgentPolicyChoice
+  e2eHint: AgentPolicyChoice
 }
 
 /** 说明 BrandConfig 的稳定结构与职责边界。 */

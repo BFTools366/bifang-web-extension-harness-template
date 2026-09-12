@@ -27,9 +27,10 @@ const INSTANTIATE_OPTIONS = [
   "policy-mode",
   "confirmed-by",
   "superpowers",
+  "user-owned-tasks",
   "parallel-worktree-subagents",
-  "milestone-smoke",
-  "milestone-e2e"
+  "acceptance-smoke",
+  "e2e-hint"
 ] as const
 
 /** 保存脚本文件确定的默认 Harness 源根。 */
@@ -110,10 +111,11 @@ function inputSources(
   const source = (option: string): string =>
     optionNames.has(option) ? "命令行参数" : interactive ? "交互表单" : "缺失"
   const choices = [
+    { field: "userOwnedTasks", option: "user-owned-tasks" },
     { field: "superpowers", option: "superpowers" },
     { field: "parallelWorktreeSubagents", option: "parallel-worktree-subagents" },
-    { field: "milestoneSmoke", option: "milestone-smoke" },
-    { field: "milestoneE2e", option: "milestone-e2e" }
+    { field: "acceptanceSmoke", option: "acceptance-smoke" },
+    { field: "e2eHint", option: "e2e-hint" }
   ]
   const result: Record<string, string> = {
     sourceRoot: "脚本固定 Harness 源入口",

@@ -57,7 +57,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 
 不要复制模板后原地初始化。源 Harness 不再提供 `pnpm harness:init` script；`pnpm harness init` 会在解析项目输入或写入文件前明确拒绝，并指向源外的 `pnpm instantiate`。底层 initializer 只是 `instantiate` 在目标同级 sibling staging 中调用的内部步骤，不是受支持的用户或 Agent 入口。
 
-非交互调用还必须提供 `--development-base-url`、`--test-base-url`、`--release-base-url`、`--policy-mode recommended|custom` 与 `--confirmed-by <source>`；自定义模式还必须显式提供四项策略选择。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。初始化不生成 Release 候选，因此不询问或接受 E2E 选择；E2E 只在后续显式 `pnpm build` 时决定。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
+非交互调用还必须提供 `--development-base-url`、`--test-base-url`、`--release-base-url`、`--policy-mode recommended|custom` 与 `--confirmed-by <source>`；自定义模式还必须显式提供五项策略选择（`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint`）。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。初始化不生成 Release 候选，因此不询问或接受 E2E 选择；E2E 只在后续显式 `pnpm build` 时决定。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
 
 `pnpm instantiate` 会先完成输入、一次 Node.js/pnpm 环境检查与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、只格式化本次生成/改写文件并执行静态下游校验，然后安装一次依赖并建立独立 Git 根；全部成功后才以原子 rename 发布到目标。创建期不运行 lint、typecheck、全量测试、生产构建或 `release:inspect`，也不生成 `dist/`、`build/` 或 zip。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
 

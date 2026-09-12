@@ -28,9 +28,10 @@ const INIT_OPTIONS = [
   "policy-mode",
   "confirmed-by",
   "superpowers",
+  "user-owned-tasks",
   "parallel-worktree-subagents",
-  "milestone-smoke",
-  "milestone-e2e"
+  "acceptance-smoke",
+  "e2e-hint"
 ] as const
 
 // 执行 usage 函数的处理逻辑。
@@ -42,9 +43,9 @@ Project creation (the target must be outside this Harness repository):
     --description <description> --development-base-url <url> \\
     --test-base-url <url> --release-base-url <https-url> \\
     --policy-mode recommended|custom --confirmed-by <source> \\
-    [--superpowers enabled|disabled] \\
+    [--superpowers enabled|disabled] [--user-owned-tasks enabled|disabled] \\
     [--parallel-worktree-subagents enabled|disabled] \\
-    [--milestone-smoke enabled|disabled] [--milestone-e2e enabled|disabled] \\
+    [--acceptance-smoke enabled|disabled] [--e2e-hint enabled|disabled] \\
     [--brand-color <#RRGGBB>] [--logo <path>]
 
 Maintenance commands:
@@ -75,9 +76,10 @@ function nonInteractiveAgentPolicy(supplied: {
   policyMode?: string
   confirmedBy?: string
   superpowers?: string
+  userOwnedTasks?: string
   parallelWorktreeSubagents?: string
-  milestoneSmoke?: string
-  milestoneE2e?: string
+  acceptanceSmoke?: string
+  e2eHint?: string
 }): AgentPolicySelection {
   const confirmedBy = supplied.confirmedBy?.trim()
   if (confirmedBy === undefined || confirmedBy === "") {
@@ -86,9 +88,10 @@ function nonInteractiveAgentPolicy(supplied: {
   if (supplied.policyMode === "recommended") {
     if (
       supplied.superpowers !== undefined ||
+      supplied.userOwnedTasks !== undefined ||
       supplied.parallelWorktreeSubagents !== undefined ||
-      supplied.milestoneSmoke !== undefined ||
-      supplied.milestoneE2e !== undefined
+      supplied.acceptanceSmoke !== undefined ||
+      supplied.e2eHint !== undefined
     ) {
       throw new Error("Recommended policy mode does not accept individual policy overrides")
     }
@@ -101,12 +104,13 @@ function nonInteractiveAgentPolicy(supplied: {
     confirmedBy,
     confirmedAt: new Date().toISOString(),
     superpowers: policyChoice(supplied.superpowers, "--superpowers"),
+    userOwnedTasks: policyChoice(supplied.userOwnedTasks, "--user-owned-tasks"),
     parallelWorktreeSubagents: policyChoice(
       supplied.parallelWorktreeSubagents,
       "--parallel-worktree-subagents"
     ),
-    milestoneSmoke: policyChoice(supplied.milestoneSmoke, "--milestone-smoke"),
-    milestoneE2e: policyChoice(supplied.milestoneE2e, "--milestone-e2e")
+    acceptanceSmoke: policyChoice(supplied.acceptanceSmoke, "--acceptance-smoke"),
+    e2eHint: policyChoice(supplied.e2eHint, "--e2e-hint")
   }
 }
 
@@ -114,17 +118,19 @@ function nonInteractiveAgentPolicy(supplied: {
 export function requiresInteractiveAgentPolicyPrompt(supplied: {
   policyMode?: string
   superpowers?: string
+  userOwnedTasks?: string
   parallelWorktreeSubagents?: string
-  milestoneSmoke?: string
-  milestoneE2e?: string
+  acceptanceSmoke?: string
+  e2eHint?: string
 }): boolean {
   return (
     supplied.policyMode === "custom" &&
     [
+      supplied.userOwnedTasks,
       supplied.superpowers,
       supplied.parallelWorktreeSubagents,
-      supplied.milestoneSmoke,
-      supplied.milestoneE2e
+      supplied.acceptanceSmoke,
+      supplied.e2eHint
     ].some((value) => value === undefined)
   )
 }
@@ -154,9 +160,10 @@ export async function resolveInitOptions(
     policyMode: readStringOption(args, "policy-mode"),
     confirmedBy: readStringOption(args, "confirmed-by"),
     superpowers: readStringOption(args, "superpowers"),
+    userOwnedTasks: readStringOption(args, "user-owned-tasks"),
     parallelWorktreeSubagents: readStringOption(args, "parallel-worktree-subagents"),
-    milestoneSmoke: readStringOption(args, "milestone-smoke"),
-    milestoneE2e: readStringOption(args, "milestone-e2e")
+    acceptanceSmoke: readStringOption(args, "acceptance-smoke"),
+    e2eHint: readStringOption(args, "e2e-hint")
   }
   // 保存 required 变量供当前逻辑使用。
   const required = [

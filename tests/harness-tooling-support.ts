@@ -34,9 +34,10 @@ const TEST_AGENT_POLICY = {
   confirmedBy: "test-owner",
   confirmedAt: "2026-09-09T00:00:00.000Z",
   superpowers: "disabled",
+  userOwnedTasks: "disabled",
   parallelWorktreeSubagents: "enabled",
-  milestoneSmoke: "enabled",
-  milestoneE2e: "disabled"
+  acceptanceSmoke: "enabled",
+  e2eHint: "disabled"
 } as const
 // 保存 OPTIONAL_INTEGRATION_PACKAGES 变量供当前逻辑使用。
 const OPTIONAL_INTEGRATION_PACKAGES = [

@@ -41,7 +41,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
      --policy-mode <recommended|custom> --confirmed-by "<confirmation-source>"
    ```
 
-   自定义策略模式还必须显式传入 `--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--milestone-smoke enabled|disabled` 与 `--milestone-e2e enabled|disabled`；推荐模式不得混入逐项覆盖。
+   自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
    交互模式先批量解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数与 `--confirmed-by` 表达本次已确认输入，不追加隐式默认确认。
 

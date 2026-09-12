@@ -52,6 +52,7 @@ describe("single-package Harness validation and governance", () => {
       }),
       "unexpected",
       "disabled",
+      "disabled",
       "enabled",
       "enabled",
       "disabled"
@@ -71,11 +72,12 @@ describe("single-package Harness validation and governance", () => {
     expect(questions[1]).toContain("JSON key: releaseBaseUrl")
     expect(questions[1]).not.toContain("JSON key: name")
     expect(questions[1]).not.toContain("JSON key: developmentBaseUrl")
-    expect(questions[2]).toContain("Superpowers")
-    expect(questions[3]).toContain("superpowers must be enabled or disabled")
-    expect(questions[4]).toContain("并行 Worktree/Subagent")
-    expect(questions[5]).toContain("完整候选冒烟")
-    expect(questions[6]).toContain("构建 E2E 建议默认值")
+    expect(questions[2]).toContain("左侧 user-owned Task 自动拆分")
+    expect(questions[3]).toContain("user-owned-tasks must be enabled or disabled")
+    expect(questions[4]).toContain("Superpowers")
+    expect(questions[5]).toContain("并行 Worktree/Subagent")
+    expect(questions[6]).toContain("完整候选冒烟")
+    expect(questions[7]).toContain("构建 E2E 建议默认值")
     expect(answers).toEqual([])
     expect(resolved).toMatchObject({
       targetRoot: path.join(repositoryRoot, "..", "interactive-web"),
@@ -90,10 +92,11 @@ describe("single-package Harness validation and governance", () => {
       },
       agentPolicy: {
         confirmedBy: "interactive-owner",
+        userOwnedTasks: "disabled",
         superpowers: "disabled",
         parallelWorktreeSubagents: "enabled",
-        milestoneSmoke: "enabled",
-        milestoneE2e: "disabled"
+        acceptanceSmoke: "enabled",
+        e2eHint: "disabled"
       }
     })
   })

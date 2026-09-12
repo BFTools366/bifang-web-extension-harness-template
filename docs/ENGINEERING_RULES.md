@@ -129,7 +129,7 @@
 | `README.md`                     | 用途、初始化方式、目录、命令、维护状态与产品边界    |
 | `AGENTS.md`                     | Agent 渐进读取、事件路由、硬约束、Skills 与约束地图 |
 | `Version.md`                    | Harness 当前时间版本与发布状态                      |
-| `docs/AGENT_POLICY.md`          | 能力偏好、统一标题、持久计划、并行与候选浏览器偏好  |
+| `docs/AGENT_POLICY.md`          | 能力偏好、用户可见 Task 开关/标题、并行与候选浏览器偏好 |
 | `docs/ENGINEERING_RULES.md`     | 文件、TypeScript、注释、文档、测试与例外规则        |
 | `docs/MANTINE_UI_GUIDELINES.md` | Mantine UI 令牌、布局、组件、状态与无障碍规范       |
 | `docs/TS_WEB_TEMPLATE.md`       | 单类型初始化与两种技术基线                          |

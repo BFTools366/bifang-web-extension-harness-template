@@ -18,12 +18,14 @@ export interface AgentPolicySelection {
   confirmedAt: string
   // 描述 superpowers 接口成员的结构契约。
   superpowers: AgentPolicyChoice
+  // 描述 userOwnedTasks 接口成员的结构契约。
+  userOwnedTasks: AgentPolicyChoice
   // 描述 parallelWorktreeSubagents 接口成员的结构契约。
   parallelWorktreeSubagents: AgentPolicyChoice
-  // 描述 milestoneSmoke 接口成员的结构契约。
-  milestoneSmoke: AgentPolicyChoice
-  // 描述 milestoneE2e 接口成员的结构契约。
-  milestoneE2e: AgentPolicyChoice
+  // 描述 acceptanceSmoke 接口成员的结构契约。
+  acceptanceSmoke: AgentPolicyChoice
+  // 描述 e2eHint 接口成员的结构契约。
+  e2eHint: AgentPolicyChoice
 }
 
 // 定义 BrandConfig 接口的结构契约。

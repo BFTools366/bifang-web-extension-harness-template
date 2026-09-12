@@ -42,9 +42,10 @@ const TEST_AGENT_POLICY = {
   confirmedBy: "test-owner",
   confirmedAt: "2026-09-09T00:00:00.000Z",
   superpowers: "disabled",
+  userOwnedTasks: "disabled",
   parallelWorktreeSubagents: "enabled",
-  milestoneSmoke: "enabled",
-  milestoneE2e: "disabled"
+  acceptanceSmoke: "enabled",
+  e2eHint: "disabled"
 } as const
 /** 保存测试 Git 命令的无 Shell 异步入口。 */
 const execFileAsync = promisify(execFile)

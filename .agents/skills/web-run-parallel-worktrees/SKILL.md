@@ -5,7 +5,7 @@ description: 在用户当前明确要求且项目策略允许时，把一个 Web
 
 # Web Harness：运行前端并行工作树
 
-本 Skill 只管理当前 user-owned Task 内部的写入单元。它不调用 `create_thread`，也不把显示标题、Subagent 技术 `task_name`、Task 分支和单元分支混为一个身份。
+本 Skill 只管理当前 Task 内部的 Subagent 单元。它不调用 `create_thread`，不创建新的左侧 Task，也不受 `user_owned_tasks` 开关控制。内部 agent thread 与单元 Worktree 不使用 `Task {序号} | {当前进度} | {单一结果}` 标题合同、不占用项目 Task 序号；宿主技术 `task_name`、`codex/unit-*` 分支和父 Task 标题互相独立。
 
 ## 适用与授权
 
@@ -16,7 +16,7 @@ description: 在用户当前明确要求且项目策略允许时，把一个 Web
 ## 身份与准备
 
 1. `--project-root` 是 Codex 保存项目的 primary checkout，`--source-worktree` 是当前左侧 Task 的实际 Git 顶层；两者必须登记在同一 Git common-dir。
-2. 父 Task 使用独立 ASCII `task-slug` 和分支 `codex/task-<task-slug>`；单元使用 `codex/unit-<task-slug>-<unit-slug>`。显示标题仍为 `{序号}|{Task简述}|{当前进度} |{功能摘要}`，不得拿它生成 Git ref 或受限 `spawn_agent.task_name`。
+2. 父 Task 使用独立 ASCII `task-slug` 和分支 `codex/task-<task-slug>`；单元使用 `codex/unit-<task-slug>-<unit-slug>`。不得把父 Task 显示标题传给 `spawn_agent.task_name`、`--task`、`--unit` 或 Git ref。隐藏 Subagent 不占用用户可见项目序列。
 3. 每个单元声明一个或多个非空 repo-relative `--write-target`。`.`、`./`、空/重复分隔段、任何原始 `..` 段、绝对/越界路径、符号链接逃逸、同一单元冗余祖先/后代及活动单元间任何重叠都失败关闭；helper 不会先 normalize 再接受歧义输入。
 4. 从 source Worktree 精确 cwd 创建每个单元；协调方在首个单元前冻结当前完整 commit OID，`--expected-units` 至少为 2，同批次所有单元必须共享并复核该 base OID：
 
@@ -31,7 +31,7 @@ helper 把不可变 source、common-dir、base OID、分支、Worktree 和所有
 
 ## 分派、执行与整合
 
-1. 协调方在 `spawn_agent` 前为 Subagent 分配完整 `已分配` 显示标题并写入消息。Subagent 取得执行权后先更新为 `运行中`，检查时为 `检查中`，真正完成时为 `已完成`；每次真实转换至多更新一次。隐藏 Subagent 用 `read_thread` 有界复读，不创建可见替代 Task。
+1. 协调方在 `spawn_agent` 前只写入受限技术 `task_name` 和清晰职责描述。内部 agent thread 只报告技术标识和父 Task，不得使用用户可见 Task 标题、占用项目序号、把自己称为新的左侧 Task 或调用 `create_thread`。隐藏 Subagent 用 `read_thread` 有界复读，不创建可见替代 Task。
 2. Subagent 在任何编辑前从单元精确 cwd 运行 `guard`，重复本轮意图路径。guard 会先检查所有既有 staged/unstaged/untracked/rename 路径是否仍在登记所有权内：
 
 ```text

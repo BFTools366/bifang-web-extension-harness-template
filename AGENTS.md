@@ -6,7 +6,7 @@
 
 ## 启动门禁
 
-1. 先读取本文件，再读取 `docs/AGENT_POLICY.md` 的 YAML frontmatter 与字段语义；只有任务、并行、标题、构建、E2E 或策略变更相关时，才继续读取对应章节。
+1. 先读取本文件，再读取 `docs/AGENT_POLICY.md` 的 YAML frontmatter 与字段语义；只有创建/执行左侧 Task、显式并行、构建或修改持久策略时，才继续读取对应章节。
 2. 根目录没有 `.harness/project.json` 且仍有源专用实例化入口时，先执行源范围门禁：只接受 Harness 自身维护，以及创建下游所需的固定初始化字段。产品目的、业务功能、产品专属 UI/文案/数据、远程地址、凭据、产品构建或发布需求不得在模板源中接收、分析、记录或实施；混合请求只解析允许的初始化部分，其余要求用户在完成实例化或切换到既有下游后重提。
 3. 写入前确认 Git 根、分支和工作区并保护已有修改；重叠无法安全处理时停止。不存在的命令、能力或验证结果不得虚构。
 4. 先判定任务类型，再只读取下表命中的事实来源与 Skill；冲突或缺失时才扩大读取，不一次加载全部文档、历史或 Skills。
@@ -21,7 +21,8 @@
 | 范围清楚的实现、问题修复或 i18n 整理      | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实    | `$web-implement-change`、`$web-extract-i18n-strings`                           |
 | UI、页面、Popup、Options、响应式或无障碍  | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节       | `$web-implement-change`                                                        |
 | 环境、数据、认证、事件流或日志            | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | `$web-implement-change`                                                        |
-| 左侧 Task、标题、项目绑定、内部并行或提交 | `docs/AGENT_POLICY.md` 的精确章节；实际提交再读提交 Skill            | Codex Task 工具、`$web-run-parallel-worktrees`、`$web-configure-git-commits`   |
+| 创建或检查左侧 user-owned Task            | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”        | Codex Task 工具；`user_owned_tasks` 启用或用户明确要求时调用                   |
+| 当前 Task 内部并行或提交                  | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill            | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                    |
 | 恢复、阻断、交接或持久计划                | 最新 Product Status；用户要求或已有活动计划时读最新 Work Plan        | `$web-plan-change`，仅在独立触发器成立时                                       |
 | 显式候选、完整验收或 E2E                  | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则             | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e` |
 | 长期决定、硬例外或源记忆整理              | `docs/adr/README.md` 与最新 ADR；只追溯其明确引用                    | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                        |
@@ -31,7 +32,8 @@
 ## 始终生效的边界
 
 - `superpowers: disabled` 时不得调用或遵循任何 `superpowers:*` Skill；其他能力开关只表示允许，不能替代当前任务的触发条件或授权。日常工作直接实施，只运行本次变化需要的相关非空测试或最小替代检查；不得因复杂、多模块、用户可见或 Agent 偏好自动增加持久计划、全仓检查、构建、浏览器或完整验收。
-- 普通 Session、Worktree/Local 左侧 Task 与内部 Subagent 使用 `{序号}|{Task简述}|{当前进度} |{功能摘要}`，进度只取 `已分配`、`运行中`、`检查中`、`已完成`。每次真实转换至多尝试一次更新和有界复读；失败报告但不阻断已完成结果，未完成不得虚写 `已完成`。详细身份与生命周期只在相关任务中读取 `docs/AGENT_POLICY.md`。
+- 除非用户明确说当前 Task 内部步骤、plan 或 Subagent，Task 一律指 Codex 左侧 user-owned Task。用户可见 Task 使用 `Task {序号} | {当前进度} | {单一结果}`；同一 `hostId` 与精确 `projectId` 先用 `list_threads` 和同宿主归档清点有效标题，再从最大有效序号递增，空历史才用 1、缺号不回填。进度只取 `已分配`、`运行中`、`检查中`、`已完成`。内部 plan、Subagent、Worktree 不占用该序号、不使用该标题合同。每次真实转换至多更新一次并用真实 `threadId` 有界复读；失败报告但不阻断已完成结果，也不得虚写 `已完成`。
+- `user_owned_tasks: disabled` 时不得自动创建或拆分左侧 Task，但仍响应用户明确创建请求；`enabled` 时结果边界变化前自动创建。一个 Task 固定一个可验收结果；交付物类型、生命周期阶段、外部副作用、禁止范围或验收责任变化都必须拆新 Task，证明同一结果的测试/review 和同范围修复不拆。每项目同一时间只允许一个写入型 active Task，Task0 只能协调。
 - 新下游只能从源根通过唯一公开实例化入口在源外空目录创建。初始化先冻结并复核源与目标事实，只在同级暂存区写入；成功结果是单一宿主、独立 Git 根、恰好一个受管中性本地基线提交且无远端，不产生最终候选。详细字段、依赖、环境、身份、裁剪和原子发布规则只在创建任务中读取对应事实源与 Skill。
 - 下游始终平铺单包且只有一个 `projectType`；不得叠加或切换宿主、建立 monorepo/共享 core，或保留创建另一项目的入口。Web 与 Extension 的框架、路由、状态、国际化、权限和宿主边界只在相关任务中读取 `docs/TS_WEB_TEMPLATE.md` 与专题事实源。
 - 安全、隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容契约、最终候选和正式发布进入对应专用门禁。构建前必须取得当次 E2E 选择；发布、push、tag、部署、上传、商店提交及生产副作用分别需要明确授权。
@@ -57,7 +59,7 @@
 | 约束或事实                             | 唯一来源                                                                                    | 何时读取                                 |
 | -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------- |
 | 产品目标、范围与成功标准               | `docs/product_spec/README.md` 与最新 Product Spec                                           | 下游定义产品或改变边界                   |
-| 能力、标题、Task、计划、并行与候选偏好 | `docs/AGENT_POLICY.md`                                                                      | 启动时读策略头；相关任务再读对应章节     |
+| 能力、用户可见 Task 开关/标题、计划、并行与候选偏好 | `docs/AGENT_POLICY.md`                                                                      | 启动时读策略头；相关任务再读对应章节     |
 | 工程、注释、文件、测试、记忆触发与例外 | `docs/ENGINEERING_RULES.md`                                                                 | 修改代码、测试、文档、配置、规则或 Skill |
 | 宿主技术与初始化基线                   | `docs/TS_WEB_TEMPLATE.md`                                                                   | 创建、宿主或技术基线任务                 |
 | UI、运行时、数据与日志                 | `docs/MANTINE_UI_GUIDELINES.md`、`RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | 精确命中对应领域时                       |

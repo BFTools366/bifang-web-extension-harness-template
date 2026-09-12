@@ -37,6 +37,11 @@ const FORBIDDEN_TEMPLATE_PATHS = [
   ".env.production.local"
 ] as const
 
+/** 判断文本是否把当次候选 `--e2e` 选择混入初始化入口，而不是策略字段 `--e2e-hint`。 */
+function mentionsInstantiationE2eSelection(source: string): boolean {
+  return /(?:^|[\s"'\[\],])--e2e(?:[=\s"'\[\],|]|$)/u.test(source)
+}
+
 // 执行 validateToolingContract 函数的处理逻辑。
 export async function validateToolingContract(root: string, errors: string[]): Promise<void> {
   // 保存 requiredExists 变量供当前逻辑使用。
@@ -109,7 +114,7 @@ export async function validateToolingContract(root: string, errors: string[]): P
   if (usageText === undefined || !usageText.includes("pnpm instantiate")) {
     errors.push("Harness CLI is missing the pnpm instantiate help contract")
   }
-  if (usageText?.includes("--e2e") === true) {
+  if (mentionsInstantiationE2eSelection(usageText ?? "")) {
     errors.push("Harness initialization help must not accept an E2E selection")
   }
   // 保存 runBrand 变量供当前逻辑使用。
@@ -135,7 +140,7 @@ export async function validateToolingContract(root: string, errors: string[]): P
   }
   // 保存 instantiationEntry 变量供公开创建入口契约校验使用。
   const instantiationEntry = await readFile(path.join(root, "scripts/instantiate.ts"), "utf8")
-  if (instantiationEntry.includes("--e2e")) {
+  if (mentionsInstantiationE2eSelection(instantiationEntry)) {
     errors.push("Public instantiate entry must not accept an E2E selection")
   }
   if (!instantiationEntry.includes("Release artifacts were not built")) {

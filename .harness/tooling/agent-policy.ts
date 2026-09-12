@@ -3,15 +3,15 @@ import { readFile } from "node:fs/promises"
 import { writeAtomic } from "./files.ts"
 import type { AgentPolicyChoice, AgentPolicySelection } from "./types.ts"
 
-/** 保存统一 Session 进度标题模板。 */
-export const SESSION_PROGRESS_TITLE_TEMPLATE = "{序号}|{Task简述}|{当前进度} |{功能摘要}"
+/** 保存用户可见 Task 进度标题模板。 */
+export const SESSION_PROGRESS_TITLE_TEMPLATE = "Task {序号} | {当前进度} | {单一结果}"
 /** 保存左侧 Task 派发时的初始标题模板。 */
-export const SESSION_PROGRESS_TITLE_INITIAL = "{序号}|{Task简述}|已分配 |{功能摘要}"
+export const SESSION_PROGRESS_TITLE_INITIAL = "Task {序号} | 已分配 | {单一结果}"
 /** 保存统一标题允许的四个生命周期状态。 */
 export const SESSION_PROGRESS_STATES = ["已分配", "运行中", "检查中", "已完成"] as const
-/** 匹配四段、精确空格且无前导零的 Session 标题。 */
+/** 匹配三字段、精确空格且无前导零的用户可见 Task 标题。 */
 const SESSION_PROGRESS_TITLE_PATTERN =
-  /^(?<sequence>[1-9][0-9]*)\|(?<taskSummary>[^|\r\n\u0085\u2028\u2029]+)\|(?<progress>已分配|运行中|检查中|已完成) \|(?<featureSummary>[^|\r\n\u0085\u2028\u2029]+)$/u
+  /^Task (?<sequence>[1-9][0-9]*) \| (?<progress>已分配|运行中|检查中|已完成) \| (?<singleResult>[^|\r\n]+)$/u
 /** 保存 Agent policy 唯一字段顺序。 */
 const POLICY_FIELDS = [
   "schema_version",
@@ -19,32 +19,62 @@ const POLICY_FIELDS = [
   "confirmed_at",
   "decision_mode",
   "superpowers",
+  "user_owned_tasks",
   "parallel_worktree_subagents",
-  "milestone_smoke",
-  "milestone_e2e"
+  "acceptance_smoke",
+  "e2e_hint"
 ] as const
 /** 保存不可作为下游确认来源的占位值。 */
 const UNRESOLVED_CONFIRMATION = new Set(["pending", "unknown", "unset", "n/a"])
-/** 保存策略正文必须保留的跨 Session、Task、并行和候选语义。 */
-export const AGENT_POLICY_REQUIRED_BODY_FRAGMENTS = [
-  "事件驱动执行",
-  "{序号}|{Task简述}|{当前进度} |{功能摘要}",
-  "`set_thread_title`",
-  "`list_threads`",
-  "`read_thread`",
-  "`threadId`",
-  "`clientThreadId`",
+/** 保存项目序号分配必须同时出现的宿主、归档与内部边界措辞。 */
+export const PROJECT_TASK_SEQUENCE_REQUIRED_FRAGMENTS = [
+  "`hostId`",
   "`projectId`",
-  "`SETUP_PENDING`",
-  "不是失败，也不是可传给 `read_thread`、`wait_threads`",
-  "非 Git Local Task 才要求 cwd 等于保存项目完整路径",
-  "`codex/task-<task-slug>`",
-  "`codex/unit-<task-slug>-<unit-slug>`",
-  "`spawn_agent`",
-  "每次真实进度转换至多尝试一次",
-  "只读 Subagent",
+  "`list_threads`",
+  "归档",
+  "最大有效序号",
+  "空历史",
+  "缺号不回填",
+  "内部 Subagent"
+] as const
+/** 保存策略正文必须保留的跨 Task、并行和候选语义。 */
+export const AGENT_POLICY_REQUIRED_BODY_FRAGMENTS = [
+  "完成初始化的下游五项选择只能是 `enabled` 或 `disabled`",
+  "`user_owned_tasks`：控制是否由 Agent 自动把新结果拆到 Codex 左侧菜单",
+  "`user_owned_tasks: disabled` 是默认状态",
+  "用户仍可明确要求创建左侧 Task",
+  "`enabled` 是长期授权",
+  "一个用户可见 Task 只对应一个明确、可验收的结果",
+  "交付物类型变化、生命周期阶段变化",
+  "每个项目同一时间只允许一个写入型 active 用户可见 Task",
+  "Task0 可以协调和派发，但不得代替实施 Task 写入",
+  "Git 项目固定选择",
+  "environment.type = worktree",
+  "非 Git 项目固定使用同一 project target 与 `environment.type = local`",
+  "只返回 `clientThreadId` 表示仍在 setup",
+  "保持零实现",
+  "取得真实 `threadId`",
+  "核对该 id 的标题、`projectId`、cwd 和状态",
+  "核对工作区干净及起始提交正确",
+  "`Task {序号} | {当前进度} | {单一结果}`",
+  'title="Task {序号} | 已分配 | {单一结果}"',
+  "不识别任何历史标题格式",
+  ...PROJECT_TASK_SEQUENCE_REQUIRED_FRAGMENTS,
+  "内部 Subagent 不使用本标题合同、不占用 Task 序号",
+  "推荐预设确定性物化五项",
+  "`user_owned_tasks: disabled`",
+  "开启左侧 Task",
+  "关闭左侧 Task",
+  "不兼容、不推断任何更早 schema 或缺少字段的旧形态",
+  "`parallel_worktree_subagents` 只控制当前 Task 内部",
+  "日常开发直接实施",
+  "显式发布候选构建必须为当前候选解析一次 E2E 选择",
   "用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`",
   "当前请求也不能覆盖 `disabled`",
+  "`codex/task-<task-slug>`",
+  "`codex/unit-<task-slug>-<unit-slug>`",
+  "`set_thread_title`",
+  "`SETUP_PENDING`",
   "### 命名、基线与分支",
   "### 执行、提交与边界",
   "### 协调方整合与清理",
@@ -65,13 +95,79 @@ export interface AgentPolicyValidationOptions {
   requireSourceDefaults?: boolean
 }
 
-/** 判断 Session 标题是否满足统一四段格式与字段约束。 */
+/** 描述可用于分配项目 Task 序号的线程记录。 */
+export interface ProjectTaskSequenceRecord {
+  // 描述 kind 接口成员的结构契约。
+  kind?: unknown
+  // 描述 hostId 接口成员的结构契约。
+  hostId?: unknown
+  // 描述 projectId 接口成员的结构契约。
+  projectId?: unknown
+  // 描述 title 接口成员的结构契约。
+  title?: unknown
+}
+
+/** 判断标题是否满足当前用户可见 Task 三字段格式与字段约束。 */
 export function isValidSessionProgressTitle(title: string): boolean {
+  return matchSessionProgressTitle(title) !== undefined
+}
+
+/** 返回满足三字段标题契约的匹配组，否则返回 undefined。 */
+function matchSessionProgressTitle(
+  title: string
+): { sequence: string; progress: string; singleResult: string } | undefined {
   const match = SESSION_PROGRESS_TITLE_PATTERN.exec(title)
-  if (match?.groups === undefined) return false
-  return [match.groups.taskSummary, match.groups.featureSummary].every(
-    (value) => value !== undefined && value === value.trim() && value.split(/\r?\n/u).length === 1
-  )
+  const singleResult = match?.groups?.singleResult
+  if (match?.groups === undefined || singleResult === undefined) return undefined
+  if (
+    singleResult !== singleResult.trim() ||
+    singleResult.split(/\r\n|[\n\r\u0085\u2028\u2029]/u).length !== 1
+  ) {
+    return undefined
+  }
+  return {
+    sequence: match.groups.sequence ?? "",
+    progress: match.groups.progress ?? "",
+    singleResult
+  }
+}
+
+/** 按同一宿主和项目的合法 Codex 标题分配连续递增序号。 */
+export function allocateProjectTaskSequences(
+  records: Iterable<unknown>,
+  options: { hostId: string; projectId: string; count?: number }
+): number[] {
+  const hostId = options.hostId
+  const projectId = options.projectId
+  if (typeof hostId !== "string" || hostId === "" || hostId !== hostId.trim()) {
+    throw new Error("hostId must be a non-empty trimmed string")
+  }
+  if (typeof projectId !== "string" || projectId === "" || projectId !== projectId.trim()) {
+    throw new Error("projectId must be a non-empty trimmed string")
+  }
+  const count = options.count ?? 1
+  if (typeof count !== "number" || !Number.isInteger(count) || count <= 0) {
+    throw new Error("count must be a positive integer")
+  }
+  let highestSequence = 0
+  for (const record of records) {
+    if (record === null || typeof record !== "object") continue
+    const candidate = record as ProjectTaskSequenceRecord
+    if (
+      candidate.kind !== "codex" ||
+      candidate.hostId !== hostId ||
+      candidate.projectId !== projectId ||
+      typeof candidate.title !== "string"
+    ) {
+      continue
+    }
+    const matched = matchSessionProgressTitle(candidate.title)
+    if (matched !== undefined) {
+      highestSequence = Math.max(highestSequence, Number(matched.sequence))
+    }
+  }
+  const firstSequence = highestSequence + 1
+  return Array.from({ length: count }, (_, index) => firstSequence + index)
 }
 
 /** 解析最小 YAML frontmatter 并拒绝重复或畸形字段。 */
@@ -156,7 +252,7 @@ export function validateAgentPolicyDocument(
   for (const field of fields.keys()) {
     if (!expected.has(field)) errors.push(`Agent policy has unknown field: ${field}`)
   }
-  if (fields.get("schema_version") !== "1") errors.push("Agent policy schema_version must be 1")
+  if (fields.get("schema_version") !== "3") errors.push("Agent policy schema_version must be 3")
   if (fields.get("decision_mode") !== "reuse_then_infer_then_ask") {
     errors.push("Agent policy decision_mode must be reuse_then_infer_then_ask")
   }
@@ -165,9 +261,10 @@ export function validateAgentPolicyDocument(
       confirmed_by: "pending",
       confirmed_at: "pending",
       superpowers: "disabled",
+      user_owned_tasks: "disabled",
       parallel_worktree_subagents: "pending",
-      milestone_smoke: "pending",
-      milestone_e2e: "pending"
+      acceptance_smoke: "pending",
+      e2e_hint: "pending"
     } as const
     for (const [field, expectedValue] of Object.entries(sourceDefaults)) {
       if (fields.get(field) !== expectedValue) {
@@ -177,9 +274,10 @@ export function validateAgentPolicyDocument(
   }
   for (const field of [
     "superpowers",
+    "user_owned_tasks",
     "parallel_worktree_subagents",
-    "milestone_smoke",
-    "milestone_e2e"
+    "acceptance_smoke",
+    "e2e_hint"
   ]) {
     const value = fields.get(field)
     if (
@@ -212,22 +310,20 @@ export function validateAgentPolicyDocument(
   return errors
 }
 
-/** 校验策略正文没有丢失统一标题、项目绑定、并行和候选边界。 */
+/** 校验策略正文没有丢失用户可见 Task、并行和候选边界。 */
 export function validateAgentPolicyBody(document: string): string[] {
   const errors: string[] = []
   for (const fragment of AGENT_POLICY_REQUIRED_BODY_FRAGMENTS) {
     if (!document.includes(fragment)) errors.push(`Agent policy body is missing: ${fragment}`)
   }
-  const examplePattern =
-    /`([^`\r\n\u0085\u2028\u2029]+\|[^`\r\n\u0085\u2028\u2029]+\|(?:已分配|运行中|检查中|已完成) \|[^`\r\n\u0085\u2028\u2029]+)`/gu
-  const examples = [...document.matchAll(examplePattern)].map((match) => match[1] ?? "")
-  if (!examples.some((example) => isValidSessionProgressTitle(example))) {
+  const example = "Task 8 | 运行中 | 左侧 Task 默认关闭并支持开关"
+  if (!document.includes(example) || !isValidSessionProgressTitle(example)) {
     errors.push("Agent policy body must contain a valid Session progress title example")
   }
   return errors
 }
 
-/** 返回推荐预设的四项能力选择与真实确认元数据。 */
+/** 返回推荐预设的五项能力选择与真实确认元数据。 */
 export function recommendedAgentPolicy(
   confirmedBy: string,
   confirmedAt = new Date().toISOString()
@@ -236,9 +332,10 @@ export function recommendedAgentPolicy(
     confirmedBy,
     confirmedAt,
     superpowers: "disabled",
+    userOwnedTasks: "disabled",
     parallelWorktreeSubagents: "enabled",
-    milestoneSmoke: "enabled",
-    milestoneE2e: "disabled"
+    acceptanceSmoke: "enabled",
+    e2eHint: "disabled"
   }
 }
 
@@ -258,14 +355,15 @@ export function renderAgentPolicy(sourceDocument: string, selection: AgentPolicy
     ? sourceDocument.replace(/^---\n[\s\S]*?\n---\n/u, "")
     : sourceDocument.replace(/^\n/u, "")
   return `---
-schema_version: 1
+schema_version: 3
 confirmed_by: ${selection.confirmedBy}
 confirmed_at: ${selection.confirmedAt}
 decision_mode: reuse_then_infer_then_ask
 superpowers: ${selection.superpowers}
+user_owned_tasks: ${selection.userOwnedTasks}
 parallel_worktree_subagents: ${selection.parallelWorktreeSubagents}
-milestone_smoke: ${selection.milestoneSmoke}
-milestone_e2e: ${selection.milestoneE2e}
+acceptance_smoke: ${selection.acceptanceSmoke}
+e2e_hint: ${selection.e2eHint}
 ---
 ${body}`
 }

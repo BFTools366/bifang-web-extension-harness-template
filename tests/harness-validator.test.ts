@@ -271,10 +271,10 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     const invalidPolicy = await readFile(invalidPath, "utf8")
     await writeFile(
       invalidPath,
-      invalidPolicy.replace("milestone_smoke: pending", "milestone_smoke: automatic")
+      invalidPolicy.replace("acceptance_smoke: pending", "acceptance_smoke: automatic")
     )
     await expect(validateHarness(invalidRoot)).rejects.toThrow(
-      /Agent policy milestone_smoke must be enabled, disabled, or pending/
+      /Agent policy acceptance_smoke must be enabled, disabled, or pending/
     )
 
     // 保存 unknownRoot 变量供当前逻辑使用。

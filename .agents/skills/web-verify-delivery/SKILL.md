@@ -13,7 +13,7 @@ description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web
 2. 只有存在用户要求的活动 Work Plan 时，才要求当前候选相关 Todo 均为 `done`；没有 Work Plan 不阻断验收。代码行为必须有非空单元/回归测试，纯文档、元数据或不可合理单测的候选必须有相称替代验证。否则停止并返回 `$web-implement-change`。
 3. 要求 Git 顶层等于项目根，并记录当前源码提交和工作区状态。产物必须能精确绑定到该提交、候选版本、lock/hash 与当前环境；工具/依赖版本只按最低版本准入，身份/协议事实不采用“至少”语义。脏状态会影响绑定时必须重建或停止。
 4. 拒绝 mock、stub、占位、初始化空壳、开发预览、源码直接调用、历史产物和目录名猜测。
-5. 每次产物构建前询问用户是否为当次精确候选启用 E2E：`enabled` 标为 `required`，`disabled` 标为 `not-required`，选择不得跨构建复用或由 Agent 推断；用户、产品、安全或渠道硬要求时只能选择 `enabled`。同时按 `docs/AGENT_POLICY.md` 的 `milestone_smoke` 解析冒烟门禁：默认 `not-required`，只有用户、产品、安全或渠道硬要求时标为 `required`；该结果与 E2E 选择相互独立，不互相替代。记录当次选择、场景与授权边界。
+5. 每次产物构建前询问用户是否为当次精确候选启用 E2E：`enabled` 标为 `required`，`disabled` 标为 `not-required`，选择不得跨构建复用或由 Agent 推断；用户、产品、安全或渠道硬要求时只能选择 `enabled`。同时按 `docs/AGENT_POLICY.md` 的 `acceptance_smoke` 解析冒烟门禁：默认 `not-required`，只有用户、产品、安全或渠道硬要求时标为 `required`；该结果与 E2E 选择相互独立，不互相替代。记录当次选择、场景与授权边界。
 
 ## 构建与静态证据
 

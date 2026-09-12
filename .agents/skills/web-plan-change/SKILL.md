@@ -10,7 +10,7 @@ description: 为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Ext
 ## 准入条件
 
 1. 只在用户明确要求持久计划、任务需要跨会话交接，或发布/高风险工作确有依赖、交接或失败恢复需要时创建 Work Plan。
-2. 多步骤、多模块、中等风险、可并行或 Agent 偏好本身都不构成准入；范围清楚的日常工作直接交给 `$web-implement-change`。
+2. 多步骤、多模块、中等风险、可并行或 Agent 偏好本身都不构成准入；范围清楚的日常工作直接交给 `$web-implement-change`。Work Plan、Todo 和内部步骤不是左侧 user-owned Task，不占用 `Task {序号} | {当前进度} | {单一结果}` 序号，也不受 `user_owned_tasks` 开关控制。
 3. 构建、完整验收、E2E、安全、权限、不可逆副作用和发布分别由自身事件与门禁触发，不能只因存在 Work Plan 自动加入。
 4. 范围仍会改变产品目标、边界或成功标准时，先转 `$web-define-product`。
 
