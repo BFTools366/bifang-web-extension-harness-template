@@ -285,6 +285,18 @@ function collectRequirements(sourceFile: ts.SourceFile): CommentRequirement[] {
   return [...requirements.values()]
 }
 
+/** 判断同行前缀是否确实在引入后续表达式或声明。 */
+function isInlineCommentIntroducer(beforeComment: string): boolean {
+  const trimmed = beforeComment.trimEnd()
+  const previousTokenEnd = trimmed.at(-1)
+  if (previousTokenEnd !== undefined && /[([{,:=?!&|+*/%^<>-]/u.test(previousTokenEnd)) {
+    return true
+  }
+  return /(?:^|[^\p{ID_Continue}])(?:return|throw|yield|await|void|typeof|delete|new)$/u.test(
+    trimmed
+  )
+}
+
 /** 提取声明前最后一条真正紧邻的源码注释。 */
 function adjacentComment(
   source: string,
@@ -356,6 +368,78 @@ export function inspectChineseComments(source: string, filePath: string): Chines
       }
     })
   return { checkedDeclarations: requirements.length, errors: [], violations }
+}
+
+/** 为稳定结构声明生成可复查的确定性中文注释。 */
+function generatedComment(requirement: CommentRequirement): string {
+  const rawName = requirement.name === "<anonymous>" ? "当前匿名声明" : requirement.name
+  const name = rawName.replace(/\s+/gu, " ").replaceAll("*/", "* /").trim()
+  switch (requirement.kind) {
+    case "interface":
+      return `描述 ${name} 接口的结构契约。`
+    case "type":
+      return `描述 ${name} 类型的结构契约。`
+    case "enum":
+      return `枚举 ${name} 支持的稳定取值。`
+    case "class":
+      return `实现 ${name} 类的职责边界。`
+    case "function":
+      return `执行 ${name} 函数的处理逻辑。`
+    case "constructor":
+      return "初始化当前类实例的依赖与状态。"
+    case "method":
+      return `执行 ${name} 类成员的处理逻辑。`
+    case "exported-component-or-hook":
+      return `提供 ${name} 导出组件或 Hook 的行为。`
+    case "test":
+      return `验证 ${name} 测试场景。`
+  }
+}
+
+/** 为生成源码和既有项目确定性补齐缺失的稳定结构中文注释。 */
+export function annotateTypeScriptSource(source: string, filePath: string): string {
+  const sourceFile = ts.createSourceFile(
+    filePath,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    scriptKind(filePath)
+  )
+  const errors = syntaxErrors(sourceFile)
+  if (errors.length > 0) {
+    throw new Error(
+      errors
+        .map((error) => `${error.file}:${error.line}:${error.column}: ${error.message}`)
+        .join("\n")
+    )
+  }
+  const missing = collectRequirements(sourceFile).filter((requirement) => {
+    const comment = adjacentComment(source, requirement.anchor, sourceFile)
+    return comment === undefined || !HAN_CHARACTER.test(comment)
+  })
+  if (missing.length === 0) return source
+
+  const lineEnding = source.includes("\r\n") ? "\r\n" : "\n"
+  let annotated = source
+  for (const requirement of missing.sort(
+    (left, right) => right.anchor.getStart(sourceFile) - left.anchor.getStart(sourceFile)
+  )) {
+    const start = requirement.anchor.getStart(sourceFile)
+    const lineStart = source.lastIndexOf("\n", start - 1) + 1
+    const rawIndentation = source.slice(lineStart, start)
+    // 首行 BOM 已经保留在插入点之前，不能再把它作为缩进复制一次。
+    const indentation = lineStart === 0 ? rawIndentation.replace(/^\uFEFF/u, "") : rawIndentation
+    const leadingIndentation = /^\s*/u.exec(indentation)?.[0] ?? ""
+    const comment = `/** ${generatedComment(requirement)} */`
+    const insertion =
+      indentation.trim() === ""
+        ? `${comment}${lineEnding}${indentation}`
+        : isInlineCommentIntroducer(indentation)
+          ? `${comment} `
+          : `${lineEnding}${leadingIndentation}${comment}${lineEnding}${leadingIndentation}`
+    annotated = `${annotated.slice(0, start)}${insertion}${annotated.slice(start)}`
+  }
+  return annotated
 }
 
 /** 用严格 UTF-8 解码人工源码并拒绝 NUL 字节。 */

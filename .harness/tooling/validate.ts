@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
+import ts from "typescript"
 import { derivedLogoPaths } from "./brand.ts"
 import { HARNESS_ONLY_PATHS, loadProjectConfig, MASTER_LOGO_PATH } from "./config.ts"
 import { pathExists, readJson, walkFiles } from "./files.ts"
@@ -393,6 +394,85 @@ async function validateHttpFoundation(root: string, errors: string[]): Promise<v
   }
 }
 
+/** 收集当前 TSX 模块从相对模块导入的构建版本本地标识符。 */
+function importedBuildVersionIdentifiers(sourceFile: ts.SourceFile): Set<string> {
+  const identifiers = new Set<string>()
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      !statement.moduleSpecifier.text.startsWith(".")
+    ) {
+      continue
+    }
+    const importClause = statement.importClause
+    if (importClause?.name !== undefined && importClause.name.text.endsWith("BUILD_VERSION")) {
+      identifiers.add(importClause.name.text)
+    }
+    const bindings = importClause?.namedBindings
+    if (bindings === undefined || !ts.isNamedImports(bindings)) continue
+    for (const specifier of bindings.elements) {
+      const importedName = specifier.propertyName?.text ?? specifier.name.text
+      if (importedName.endsWith("BUILD_VERSION")) identifiers.add(specifier.name.text)
+    }
+  }
+  return identifiers
+}
+
+/** 判断一个 JSX 表达式是否消费指定的构建版本导入。 */
+function jsxExpressionUsesBuildVersion(
+  expression: ts.JsxExpression,
+  identifiers: ReadonlySet<string>
+): boolean {
+  let found = false
+  /** 访问 JSX 表达式内部节点并在命中后停止继续下钻。 */
+  function visit(node: ts.Node): void {
+    if (found) return
+    if (ts.isIdentifier(node) && identifiers.has(node.text)) {
+      found = true
+      return
+    }
+    ts.forEachChild(node, visit)
+  }
+  if (expression.expression !== undefined) visit(expression.expression)
+  return found
+}
+
+/** 判断任一生产 TSX surface 是否在 JSX 中展示导入的构建版本。 */
+async function hasBuildVersionSurface(root: string): Promise<boolean> {
+  const sourceRoot = path.join(root, "src")
+  if (!(await pathExists(sourceRoot))) return false
+  const files = await walkFiles(sourceRoot, {
+    filter: (name) =>
+      name.endsWith(".tsx") && !name.endsWith(".test.tsx") && !name.endsWith(".spec.tsx")
+  })
+  for (const file of files) {
+    const source = await readFile(file, "utf8")
+    const sourceFile = ts.createSourceFile(
+      file,
+      source,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX
+    )
+    const identifiers = importedBuildVersionIdentifiers(sourceFile)
+    if (identifiers.size === 0) continue
+    let displayed = false
+    /** 遍历当前生产 TSX 文件中的 JSX 表达式。 */
+    function visit(node: ts.Node): void {
+      if (displayed) return
+      if (ts.isJsxExpression(node) && jsxExpressionUsesBuildVersion(node, identifiers)) {
+        displayed = true
+        return
+      }
+      ts.forEachChild(node, visit)
+    }
+    visit(sourceFile)
+    if (displayed) return true
+  }
+  return false
+}
+
 // 执行 validateWeb 函数的处理逻辑。
 async function validateWeb(root: string, config: ProjectConfig, errors: string[]): Promise<void> {
   await requirePaths(
@@ -408,8 +488,6 @@ async function validateWeb(root: string, config: ProjectConfig, errors: string[]
       "src/app/queryClient.ts",
       "src/app/theme.ts",
       "src/features/not-found/NotFoundPage.tsx",
-      "src/features/welcome/WelcomePage.tsx",
-      "src/features/welcome/WelcomePage.test.tsx",
       "src/buildVersion.ts",
       "src/i18n/index.ts",
       "src/i18n/locales/en.ts",
@@ -444,25 +522,8 @@ async function validateWeb(root: string, config: ProjectConfig, errors: string[]
       errors.push("Web build version must use the Vite build injection")
     }
   }
-  // 保存 welcomePath 变量供页面版本展示校验使用。
-  const welcomePath = path.join(root, "src/features/welcome/WelcomePage.tsx")
-  if (await pathExists(welcomePath)) {
-    // 保存 welcome 变量供页面展示契约校验使用。
-    const welcome = await readFile(welcomePath, "utf8")
-    if (!welcome.includes("BUILD_VERSION") || !welcome.includes('t("buildVersion"')) {
-      errors.push("Web landing page must display the injected build version")
-    }
-  }
-  // 遍历 Web 语言资源并校验构建版本文案。
-  for (const relativePath of ["src/i18n/locales/en.ts", "src/i18n/locales/zh.ts"]) {
-    // 保存 translationPath 变量供构建版本翻译校验使用。
-    const translationPath = path.join(root, relativePath)
-    if (!(await pathExists(translationPath))) continue
-    // 保存 translation 变量供翻译键检查使用。
-    const translation = await readFile(translationPath, "utf8")
-    if (!translation.includes("buildVersion:")) {
-      errors.push(`Build version translation is missing in ${relativePath}`)
-    }
+  if (!(await hasBuildVersionSurface(root))) {
+    errors.push("Web production TSX surface must display an imported build-version value")
   }
   // 保存 gitignorePath 变量供当前逻辑使用。
   const gitignorePath = path.join(root, ".gitignore")
@@ -559,9 +620,6 @@ async function validateExtension(
     if (!shell.includes('process.env.PLASMO_PUBLIC_APP_ENV !== "release"')) {
       errors.push("Extension startup logging must use a same-module compile-time release guard")
     }
-    if (!shell.includes("BUILD_VERSION") || !shell.includes('t("buildVersion"')) {
-      errors.push("Extension surfaces must display the injected build version")
-    }
   }
   // 保存 buildVersionPath 变量供 Extension 构建版本契约校验使用。
   const buildVersionPath = path.join(root, "src/buildVersion.ts")
@@ -572,14 +630,8 @@ async function validateExtension(
       errors.push("Extension build version must use the Plasmo build injection")
     }
   }
-  // 保存 i18nPath 变量供 Extension 构建版本翻译校验使用。
-  const i18nPath = path.join(root, "src/i18n.ts")
-  if (await pathExists(i18nPath)) {
-    // 保存 i18n 变量供双语翻译键检查使用。
-    const i18n = await readFile(i18nPath, "utf8")
-    if (i18n.split("buildVersion:").length - 1 < 2) {
-      errors.push("Extension build version translations are incomplete")
-    }
+  if (!(await hasBuildVersionSurface(root))) {
+    errors.push("Extension production TSX surface must display an imported build-version value")
   }
   // 保存 browserManifest 变量供当前逻辑使用。
   const browserManifest = manifest.manifest

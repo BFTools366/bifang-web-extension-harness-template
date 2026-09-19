@@ -1,7 +1,8 @@
-import { cp, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
+import { validateOptionalProjectMemory } from "../.harness/tooling/project-memory.ts"
 import { validateDailyHarnessMemory } from "../scripts/harness-validation/memory.ts"
 
 /** 保存真实仓库根。 */
@@ -32,6 +33,31 @@ function withUnfinishedTodo(plan: string): string {
   )
   if (changed === plan) throw new Error("fixture Work Plan has no completed Todo to reopen")
   return changed
+}
+
+/** 创建一个带真实 .harness 目录的可选项目记忆测试根。 */
+async function createOptionalMemoryRoot(): Promise<string> {
+  // 保存 root 变量供隔离可选记忆测试使用。
+  const root = await mkdtemp(path.join(os.tmpdir(), "optional-project-memory-"))
+  temporaryRoots.push(root)
+  await mkdir(path.join(root, ".harness"), { recursive: true })
+  return root
+}
+
+/** 写入可选项目记忆兼容清单。 */
+async function writeCompatibilityManifest(root: string, grandfatheredPath: string): Promise<void> {
+  await writeFile(
+    path.join(root, ".harness/project-memory-compatibility.json"),
+    `${JSON.stringify({ schemaVersion: 1, grandfatheredPaths: [grandfatheredPath] })}\n`
+  )
+}
+
+/** 返回可选下游项目记忆验证产生的稳定错误。 */
+async function optionalMemoryErrors(root: string): Promise<string[]> {
+  // 保存 errors 变量供收集全部可选记忆错误使用。
+  const errors: string[] = []
+  await validateOptionalProjectMemory(root, errors)
+  return errors
 }
 
 afterEach(async () => {
@@ -120,5 +146,67 @@ describe("daily Harness memory", () => {
     )
 
     await expect(memoryErrors(root)).resolves.toEqual([])
+  })
+})
+
+describe("optional project-memory compatibility safety", () => {
+  /** 验证索引必须包含精确 Markdown 链接，并支持合法 URL 编码文件名。 */
+  test("requires an exact Markdown link target", async () => {
+    // 保存 substringRoot 与 substringDirectory 变量供拒绝文件名子串伪索引使用。
+    const substringRoot = await createOptionalMemoryRoot()
+    const substringDirectory = path.join(substringRoot, "docs/product_spec")
+    await mkdir(substringDirectory, { recursive: true })
+    await writeFile(path.join(substringDirectory, "legacy.md"), "# Memory\n")
+    await writeFile(path.join(substringDirectory, "README.md"), "[Wrong](./not-legacy.md.bak)\n")
+    await writeCompatibilityManifest(substringRoot, "docs/product_spec/legacy.md")
+    await expect(optionalMemoryErrors(substringRoot)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(/missing from index/)])
+    )
+
+    // 保存 encodedRoot 与 encodedDirectory 变量供验证 URL 编码的精确链接使用。
+    const encodedRoot = await createOptionalMemoryRoot()
+    const encodedDirectory = path.join(encodedRoot, "docs/product_spec")
+    await mkdir(encodedDirectory, { recursive: true })
+    await writeFile(path.join(encodedDirectory, "legacy spec.md"), "# Memory\n")
+    await writeFile(path.join(encodedDirectory, "README.md"), "[Legacy](./legacy%20spec.md)\n")
+    await writeCompatibilityManifest(encodedRoot, "docs/product_spec/legacy spec.md")
+    await expect(optionalMemoryErrors(encodedRoot)).resolves.toEqual([])
+  })
+
+  /** 验证 docs 与 .harness 祖先目录都不能通过符号链接逃逸仓库根。 */
+  test("rejects symlinked compatibility ancestors", async () => {
+    // 保存 docsRoot 与 externalDocs 变量供构造仓库外项目记忆使用。
+    const docsRoot = await createOptionalMemoryRoot()
+    const externalDocs = await mkdtemp(path.join(os.tmpdir(), "optional-memory-external-docs-"))
+    temporaryRoots.push(externalDocs)
+    await mkdir(path.join(externalDocs, "product_spec"), { recursive: true })
+    await writeFile(path.join(externalDocs, "product_spec/legacy.md"), "# External\n")
+    await writeFile(path.join(externalDocs, "product_spec/README.md"), "[Legacy](./legacy.md)\n")
+    await symlink(externalDocs, path.join(docsRoot, "docs"))
+    await writeCompatibilityManifest(docsRoot, "docs/product_spec/legacy.md")
+    await expect(optionalMemoryErrors(docsRoot)).resolves.toContain(
+      "Unsafe optional project-memory directory: docs"
+    )
+
+    // 保存 harnessRoot 与 externalHarness 变量供拒绝清单祖先符号链接使用。
+    const harnessRoot = await mkdtemp(path.join(os.tmpdir(), "optional-memory-harness-link-"))
+    const externalHarness = await mkdtemp(path.join(os.tmpdir(), "optional-memory-harness-"))
+    temporaryRoots.push(harnessRoot, externalHarness)
+    // 保存 harnessMemoryDirectory 变量供创建仓库内正文与索引使用。
+    const harnessMemoryDirectory = path.join(harnessRoot, "docs/product_spec")
+    await mkdir(harnessMemoryDirectory, { recursive: true })
+    await writeFile(path.join(harnessMemoryDirectory, "legacy.md"), "# Memory\n")
+    await writeFile(path.join(harnessMemoryDirectory, "README.md"), "[Legacy](./legacy.md)\n")
+    await writeFile(
+      path.join(externalHarness, "project-memory-compatibility.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        grandfatheredPaths: ["docs/product_spec/legacy.md"]
+      })}\n`
+    )
+    await symlink(externalHarness, path.join(harnessRoot, ".harness"))
+    await expect(optionalMemoryErrors(harnessRoot)).resolves.toContain(
+      "Unsafe project-memory compatibility directory: .harness"
+    )
   })
 })

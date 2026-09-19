@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises"
+import { lstat, readFile } from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
@@ -21,6 +21,8 @@ const RELEASE_LOW_LEVEL_LOG_CALLS = ["console.debug", "console.info"] as const
 const HTTP_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g
 // 保存 BUILD_VERSION_PATTERN 变量供候选版本注入校验使用。
 const BUILD_VERSION_PATTERN = /^\d{12}$/
+// 保存 RELEASE_POLICY_PATH 变量供下游选择可移植静态文件权限门禁使用。
+const RELEASE_POLICY_PATH = ".harness/release-policy.json"
 
 // 定义 ReleaseInspection 接口的结构契约。
 export interface ReleaseInspection {
@@ -36,6 +38,42 @@ export interface ReleaseInspection {
 export interface ReleaseInspectionOptions {
   // 描述 expectedBuildVersion 接口成员的当次构建版本。
   expectedBuildVersion?: string
+}
+
+/** 判断未知 JSON 值是否是普通记录对象。 */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+}
+
+/** 读取可选、受保护且失败关闭的下游 Release 权限策略。 */
+async function requireOtherReadableWebFiles(root: string): Promise<boolean> {
+  const policyPath = path.join(root, RELEASE_POLICY_PATH)
+  let status
+  try {
+    status = await lstat(policyPath)
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return false
+    throw error
+  }
+  if (status.isSymbolicLink() || !status.isFile()) {
+    throw new Error(`Release policy must be a regular file: ${RELEASE_POLICY_PATH}`)
+  }
+  let value: unknown
+  try {
+    value = JSON.parse(await readFile(policyPath, "utf8")) as unknown
+  } catch {
+    throw new Error(`Release policy must be valid JSON: ${RELEASE_POLICY_PATH}`)
+  }
+  if (
+    !isRecord(value) ||
+    JSON.stringify(Object.keys(value).sort()) !==
+      JSON.stringify(["requireOtherReadableWebFiles", "schemaVersion"]) ||
+    value.schemaVersion !== 1 ||
+    typeof value.requireOtherReadableWebFiles !== "boolean"
+  ) {
+    throw new Error(`Release policy schema is invalid: ${RELEASE_POLICY_PATH}`)
+  }
+  return value.requireOtherReadableWebFiles
 }
 
 // 执行 normalizeHttpUrl 函数的处理逻辑。
@@ -72,6 +110,8 @@ export async function inspectReleaseArtifact(
   const root = path.resolve(rootInput)
   // 保存 project 变量供当前逻辑使用。
   const project = await loadProjectConfig(root)
+  // 保存 enforceOtherReadableWebFiles 变量供应用下游明确选择的权限门禁使用。
+  const enforceOtherReadableWebFiles = await requireOtherReadableWebFiles(root)
   // 保存 environments 变量供当前逻辑使用。
   const environments = await validateEnvironmentFiles(root, "release")
   // 保存 relativeArtifactRoot 变量供当前逻辑使用。
@@ -110,6 +150,17 @@ export async function inspectReleaseArtifact(
         const basename = path.basename(absolute)
         // 保存 fileErrors 变量供当前逻辑使用。
         const fileErrors: string[] = []
+        if (
+          enforceOtherReadableWebFiles &&
+          project.projectType === "web" &&
+          process.platform !== "win32"
+        ) {
+          // 保存 status 变量供要求可移植 POSIX Web 静态产物允许 other 读取使用。
+          const status = await lstat(absolute)
+          if ((status.mode & 0o004) === 0) {
+            fileErrors.push(`${relative} must be other-readable in a Web release artifact`)
+          }
+        }
         if (basename.startsWith(".env") || absolute.endsWith(".map")) {
           fileErrors.push(`${relative} must not be present in a release artifact`)
           return { containsBuildVersion: false, errors: fileErrors }

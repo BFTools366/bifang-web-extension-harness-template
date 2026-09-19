@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
@@ -43,7 +43,8 @@ function environmentFile(environment: keyof BaseUrls, baseUrl: string): string {
 // 执行 createFixture 函数的处理逻辑。
 async function createFixture(
   baseUrls: BaseUrls,
-  contents: string
+  contents: string,
+  options: { requireOtherReadableWebFiles?: boolean } = {}
 ): Promise<{ artifactRoot: string; root: string }> {
   // 保存 root 变量供当前逻辑使用。
   const root = await mkdtemp(path.join(os.tmpdir(), "release-inspection-"))
@@ -72,6 +73,15 @@ async function createFixture(
       2
     )}\n`
   )
+  if (options.requireOtherReadableWebFiles !== undefined) {
+    await writeFile(
+      path.join(root, ".harness/release-policy.json"),
+      `${JSON.stringify({
+        schemaVersion: 1,
+        requireOtherReadableWebFiles: options.requireOtherReadableWebFiles
+      })}\n`
+    )
+  }
   await Promise.all(
     (Object.entries(baseUrls) as Array<[keyof BaseUrls, string]>).map(
       // 执行 当前声明 函数的处理逻辑。
@@ -88,6 +98,9 @@ async function createFixture(
     )
   )
   await writeFile(path.join(artifactRoot, "index.html"), contents)
+  if (process.platform !== "win32") {
+    await chmod(path.join(artifactRoot, "index.html"), 0o644)
+  }
   return { artifactRoot, root }
 }
 
@@ -216,5 +229,42 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     await expect(
       inspectReleaseArtifact(root, { expectedBuildVersion: "2026-08-24" })
     ).rejects.toThrow(/must use YYYYMMDDHHMM/)
+  })
+
+  /** 验证 POSIX Web 候选的每个静态文件都必须允许 other 读取。 */
+  test.runIf(process.platform !== "win32")(
+    "requires POSIX Web artifact files to be other-readable",
+    /* 执行当前测试用例的验证逻辑。 */ async () => {
+      // 保存 { artifactRoot, root } 变量供切换精确产物权限使用。
+      const { artifactRoot, root } = await createFixture(baseUrls, "<main>Release</main>\n")
+      // 保存 indexPath 变量供分别验证 0600 拒绝与 0644 通过使用。
+      const indexPath = path.join(artifactRoot, "index.html")
+
+      await chmod(indexPath, 0o600)
+      await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({ files: 1 })
+
+      await writeFile(
+        path.join(root, ".harness/release-policy.json"),
+        `${JSON.stringify({ schemaVersion: 1, requireOtherReadableWebFiles: true })}\n`
+      )
+      await expect(inspectReleaseArtifact(root)).rejects.toThrow(/must be other-readable/)
+
+      await chmod(indexPath, 0o644)
+      await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({ files: 1 })
+    }
+  )
+
+  /** 验证可选 Release 权限策略存在时必须严格匹配 schema。 */
+  test("rejects an invalid Release permission policy", async () => {
+    // 保存 { root } 变量供篡改受保护策略使用。
+    const { root } = await createFixture(baseUrls, "<main>Release</main>\n", {
+      requireOtherReadableWebFiles: true
+    })
+    await writeFile(
+      path.join(root, ".harness/release-policy.json"),
+      '{"schemaVersion":1,"requireOtherReadableWebFiles":"yes"}\n'
+    )
+
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/Release policy schema is invalid/)
   })
 })

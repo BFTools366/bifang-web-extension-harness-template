@@ -678,6 +678,70 @@ describe("single-package Harness validation and governance", () => {
     await expect(validateProject(root)).rejects.toThrow(/Missing docs\/MANTINE_UI_GUIDELINES\.md/)
   })
 
+  /** 验证终端产品可替换默认版本展示，但不能破坏宿主构建版本注入。 */
+  test.each(["web", "extension"] as const)(
+    "allows %s product UI to replace the default build-version presentation",
+    async (projectType) => {
+      const root = await seedTemplateRoot()
+      await initializeProject(options(root, projectType))
+      // 保存 versionSurfacePath 变量供验证自定义展示与完全移除展示两种边界使用。
+      let versionSurfacePath: string
+
+      if (projectType === "web") {
+        await rm(path.join(root, "src/features/welcome"), { recursive: true, force: true })
+        versionSurfacePath = path.join(root, "src/routes/index.tsx")
+        await writeFile(
+          versionSurfacePath,
+          `import { createFileRoute } from "@tanstack/react-router"
+import { BUILD_VERSION } from "../buildVersion"
+
+/** 渲染产品自定义首页并展示注入的构建版本。 */
+function ProductHomePage() {
+  return <main>Version {BUILD_VERSION}</main>
+}
+
+/** 说明 Route 的稳定结构与职责边界。 */
+export const Route = createFileRoute("/")({
+  component: ProductHomePage
+})
+`
+        )
+        for (const relativePath of ["src/i18n/locales/en.ts", "src/i18n/locales/zh.ts"]) {
+          const localePath = path.join(root, relativePath)
+          const locale = await readFile(localePath, "utf8")
+          await writeFile(localePath, locale.replace(/^\s*buildVersion:.*\n/gmu, ""))
+        }
+      } else {
+        const shellPath = path.join(root, "src/ExtensionShell.tsx")
+        versionSurfacePath = shellPath
+        const shell = await readFile(shellPath, "utf8")
+        await writeFile(
+          shellPath,
+          shell.replace('t("buildVersion", { version: BUILD_VERSION })', "BUILD_VERSION")
+        )
+        const i18nPath = path.join(root, "src/i18n.ts")
+        const i18n = await readFile(i18nPath, "utf8")
+        await writeFile(i18nPath, i18n.replace(/^\s*buildVersion:.*\n/gmu, ""))
+      }
+
+      await expect(validateProject(root)).resolves.toContain(projectType)
+
+      // 保存 versionSurface 变量供证明完全移除 UI 消费会失败使用。
+      const versionSurface = await readFile(versionSurfacePath, "utf8")
+      await writeFile(versionSurfacePath, versionSurface.replace("{BUILD_VERSION}", "Product"))
+      await expect(validateProject(root)).rejects.toThrow(
+        new RegExp(`${projectType === "web" ? "Web" : "Extension"} production TSX surface`)
+      )
+      await writeFile(versionSurfacePath, versionSurface)
+
+      const buildVersionPath = path.join(root, "src/buildVersion.ts")
+      await writeFile(buildVersionPath, 'export const BUILD_VERSION = "custom"\n')
+      await expect(validateProject(root)).rejects.toThrow(
+        projectType === "web" ? /Vite build injection/ : /Plasmo build injection/
+      )
+    }
+  )
+
   /** 验证 rejects a missing Chinese declaration comment in a generated %s project 场景。 */
   test.each(["web", "extension"] as const)(
     "rejects a missing Chinese declaration comment in a generated %s project",

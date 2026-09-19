@@ -1,7 +1,8 @@
-import { cp, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
+import { validateOptionalProjectMemory } from "../.harness/tooling/project-memory.ts"
 import { validateHarness } from "../scripts/validate-harness.ts"
 import {
   governedMarkdownFiles,
@@ -46,6 +47,51 @@ async function updateManifest(
   const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as Record<string, unknown>
   update(manifest)
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+}
+
+/** 创建一个可按需写入项目记忆和兼容清单的隔离根目录。 */
+async function createProjectMemoryRoot(): Promise<string> {
+  // 保存 root 变量供当前测试夹具使用。
+  const root = await mkdtemp(path.join(os.tmpdir(), "project-memory-compatibility-"))
+  temporaryRoots.push(root)
+  await mkdir(path.join(root, ".harness"), { recursive: true })
+  return root
+}
+
+/** 写入一个项目记忆分类目录、索引和正文文件。 */
+async function writeMemoryFile(
+  root: string,
+  directory: string,
+  filename: string,
+  options: { indexed?: boolean } = {}
+): Promise<void> {
+  // 保存 memoryRoot 变量供测试夹具文件写入使用。
+  const memoryRoot = path.join(root, "docs", directory)
+  await mkdir(memoryRoot, { recursive: true })
+  await writeFile(
+    path.join(memoryRoot, "README.md"),
+    options.indexed === false ? "# Index\n" : `# Index\n\n- [Entry](./${filename})\n`
+  )
+  await writeFile(path.join(memoryRoot, filename), "# Memory\n")
+}
+
+/** 写入项目记忆兼容清单。 */
+async function writeProjectMemoryCompatibilityManifest(
+  root: string,
+  value: unknown
+): Promise<void> {
+  await writeFile(
+    path.join(root, ".harness/project-memory-compatibility.json"),
+    `${JSON.stringify(value, null, 2)}\n`
+  )
+}
+
+/** 返回项目记忆验证产生的全部错误。 */
+async function projectMemoryErrors(root: string): Promise<string[]> {
+  // 保存 errors 变量供验证器累积错误使用。
+  const errors: string[] = []
+  await validateOptionalProjectMemory(root, errors)
+  return errors
 }
 
 afterEach(
@@ -785,6 +831,141 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     )
     await expect(validateHarness(inconsistentPnpmRoot)).rejects.toThrow(
       /packageManager pnpm pin must satisfy engines\.pnpm/
+    )
+  })
+})
+
+describe("project-memory compatibility manifest", /* 执行当前声明函数的测试分组逻辑。 */ () => {
+  /** 验证缺少兼容清单时完全保留原有规范命名行为。 */
+  test("keeps canonical validation unchanged when the manifest is absent", async () => {
+    // 保存 root 变量供无清单规范命名测试使用。
+    const root = await createProjectMemoryRoot()
+    await writeMemoryFile(root, "product_spec", "20260919_product_spec.md")
+    await expect(projectMemoryErrors(root)).resolves.toEqual([])
+
+    await writeMemoryFile(root, "project_status", "legacy_status.md")
+    await expect(projectMemoryErrors(root)).resolves.toContain(
+      "Invalid optional Product Status entry: docs/project_status/legacy_status.md"
+    )
+  })
+
+  /** 验证只有清单中精确列出的既有正文可以绕过规范命名。 */
+  test("grandfathers only the exact listed non-canonical file", async () => {
+    // 保存 root 变量供精确路径豁免测试使用。
+    const root = await createProjectMemoryRoot()
+    await writeMemoryFile(root, "product_spec", "legacy_spec.md")
+    await writeProjectMemoryCompatibilityManifest(root, {
+      schemaVersion: 1,
+      grandfatheredPaths: ["docs/product_spec/legacy_spec.md"]
+    })
+    await expect(projectMemoryErrors(root)).resolves.toEqual([])
+
+    await writeFile(path.join(root, "docs/product_spec/legacy_copy.md"), "# Copy\n")
+    await expect(projectMemoryErrors(root)).resolves.toContain(
+      "Invalid optional Product Spec entry: docs/product_spec/legacy_copy.md"
+    )
+  })
+
+  /** 验证清单 schema 和顶层字段必须精确匹配版本一合同。 */
+  test.each([
+    [{ schemaVersion: 2, grandfatheredPaths: [] }, /schemaVersion must be 1/],
+    [{ schemaVersion: 1 }, /must contain only schemaVersion and grandfatheredPaths/],
+    [
+      { schemaVersion: 1, grandfatheredPaths: [], extra: true },
+      /must contain only schemaVersion and grandfatheredPaths/
+    ],
+    [{ schemaVersion: 1, grandfatheredPaths: "legacy" }, /must be an array/]
+  ])("rejects an invalid manifest shape %#", async (manifest, expected) => {
+    // 保存 root 变量供严格 schema 测试使用。
+    const root = await createProjectMemoryRoot()
+    await writeProjectMemoryCompatibilityManifest(root, manifest)
+    await expect(projectMemoryErrors(root)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(expected)])
+    )
+  })
+
+  /** 验证兼容路径必须唯一、使用 POSIX 仓库相对单层合法分类 Markdown 路径。 */
+  test.each([
+    [["docs/product_spec/legacy.md", "docs/product_spec/legacy.md"], /Duplicate/],
+    [["/docs/product_spec/legacy.md"], /Invalid project-memory compatibility path/],
+    [["docs\\product_spec\\legacy.md"], /Invalid project-memory compatibility path/],
+    [["docs/product_spec/nested/legacy.md"], /Invalid project-memory compatibility path/],
+    [["docs/unknown/legacy.md"], /Invalid project-memory compatibility path/],
+    [["docs/product_spec/legacy.txt"], /Invalid project-memory compatibility path/]
+  ])("rejects an invalid grandfathered path %#", async (grandfatheredPaths, expected) => {
+    // 保存 root 变量供路径语法测试使用。
+    const root = await createProjectMemoryRoot()
+    await writeMemoryFile(root, "product_spec", "legacy.md")
+    await writeProjectMemoryCompatibilityManifest(root, { schemaVersion: 1, grandfatheredPaths })
+    await expect(projectMemoryErrors(root)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(expected)])
+    )
+  })
+
+  /** 验证规范正文、索引和历史卷不能进入兼容清单。 */
+  test.each([
+    ["docs/product_spec/20260919_product_spec.md", "20260919_product_spec.md"],
+    ["docs/product_spec/README.md", "README.md"],
+    ["docs/adr/ADR_history.md", "ADR_history.md"]
+  ])("rejects reserved path %s", async (grandfatheredPath, filename) => {
+    // 保存 root、directory 变量供保留路径测试使用。
+    const root = await createProjectMemoryRoot()
+    const directory = grandfatheredPath.split("/")[1]
+    if (directory === undefined) throw new Error("Missing test directory")
+    await writeMemoryFile(root, directory, filename)
+    await writeProjectMemoryCompatibilityManifest(root, {
+      schemaVersion: 1,
+      grandfatheredPaths: [grandfatheredPath]
+    })
+    await expect(projectMemoryErrors(root)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(/cannot be grandfathered/)])
+    )
+  })
+
+  /** 验证兼容正文必须存在、不是符号链接，并出现在对应索引中。 */
+  test("requires a real indexed non-symlink file", async () => {
+    // 保存 missingRoot 变量供缺失正文测试使用。
+    const missingRoot = await createProjectMemoryRoot()
+    await mkdir(path.join(missingRoot, "docs/work_plan"), { recursive: true })
+    await writeFile(path.join(missingRoot, "docs/work_plan/README.md"), "# Index\n")
+    await writeProjectMemoryCompatibilityManifest(missingRoot, {
+      schemaVersion: 1,
+      grandfatheredPaths: ["docs/work_plan/legacy_plan.md"]
+    })
+    await expect(projectMemoryErrors(missingRoot)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(/Missing or unsafe grandfathered/)])
+    )
+
+    // 保存 unindexedRoot 变量供索引遗漏测试使用。
+    const unindexedRoot = await createProjectMemoryRoot()
+    await writeMemoryFile(unindexedRoot, "project_status", "legacy_status.md", {
+      indexed: false
+    })
+    await writeProjectMemoryCompatibilityManifest(unindexedRoot, {
+      schemaVersion: 1,
+      grandfatheredPaths: ["docs/project_status/legacy_status.md"]
+    })
+    await expect(projectMemoryErrors(unindexedRoot)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(/missing from index/)])
+    )
+
+    // 保存 symlinkRoot、targetPath 与 linkPath 变量供符号链接拒绝测试使用。
+    const symlinkRoot = await createProjectMemoryRoot()
+    await mkdir(path.join(symlinkRoot, "docs/changelog"), { recursive: true })
+    const targetPath = path.join(symlinkRoot, "target.md")
+    const linkPath = path.join(symlinkRoot, "docs/changelog/legacy_changelog.md")
+    await writeFile(targetPath, "# Target\n")
+    await symlink(targetPath, linkPath)
+    await writeFile(
+      path.join(symlinkRoot, "docs/changelog/README.md"),
+      "[Legacy](./legacy_changelog.md)\n"
+    )
+    await writeProjectMemoryCompatibilityManifest(symlinkRoot, {
+      schemaVersion: 1,
+      grandfatheredPaths: ["docs/changelog/legacy_changelog.md"]
+    })
+    await expect(projectMemoryErrors(symlinkRoot)).resolves.toEqual(
+      expect.arrayContaining([expect.stringMatching(/Missing or unsafe grandfathered/)])
     )
   })
 })

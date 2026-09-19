@@ -15,6 +15,7 @@ import os from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
 import { afterEach, describe, expect, test } from "vitest"
+import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
 import {
   applyUpgradePath,
   createUpgradePlan,
@@ -25,6 +26,7 @@ import {
   captureStablePath,
   runBoundAtomicMutation
 } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-mutation.ts"
+import { MINIMUM_OWNERSHIP_RULES } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-policy.ts"
 import { runUpgradeCli } from "../.agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts"
 
 /** 保存测试使用的异步无 Shell 进程入口。 */
@@ -434,6 +436,82 @@ describe("three-way Harness upgrade", () => {
       expect.arrayContaining([
         { pattern: "docs/ENGINEERING_RULES.md", mode: "merge-sections" },
         { pattern: "docs/RELEASE.md", mode: "merge-sections" }
+      ])
+    )
+  })
+
+  /** 验证 source-only 清单、最低规则与生产所有权清单保持一致。 */
+  test("keeps every source-only path tombstoned in both ownership policies", async () => {
+    const manifest = JSON.parse(await readFile(ownershipPath, "utf8")) as {
+      rules: Array<{ pattern: string; mode: string }>
+    }
+    const manifestTombstones = new Set(
+      manifest.rules.filter((rule) => rule.mode === "tombstone").map((rule) => rule.pattern)
+    )
+    const minimumTombstones = new Set(
+      Object.entries(MINIMUM_OWNERSHIP_RULES)
+        .filter(([, mode]) => mode === "tombstone")
+        .map(([pattern]) => pattern)
+    )
+
+    expect(manifestTombstones).toEqual(minimumTombstones)
+    for (const sourceOnlyPath of HARNESS_ONLY_PATHS) {
+      const matchingPatterns = [sourceOnlyPath, `${sourceOnlyPath}/**`].filter((pattern) =>
+        minimumTombstones.has(pattern)
+      )
+      expect(matchingPatterns, `${sourceOnlyPath} must have one tombstone rule`).toHaveLength(1)
+    }
+    for (const protectedConfiguration of [
+      ".harness/project-memory-compatibility.json",
+      ".harness/release-policy.json"
+    ]) {
+      expect(MINIMUM_OWNERSHIP_RULES[protectedConfiguration]).toBe("protected")
+      expect(manifest.rules).toContainEqual({
+        pattern: protectedConfiguration,
+        mode: "protected"
+      })
+    }
+  })
+
+  /** 验证新增 source-only 墓碑与可选兼容记忆保护规则都会代表性阻断。 */
+  test("blocks representative source-only residue and compatibility-file injection", async () => {
+    const tombstoneFixture = await upgradeFixture()
+    const tombstonedPath = ".harness/tooling/finalize.ts"
+    await writeFile(path.join(tombstoneFixture.target, tombstonedPath), "forbidden\n")
+    await git(tombstoneFixture.target, ["add", tombstonedPath])
+    await git(tombstoneFixture.target, ["commit", "-m", "test: add source-only residue"])
+
+    const tombstonePlan = await planFor(tombstoneFixture)
+    expect(tombstonePlan.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: tombstonedPath,
+          ownership: "tombstone",
+          classification: "blocked"
+        })
+      ])
+    )
+
+    const protectedFixture = await upgradeFixture()
+    const compatibilityPath = ".harness/project-memory-compatibility.json"
+    await writeFile(path.join(protectedFixture.target, compatibilityPath), '{"version":1}\n')
+    await git(protectedFixture.target, ["add", compatibilityPath])
+    await git(protectedFixture.target, ["commit", "-m", "test: add compatibility memory"])
+    const preservedPlan = await planFor(protectedFixture)
+    expect(preservedPlan.entries.find((entry) => entry.path === compatibilityPath)).toBeUndefined()
+    expect(preservedPlan.problems).not.toEqual(
+      expect.arrayContaining([expect.stringContaining(compatibilityPath)])
+    )
+
+    await writeFile(path.join(protectedFixture.candidate, compatibilityPath), '{"version":2}\n')
+    const blockedPlan = await planFor(protectedFixture)
+    expect(blockedPlan.entries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: compatibilityPath,
+          ownership: "protected",
+          classification: "blocked"
+        })
       ])
     )
   })

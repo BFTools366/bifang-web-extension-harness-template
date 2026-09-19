@@ -3,6 +3,7 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
 import {
+  annotateTypeScriptSource,
   inspectChineseComments,
   inspectProjectChineseComments,
   isChineseCommentPolicyExcluded
@@ -112,6 +113,48 @@ scenario("account", () => undefined)
     const result = inspectChineseComments("/** 读取账户。 */\nfunction load(", "src/broken.ts")
     expect(result.errors).not.toEqual([])
     expect(result.violations).toEqual([])
+  })
+
+  /** 验证源码级补全保持纯函数、幂等并保留 CRLF 换行。 */
+  test("annotates valid source deterministically without project I/O", () => {
+    const source = [
+      'const operationName = "Viewer"; export type ViewerQuery = { viewer: { id: string } }',
+      "export function resolveViewer(query: ViewerQuery) { return query.viewer }",
+      'class Resolver { resolve(): ViewerQuery { return { viewer: { id: "1" } } } }',
+      'test("resolves a GraphQL-like viewer query", () => resolveViewer(new Resolver().resolve()))',
+      ""
+    ].join("\r\n")
+
+    const annotated = annotateTypeScriptSource(source, "/path/that/does/not/exist/account.test.tsx")
+    const inspected = inspectChineseComments(annotated, "src/account.test.tsx")
+    expect(inspected.errors).toEqual([])
+    expect(inspected.violations).toEqual([])
+    expect(annotateTypeScriptSource(annotated, "src/account.test.tsx")).toBe(annotated)
+    expect(annotated).toContain("描述 ViewerQuery 类型的结构契约")
+    expect(annotated).toContain("执行 resolveViewer 函数的处理逻辑")
+    expect(annotated).toMatch(/class Resolver \{ \/\*\* 执行 resolve 类成员/u)
+    expect(annotated).toContain('验证 "resolves a GraphQL-like viewer query" 测试场景')
+    expect(annotated.replaceAll("\r\n", "")).not.toContain("\n")
+    expect(annotated.replaceAll("\r\n", "")).not.toContain("\r")
+  })
+
+  /** 验证源码级补全不会掩盖 TypeScript 语法错误。 */
+  test("rejects syntax errors instead of annotating partial syntax", () => {
+    expect(() => annotateTypeScriptSource("function load(", "src/broken.ts")).toThrowError(
+      /src\/broken\.ts:1:/u
+    )
+  })
+
+  /** 验证首行 UTF-8 BOM 只保留在文件开头且不会被复制。 */
+  test("preserves exactly one leading UTF-8 BOM", () => {
+    const source = "\uFEFFinterface State { ready: boolean }"
+    const annotated = annotateTypeScriptSource(source, "src/state.ts")
+
+    expect(annotated.startsWith("\uFEFF/** 描述 State 接口的结构契约。 */\ninterface State")).toBe(
+      true
+    )
+    expect([...annotated].filter((character) => character === "\uFEFF")).toHaveLength(1)
+    expect(annotateTypeScriptSource(annotated, "src/state.ts")).toBe(annotated)
   })
 
   /** 验证 uses exact generated-file and directory exclusions 场景。 */
