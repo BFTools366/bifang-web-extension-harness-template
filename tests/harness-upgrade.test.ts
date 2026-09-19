@@ -434,8 +434,11 @@ describe("three-way Harness upgrade", () => {
     expect(manifest.defaultMode).toBe("protected")
     expect(manifest.rules).toEqual(
       expect.arrayContaining([
+        { pattern: "docs/DATA_ACCESS.md", mode: "merge-sections" },
         { pattern: "docs/ENGINEERING_RULES.md", mode: "merge-sections" },
-        { pattern: "docs/RELEASE.md", mode: "merge-sections" }
+        { pattern: "docs/MANTINE_UI_GUIDELINES.md", mode: "merge-sections" },
+        { pattern: "docs/RELEASE.md", mode: "merge-sections" },
+        { pattern: "docs/RUNTIME_CONFIGURATION.md", mode: "merge-sections" }
       ])
     )
   })
@@ -469,6 +472,17 @@ describe("three-way Harness upgrade", () => {
       expect(manifest.rules).toContainEqual({
         pattern: protectedConfiguration,
         mode: "protected"
+      })
+    }
+    for (const productExtensibleDocument of [
+      "docs/DATA_ACCESS.md",
+      "docs/MANTINE_UI_GUIDELINES.md",
+      "docs/RUNTIME_CONFIGURATION.md"
+    ]) {
+      expect(MINIMUM_OWNERSHIP_RULES[productExtensibleDocument]).toBe("merge-sections")
+      expect(manifest.rules).toContainEqual({
+        pattern: productExtensibleDocument,
+        mode: "merge-sections"
       })
     }
   })

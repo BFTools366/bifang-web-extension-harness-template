@@ -19,7 +19,7 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 
 - `managed`：Harness 独占文件；只有目标仍匹配已记录基线时才允许 helper 原子更新一个现有文件。
 - `managed-self`：升级器自身；规则同 `managed`，但必须在普通 managed 后按路径稳定顺序更新，CLI runner 始终最后。
-- `merge-sections`：AGENTS、README、ENGINEERING_RULES、RELEASE、package 等混合文件；只人工合并已复核章节或键。
+- `merge-sections`：AGENTS、README、DATA_ACCESS、ENGINEERING_RULES、MANTINE_UI_GUIDELINES、RELEASE、RUNTIME_CONFIGURATION、package 等混合文件；只人工合并已复核章节或键。
 - `conditional`：三环境等依赖目标真实值的文件；只人工处理，不复制源值。
 - `protected`：产品源码/测试、`.harness/project.json`、品牌、项目记忆、Agent Policy、许可证和未登记本地文件；候选包含即阻断。
 - `tombstone`：终端下游不得恢复的一次性实例化、源验证、源记忆治理、另一宿主模板和 Harness 方法论入口；候选或目标包含即阻断。

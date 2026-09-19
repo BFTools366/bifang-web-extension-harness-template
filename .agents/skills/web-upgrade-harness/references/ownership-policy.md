@@ -2,7 +2,7 @@
 
 - `managed`：Harness 独占的工程文件。只有目标仍匹配 lock 基线时可路径级自动更新。
 - `managed-self`：升级器自身；规则同 `managed`，但必须在其他 managed 更新全部完成后按路径稳定顺序更新，`scripts/harness-upgrade.ts` 始终最后。
-- `merge-sections`：同时包含 Harness 约束和产品决定，包括 `AGENTS.md`、`README.md`、`docs/ENGINEERING_RULES.md`、`docs/RELEASE.md` 与工程配置。只输出 `manual_merge`，不自动整文件覆盖。
+- `merge-sections`：同时包含 Harness 约束和产品决定，包括 `AGENTS.md`、`README.md`、`docs/DATA_ACCESS.md`、`docs/ENGINEERING_RULES.md`、`docs/MANTINE_UI_GUIDELINES.md`、`docs/RELEASE.md`、`docs/RUNTIME_CONFIGURATION.md` 与工程配置。只输出 `manual_merge`，不自动整文件覆盖。
 - `conditional`：需要目标真实配置或宿主事实。只人工处理，不自动添加或覆盖。
 - `protected`：身份、品牌、产品源码/测试、项目记忆、策略、许可证和环境值。候选包含这些路径即失败关闭。
 - `tombstone`：终端下游永久不得恢复的一次性创建、源验证和 Harness 方法论入口。候选包含即失败关闭。
