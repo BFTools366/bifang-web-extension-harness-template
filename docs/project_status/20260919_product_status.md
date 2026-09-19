@@ -19,6 +19,11 @@
 - 本次没有执行 `pnpm build`，没有生成 Web/Extension Release 候选，也没有运行浏览器 smoke 或 E2E；这些操作仍需各自的候选触发器与当次 E2E 选择。
 - `Version.md` 保持既有发布事实；没有创建 tag、PR、部署、上传或商店提交。
 
+## 当前阻断
+
+- Harness 优化已提交为 `e7f0b39`，但 `origin` 的 Git fetch、push 与浏览器仓库页都在 GitLab nginx 层返回 HTTP 403；本机钥匙串存在该主机凭据，仍无法读取或写入远端。
+- SSH 入口没有已信任 host key，DNS 也没有 SSHFP；在无法独立验证服务器身份时不采用未验证 SSH 连接绕过 HTTPS 权限。远端同步需先恢复该 GitLab 仓库的网络或账户访问。
+
 ## 后续触发器
 
 - 只有明确要求准备或完整验收 Release 候选时，才按当前宿主分别进入构建、扫描、smoke/E2E 与候选证据流程。
