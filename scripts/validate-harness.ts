@@ -9,18 +9,22 @@ import { validateAgentsEntrypoint } from "./harness-validation/agents-entrypoint
 import {
   collectFiles,
   governedMarkdownFiles,
+  validateRepositoryPaths,
   validateContent,
   validateEventDrivenWorkflow,
   validateMarkdownLinks,
   validateSkills
 } from "./harness-validation/repository.ts"
 import { validateToolingContract } from "./harness-validation/tooling.ts"
+import { validateHarnessVersion } from "./harness-validation/version.ts"
+import { validateUpgradeOwnership } from "./harness-validation/upgrade-ownership.ts"
 
 /** 执行完整源 Harness 验证并返回稳定统计。 */
 export async function validateHarness(rootInput: string): Promise<HarnessValidationReport> {
   const root = path.resolve(rootInput)
   const errors: string[] = []
   const files = await collectFiles(root)
+  validateRepositoryPaths(files, errors)
   const markdownFiles = governedMarkdownFiles(files)
   const skills = await validateSkills(root, errors)
   await validateAgentsEntrypoint(root, errors)
@@ -30,6 +34,8 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   await validateContent(root, markdownFiles, errors)
   const markdownLinks = await validateMarkdownLinks(root, markdownFiles, errors)
   await validateToolingContract(root, errors)
+  await validateUpgradeOwnership(root, errors)
+  await validateHarnessVersion(root, errors)
   await validateRepositoryLineLimits(root, files, errors)
   const commentReport = await inspectProjectChineseComments(root)
   errors.push(

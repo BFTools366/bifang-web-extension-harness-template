@@ -30,7 +30,14 @@
 - Web 在真实 endpoint 落地前确认 CORS、credentials、CSP、BaseURL 与部署环境变量；浏览器环境变量不是秘密存储。Extension 的公开 BaseURL 也不会自动获得跨域权限。
 - Extension 对每个跨域服务只申请真实使用的最小 `host_permissions`，并覆盖未授权/被撤销路径。本知识基线本身不新增任何 `permissions`、`host_permissions`、background 或 content script。
 
-### 2.1 规范化分页结构
+### 2.1 状态的单一所有者
+
+- 每项可恢复状态先选择一个权威所有者：组件私有交互使用 React 局部状态；确需跨组件共享的纯客户端状态使用 Jotai；远端结果使用 TanStack Query。不得把同一筛选、页码、实体或异步结果同时写入 URL、sessionStorage、Jotai 与 Query 再靠 effect 同步。
+- Web 中需要分享、书签、前进/后退或刷新恢复的筛选、排序和页码使用经过运行时校验的 TanStack Router search；只在当前标签页会话恢复、且不需要 URL 语义的状态才使用 sessionStorage。路由 search 与 sessionStorage 不能同时拥有同一字段。
+- Extension 的 Popup/Options 局部短会话状态留在组件；需要跨重新打开或跨执行上下文恢复时，使用类型化 `chrome.storage` 与消息契约并先评审数据、权限和失效策略。Jotai/React 内存不能冒充 Popup、Options、content script 或 service worker 之间的共享存储。
+- 派生值在读取时计算，不保存为可漂移副本。状态所有权变化必须覆盖刷新、卸载/重挂载、浏览器导航或 Extension 上下文销毁中实际适用的边界测试。
+
+### 2.2 规范化分页结构
 
 所有真实集合页在 feature/service 边界统一使用以下语义：
 
@@ -39,14 +46,14 @@
 - 业务 service 把 cursor、offset、`current`、`size`、`records` 等外部协议映射为 `{ items, total }`；`items` 是当前页已校验项目，`total` 是非负安全整数。外部字段不得直接扩散到通用分页组件。
 - TanStack Query key 必须包含会影响结果的稳定 scope、`page`、`pageSize`、target 和语言；列表数据、`total`、loading/error 与 placeholder 状态仍只由 Query/feature 拥有。
 
-### 2.2 sessionStorage 与 scope
+### 2.3 sessionStorage 与 scope
 
 - `src/pagination/` 使用 `<project-id>:pagination:v1:<encodeURIComponent(scope)>` 作为 Storage key。同一页面的多个集合必须使用不同稳定 scope；scope 不得包含 Token、个人信息、任意用户输入或会无限增长的值。
 - sessionStorage 只保存 `{ version: 1, page, pageSize }`。不得保存 `items`、`total`、错误、响应、筛选敏感值或任何认证信息。
 - 读取时校验对象形状、版本、正整数和允许的 `pageSize`；缺失、损坏、版本不符、容量/安全异常或浏览器拒绝 Storage 时回退声明的初始值，不能阻断渲染。写入失败同样只退化为当前内存状态。
 - Web 的 sessionStorage 只承诺当前浏览器标签页会话。Extension 的 Popup、Options、content script 与 service worker 是独立执行上下文；普通 sessionStorage 不提供跨上下文共享，Popup 销毁或 service worker 回收后也不得宣称状态仍存在。需要跨上下文或持久分页状态时必须另行设计类型化消息/Storage，并评审数据与权限边界。
 
-### 2.3 成功空页回退状态机
+### 2.4 成功空页回退状态机
 
 从非第一页回到第一页只能由一次与**当前**分页状态完全对应的成功结果触发，并同时满足：
 
@@ -208,7 +215,7 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 8. RxJS 首次接入至少覆盖有效/无效事件映射、单来源失败隔离、重试停止与取消、监听/连接数量和最后一个订阅退出后的 teardown。
 9. 使用 `share` 或 replay 时覆盖共享底层订阅、error/complete/refCount reset、晚订阅结果、缓冲边界与清理；多来源更新还要覆盖重复、乱序和旧版本拒绝。
 10. 事件投影至少证明 Query/Jotai 各自只有一个状态所有者；Extension 还要覆盖非法 sender/message、Port 断开、页面卸载和 service worker 重启后的重建。涉及后台行为或权限时进入完整候选验收并在真实 Chrome 验证。
-11. 运行 `pnpm env:validate`、`pnpm harness validate`、`pnpm lint`、`pnpm typecheck`、相关非空 `pnpm test` 与 `pnpm build`；验证 client 只读 `APP_CONFIG`，日志符合脱敏边界，Release 产物不包含开发/测试 BaseURL、Token/continuation fixture 或敏感数据。真实服务、CORS、登录导航、浏览器与权限场景未执行时写为 `Unverified`。
+11. 日常变更运行 `pnpm env:validate`、`pnpm harness validate` 与本次受影响的相关非空测试；lint/typecheck 只在本次变化需要或用户明确要求时追加。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才取得当次 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`；候选需验证 client 只读 `APP_CONFIG`、日志符合脱敏边界，且 Release 产物不包含开发/测试 BaseURL、Token/continuation fixture 或敏感数据。真实服务、CORS、登录导航、浏览器与权限场景未执行时写为 `Unverified`。
 
 ## 8. 官方参考
 

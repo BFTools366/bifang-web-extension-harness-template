@@ -3,12 +3,12 @@ import path from "node:path"
 import { describe, expect, test } from "vitest"
 import {
   allocateProjectTaskSequences,
-  isValidSessionProgressTitle,
+  isValidTaskProgressTitle,
   recommendedAgentPolicy,
   renderAgentPolicy,
-  SESSION_PROGRESS_STATES,
-  SESSION_PROGRESS_TITLE_INITIAL,
-  SESSION_PROGRESS_TITLE_TEMPLATE,
+  TASK_PROGRESS_STATES,
+  TASK_PROGRESS_TITLE_INITIAL,
+  TASK_PROGRESS_TITLE_TEMPLATE,
   validateAgentPolicyBody,
   validateAgentPolicyDocument
 } from "../.harness/tooling/agent-policy.ts"
@@ -61,10 +61,10 @@ describe("Agent policy contract", () => {
 
   /** 验证用户可见 Task 标题只接受精确三字段格式和真正单行文本。 */
   test("validates the exact user-owned Task progress title grammar", () => {
-    expect(SESSION_PROGRESS_TITLE_TEMPLATE).toBe("Task {序号} | {当前进度} | {单一结果}")
-    expect(SESSION_PROGRESS_TITLE_INITIAL).toBe("Task {序号} | 已分配 | {单一结果}")
-    for (const progress of SESSION_PROGRESS_STATES) {
-      expect(isValidSessionProgressTitle(`Task 23 | ${progress} | 拉取并推送所有变更`)).toBe(true)
+    expect(TASK_PROGRESS_TITLE_TEMPLATE).toBe("Task {序号} | {当前进度} | {单一结果}")
+    expect(TASK_PROGRESS_TITLE_INITIAL).toBe("Task {序号} | 已分配 | {单一结果}")
+    for (const progress of TASK_PROGRESS_STATES) {
+      expect(isValidTaskProgressTitle(`Task 23 | ${progress} | 拉取并推送所有变更`)).toBe(true)
     }
     for (const invalid of [
       "Task 0 | 已分配 | 拉取并推送所有变更",
@@ -83,7 +83,7 @@ describe("Agent policy contract", () => {
       "23|同步GitHub|已完成 |拉取并推送所有变更",
       "同步任务已完成"
     ]) {
-      expect(isValidSessionProgressTitle(invalid)).toBe(false)
+      expect(isValidTaskProgressTitle(invalid)).toBe(false)
     }
   })
 
@@ -110,9 +110,9 @@ describe("Agent policy contract", () => {
     expect(allocateProjectTaskSequences([], { hostId: "local", projectId: "project-a" })).toEqual([
       1
     ])
-    expect(() =>
-      allocateProjectTaskSequences([], { hostId: "", projectId: "project-a" })
-    ).toThrow(/hostId/)
+    expect(() => allocateProjectTaskSequences([], { hostId: "", projectId: "project-a" })).toThrow(
+      /hostId/
+    )
     expect(() =>
       allocateProjectTaskSequences([], { hostId: "local", projectId: "project-a " })
     ).toThrow(/projectId/)
@@ -126,6 +126,7 @@ describe("Agent policy contract", () => {
     expect(validateAgentPolicyDocument(resolvedPolicy(), { allowPending: false })).toEqual([])
     expect(resolvedPolicy()).toContain("schema_version: 3")
     expect(resolvedPolicy()).toContain("user_owned_tasks: disabled")
+    expect(resolvedPolicy()).toContain("parallel_worktree_subagents: disabled")
     expect(resolvedPolicy()).toContain("acceptance_smoke: enabled")
     expect(resolvedPolicy()).toContain("e2e_hint: disabled")
     expect(resolvedPolicy()).not.toContain("milestone_smoke")
@@ -149,6 +150,12 @@ describe("Agent policy contract", () => {
         { allowPending: false }
       )
     ).toContain("initialized downstream Agent policy confirmed_by must identify a real source")
+  })
+
+  /** 验证 CRLF checkout 的策略 frontmatter 与 LF 具有相同语义。 */
+  test("accepts CRLF Agent policy documents", () => {
+    const crlf = resolvedPolicy().replaceAll("\n", "\r\n")
+    expect(validateAgentPolicyDocument(crlf, { allowPending: false })).toEqual([])
   })
 
   /** 验证旧 schema、旧字段名和历史默认解释一律被拒绝。 */
@@ -243,6 +250,22 @@ e2e_hint: pending
     expect(validateAgentPolicyBody(weakened)).toContain(
       "Agent policy body is missing: 用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`"
     )
+  })
+
+  /** 验证完整候选 smoke 的启用、关闭、硬要求与源 pending 矩阵不能弱化。 */
+  test("locks the complete acceptance smoke matrix", async () => {
+    const source = await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
+    for (const fragment of [
+      "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
+      "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
+      "用户、产品、安全或渠道硬要求优先于持久值",
+      "源 Harness 的 `pending` 不授权可选 smoke"
+    ]) {
+      const weakened = source.replace(fragment, "已删除 smoke 契约")
+      expect(validateAgentPolicyBody(weakened)).toContain(
+        `Agent policy body is missing: ${fragment}`
+      )
+    }
   })
 
   /** 验证用户可见 Task 开关、标题与内部结构不得占用序号的关键段落不能删除。 */

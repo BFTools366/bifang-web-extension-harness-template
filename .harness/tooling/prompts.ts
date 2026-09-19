@@ -370,7 +370,7 @@ export async function collectPromptedIdentity(
     const parallelWorktreeSubagents = await collectPolicyChoice(
       basic.parallelWorktreeSubagents,
       "parallel-worktree-subagents",
-      "并行 Worktree/Subagent（enabled 或 disabled）：",
+      "并行 Worktree/Subagent（enabled 或 disabled；推荐 disabled）：",
       ask
     )
     const acceptanceSmoke = await collectPolicyChoice(

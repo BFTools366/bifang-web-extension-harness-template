@@ -14,11 +14,11 @@
 
 ## 固定技术选型
 
-| 项目类型    | 技术基线                                                                                                                                                 |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `web`       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai、i18next                                                              |
-| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Query、Jotai、i18next                                                                  |
-| 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；当前构建启用 E2E 或存在浏览器硬要求时增加真实 Chrome 验证 |
+| 项目类型    | 技术基线                                                                                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `web`       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai、i18next                                                                      |
+| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Query、Jotai、i18next                                                                          |
+| 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；当前 E2E、完整验收 smoke 或浏览器硬要求需要时增加真实 Chrome 验证 |
 
 初始化器会生成不含业务 endpoint 的原生 Fetch client、语言偏好和分页基础层，统一 `X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、401、错误日志与 sessionStorage 分页语义。Ky、OpenAPI、GraphQL、SSE 与 RxJS 等集成仍只随真实消费者按需加入；初始化不预装这些依赖、不生成占位请求/事件总线，也不预置 Extension 权限。完整协议见 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。
 
@@ -205,7 +205,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 | 路径                                                                      | 作用                                                |
 | ------------------------------------------------------------------------- | --------------------------------------------------- |
 | [`AGENTS.md`](AGENTS.md)                                                  | Agent 的渐进读取、事件路由、Skills 与约束地图       |
-| [`.agents/skills/`](.agents/skills/)                                      | 15 个按触发条件读取的源 `web-*` 项目 Skills         |
+| [`.agents/skills/`](.agents/skills/)                                      | 16 个按触发条件读取的源 `web-*` 项目 Skills         |
 | [`.harness/tooling/`](.harness/tooling/)                                  | 初始化、品牌刷新和下游校验的 TypeScript 工具        |
 | 生成项目中的 `.harness/project.json`                                      | 下游项目身份、唯一 `projectType` 与品牌的单一事实源 |
 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                              | 数据访问、SSE 与可选 RxJS 事件流编排                |
@@ -222,7 +222,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 - Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收；`Version.md` 当前值、候选版本、源码提交、lockfile、Schema/协议版本、`manifest_version` 与 `projectType` 等身份或协议事实继续精确匹配。
 - 三份环境必须同时齐全并通过 Schema 校验；`pnpm release:inspect` 必须按 [`docs/LOGGING.md`](docs/LOGGING.md) 在文件名层拒绝 `.env*`/`.map`，并只在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机路径与 `sourceMappingURL`，作为 `build:release`/Extension `package` 的自动失败门禁；它不提供通用秘密扫描。
 - 行为变化至少运行相关非空单元/组件测试；文档与元数据变化运行链接、解析或差异检查。
-- 每次 Web/Extension 产物构建都先询问当次 E2E 选择；选择启用或产品/安全/渠道硬要求时，必须针对刚生成的最终构建验证当前项目真实需要的页面、入口与权限行为。
+- 每次 Web/Extension 产物构建都先询问当次 E2E 选择；完整候选验收另按 `acceptance_smoke` 决定是否运行有边界的 smoke。E2E、smoke 或产品/安全/渠道硬要求任一要求浏览器证据时，必须针对刚生成的最终构建验证当前项目真实需要的页面、入口与权限行为。
 - Mock、占位页面、开发预览或仅检查源码不能替代最终产物验收。
 - 未实际运行的平台和浏览器范围必须标记为 `Unverified`。
 

@@ -136,12 +136,11 @@ Task 绑定：
 
 - `$web-instantiate-project` 首轮一次收集尚未明确的项目类型、名称、id、描述、目标路径、三环境 BaseURL、品牌输入、策略模式和确认来源。项目类型不得有默认值；推荐预设必须显式确认。
 - 选择自定义后，`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint` 每轮只询问一个当前缺失字段；用户一次主动提供多个合法字段时全部复用。`user_owned_tasks` 的推荐/default 值都是 `disabled`。
-- 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: enabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。预设只是输入捷径，不新增持久字段，也不得在用户未确认时静默采用其他值。
+- 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: disabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。默认关闭的内部并行只限制当前 Task 的 `codex/unit-*` 写入单元，不影响用户明确创建的左侧 Git Task；预设只是输入捷径，不新增持久字段，也不得在用户未确认时静默采用其他值。
 - 五项值全部解析后才以 `schema_version: 3` 一次原子写入本文件；`confirmed_by` 记录真实确认来源，`confirmed_at` 记录最终收齐日期。内部初始化链只验证并复用，不重复询问。
 - `pending` 只允许存在于源 Harness 或未完成 staging。最终下游任何 `pending`、空确认来源或非法确认日期都阻断原子发布。
-- 初始化后，用户可明确说“开启左侧 Task”“关闭左侧 Task”“开启自动 Task 拆分”或“关闭自动 Task 拆分”；Agent 更新 `user_owned_tasks`、`confirmed_by`、`confirmed_at`，并在构成长期决定时按工程规则记录 ADR。目标值相同时按幂等 no-op 报告。切换只影响之后的结果边界判断，不迁移或中断既有 Task/Worktree。
+- 初始化后，用户可明确改变五项持久策略；例如“开启左侧 Task”或“关闭左侧 Task”只改变 `user_owned_tasks`。Agent 只更新被确认的字段、`confirmed_by` 与 `confirmed_at`。任何初始化后的永久策略变更都必须写入当日 ADR，目标值相同时按幂等 no-op 报告；临时 Task 限制不得改写持久策略。切换只影响之后的适用行为，不迁移或中断既有 Task/Worktree。
 - 本文件只有 `schema_version: 3` 一种有效形态，不兼容、不推断任何更早 schema 或缺少字段的旧形态（含改名前的 `milestone_smoke`/`milestone_e2e`）；不合规的文件必须由用户重新走五项确认一次性物化为 `schema_version: 3`。
-- 其他初始化后的永久策略变更同样必须由用户明确确认；若构成长期决定，再按工程规则触发相应记录。
 
 ## Web/Extension 构建与验收
 
@@ -149,7 +148,7 @@ Task 绑定：
 - 显式发布候选构建必须为当前候选解析一次 E2E 选择。请求已明确 `enabled|disabled` 时直接复用，否则在任何测试或编译前询问一次；`e2e_hint` 仅用于询问时的建议默认值。
 - E2E 选择只对当前发布候选有效，不跨候选写回本文件。`enabled` 时只在 `pnpm build` 形成最终真实候选后调用 `$web-test-final-artifact-e2e`；`disabled` 时记录 `Not run` 与剩余风险。
 - Web 候选是 Vite `dist/`；Extension 候选由唯一 `pnpm build` 形成，若需要分发 zip 再运行 `pnpm package`。构建、E2E、扫描和验收继续完全遵循当前仓库 `docs/RELEASE.md`，本文件不定义第二套发布逻辑。
-- `acceptance_smoke` 只在 `$web-verify-delivery` 的完整候选验收中解析；用户、产品、安全或渠道硬要求优先。浏览器步骤只能针对精确 Release 候选，不能用开发页、源码片段、Mock 或占位内容冒充。
+- `acceptance_smoke` 只在 `$web-verify-delivery` 的完整候选验收中解析。`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`；`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`；用户、产品、安全或渠道硬要求优先于持久值。源 Harness 的 `pending` 不授权可选 smoke，无硬要求时按 `not-required` 处理，不推断推荐预设。浏览器步骤只能针对精确 Release 候选，不能用开发页、源码片段、Mock 或占位内容冒充；smoke 与当次 E2E 选择相互独立。
 - 本地开发试包不消费 E2E 选择；本 Web Harness 不持久化桌面 GUI 性能选择，也不引入桌面签名、公证或分支发布链。
 
 ## 执行优先级

@@ -33,10 +33,11 @@ description: 为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 Ex
 
 ## 验证
 
-1. 运行 `pnpm harness validate` 及相关类型、测试和构建脚本。
-2. `web` 在真实构建后的 `dist/` 检查 title、说明、favicon、Logo URL 和落地页渲染；`extension` 在真实 Chrome MV3 构建中检查 manifest、图标尺寸和 popup/options 渲染。
-3. 视觉查看生成母版及至少一个实际 UI 使用位置；不能只凭文件存在声明完成。
-4. 品牌文字或图像改变属于用户可见变化时，按仓库触发规则更新当日 Changelog；只有长期身份决定才创建 ADR。初始化不预建这些记忆。
+1. 首次实例化路径只运行初始化器拥有的静态结构/品牌检查与 `pnpm harness validate`；检查母版、派生尺寸、HTML/manifest/源码引用和当前宿主身份一致。初始化不生成 Release 候选，也不以源码预览冒充候选证据。
+2. 已初始化下游的品牌变化运行 `pnpm harness validate`、本次受影响的相关非空测试或最小替代检查。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才在取得当次 E2E 选择后运行唯一 `pnpm build -- --e2e=enabled|disabled` 并交给 `$web-verify-delivery`；不得为普通品牌同步无条件构建。
+3. 候选门禁触发时，`web` 在真实 `dist/` 检查 title、说明、favicon、Logo URL 和落地页渲染；`extension` 在真实 Chrome MV3 候选检查 manifest、图标尺寸和 popup/options 渲染。未触发候选时明确把这些范围写为 `Unverified`。
+4. 视觉查看生成母版及至少一个实际 UI 使用位置；不能只凭文件存在声明完成。
+5. 品牌文字或图像改变属于用户可见变化时，按仓库触发规则更新当日 Changelog；只有长期身份决定才创建 ADR。初始化不预建这些记忆。
 
 ## 完成输出
 

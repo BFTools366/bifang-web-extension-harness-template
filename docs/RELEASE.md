@@ -28,7 +28,7 @@
 Harness 候选至少满足：
 
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
-- 源 Harness 的 15 个项目 Skills、成功下游保留的 13 个维护 Skills 及创建/源记忆治理 Skill 删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
+- 源 Harness 的 16 个项目 Skills、成功下游保留的 14 个维护 Skills 及创建/源记忆治理 Skill 删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <absolute-target-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
@@ -52,7 +52,7 @@ Web 候选至少要求：
 1. `.harness/project.json.projectType` 为 `web`，没有 Plasmo/Extension 入口或权限配置。
 2. 针对同一源码提交运行唯一 `pnpm build`；它使用逻辑 release 与 `.env.production`，完整构建门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。
 3. 最终 Vite 构建存在，title、description、favicon、Logo 和 Landing 身份一致。
-4. 核心成功路径与最高风险失败路径有非空测试；当次 E2E 选择启用或用户、产品、安全、渠道硬要求时，用 Playwright 或真实浏览器验证最终构建及页面构建版本。
+4. 核心成功路径与最高风险失败路径有非空测试；当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，用对应范围的 Playwright 或真实浏览器场景验证最终构建及页面构建版本。
 5. 部署目标的 base path、环境变量、CSP、缓存和回退路由已按真实渠道验证；Release 产物和浏览器日志通过 [`LOGGING.md`](LOGGING.md) 的裁剪/敏感信息检查；未验证项公开。
 
 部署到具体托管平台、配置域名、生产密钥或上传产物需要对应外部操作授权。本 Harness 不因生成 `dist` 自动授权发布。
@@ -66,7 +66,7 @@ Extension 候选至少要求：
 3. 最终 Chrome MV3 构建存在，manifest 名称/描述/版本、Plasmo 生成图标、Popup 与 Options 身份一致；Parcel target 是显式 browser context，production JS 不含任何运行时依赖 self-map。
 4. 权限、host permissions、content scripts 和 Web accessible resources 与产品真实用途精确匹配，没有模板遗留高权限。
 5. `pnpm package` 从同一 Release 配置生成 Chrome MV3 zip，并在打包后自动运行 `pnpm harness validate` 与 `pnpm release:inspect`；目录或 zip 重新生成后必须重新记录哈希和验收。
-6. 当次 E2E 选择启用或用户、产品、安全、渠道硬要求时，在真实 Chrome 中加载最终构建，验证 Popup、Options、页面构建版本、必要消息/Storage/权限行为和 Release 日志脱敏；未实际加载时标记 `Unverified`。
+6. 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，在真实 Chrome 中加载最终构建，按批准范围验证 Popup、Options、页面构建版本、必要消息/Storage/权限行为和 Release 日志脱敏；未实际加载时标记 `Unverified`。
 
 Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露和正式发布属于外部渠道操作，需要独立明确授权。构建成功不等于商店审核通过或可公开分发。
 
@@ -76,7 +76,7 @@ Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露
 2. 固定源码提交与依赖锁，不做工具链预探测，直接运行当前项目类型的唯一 `pnpm build` 完成逻辑 Release 构建；只有真实失败指向环境时才诊断相关组件。完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。
 3. 检查身份、Logo 母版、当前宿主品牌派生、manifest/HTML、配置与权限边界。
 4. 确认生成候选的 `build:release` 或 Extension `package` 已自动通过 `pnpm release:inspect`；需要独立复核既有目录时直接重跑该命令。任何命中先修复并生成新候选。
-5. 每次构建前询问用户是否启用当次 E2E；选择 `enabled` 或存在用户/产品/安全/渠道硬要求时，对刚生成的精确候选执行 E2E，选择 `disabled` 时记录 `Not run`、`not-required/not-probed` 与 `Unverified` 范围。浏览器流程不能覆盖环境、测试、版本注入、构建、扫描或渠道硬门禁。
+5. 每次构建前询问用户是否启用当次 E2E；完整验收再按 Agent Policy 独立解析 smoke。E2E 或 smoke 为 `required`、或存在用户/产品/安全/渠道硬要求时，对刚生成的精确候选执行对应浏览器场景；两项均为 `not-required` 时记录 `Not run`、`not-probed` 与 `Unverified` 范围。浏览器流程不能覆盖环境、测试、版本注入、构建、扫描或渠道硬门禁。
 6. 在当前任务交付说明中报告实际环境、命令、结果、未执行项和剩余风险（持久记录边界见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §7）。需要人工复核时由真实复核人签署，Agent 不得代签。
 7. 只有全部必需门禁通过后才能准备标签或发布元数据；push、上传或正式发布仍需独立授权。
 

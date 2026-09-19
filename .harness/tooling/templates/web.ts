@@ -213,7 +213,9 @@ const brandScale = Array.from(
 
 export const theme = createTheme({
   colors: { brand: brandScale },
-  primaryColor: "brand"
+  primaryColor: "brand",
+  fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+  headings: { fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }
 })
 `
     ],
@@ -221,7 +223,6 @@ export const theme = createTheme({
       "src/app/AppProviders.tsx",
       `import { MantineProvider } from "@mantine/core"
 import { QueryClientProvider } from "@tanstack/react-query"
-import { Provider as JotaiProvider } from "jotai"
 import type { ReactNode } from "react"
 import { queryClient } from "./queryClient"
 import { theme } from "./theme"
@@ -234,10 +235,8 @@ interface AppProvidersProps {
 /** 说明 AppProviders 的稳定结构与职责边界。 */
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <MantineProvider theme={theme}>
-      <QueryClientProvider client={queryClient}>
-        <JotaiProvider>{children}</JotaiProvider>
-      </QueryClientProvider>
+    <MantineProvider theme={theme} defaultColorScheme="light">
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   )
 }
@@ -259,30 +258,22 @@ declare module "@tanstack/react-router" {
 `
     ],
     [
-      "src/features/welcome/welcomeCount.atom.ts",
-      `import { atom } from "jotai"
-
-export const welcomeCountAtom = atom(0)
-`
-    ],
-    [
       "src/features/welcome/WelcomePage.tsx",
       `import { Badge, Button, Container, Group, Image, Paper, Stack, Text, Title } from "@mantine/core"
-import { useAtom } from "jotai"
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
 import { BUILD_VERSION } from "../../buildVersion"
-import { welcomeCountAtom } from "./welcomeCount.atom"
 
 /** 说明 WelcomePage 的稳定结构与职责边界。 */
 export function WelcomePage() {
   const { t } = useTranslation()
-  const [count, setCount] = useAtom(welcomeCountAtom)
+  const [count, setCount] = useState(0)
 
   return (
     <main className="page-shell">
       <Container size="sm">
-        <Paper className="hero-card" radius="xl" p="xl" shadow="lg">
+        <Paper radius="lg" p="xl" withBorder>
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start">
               <Image src={BRAND.logoPath} alt={BRAND.name} w={88} h={88} radius="xl" />
@@ -298,7 +289,9 @@ export function WelcomePage() {
             </div>
             <Group>
               <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
-              <Text fw={600}>{t("count", { count })}</Text>
+              <Text fw={600} role="status" aria-live="polite" aria-atomic="true">
+                {t("count", { count })}
+              </Text>
             </Group>
             <Text c="dimmed" size="xs">
               {t("buildVersion", { version: BUILD_VERSION })}
@@ -332,10 +325,13 @@ test("renders the branded landing interaction", async () => {
     </AppProviders>
   )
 
-  expect(screen.getByRole("heading", { name: BRAND.name })).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: BRAND.name, level: 1 })).toBeInTheDocument()
   expect(screen.getByText("Build version: development")).toBeInTheDocument()
+  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
+  await user.click(screen.getByText(BRAND.description))
+  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
-  expect(screen.getByText("Interaction count: 1")).toBeInTheDocument()
+  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
 })
 `
     ],
@@ -352,7 +348,7 @@ export function NotFoundPage() {
   return (
     <main className="page-shell">
       <Container size="sm">
-        <Paper className="hero-card" radius="xl" p="xl" shadow="lg">
+        <Paper radius="lg" p="xl" withBorder>
           <Stack gap="md">
             <Title order={1}>{t("notFoundTitle")}</Title>
             <Text c="dimmed">{t("notFoundDescription")}</Text>
@@ -439,8 +435,7 @@ createRoot(root).render(
     [
       "src/styles.css",
       `:root {
-  color-scheme: light dark;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color-scheme: light;
 }
 
 body {
@@ -452,15 +447,8 @@ body {
   min-height: 100vh;
   display: grid;
   place-items: center;
-  padding: 3rem 1rem;
-  background: radial-gradient(
-    circle at top,
-    color-mix(in srgb, var(--mantine-color-brand-5) 22%, transparent),
-    transparent 55%
-  );
-}
-.hero-card {
-  border: 1px solid light-dark(var(--mantine-color-gray-2), var(--mantine-color-dark-5));
+  padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
+  background: var(--mantine-color-gray-0);
 }
 `
     ]

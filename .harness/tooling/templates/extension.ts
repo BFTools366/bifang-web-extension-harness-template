@@ -61,13 +61,6 @@ declare namespace NodeJS {
 `
     ],
     [
-      "src/state.ts",
-      `import { atom } from "jotai"
-
-export const launchCountAtom = atom(0)
-`
-    ],
-    [
       "src/i18n.ts",
       `import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
@@ -121,12 +114,16 @@ export default i18n
       `import type { PropsWithChildren } from "react"
 import { MantineProvider, createTheme, type MantineColorsTuple } from "@mantine/core"
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { Provider as JotaiProvider } from "jotai"
 import { BRAND } from "./brand"
 import { createLogger } from "./observability/logger"
 
 const brandScale = Array.from({ length: 10 }, () => BRAND.primaryColor) as unknown as MantineColorsTuple
-const theme = createTheme({ colors: { brand: brandScale }, primaryColor: "brand" })
+const theme = createTheme({
+  colors: { brand: brandScale },
+  primaryColor: "brand",
+  fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
+  headings: { fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }
+})
 const logger = createLogger("query")
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -140,10 +137,8 @@ const queryClient = new QueryClient({
 /** 说明 Providers 的稳定结构与职责边界。 */
 export function Providers({ children }: PropsWithChildren) {
   return (
-    <MantineProvider theme={theme}>
-      <QueryClientProvider client={queryClient}>
-        <JotaiProvider>{children}</JotaiProvider>
-      </QueryClientProvider>
+    <MantineProvider theme={theme} defaultColorScheme="light">
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   )
 }
@@ -152,14 +147,11 @@ export function Providers({ children }: PropsWithChildren) {
     [
       "src/ExtensionShell.tsx",
       `import { Badge, Button, Group, Image, Paper, Stack, Text, Title } from "@mantine/core"
-import { useQuery } from "@tanstack/react-query"
-import { useAtom } from "jotai"
 import { useTranslation } from "react-i18next"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { BRAND } from "./brand"
 import { BUILD_VERSION } from "./buildVersion"
 import { createLogger } from "./observability/logger"
-import { launchCountAtom } from "./state"
 
 /** 说明 ExtensionShellProps 的稳定结构与职责边界。 */
 interface ExtensionShellProps {
@@ -170,12 +162,7 @@ interface ExtensionShellProps {
 /** 说明 ExtensionShell 的稳定结构与职责边界。 */
 export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
   const { t } = useTranslation()
-  const [count, setCount] = useAtom(launchCountAtom)
-  const project = useQuery({
-    queryKey: ["extension", BRAND.id],
-    queryFn: async () => BRAND,
-    staleTime: Number.POSITIVE_INFINITY
-  })
+  const [count, setCount] = useState(0)
 
   useEffect(() => {
     const logger = createLogger("surface." + surface)
@@ -207,11 +194,13 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
             </Badge>
           </Group>
           <div>
-            <Title order={2}>{project.data?.name ?? BRAND.name}</Title>
+            <Title order={1}>{BRAND.name}</Title>
             <Text c="dimmed" mt="xs">{BRAND.description}</Text>
           </div>
           <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
-          <Text size="sm" fw={600}>{t("count", { count })}</Text>
+          <Text size="sm" fw={600} role="status" aria-live="polite" aria-atomic="true">
+            {t("count", { count })}
+          </Text>
           <Text c="dimmed" size="xs">{t("buildVersion", { version: BUILD_VERSION })}</Text>
         </Stack>
       </Paper>
@@ -239,10 +228,13 @@ test("renders the branded popup interaction", async () => {
     <Providers><ExtensionShell iconUrl="data:image/png;base64,test" surface="popup" /></Providers>
   )
 
-  expect(screen.getByRole("heading", { name: BRAND.name })).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: BRAND.name, level: 1 })).toBeInTheDocument()
   expect(screen.getByText("Build version: development")).toBeInTheDocument()
+  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
+  await user.click(screen.getByText(BRAND.description))
+  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
-  expect(screen.getByText("Interaction count: 1")).toBeInTheDocument()
+  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
 })
 `
     ],
@@ -274,10 +266,10 @@ export default function Options() {
     ],
     [
       "src/style.css",
-      `:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-body { margin: 0; background: light-dark(var(--mantine-color-gray-0), var(--mantine-color-dark-8)); }
-.popup-shell { box-sizing: border-box; width: 380px; padding: 1rem; }
-.options-shell { box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: 3rem 1rem; }
+      `:root { color-scheme: light; }
+body { margin: 0; background: var(--mantine-color-gray-0); }
+.popup-shell { box-sizing: border-box; width: 380px; padding: var(--mantine-spacing-md); }
+.options-shell { box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: var(--mantine-spacing-xl) var(--mantine-spacing-md); }
 `
     ]
   ])

@@ -343,6 +343,12 @@ Implement clear daily requests directly and run only the affected checks and rel
 
 Security/privacy, Extension permissions, irreversible data, production/paid/credential side effects, public compatibility contracts, complete candidate validation, and release each enter the dedicated gate required by that event. Parallel write Worktrees require both the user's current explicit request and \`parallel_worktree_subagents: enabled\`. Every artifact build asks the user for that build's E2E choice; a plan or persistent preference never substitutes for that choice.
 
+## User-owned Task binding
+
+\`user_owned_tasks: disabled\` prevents automatic left-sidebar Task creation but never blocks an explicit user request. One user-owned Task owns one stable, verifiable result; delivery type, lifecycle stage, external side effects, forbidden scope, or acceptance ownership changes require a new Task, while tests and same-scope fixes stay with the same result. Only one write-active Task may exist per project, and Task0 coordinates without implementing.
+
+Create a requested Task once with \`Task {序号} | 已分配 | {单一结果}\`. A returned \`clientThreadId\` is setup-pending and authorizes no implementation; continue only after obtaining the real \`threadId\` and verifying its title, \`projectId\`, cwd, and status. Before the first edit, a Git Task must prove the saved project and Task checkout share the same canonical Git common dir, the current top-level is present in \`git worktree list --porcelain\`, and HEAD equals the recorded starting commit. A non-Git Local Task must have cwd exactly equal to the saved project path. Binding failures remain zero-write and never fall back to a plan, Subagent, or ordinary checkout.
+
 ## Sources of truth
 
 - \`.harness/project.json\`: project type, identity, and brand metadata.
@@ -369,6 +375,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`$web-refactor-code\`：在保持行为不变时整理 TypeScript/TSX 前端代码。
 - \`$web-prepare-brand-identity\`：同步当前前端宿主的 Logo 与品牌元数据。
 - \`$web-run-parallel-worktrees\`：仅在用户当前明确要求且策略启用时，隔离并协调写入范围互不重叠的前端并行工作。
+- \`$web-summarize-development-history\`：只读追溯项目记忆与 Git 历史，区分已决定、已实现、已验证与推测。
 - \`$web-test-final-artifact-e2e\`：在真实 Chrome 中测试精确前端候选产物。
 - \`$web-prepare-release\`：整理 Web Harness、Vite dist 或 Chrome MV3 zip 发布候选。
 - \`$web-upgrade-harness\`：保留产品所有权并同步较新的 Web Harness 前端工程层。

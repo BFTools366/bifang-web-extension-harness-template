@@ -4,13 +4,13 @@ import { writeAtomic } from "./files.ts"
 import type { AgentPolicyChoice, AgentPolicySelection } from "./types.ts"
 
 /** 保存用户可见 Task 进度标题模板。 */
-export const SESSION_PROGRESS_TITLE_TEMPLATE = "Task {序号} | {当前进度} | {单一结果}"
+export const TASK_PROGRESS_TITLE_TEMPLATE = "Task {序号} | {当前进度} | {单一结果}"
 /** 保存左侧 Task 派发时的初始标题模板。 */
-export const SESSION_PROGRESS_TITLE_INITIAL = "Task {序号} | 已分配 | {单一结果}"
+export const TASK_PROGRESS_TITLE_INITIAL = "Task {序号} | 已分配 | {单一结果}"
 /** 保存统一标题允许的四个生命周期状态。 */
-export const SESSION_PROGRESS_STATES = ["已分配", "运行中", "检查中", "已完成"] as const
+export const TASK_PROGRESS_STATES = ["已分配", "运行中", "检查中", "已完成"] as const
 /** 匹配三字段、精确空格且无前导零的用户可见 Task 标题。 */
-const SESSION_PROGRESS_TITLE_PATTERN =
+const TASK_PROGRESS_TITLE_PATTERN =
   /^Task (?<sequence>[1-9][0-9]*) \| (?<progress>已分配|运行中|检查中|已完成) \| (?<singleResult>[^|\r\n]+)$/u
 /** 保存 Agent policy 唯一字段顺序。 */
 const POLICY_FIELDS = [
@@ -65,10 +65,16 @@ export const AGENT_POLICY_REQUIRED_BODY_FRAGMENTS = [
   "`user_owned_tasks: disabled`",
   "开启左侧 Task",
   "关闭左侧 Task",
+  "任何初始化后的永久策略变更都必须写入当日 ADR",
+  "临时 Task 限制不得改写持久策略",
   "不兼容、不推断任何更早 schema 或缺少字段的旧形态",
   "`parallel_worktree_subagents` 只控制当前 Task 内部",
   "日常开发直接实施",
   "显式发布候选构建必须为当前候选解析一次 E2E 选择",
+  "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
+  "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
+  "用户、产品、安全或渠道硬要求优先于持久值",
+  "源 Harness 的 `pending` 不授权可选 smoke",
   "用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`",
   "当前请求也不能覆盖 `disabled`",
   "`codex/task-<task-slug>`",
@@ -108,15 +114,15 @@ export interface ProjectTaskSequenceRecord {
 }
 
 /** 判断标题是否满足当前用户可见 Task 三字段格式与字段约束。 */
-export function isValidSessionProgressTitle(title: string): boolean {
-  return matchSessionProgressTitle(title) !== undefined
+export function isValidTaskProgressTitle(title: string): boolean {
+  return matchTaskProgressTitle(title) !== undefined
 }
 
 /** 返回满足三字段标题契约的匹配组，否则返回 undefined。 */
-function matchSessionProgressTitle(
+function matchTaskProgressTitle(
   title: string
 ): { sequence: string; progress: string; singleResult: string } | undefined {
-  const match = SESSION_PROGRESS_TITLE_PATTERN.exec(title)
+  const match = TASK_PROGRESS_TITLE_PATTERN.exec(title)
   const singleResult = match?.groups?.singleResult
   if (match?.groups === undefined || singleResult === undefined) return undefined
   if (
@@ -161,7 +167,7 @@ export function allocateProjectTaskSequences(
     ) {
       continue
     }
-    const matched = matchSessionProgressTitle(candidate.title)
+    const matched = matchTaskProgressTitle(candidate.title)
     if (matched !== undefined) {
       highestSequence = Math.max(highestSequence, Number(matched.sequence))
     }
@@ -172,7 +178,8 @@ export function allocateProjectTaskSequences(
 
 /** 解析最小 YAML frontmatter 并拒绝重复或畸形字段。 */
 function parseFrontmatter(document: string, errors: string[]): Map<string, string> | undefined {
-  const match = /^---\n(?<body>[\s\S]*?)\n---\n/u.exec(document)
+  const normalized = document.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+  const match = /^---\n(?<body>[\s\S]*?)\n---\n/u.exec(normalized)
   if (match?.groups?.body === undefined) {
     errors.push("missing Agent policy YAML frontmatter")
     return undefined
@@ -317,8 +324,8 @@ export function validateAgentPolicyBody(document: string): string[] {
     if (!document.includes(fragment)) errors.push(`Agent policy body is missing: ${fragment}`)
   }
   const example = "Task 8 | 运行中 | 左侧 Task 默认关闭并支持开关"
-  if (!document.includes(example) || !isValidSessionProgressTitle(example)) {
-    errors.push("Agent policy body must contain a valid Session progress title example")
+  if (!document.includes(example) || !isValidTaskProgressTitle(example)) {
+    errors.push("Agent policy body must contain a valid Task progress title example")
   }
   return errors
 }
@@ -333,7 +340,7 @@ export function recommendedAgentPolicy(
     confirmedAt,
     superpowers: "disabled",
     userOwnedTasks: "disabled",
-    parallelWorktreeSubagents: "enabled",
+    parallelWorktreeSubagents: "disabled",
     acceptanceSmoke: "enabled",
     e2eHint: "disabled"
   }
@@ -351,9 +358,10 @@ export function normalizeAgentPolicy(selection: AgentPolicySelection): AgentPoli
 
 /** 用已决选择替换 policy 文档 frontmatter，并保持正文为唯一语义来源。 */
 export function renderAgentPolicy(sourceDocument: string, selection: AgentPolicySelection): string {
-  const body = sourceDocument.startsWith("---\n")
-    ? sourceDocument.replace(/^---\n[\s\S]*?\n---\n/u, "")
-    : sourceDocument.replace(/^\n/u, "")
+  const normalized = sourceDocument.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+  const body = normalized.startsWith("---\n")
+    ? normalized.replace(/^---\n[\s\S]*?\n---\n/u, "")
+    : normalized.replace(/^\n/u, "")
   return `---
 schema_version: 3
 confirmed_by: ${selection.confirmedBy}

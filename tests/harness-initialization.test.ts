@@ -87,6 +87,12 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     )
     // 保存 queryClient 变量供当前逻辑使用。
     const queryClient = await readFile(path.join(root, "src/app/queryClient.ts"), "utf8")
+    // 保存 providers 变量供当前逻辑使用。
+    const providers = await readFile(path.join(root, "src/app/AppProviders.tsx"), "utf8")
+    // 保存 theme 变量供当前逻辑使用。
+    const theme = await readFile(path.join(root, "src/app/theme.ts"), "utf8")
+    // 保存 styles 变量供当前逻辑使用。
+    const styles = await readFile(path.join(root, "src/styles.css"), "utf8")
     // 保存 main 变量供当前逻辑使用。
     const main = await readFile(path.join(root, "src/main.tsx"), "utf8")
     // 保存 buildVersion 变量供 Web 构建版本契约断言使用。
@@ -104,6 +110,12 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(index).toContain('content="#5B5BD6"')
     expect(landing).toContain("BRAND.description")
     expect(landing).toContain("BUILD_VERSION")
+    expect(landing).toContain("useState(0)")
+    expect(landing).toContain('role="status"')
+    expect(landing).not.toContain("useAtom")
+    await expect(
+      readFile(path.join(root, "src/features/welcome/welcomeCount.atom.ts"), "utf8")
+    ).rejects.toThrow()
     expect(englishLocale).toContain('buildVersion: "Build version: {{version}}"')
     expect(chineseLocale).toContain('buildVersion: "构建版本：{{version}}"')
     expect(buildVersion).toContain("import.meta.env.VITE_BUILD_VERSION")
@@ -139,6 +151,7 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(language).toContain("localStorage")
     expect(language).toContain("changeApplicationLanguage")
     expect(language).toContain("getRequestLanguage")
+    expect(language).toContain("document.documentElement")
     expect(httpClient).toContain('"X-Http-Request"')
     expect(httpClient).toContain('"X-Lang"')
     expect(httpClient).toContain('"X-AUTH-TOKEN"')
@@ -194,6 +207,13 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(paginationControls).toContain("onPageSizeChange")
     expect(paginationControls).toContain("labels")
     expect(queryClient).toContain('logger.error("query_failed"')
+    expect(providers).toContain('defaultColorScheme="light"')
+    expect(providers).not.toContain("JotaiProvider")
+    expect(theme).toContain("fontFamily")
+    expect(styles).toContain("color-scheme: light")
+    expect(styles).toContain("var(--mantine-spacing-xl)")
+    expect(styles).not.toContain("font-family")
+    expect(landing).not.toContain('shadow="lg"')
     expect(main).toContain('logger.error("unhandled_rejection"')
     expect(main).toContain('import.meta.env.VITE_APP_ENV !== "release"')
     expect(main).not.toContain("IS_RELEASE_BUILD")
@@ -323,6 +343,7 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
       expect(i18n.split(`${key}:`)).toHaveLength(3)
     }
     expect(language).toContain("localStorage")
+    expect(language).toContain("document.documentElement")
     expect(httpClient).toContain('"X-Http-Request"')
     expect(httpClient).toContain('"X-Lang"')
     expect(httpClient).toContain('"X-AUTH-TOKEN"')
@@ -357,6 +378,13 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(extensionShell).toContain('logger.error("unhandled_rejection"')
     expect(extensionShell).toContain('process.env.PLASMO_PUBLIC_APP_ENV !== "release"')
     expect(extensionShell).toContain("BUILD_VERSION")
+    expect(extensionShell).toContain("useState(0)")
+    expect(extensionShell).toContain("<Title order={1}>")
+    expect(extensionShell).toContain('role="status"')
+    expect(extensionShell).not.toContain("useQuery")
+    expect(extensionShell).not.toContain("useAtom")
+    expect(extensionShell).not.toContain("queryFn: async () => BRAND")
+    await expect(readFile(path.join(root, "src/state.ts"), "utf8")).rejects.toThrow()
     expect(i18n).toContain('buildVersion: "Build version: {{version}}"')
     expect(i18n).toContain('buildVersion: "构建版本：{{version}}"')
     expect(buildVersion).toContain("process.env.PLASMO_PUBLIC_BUILD_VERSION")
@@ -365,6 +393,9 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(buildTooling).toContain('args: ["test"]')
     expect(buildTooling).toContain("本次构建完成后是否启用 E2E 测试")
     expect(providers).toContain('logger.error("mutation_failed"')
+    expect(providers).toContain('defaultColorScheme="light"')
+    expect(providers).toContain("fontFamily")
+    expect(providers).not.toContain("JotaiProvider")
     expect(logger).toContain(
       'const RELEASE_BUILD = process.env.PLASMO_PUBLIC_APP_ENV === "release"'
     )
@@ -377,6 +408,9 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(await format(extensionStyle, { ...prettierConfig, filepath: extensionStylePath })).toBe(
       extensionStyle
     )
+    expect(extensionStyle).toContain("color-scheme: light")
+    expect(extensionStyle).toContain("var(--mantine-spacing-md)")
+    expect(extensionStyle).not.toContain("font-family")
 
     // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {

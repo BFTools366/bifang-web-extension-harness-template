@@ -39,7 +39,7 @@ const FORBIDDEN_TEMPLATE_PATHS = [
 
 /** 判断文本是否把当次候选 `--e2e` 选择混入初始化入口，而不是策略字段 `--e2e-hint`。 */
 function mentionsInstantiationE2eSelection(source: string): boolean {
-  return /(?:^|[\s"'\[\],])--e2e(?:[=\s"'\[\],|]|$)/u.test(source)
+  return /(?:^|[\s"',]|\[|\])--e2e(?:[=\s"',|]|\[|\]|$)/u.test(source)
 }
 
 // 执行 validateToolingContract 函数的处理逻辑。

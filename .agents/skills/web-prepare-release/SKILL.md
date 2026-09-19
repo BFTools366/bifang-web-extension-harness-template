@@ -39,7 +39,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 
 1. 只在候选包含符合仓库规则的用户可见新增、变化、移除、安全事项或重要已知问题，且用户明确要求持久记录时更新当天 Changelog；构建命令、时间版本、E2E 选择和测试/扫描结果本身不触发 Changelog、ADR、Verification 或其他项目记忆。
 2. 用面向用户的语言汇总变化和已知限制，不用原始提交列表代替说明。
-3. 对精确候选复核：版本/提交、文件与哈希、三环境校验、由唯一构建入口完成的类型/全量测试与页面构建版本、Release profile、`pnpm release:inspect` 实际结果、`Milestone accepted`、当次选择启用或被硬要求的 smoke/E2E、真实 Chrome/OS、未验证范围、Changelog 和项目状态。
+3. 对精确候选复核：版本/提交、文件与哈希、三环境校验、由唯一构建入口完成的类型/全量测试与页面构建版本、Release profile、`pnpm release:inspect` 实际结果、`Milestone accepted`、当次 E2E 与独立解析的 smoke、真实 Chrome/OS、未验证范围、Changelog 和项目状态。
 4. 本 Skill 不运行冒烟/E2E，不补签验证结论；证据缺失时回到 `$web-verify-delivery`。
 5. 全部门禁通过才声明 `Ready`；否则声明 `Not ready` 并列出精确阻断项。不得用 `Partially ready` 隐藏必需失败。
 

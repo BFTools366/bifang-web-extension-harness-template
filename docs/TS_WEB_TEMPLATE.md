@@ -58,7 +58,7 @@ pnpm instantiate -- /absolute/path/example-web --type web \
 - `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
 - `--description` 是页面元数据或 Extension manifest/界面的简短说明。
 - `--development-base-url`、`--test-base-url` 与 `--release-base-url` 是三个环境的 API BaseURL；非交互调用全部必填，交互调用在首轮基础字段中收集且不得猜测默认值。三者必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 只接受 HTTPS。
-- `--policy-mode recommended|custom` 与 `--confirmed-by <source>` 在非交互调用中必填；自定义模式还必须逐项显式提供四个 `enabled|disabled` 选择，推荐模式不得混入覆盖值。
+- `--policy-mode recommended|custom` 与 `--confirmed-by <source>` 在非交互调用中必填；自定义模式还必须逐项显式提供五个 `enabled|disabled` 选择，推荐模式不得混入覆盖值。
 - `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
 - 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；只有后续显式 `pnpm build` 才现场询问或接收 `--e2e=enabled|disabled`。
@@ -151,7 +151,7 @@ Extension 初始化必须同步：
 | 国际化      | i18next                                        | 用户可见文案使用翻译键                                                           |
 | 运行时配置  | 类型化 `APP_CONFIG`                            | `VITE_` 三环境公开配置，不承载秘密                                               |
 | 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                 |
-| 测试        | Vitest + Testing Library                       | 测用户可观察行为；当前构建启用 E2E 或存在浏览器硬要求时加 Playwright             |
+| 测试        | Vitest + Testing Library                       | 测用户可观察行为；E2E、完整验收 smoke 或硬要求需要时加真实浏览器验证             |
 
 Web 输出是普通浏览器页面，不携带 Chrome Extension 权限、manifest、Popup 或 Options。需要浏览器特有能力时，应先判断产品是否应该作为新的独立 Extension 项目初始化。生成的分页/原生 Fetch 基础与未来 REST/OpenAPI、GraphQL、SSE、可选 RxJS 的认证、CORS、缓存和状态所有权边界以 [`DATA_ACCESS.md`](DATA_ACCESS.md) 为准；模板没有真实登录 route 时不得宣称 401 已能跳转。
 
@@ -215,7 +215,7 @@ src/
 | 国际化      | i18next                                        | Popup/Options 等用户可见文案使用翻译键                                              |
 | 运行时配置  | 类型化 `APP_CONFIG`                            | `PLASMO_PUBLIC_` 三环境公开配置，不承载秘密                                         |
 | 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                    |
-| 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；当前构建启用 E2E 或存在浏览器硬要求时使用真实 Chrome         |
+| 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；E2E、完整验收 smoke 或硬要求需要时使用真实 Chrome            |
 
 Extension 基线不使用 TanStack Router。Popup 与 Options 是独立入口；如果某个入口内部没有真实多页需求，不应引入站内路由抽象。
 
@@ -255,7 +255,7 @@ src/config/environment.schema.ts
 src/config/environment.ts
 src/config/environment.test.ts
 src/features/
-src/i18n/
+src/i18n/locales/
 src/i18n/language.ts
 src/i18n/language.test.ts
 src/observability/logger.ts

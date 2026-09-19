@@ -1,6 +1,6 @@
 ---
 name: web-refactor-code
-description: 对单 package 纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端的 TypeScript/TSX 做行为保持重构，处理文件职责、功能目录、命名、重复、状态归属、渲染性能和浏览器生命周期风险。仅在存在真实前端结构问题时使用，不改变公开行为、权限或项目类型。
+description: 对 Web Harness 受管前端模板或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游的 TypeScript/TSX 做行为保持重构，处理职责、命名、重复、状态归属、性能和浏览器生命周期风险；不改变公开行为、权限或项目类型。
 ---
 
 # Web Harness：重构前端代码
@@ -10,7 +10,7 @@ description: 对单 package 纯 TypeScript React Web 或 Plasmo Chrome MV3 Exten
 ## 工作流程
 
 1. 行为保持时直接重构。若发现真实缺陷、安全/隐私问题、Extension 权限变化或公开契约必须改变，停止重构范围蔓延，转 `$web-implement-change` 并进入适用的专项批准与验证门禁。
-2. 读取 `.harness/project.json`、工程规则、受影响代码/测试和 Git diff；保护用户修改，只处理声明范围。
+2. 读取工程规则、受影响代码/测试和 Git diff；保护用户修改，只处理声明范围。存在 `.harness/project.json` 时读取并核对唯一 `projectType`；不存在但根 manifest 暴露源专用 `instantiate` 入口时，只重构 Harness 自身受管模板与工具链，不分析或加入具体产品业务。
 3. 复核文件体积：501–1000 行逐项判断业务高内聚、单一职责和职责相近性，任一不满足就按职责拆分；1001 行起必须拆分。拆分文件留在原功能或工具模块目录，不得用跨模块兜底目录、压缩格式、转发壳或空文件规避。
 4. 按 feature 内聚组织组件、hooks、services、state、样式和测试。调用方优先从具体文件导入；只有真实稳定公共 API 才保留 `index.ts`，必须具名导出，不使用 `export *` 隐藏来源。
 5. 不建立 `utils`、`common`、`helpers`、`misc` 等兜底目录，不因文件数量或想象中的共享需要创建 workspace/package 层。

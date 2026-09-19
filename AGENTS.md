@@ -13,21 +13,22 @@
 
 ## 按任务渐进读取
 
-| 当前任务                                  | 读取内容                                                             | 执行入口                                                                       |
-| ----------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Harness 文档、规则、脚本或 Skill 维护     | `docs/ENGINEERING_RULES.md`；再读直接影响的事实源、脚本和测试        | `$web-implement-change`；真实结构问题同时用 `$web-refactor-code`               |
-| 创建新下游                                | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单        | `$web-instantiate-project`；品牌步骤按需用 `$web-prepare-brand-identity`       |
-| 定义或改变产品目标、边界、约束、成功标准  | 已初始化下游的 `docs/product_spec/README.md` 与最新 Product Spec     | `$web-define-product`；模板源拒绝此类业务请求                                  |
-| 范围清楚的实现、问题修复或 i18n 整理      | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实    | `$web-implement-change`、`$web-extract-i18n-strings`                           |
-| UI、页面、Popup、Options、响应式或无障碍  | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节       | `$web-implement-change`                                                        |
-| 环境、数据、认证、事件流或日志            | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | `$web-implement-change`                                                        |
-| 创建或检查左侧 user-owned Task            | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”        | Codex Task 工具；`user_owned_tasks` 启用或用户明确要求时调用                   |
-| 当前 Task 内部并行或提交                  | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill            | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                    |
-| 恢复、阻断、交接或持久计划                | 最新 Product Status；用户要求或已有活动计划时读最新 Work Plan        | `$web-plan-change`，仅在独立触发器成立时                                       |
-| 显式候选、完整验收或 E2E                  | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则             | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e` |
-| 长期决定、硬例外或源记忆整理              | `docs/adr/README.md` 与最新 ADR；只追溯其明确引用                    | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                        |
-| 理解 Harness 方法                         | `docs/HARNESS_ENGINEERING.md`，再按索引选择一个主题卷                | 不因阅读自动进入计划、构建或验收                                               |
-| 升级已初始化下游                          | 下游事实、源版本和升级 Skill 指定资料                                | `$web-upgrade-harness`，默认只读预演                                           |
+| 当前任务                                 | 读取内容                                                             | 执行入口                                                                       |
+| ---------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Harness 文档、规则、脚本或 Skill 维护    | `docs/ENGINEERING_RULES.md`；再读直接影响的事实源、脚本和测试        | `$web-implement-change`；真实结构问题同时用 `$web-refactor-code`               |
+| 创建新下游                               | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单        | `$web-instantiate-project`；品牌步骤按需用 `$web-prepare-brand-identity`       |
+| 定义或改变产品目标、边界、约束、成功标准 | 已初始化下游的 `docs/product_spec/README.md` 与最新 Product Spec     | `$web-define-product`；模板源拒绝此类业务请求                                  |
+| 范围清楚的实现、问题修复或 i18n 整理     | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实    | `$web-implement-change`、`$web-extract-i18n-strings`                           |
+| UI、页面、Popup、Options、响应式或无障碍 | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节       | `$web-implement-change`                                                        |
+| 环境、数据、认证、事件流或日志           | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | `$web-implement-change`                                                        |
+| 创建或检查左侧 user-owned Task           | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”        | Codex Task 工具；`user_owned_tasks` 启用或用户明确要求时调用                   |
+| 当前 Task 内部并行或提交                 | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill            | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                    |
+| 恢复、阻断、交接或持久计划               | 最新 Product Status；用户要求或已有活动计划时读最新 Work Plan        | `$web-plan-change`，仅在独立触发器成立时                                       |
+| 显式候选、完整验收或 E2E                 | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则             | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e` |
+| 长期决定、硬例外或源记忆整理             | `docs/adr/README.md` 与最新 ADR；只追溯其明确引用                    | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                        |
+| 回顾开发历程、决策沿革或未来方向         | 实际存在的记忆索引与 Git 历史；按问题限定范围                        | `$web-summarize-development-history`；默认只读、不改写记忆                     |
+| 理解 Harness 方法                        | `docs/HARNESS_ENGINEERING.md`，再按索引选择一个主题卷                | 不因阅读自动进入计划、构建或验收                                               |
+| 升级已初始化下游                         | 下游事实、源版本和升级 Skill 指定资料                                | `$web-upgrade-harness`，默认只读预演                                           |
 
 ## 始终生效的边界
 
@@ -49,25 +50,25 @@
 项目 Skills 位于 `.agents/skills/`。先按任务路由选择最小集合；命中后必须完整读取对应 `SKILL.md` 及其要求的精确引用，不得预先加载同类全部 Skills。
 
 - 初始化与身份：`$web-instantiate-project`、`$web-check-development-environment`、`$web-prepare-brand-identity`。
-- 开发与治理：`$web-define-product`、`$web-implement-change`、`$web-refactor-code`、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-run-parallel-worktrees`、`$web-upgrade-harness`、`$web-curate-harness-memory`。
+- 开发与治理：`$web-define-product`、`$web-implement-change`、`$web-refactor-code`、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-run-parallel-worktrees`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。
 
-源 Harness 共保留 15 个 canonical `web-*` Skills；终端下游删除实例化与源记忆整理能力，只保留 13 个维护 Skills。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
+源 Harness 共保留 16 个 canonical `web-*` Skills；终端下游删除实例化与源记忆整理能力，只保留 14 个维护 Skills。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
 
 ## 约束地图
 
-| 约束或事实                             | 唯一来源                                                                                    | 何时读取                                 |
-| -------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| 产品目标、范围与成功标准               | `docs/product_spec/README.md` 与最新 Product Spec                                           | 下游定义产品或改变边界                   |
+| 约束或事实                                          | 唯一来源                                                                                    | 何时读取                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| 产品目标、范围与成功标准                            | `docs/product_spec/README.md` 与最新 Product Spec                                           | 下游定义产品或改变边界                   |
 | 能力、用户可见 Task 开关/标题、计划、并行与候选偏好 | `docs/AGENT_POLICY.md`                                                                      | 启动时读策略头；相关任务再读对应章节     |
-| 工程、注释、文件、测试、记忆触发与例外 | `docs/ENGINEERING_RULES.md`                                                                 | 修改代码、测试、文档、配置、规则或 Skill |
-| 宿主技术与初始化基线                   | `docs/TS_WEB_TEMPLATE.md`                                                                   | 创建、宿主或技术基线任务                 |
-| UI、运行时、数据与日志                 | `docs/MANTINE_UI_GUIDELINES.md`、`RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | 精确命中对应领域时                       |
-| 当前状态、计划与长期决定               | 最新 Product Status、最新 Work Plan、最新 ADR                                               | 恢复、交接、计划或决定事件               |
-| 构建、版本、发布与候选证据             | `Version.md`、`docs/RELEASE.md`、`docs/VERIFICATION.md`                                     | 显式候选、验收或发布                     |
-| Harness 方法、升级与技术债             | `docs/HARNESS_ENGINEERING.md`、升级锁与 Skill、`docs/TECH_DEBT.md`                          | 方法阅读、下游升级或范围外问题           |
-| Git 身份、模板与提交消息               | Git 配置 Skill 及其引用                                                                     | 下一步实际提交时                         |
-| 商业许可                               | `LICENSE.zh-CN.md`、`LICENSE.en.md`                                                         | 实例化、身份、分发或许可任务             |
+| 工程、注释、文件、测试、记忆触发与例外              | `docs/ENGINEERING_RULES.md`                                                                 | 修改代码、测试、文档、配置、规则或 Skill |
+| 宿主技术与初始化基线                                | `docs/TS_WEB_TEMPLATE.md`                                                                   | 创建、宿主或技术基线任务                 |
+| UI、运行时、数据与日志                              | `docs/MANTINE_UI_GUIDELINES.md`、`RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | 精确命中对应领域时                       |
+| 当前状态、计划与长期决定                            | 最新 Product Status、最新 Work Plan、最新 ADR                                               | 恢复、交接、计划或决定事件               |
+| 构建、版本、发布与候选证据                          | `Version.md`、`docs/RELEASE.md`、`docs/VERIFICATION.md`                                     | 显式候选、验收或发布                     |
+| Harness 方法、升级与技术债                          | `docs/HARNESS_ENGINEERING.md`、升级锁与 Skill、`docs/TECH_DEBT.md`                          | 方法阅读、下游升级或范围外问题           |
+| Git 身份、模板与提交消息                            | Git 配置 Skill 及其引用                                                                     | 下一步实际提交时                         |
+| 商业许可                                            | `LICENSE.zh-CN.md`、`LICENSE.en.md`                                                         | 实例化、身份、分发或许可任务             |
 
 ## 每次任务的最小闭环
 

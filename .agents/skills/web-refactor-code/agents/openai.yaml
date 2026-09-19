@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：重构前端代码"
-  short_description: "保持行为不变地重构 React Web 或 Plasmo MV3 前端 TypeScript 代码"
-  default_prompt: "使用 $web-refactor-code 在保持可观察行为不变的前提下重构纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端代码。"
+  short_description: "保持行为不变地重构 Harness 模板或前端下游 TypeScript 代码"
+  default_prompt: "使用 $web-refactor-code 在保持可观察行为不变的前提下重构 Web Harness 受管前端模板或其 React Web、Plasmo Chrome MV3 Extension 下游代码。"

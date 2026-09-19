@@ -24,10 +24,24 @@ const EXPECTED_TERMINAL_SKILLS = [
   "web-prepare-release",
   "web-refactor-code",
   "web-run-parallel-worktrees",
+  "web-summarize-development-history",
   "web-test-final-artifact-e2e",
   "web-upgrade-harness",
   "web-verify-delivery"
 ] as const
+
+/** 锁定终端候选验收 Skill 必须消费的 smoke 策略矩阵。 */
+const VERIFY_DELIVERY_REQUIRED_FRAGMENTS = [
+  "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
+  "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
+  "用户、产品、安全或渠道硬要求优先于持久值",
+  "源 Harness 的 `pending` 不授权可选 smoke"
+] as const
+
+/** 将 Skill 与发现元数据换行规范化后再做跨平台语义校验。 */
+function normalizeLineEndings(source: string): string {
+  return source.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+}
 
 /** 从 Codex Skill 元数据中读取一个双引号包裹的单行字段。 */
 function quotedSkillMetadataField(source: string, field: string): string | undefined {
@@ -71,10 +85,13 @@ async function validateTerminalSkills(root: string, errors: string[]): Promise<v
     if (!metadataExists) errors.push(`Terminal Skill ${skillName} is missing agents/openai.yaml`)
     if (!skillExists || !metadataExists) continue
     // 保存 [skillSource, metadataSource] 变量供当前逻辑使用。
-    const [skillSource, metadataSource] = await Promise.all([
+    const [rawSkillSource, rawMetadataSource] = await Promise.all([
       readFile(skillPath, "utf8"),
       readFile(metadataPath, "utf8")
     ])
+    // 保存规范化后的 Skill 与发现元数据供跨平台正文契约校验使用。
+    const skillSource = normalizeLineEndings(rawSkillSource)
+    const metadataSource = normalizeLineEndings(rawMetadataSource)
     // 保存 description 变量供当前逻辑使用。
     const description = /^description: (.+)$/mu.exec(skillSource)?.[1]
     // 保存 displayName 变量供当前逻辑使用。
@@ -107,6 +124,13 @@ async function validateTerminalSkills(root: string, errors: string[]): Promise<v
     }
     if (/\b(?:Rust|Server)\b/iu.test(`${description ?? ""}\n${metadataSource}`)) {
       errors.push(`Terminal Skill ${skillName} contains non-Web Rust/Server language`)
+    }
+    if (skillName === "web-verify-delivery") {
+      for (const fragment of VERIFY_DELIVERY_REQUIRED_FRAGMENTS) {
+        if (!skillSource.includes(fragment)) {
+          errors.push(`Terminal Skill ${skillName} is missing required workflow: ${fragment}`)
+        }
+      }
     }
   }
 }
@@ -386,7 +410,6 @@ async function validateWeb(root: string, config: ProjectConfig, errors: string[]
       "src/features/not-found/NotFoundPage.tsx",
       "src/features/welcome/WelcomePage.tsx",
       "src/features/welcome/WelcomePage.test.tsx",
-      "src/features/welcome/welcomeCount.atom.ts",
       "src/buildVersion.ts",
       "src/i18n/index.ts",
       "src/i18n/locales/en.ts",
@@ -498,6 +521,7 @@ async function validateExtension(
       "src/popup.tsx",
       "src/options.tsx",
       "src/ExtensionShell.tsx",
+      "src/ExtensionShell.test.tsx",
       "src/buildVersion.ts",
       "src/i18n.ts",
       "src/providers.tsx",

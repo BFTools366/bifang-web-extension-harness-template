@@ -181,7 +181,8 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(13)
+    expect(skills).toHaveLength(14)
+    expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
         "web-check-development-environment",
@@ -194,6 +195,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
         "web-prepare-release",
         "web-refactor-code",
         "web-run-parallel-worktrees",
+        "web-summarize-development-history",
         "web-test-final-artifact-e2e",
         "web-upgrade-harness",
         "web-verify-delivery"
@@ -260,6 +262,10 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamAgents).toContain("`src/pagination/`")
     expect(downstreamAgents).toContain("Create a persistent plan only when the user explicitly")
     expect(downstreamAgents).toContain("## Event-driven execution")
+    expect(downstreamAgents).toContain("## User-owned Task binding")
+    expect(downstreamAgents).toContain("A returned `clientThreadId` is setup-pending")
+    expect(downstreamAgents).toContain("canonical Git common dir")
+    expect(downstreamAgents).toContain("Only one write-active Task may exist per project")
     expect(downstreamAgents).toContain("parallel_worktree_subagents: enabled")
     expect(downstreamAgents).toContain("$web-configure-git-commits")
     expect(downstreamAgents).not.toContain("Three delivery paths")
@@ -304,6 +310,12 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamPolicy).toContain("user_owned_tasks: disabled")
     expect(downstreamPolicy).toContain("parallel_worktree_subagents: enabled")
     expect(downstreamPolicy).toContain("acceptance_smoke: enabled")
+    expect(downstreamPolicy).toContain(
+      "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`"
+    )
+    expect(downstreamPolicy).toContain(
+      "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`"
+    )
     expect(downstreamPolicy).toContain("e2e_hint: disabled")
     expect(downstreamPolicy).not.toMatch(/^milestone_smoke:/mu)
     expect(downstreamPolicy).not.toMatch(/^milestone_e2e:/mu)

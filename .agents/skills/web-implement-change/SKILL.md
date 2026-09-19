@@ -14,7 +14,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 1. 直接实现当前授权范围。多步骤、多模块、中等风险或 Agent 偏好本身不创建 Work Plan、全仓检查、构建、冒烟或 E2E；安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、对外兼容契约和正式发布分别进入解决该风险所需的专用门禁。
    `user_owned_tasks: disabled` 时当前请求直接在当前 Task 中完成，不自动调用 `create_thread`；用户明确要求创建时仍执行。`enabled` 时，若交付物类型、生命周期阶段、外部副作用、禁止范围或验收责任使结果越出当前固定边界，任何写入前结束或暂停当前 Task 并以 `Task {序号} | 已分配 | {单一结果}` 创建新的 user-owned Task。证明同一结果的测试、review、checkpoint 和必要同范围修复不拆。每项目同一时间只允许一个写入型 active Task，Task0 只协调。用户可见 Task 必须使用 `Task {序号} | {当前进度} | {单一结果}`；编号和单一结果全程稳定，进度只能是 `已分配`、`运行中`、`检查中`、`已完成`。可读取线程元数据时以真实 `threadId` 对账标题、`projectId`、cwd 和状态，不靠标题承担身份。
 2. 先识别仓库：存在 `.harness/project.json` 时是唯一类型下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
-3. 确认 Git 顶层目录等于项目根，并保留所有用户修改。先检查 diff；重叠修改无法安全整合时停止，不重置、覆盖或顺手格式化无关文件。若当前说明来自左侧 user-owned Task，首次编辑前必须核对描述中的 Task 编号、单一结果、范围、禁止范围、完成条件、保存项目完整路径、`projectId`、repository identity、环境和起始提交。
+3. 确认 Git 顶层目录等于项目根，并保留所有用户修改。先检查 diff；重叠修改无法安全整合时停止，不重置、覆盖或顺手格式化无关文件。若当前说明来自左侧 user-owned Task，首次编辑前必须核对描述中的 Task 编号、单一结果、范围、禁止范围、完成条件、保存项目完整路径、`projectId`、repository identity、环境和起始提交；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入。Git Task 必须位于独立 Codex Worktree：分别在保存项目和当前 Task 顶层运行 `git rev-parse --path-format=absolute --git-common-dir`，确认 common dir 相同，用 `git worktree list --porcelain` 确认当前顶层已登记，并复核当前 HEAD 等于记录的起始提交；非 Git Local Task 必须确认 cwd 等于保存项目完整路径且与同项目其他写入 Task 串行。任一绑定不符都停止，不退化到 plan、Subagent、Local Git checkout 或普通 Worktree。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
 6. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
@@ -51,4 +51,4 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 ## 完成输出
 
-报告路径、变更、每项公开行为的“入口 → 实现 → 测试”映射、权限变化、检查与修复、Todo 状态、未运行项、剩余风险和适用的用户可见 Task 进度标题状态。授权结果、全部必需检查以及请求要求的提交/推送/远端复读完成后，用户可见 Task 才把标题进度更新为终态 `已完成`。实施授权不包含发布、推送、标签、凭据或不可逆外部操作。
+报告路径、变更、每项公开行为的“入口 → 实现 → 测试”映射、权限变化、检查与修复、Todo 状态、未运行项、剩余风险和适用的用户可见 Task 进度标题状态。来自用户可见 Git Task 的修改必须在该 Task 内形成可审查的本地提交，并以空的 `git status --porcelain=v1 --untracked-files=all`、分支和提交 SHA 结束；非 Git Local Task 报告实际修改文件，不声称 Git 提交。授权结果、全部必需检查以及请求要求的提交/推送/远端复读完成后，用户可见 Task 才把标题进度更新为终态 `已完成`。实施授权不包含发布、推送、标签、凭据或不可逆外部操作。

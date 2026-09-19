@@ -30,12 +30,18 @@ export interface LanguageStorage {
   setItem(key: string, value: string): void
 }
 
+/** 说明 LanguageDocumentElement 的稳定结构与职责边界。 */
+export interface LanguageDocumentElement {
+  lang: string
+}
+
 /** 说明 LanguageControllerOptions 的稳定结构与职责边界。 */
 export interface LanguageControllerOptions {
   runtime: LanguageRuntime
   storage?: LanguageStorage
   storageKey?: string
   navigatorLanguage?: string
+  documentElement?: LanguageDocumentElement
 }
 
 /** 说明 LanguageController 的稳定结构与职责边界。 */
@@ -69,6 +75,19 @@ function browserStorage(): LanguageStorage | undefined {
   }
 }
 
+/** 说明 browserDocumentElement 的稳定职责与浏览器降级边界。 */
+function browserDocumentElement(): LanguageDocumentElement | undefined {
+  return typeof document === "undefined" ? undefined : document.documentElement
+}
+
+/** 同步根文档语言，使屏幕阅读器与当前应用语言保持一致。 */
+function syncDocumentLanguage(
+  documentElement: LanguageDocumentElement | undefined,
+  language: SupportedLanguage
+): void {
+  if (documentElement !== undefined) documentElement.lang = language
+}
+
 /** 说明 readStoredLanguage 的稳定结构与职责边界。 */
 function readStoredLanguage(storage: LanguageStorage | undefined, key: string): string | undefined {
   try {
@@ -94,26 +113,33 @@ function storeLanguage(
 /** 说明 createLanguageController 的稳定结构与职责边界。 */
 export function createLanguageController(options: LanguageControllerOptions): LanguageController {
   const storageKey = options.storageKey ?? LANGUAGE_STORAGE_KEY
+  const documentElement = options.documentElement ?? browserDocumentElement()
   const storedLanguage = readStoredLanguage(options.storage, storageKey)
   let currentLanguage =
     recognizedLanguage(storedLanguage) ??
     normalizeLanguage(
       options.navigatorLanguage ?? options.runtime.resolvedLanguage ?? options.runtime.language
     )
+  syncDocumentLanguage(documentElement, currentLanguage)
 
   const handleLanguageChanged = (language: string) => {
     currentLanguage = normalizeLanguage(language)
     storeLanguage(options.storage, storageKey, currentLanguage)
+    syncDocumentLanguage(documentElement, currentLanguage)
   }
   options.runtime.on("languageChanged", handleLanguageChanged)
 
   const ready = options.runtime
     .changeLanguage(currentLanguage)
-    .then(() => storeLanguage(options.storage, storageKey, currentLanguage))
+    .then(() => {
+      storeLanguage(options.storage, storageKey, currentLanguage)
+      syncDocumentLanguage(documentElement, currentLanguage)
+    })
     .catch(() => {
       currentLanguage = normalizeLanguage(
         options.runtime.resolvedLanguage ?? options.runtime.language ?? options.navigatorLanguage
       )
+      syncDocumentLanguage(documentElement, currentLanguage)
     })
 
   return {
@@ -125,6 +151,7 @@ export function createLanguageController(options: LanguageControllerOptions): La
       await options.runtime.changeLanguage(normalized)
       currentLanguage = normalized
       storeLanguage(options.storage, storageKey, normalized)
+      syncDocumentLanguage(documentElement, normalized)
     },
     /** 说明当前方法的稳定职责与行为边界。 */
     dispose(): void {
@@ -256,23 +283,28 @@ describe("application language", () => {
       setItem: (key, value) => values.set(key, value)
     }
     const controlled = controlledRuntime("en")
+    const documentElement = { lang: "en" }
     const controller = createLanguageController({
       runtime: controlled.runtime,
       storage,
       storageKey: "example:language",
-      navigatorLanguage: "en-US"
+      navigatorLanguage: "en-US",
+      documentElement
     })
 
     await controller.ready()
     expect(controller.getRequestLanguage()).toBe("zh")
     expect(values.get("example:language")).toBe("zh")
+    expect(documentElement.lang).toBe("zh")
 
     controlled.emit("en-GB")
     expect(controller.getRequestLanguage()).toBe("en")
     expect(values.get("example:language")).toBe("en")
+    expect(documentElement.lang).toBe("en")
 
     await controller.changeLanguage("zh-TW")
     expect(controller.getRequestLanguage()).toBe("zh")
+    expect(documentElement.lang).toBe("zh")
     controller.dispose()
   })
 

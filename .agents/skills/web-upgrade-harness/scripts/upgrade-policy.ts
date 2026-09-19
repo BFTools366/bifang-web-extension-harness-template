@@ -40,6 +40,7 @@ export const UPSTREAM_LOCK_RELATIVE_PATH = ".harness/upstream-lock.json"
 export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = {
   ".agents/skills/web-configure-git-commits/**": "managed",
   ".agents/skills/web-run-parallel-worktrees/**": "managed",
+  ".agents/skills/web-summarize-development-history/**": "managed",
   ".agents/skills/web-upgrade-harness/**": "managed-self",
   ".harness/tooling/agent-policy.ts": "managed",
   ".harness/tooling/args.ts": "managed",
@@ -130,6 +131,8 @@ export const REQUIRED_MANAGED_SOURCE_PATHS = [
   ".agents/skills/web-run-parallel-worktrees/SKILL.md",
   ".agents/skills/web-run-parallel-worktrees/agents/openai.yaml",
   ".agents/skills/web-run-parallel-worktrees/scripts/parallel-worktrees.ts",
+  ".agents/skills/web-summarize-development-history/SKILL.md",
+  ".agents/skills/web-summarize-development-history/agents/openai.yaml",
   ".harness/tooling/agent-policy.ts",
   ".harness/tooling/args.ts",
   ".harness/tooling/comment-policy.ts",

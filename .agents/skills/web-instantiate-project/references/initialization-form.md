@@ -47,7 +47,7 @@
 ```yaml
 user_owned_tasks: disabled
 superpowers: disabled
-parallel_worktree_subagents: enabled
+parallel_worktree_subagents: disabled
 acceptance_smoke: enabled
 e2e_hint: disabled
 ```

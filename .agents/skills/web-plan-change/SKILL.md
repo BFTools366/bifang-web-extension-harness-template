@@ -25,7 +25,7 @@ description: 为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Ext
 5. 按依赖顺序创建最少 Todo。每项必须包含稳定 ID、`pending|in_progress|blocked|done`、一个可观察结果、精确文件/模块所有权、依赖、风险、相关非空测试或相称替代验证，以及必要的格式/lint/类型/集成检查。
 6. 按普通前端内聚边界安排职责：React 组件负责渲染和交互，feature hooks/services 负责该功能的数据与协调；Extension 的 background/content/popup/options 可以拥有各自宿主生命周期。只在存在真实复用时提取共享模块，不创建 monorepo 或强制共享业务层。
 7. 每个公开行为记录“用户入口 → 实现模块 → 测试”的映射。涉及配置时加入三环境、宿主前缀、`APP_CONFIG`、隐式覆盖/未知键拒绝和构建前全量校验；涉及日志时加入稳定事件、Release 允许字段清单/脱敏、单测，以及 `build:release`/Extension `package` 自动运行 `pnpm release:inspect`。Extension Todo 额外记录权限、host permission、消息方向和最小授权依据。
-8. 日常计划只包含受影响检查与相关非空测试，不自行追加全量测试、构建、smoke 或 E2E；行为保持重构追加全量测试。只有计划本身覆盖发布候选或完整验收时，才记录可绑定源码状态、唯一 Release `dist/` 或 Chrome MV3 候选、`pnpm build` 固定门禁、当次 E2E 用户选择、批准场景和失败回流；E2E 只有当次选择 `enabled` 或存在硬要求时运行。
+8. 日常计划只包含受影响检查与相关非空测试，不自行追加全量测试、构建、smoke 或 E2E；行为保持重构追加全量测试。只有计划本身覆盖发布候选或完整验收时，才记录可绑定源码状态、唯一 Release `dist/` 或 Chrome MV3 候选、`pnpm build` 固定门禁、当次 E2E 用户选择、独立解析的 `acceptance_smoke`、批准场景和失败回流；浏览器步骤只在 E2E、smoke 或硬要求为 `required` 时运行。
 9. 默认单 Agent。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、至少两个写入范围互不重叠且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`。
 10. 按仓库命名规则创建或更新当天 Work Plan。只在重要阻断、交接或用户要求时同步 Status；计划本身不触发 Product Spec、ADR、Verification 或 Changelog。
 

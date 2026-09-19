@@ -57,7 +57,7 @@ export async function walkFiles(root: string, options: WalkFilesOptions = {}): P
     )
   }
   await walk(root)
-  return results
+  return results.sort((left, right) => left.localeCompare(right, "en"))
 }
 
 // 执行 readJson 函数的处理逻辑。

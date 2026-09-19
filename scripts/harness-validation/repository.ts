@@ -14,6 +14,26 @@ import {
 } from "./contracts.ts"
 import type { SkillContract } from "./contracts.ts"
 
+/** 将文本换行规范化后再做语义合同比较。 */
+function normalizeLineEndings(contents: string): string {
+  return contents.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
+}
+
+/** 只转换当前平台的目录分隔符，避免吞掉 POSIX 合法的反斜杠文件名。 */
+export function normalizeRepositoryRelativePath(
+  relativePath: string,
+  separator = path.sep
+): string {
+  return separator === "/" ? relativePath : relativePath.split(separator).join("/")
+}
+
+/** 拒绝不能在 POSIX 与 Windows 之间无歧义表示的仓库路径。 */
+export function validateRepositoryPaths(files: string[], errors: string[]): void {
+  for (const file of files) {
+    if (file.includes("\\")) errors.push(`Repository path must not contain backslash: ${file}`)
+  }
+}
+
 // 执行 collectFiles 函数的处理逻辑。
 export async function collectFiles(root: string): Promise<string[]> {
   // 保存 absolutePaths 变量供当前逻辑使用。
@@ -21,9 +41,12 @@ export async function collectFiles(root: string): Promise<string[]> {
     // 执行 当前声明 函数的处理逻辑。
     exclude: (name) => name === ".git" || name === "node_modules"
   })
-  return absolutePaths.map(
-    /* 执行 当前声明 函数的处理逻辑。 */ (absolute) => path.relative(root, absolute)
-  )
+  return absolutePaths
+    .map(
+      /* 执行 当前声明 函数的处理逻辑。 */ (absolute) =>
+        normalizeRepositoryRelativePath(path.relative(root, absolute))
+    )
+    .sort((left, right) => left.localeCompare(right, "en"))
 }
 
 // 执行 governedMarkdownFiles 函数的处理逻辑。
@@ -41,14 +64,15 @@ export function governedMarkdownFiles(files: string[]): string[] {
 
 // 执行 parseFrontmatter 函数的处理逻辑。
 export function parseFrontmatter(contents: string): Record<string, string> | undefined {
-  if (!contents.startsWith("---\n")) return undefined
+  const normalized = normalizeLineEndings(contents)
+  if (!normalized.startsWith("---\n")) return undefined
   // 保存 end 变量供当前逻辑使用。
-  const end = contents.indexOf("\n---\n", 4)
+  const end = normalized.indexOf("\n---\n", 4)
   if (end < 0) return undefined
   // 保存 result 变量供当前逻辑使用。
   const result: Record<string, string> = {}
   // 保存 line 变量供当前逻辑使用。
-  for (const line of contents.slice(4, end).split("\n")) {
+  for (const line of normalized.slice(4, end).split("\n")) {
     // 保存 separator 变量供当前逻辑使用。
     const separator = line.indexOf(":")
     if (separator <= 0) return undefined
@@ -85,7 +109,7 @@ export function parseQuotedMetadataValue(raw: string | undefined): string | unde
 /** 仅接受固定 interface 层级、字段顺序与双引号字符串。 */
 export function parseOpenAiMetadata(contents: string): OpenAiMetadata | undefined {
   // 保存 match 变量供当前逻辑使用。
-  const match = contents.match(OPENAI_METADATA_PATTERN)
+  const match = normalizeLineEndings(contents).match(OPENAI_METADATA_PATTERN)
   if (match === null) return undefined
   // 保存 displayName 变量供当前逻辑使用。
   const displayName = parseQuotedMetadataValue(match[1])
@@ -216,7 +240,7 @@ export async function validateSkill(
     return skillErrors
   }
   // 保存 skillSource 变量供当前逻辑使用。
-  const skillSource = await readFile(skillPath, "utf8")
+  const skillSource = normalizeLineEndings(await readFile(skillPath, "utf8"))
   // 保存 frontmatter 变量供当前逻辑使用。
   const frontmatter = parseFrontmatter(skillSource)
   if (frontmatter === undefined) skillErrors.push(`${skill}/SKILL.md has invalid frontmatter`)
@@ -237,7 +261,7 @@ export async function validateSkill(
     skillErrors.push(`${skill}/SKILL.md H1 must exactly equal ${contract.title}`)
   }
 
-  // 保存 requiredBodyFragments 变量供环境探测调用边界校验使用。
+  // 保存 requiredBodyFragments 变量供正文工作流契约校验使用。
   const requiredBodyFragments = SKILL_BODY_REQUIREMENTS[skill] ?? []
   // 保存 requiredBodyFragment 变量供逐项正文契约校验使用。
   for (const requiredBodyFragment of requiredBodyFragments) {
@@ -250,7 +274,7 @@ export async function validateSkill(
     skillErrors.push(`Missing .agents/skills/${skill}/agents/openai.yaml`)
   } else {
     // 保存 yaml 变量供当前逻辑使用。
-    const yaml = await readFile(yamlPath, "utf8")
+    const yaml = normalizeLineEndings(await readFile(yamlPath, "utf8"))
     // 保存 metadata 变量供当前逻辑使用。
     const metadata = parseOpenAiMetadata(yaml)
     if (metadata === undefined) {

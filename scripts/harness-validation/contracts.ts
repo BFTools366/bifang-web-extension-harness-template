@@ -1,4 +1,4 @@
-/** 保存源 Harness 唯一允许的 15 个 Web Skill canonical id。 */
+/** 保存源 Harness 唯一允许的 16 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
   "web-check-development-environment",
   "web-configure-git-commits",
@@ -12,6 +12,7 @@ export const EXPECTED_SKILLS = [
   "web-prepare-release",
   "web-refactor-code",
   "web-run-parallel-worktrees",
+  "web-summarize-development-history",
   "web-test-final-artifact-e2e",
   "web-upgrade-harness",
   "web-verify-delivery"
@@ -31,7 +32,7 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 15 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 16 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
@@ -125,12 +126,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-refactor-code": {
     description:
-      "对单 package 纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端的 TypeScript/TSX 做行为保持重构，处理文件职责、功能目录、命名、重复、状态归属、渲染性能和浏览器生命周期风险。仅在存在真实前端结构问题时使用，不改变公开行为、权限或项目类型。",
+      "对 Web Harness 受管前端模板或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游的 TypeScript/TSX 做行为保持重构，处理职责、命名、重复、状态归属、性能和浏览器生命周期风险；不改变公开行为、权限或项目类型。",
     title: "# Web Harness：重构前端代码",
     displayName: "Web Harness：重构前端代码",
-    shortDescription: "保持行为不变地重构 React Web 或 Plasmo MV3 前端 TypeScript 代码",
+    shortDescription: "保持行为不变地重构 Harness 模板或前端下游 TypeScript 代码",
     defaultPrompt:
-      "使用 $web-refactor-code 在保持可观察行为不变的前提下重构纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端代码。"
+      "使用 $web-refactor-code 在保持可观察行为不变的前提下重构 Web Harness 受管前端模板或其 React Web、Plasmo Chrome MV3 Extension 下游代码。"
   },
   "web-run-parallel-worktrees": {
     description:
@@ -140,6 +141,15 @@ export const SKILL_CONTRACTS = {
     shortDescription: "用登记、所有权与 postflight 安全协调内部前端单元",
     defaultPrompt:
       "使用 $web-run-parallel-worktrees 在当前请求明确要求且策略允许时，通过登记的隔离 Git Worktree 协调所有权不重叠的 Web 前端写入单元。"
+  },
+  "web-summarize-development-history": {
+    description:
+      "按用户请求只读追溯当前 Web Harness 或其终端下游的 ADR、Changelog、产品规格、状态、计划与 Git 历史，解释开发脉络、现状和有证据的未来方向；不整理或改写项目记忆。",
+    title: "# Web Harness：汇总开发历史",
+    displayName: "Web Harness：汇总开发历史",
+    shortDescription: "追溯 Web Harness 或前端下游的项目记忆与 Git 历史",
+    defaultPrompt:
+      "使用 $web-summarize-development-history，按当前项目的 ADR、Changelog、产品规格、状态、计划和 Git 历史汇总关键决策与变化，区分已实现、已验证和未来预期，并标注可复核来源。"
   },
   "web-test-final-artifact-e2e": {
     description:
@@ -170,7 +180,7 @@ export const SKILL_CONTRACTS = {
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
 
-/** 锁定环境探测触发边界在调用方 Skill 正文中的必需语义。 */
+/** 锁定关键 Skill 正文不可丢失的工作流语义。 */
 export const SKILL_BODY_REQUIREMENTS: Partial<
   Record<(typeof EXPECTED_SKILLS)[number], readonly string[]>
 > = {
@@ -182,11 +192,19 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
   ],
   "web-implement-change": [
     "只有实际创建新下游时调用一次 `$web-check-development-environment`",
-    "最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测"
+    "最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测",
+    "git rev-parse --path-format=absolute --git-common-dir",
+    "git worktree list --porcelain",
+    "只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入",
+    "git status --porcelain=v1 --untracked-files=all"
   ],
   "web-verify-delivery": [
     "不为最终构建预先调用环境检查",
-    "只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时"
+    "只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时",
+    "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
+    "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
+    "用户、产品、安全或渠道硬要求优先于持久值",
+    "源 Harness 的 `pending` 不授权可选 smoke"
   ]
 }
 
@@ -270,6 +288,8 @@ export const REQUIRED_FILES = [
   "scripts/harness-validation/repository.ts",
   "scripts/harness-validation/tooling.ts",
   "scripts/harness-validation/typescript-contracts.ts",
+  "scripts/harness-validation/upgrade-ownership.ts",
+  "scripts/harness-validation/version.ts",
   "tests/agent-policy.test.ts",
   "tests/build-tooling.test.ts",
   "tests/git-commit-configuration.test.ts",

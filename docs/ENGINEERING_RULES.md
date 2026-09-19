@@ -107,8 +107,8 @@
 - `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。每次调用先取得当次 E2E `enabled|disabled` 选择；交互式入口直接询问，非交互入口显式传参。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试，按上海时区生成 `YYYYMMDDHHMM` 版本并注入当前前端页面，再完成宿主生产构建和 `pnpm release:inspect`；不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当次 12 位构建版本存在于候选。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
-- 当次 E2E 选择启用或用户、产品、安全、渠道存在硬要求时，Web 使用 Playwright 或可用浏览器能力打开最终构建，验证品牌、构建版本、关键路由、核心成功路径与风险失败路径。
-- 当次 E2E 选择启用或用户、产品、安全、渠道存在硬要求时，Extension 在真实 Chrome 中加载最终 MV3 构建，验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及真实 Chrome API 行为。
+- 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Web 使用对应范围的 Playwright 或可用浏览器能力打开最终构建，验证品牌、构建版本、关键路由、核心成功路径与风险失败路径。
+- 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Extension 在真实 Chrome 中加载最终 MV3 构建，按批准范围验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及真实 Chrome API 行为。
 - 未运行的浏览器、操作系统或渠道标记为 `Unverified`。开发服务器、Mock、占位和源码片段不能替代最终候选。
 
 ### 6.3 非代码变更
@@ -124,21 +124,21 @@
 - 日期采用 `YYYY-MM-DD`，上海时间版本采用 `YYYYMMDDHHMM`。
 - 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。
 
-| 文件                            | 唯一职责                                            |
-| ------------------------------- | --------------------------------------------------- |
-| `README.md`                     | 用途、初始化方式、目录、命令、维护状态与产品边界    |
-| `AGENTS.md`                     | Agent 渐进读取、事件路由、硬约束、Skills 与约束地图 |
-| `Version.md`                    | Harness 当前时间版本与发布状态                      |
+| 文件                            | 唯一职责                                                |
+| ------------------------------- | ------------------------------------------------------- |
+| `README.md`                     | 用途、初始化方式、目录、命令、维护状态与产品边界        |
+| `AGENTS.md`                     | Agent 渐进读取、事件路由、硬约束、Skills 与约束地图     |
+| `Version.md`                    | Harness 当前时间版本与发布状态                          |
 | `docs/AGENT_POLICY.md`          | 能力偏好、用户可见 Task 开关/标题、并行与候选浏览器偏好 |
-| `docs/ENGINEERING_RULES.md`     | 文件、TypeScript、注释、文档、测试与例外规则        |
-| `docs/MANTINE_UI_GUIDELINES.md` | Mantine UI 令牌、布局、组件、状态与无障碍规范       |
-| `docs/TS_WEB_TEMPLATE.md`       | 单类型初始化与两种技术基线                          |
-| `docs/RUNTIME_CONFIGURATION.md` | 三环境、公开变量、BaseURL 与构建 profile            |
-| `docs/LOGGING.md`               | 结构化日志、Release 裁剪、脱敏与产物扫描            |
-| `docs/DATA_ACCESS.md`           | 分页、HTTP/认证、数据访问与事件流选择和边界         |
-| `docs/RELEASE.md`               | 候选、版本和发布门禁                                |
-| `docs/TECH_DEBT.md`             | 当前范围外的已观察问题                              |
-| `docs/HARNESS_ENGINEERING.md`   | Harness 方法与生命周期入口                          |
+| `docs/ENGINEERING_RULES.md`     | 文件、TypeScript、注释、文档、测试与例外规则            |
+| `docs/MANTINE_UI_GUIDELINES.md` | Mantine UI 令牌、布局、组件、状态与无障碍规范           |
+| `docs/TS_WEB_TEMPLATE.md`       | 单类型初始化与两种技术基线                              |
+| `docs/RUNTIME_CONFIGURATION.md` | 三环境、公开变量、BaseURL 与构建 profile                |
+| `docs/LOGGING.md`               | 结构化日志、Release 裁剪、脱敏与产物扫描                |
+| `docs/DATA_ACCESS.md`           | 分页、HTTP/认证、数据访问与事件流选择和边界             |
+| `docs/RELEASE.md`               | 候选、版本和发布门禁                                    |
+| `docs/TECH_DEBT.md`             | 当前范围外的已观察问题                                  |
+| `docs/HARNESS_ENGINEERING.md`   | Harness 方法与生命周期入口                              |
 
 ## 8. 依赖与安全
 

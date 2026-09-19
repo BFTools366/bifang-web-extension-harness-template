@@ -12,6 +12,7 @@
     { "pattern": ".agents/skills/web-prepare-release/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-refactor-code/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-run-parallel-worktrees/**", "mode": "managed" },
+    { "pattern": ".agents/skills/web-summarize-development-history/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-test-final-artifact-e2e/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-verify-delivery/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-upgrade-harness/**", "mode": "managed-self" },

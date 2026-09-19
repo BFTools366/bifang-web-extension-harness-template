@@ -726,6 +726,25 @@ describe("single-package Harness validation and governance", () => {
       metadata.replace("Web Harness：验证前端交付", "Rust Server：验证交付")
     )
     await expect(validateProject(root)).rejects.toThrow(/Rust\/Server language/)
+
+    await writeFile(metadataPath, metadata)
+    const skillPath = path.join(verifySkillRoot, "SKILL.md")
+    const skill = await readFile(skillPath, "utf8")
+    await writeFile(skillPath, skill.replaceAll("\n", "\r\n"))
+    await writeFile(metadataPath, metadata.replaceAll("\n", "\r\n"))
+    await expect(validateProject(root)).resolves.toContain("web")
+
+    await writeFile(metadataPath, metadata)
+    await writeFile(
+      skillPath,
+      skill.replace(
+        "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
+        "smoke 关闭时忽略策略"
+      )
+    )
+    await expect(validateProject(root)).rejects.toThrow(
+      /Terminal Skill web-verify-delivery is missing required workflow/
+    )
   })
 
   /** 验证 rejects every source-only path finalized out of terminal projects 场景。 */

@@ -71,7 +71,7 @@ Web `pnpm build:release` 在 Vite 生产构建前自动完成环境、Harness、
 1. 候选目录必须存在且非空；文件名层对所有候选文件拒绝 `.env*` 与 `.map`。
 2. 内容扫描只读取 `.css`、`.html`、`.js`、`.json`、`.mjs`、`.txt` 与 `.xml`。这些文本不得包含与 Release URL 不同的 development/test BaseURL、固定哨兵 `debug_sentinel`、`info_sentinel`、`application_started`、`surface_started`、`do-not-ship`、原始 `console.debug`/`console.info`、macOS/Linux/Windows 用户目录绝对路径或 `sourceMappingURL`。
 3. 该固定规则集不是通用秘密扫描器，也不扫描其他扩展名或直接解包 Extension zip；敏感键、URL、Error 与上下文裁剪仍由 logger 测试验证。
-4. 用户、产品、安全或渠道硬要求真实 Chrome 冒烟/E2E 时仍需捕获 console；观察到的记录符合 Release 级别和脱敏规则，且没有未处理异常。
+4. `acceptance_smoke: enabled` 解析出的 Chrome smoke、当次启用的 E2E，或用户、产品、安全、渠道硬要求浏览器证据时仍需捕获 console；观察到的记录符合 Release 级别和脱敏规则，且没有未处理异常。
 5. `release:inspect` 是确定性静态门禁，不能代替 logger 行为测试或被硬要求的真实浏览器验证；任何必需项失败都产生新修复 Todo，不能声明 `Ready`。
 
 具体候选顺序、授权和证据字段见 [`RELEASE.md`](RELEASE.md)。

@@ -158,6 +158,73 @@ async function exactControlPath(
   return expected
 }
 
+/** 校验生产所有权清单的 schema、顺序与不可弱化下限。 */
+export function validateOwnershipManifest(value: unknown): OwnershipManifest {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Ownership manifest schema is invalid")
+  }
+  const candidate = value as Partial<OwnershipManifest>
+  if (
+    candidate.schemaVersion !== 1 ||
+    candidate.defaultMode !== "protected" ||
+    !Array.isArray(candidate.rules) ||
+    candidate.rules.length === 0
+  ) {
+    throw new Error("Ownership manifest schema is invalid")
+  }
+  const seen = new Set<string>()
+  for (const rule of candidate.rules) {
+    if (
+      rule === null ||
+      typeof rule !== "object" ||
+      typeof rule.pattern !== "string" ||
+      rule.pattern === "" ||
+      path.isAbsolute(rule.pattern) ||
+      rule.pattern.includes("\\") ||
+      rule.pattern.split("/").includes("..") ||
+      !OWNERSHIP_MODES.has(rule.mode) ||
+      (rule.required !== undefined && typeof rule.required !== "boolean")
+    ) {
+      throw new Error("Ownership manifest contains an invalid rule")
+    }
+    if (seen.has(rule.pattern)) throw new Error(`Duplicate ownership pattern: ${rule.pattern}`)
+    seen.add(rule.pattern)
+    globPattern(rule.pattern)
+  }
+  /** 保存每条显式规则供不可弱化下限复核。 */
+  const observed = new Map(candidate.rules.map((rule) => [rule.pattern, rule]))
+  for (const [pattern, mode] of Object.entries(MINIMUM_OWNERSHIP_RULES)) {
+    if (observed.get(pattern)?.mode !== mode) {
+      throw new Error(`Ownership manifest weakened required rule: ${pattern} must be ${mode}`)
+    }
+    // 保存 requiredRuleIndex 与 shadowingRule 变量供拒绝任何局部或宽泛的前置遮蔽。
+    const requiredRuleIndex = candidate.rules.findIndex((rule) => rule.pattern === pattern)
+    const shadowingRule = candidate.rules
+      .slice(0, requiredRuleIndex)
+      .find((rule) => ownershipPatternsOverlap(rule.pattern, pattern))
+    if (shadowingRule !== undefined) {
+      throw new Error(
+        `Ownership manifest shadows required rule: ${shadowingRule.pattern} precedes ${pattern}`
+      )
+    }
+  }
+  for (const pattern of MINIMUM_REQUIRED_OWNERSHIP_PATTERNS) {
+    if (observed.get(pattern)?.required !== true) {
+      throw new Error(
+        `Ownership manifest weakened required path: ${pattern} must set required=true`
+      )
+    }
+  }
+  /** 保存完成 schema 复核的生产清单。 */
+  const manifest = candidate as OwnershipManifest
+  for (const relativePath of REQUIRED_MANAGED_SOURCE_PATHS) {
+    if (ownershipRule(relativePath, manifest)?.mode !== "managed") {
+      throw new Error(`Required source path must remain managed: ${relativePath}`)
+    }
+  }
+  return manifest
+}
+
 /** 校验并读取所有权清单。 */
 async function loadOwnershipManifest(
   filePath: string,
@@ -177,65 +244,7 @@ async function loadOwnershipManifest(
   if (!source.exists || source.bytes === undefined || source.snapshot === undefined) {
     throw new Error(`Ownership manifest must be a regular file: ${expectedPath}`)
   }
-  const value = JSON.parse(source.bytes.toString("utf8")) as Partial<OwnershipManifest>
-  if (
-    value.schemaVersion !== 1 ||
-    value.defaultMode !== "protected" ||
-    !Array.isArray(value.rules) ||
-    value.rules.length === 0
-  ) {
-    throw new Error("Ownership manifest schema is invalid")
-  }
-  const seen = new Set<string>()
-  for (const rule of value.rules) {
-    if (
-      rule === null ||
-      typeof rule !== "object" ||
-      typeof rule.pattern !== "string" ||
-      rule.pattern === "" ||
-      path.isAbsolute(rule.pattern) ||
-      rule.pattern.includes("\\") ||
-      rule.pattern.split("/").includes("..") ||
-      !OWNERSHIP_MODES.has(rule.mode) ||
-      (rule.required !== undefined && typeof rule.required !== "boolean")
-    ) {
-      throw new Error("Ownership manifest contains an invalid rule")
-    }
-    if (seen.has(rule.pattern)) throw new Error(`Duplicate ownership pattern: ${rule.pattern}`)
-    seen.add(rule.pattern)
-    globPattern(rule.pattern)
-  }
-  /** 保存每条显式规则供不可弱化下限复核。 */
-  const observed = new Map(value.rules.map((rule) => [rule.pattern, rule]))
-  for (const [pattern, mode] of Object.entries(MINIMUM_OWNERSHIP_RULES)) {
-    if (observed.get(pattern)?.mode !== mode) {
-      throw new Error(`Ownership manifest weakened required rule: ${pattern} must be ${mode}`)
-    }
-    // 保存 requiredRuleIndex 与 shadowingRule 变量供拒绝任何局部或宽泛的前置遮蔽。
-    const requiredRuleIndex = value.rules.findIndex((rule) => rule.pattern === pattern)
-    const shadowingRule = value.rules
-      .slice(0, requiredRuleIndex)
-      .find((rule) => ownershipPatternsOverlap(rule.pattern, pattern))
-    if (shadowingRule !== undefined) {
-      throw new Error(
-        `Ownership manifest shadows required rule: ${shadowingRule.pattern} precedes ${pattern}`
-      )
-    }
-  }
-  for (const pattern of MINIMUM_REQUIRED_OWNERSHIP_PATTERNS) {
-    if (observed.get(pattern)?.required !== true) {
-      throw new Error(
-        `Ownership manifest weakened required path: ${pattern} must set required=true`
-      )
-    }
-  }
-  /** 保存完成 schema 复核的生产清单。 */
-  const manifest = value as OwnershipManifest
-  for (const relativePath of REQUIRED_MANAGED_SOURCE_PATHS) {
-    if (ownershipRule(relativePath, manifest)?.mode !== "managed") {
-      throw new Error(`Required source path must remain managed: ${relativePath}`)
-    }
-  }
+  const manifest = validateOwnershipManifest(JSON.parse(source.bytes.toString("utf8")) as unknown)
   return {
     path: expectedPath,
     snapshot: source.snapshot,
