@@ -19,6 +19,7 @@
 | 创建新下游                               | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单        | `$web-instantiate-project`；品牌步骤按需用 `$web-prepare-brand-identity`       |
 | 定义或改变产品目标、边界、约束、成功标准 | 已初始化下游的 `docs/product_spec/README.md` 与最新 Product Spec     | `$web-define-product`；模板源拒绝此类业务请求                                  |
 | 范围清楚的实现、问题修复或 i18n 整理     | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实    | `$web-implement-change`、`$web-extract-i18n-strings`                           |
+| React Web 列表、数据表格或搜索结果       | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约  | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用          |
 | UI、页面、Popup、Options、响应式或无障碍 | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节       | `$web-implement-change`                                                        |
 | 环境、数据、认证、事件流或日志           | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md` | `$web-implement-change`                                                        |
 | 创建或检查左侧 user-owned Task           | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”        | Codex Task 工具；`user_owned_tasks` 启用或用户明确要求时调用                   |
@@ -50,10 +51,10 @@
 项目 Skills 位于 `.agents/skills/`。先按任务路由选择最小集合；命中后必须完整读取对应 `SKILL.md` 及其要求的精确引用，不得预先加载同类全部 Skills。
 
 - 初始化与身份：`$web-instantiate-project`、`$web-check-development-environment`、`$web-prepare-brand-identity`。
-- 开发与治理：`$web-define-product`、`$web-implement-change`、`$web-refactor-code`、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-run-parallel-worktrees`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
+- 开发与治理：`$web-define-product`、`$web-implement-change`、`$web-implement-list-view`（仅 Web）、`$web-refactor-code`、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-run-parallel-worktrees`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。
 
-源 Harness 共保留 16 个 canonical `web-*` Skills；终端下游删除实例化与源记忆整理能力，只保留 14 个维护 Skills。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
+源 Harness 共保留 17 个 canonical `web-*` Skills；Web 终端下游删除实例化与源记忆整理能力，保留 15 个维护 Skills；Extension 再删除仅适用 Web 的 `$web-implement-list-view`，保留 14 个。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
 
 ## 约束地图
 

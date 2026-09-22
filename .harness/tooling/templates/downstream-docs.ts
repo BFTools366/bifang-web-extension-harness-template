@@ -201,13 +201,29 @@ function technicalDebt(config: ProjectConfig): string {
 function dataAccess(config: ProjectConfig, canonical: string): string {
   // 保存 sectionMarker 变量供当前逻辑使用。
   const sectionMarker = "## 1. 选型结论"
+  // 保存 webListMarker 与 httpMarker 变量供 Extension 裁掉 Web-only 列表数据契约使用。
+  const webListMarker = "### 2.5 React Web 路由列表契约"
+  const httpMarker = "## 3. HTTP、认证与 REST/OpenAPI"
   // 保存 deliveryMarker 变量供当前逻辑使用。
   const deliveryMarker = "## 7. 落地与测试门禁"
   // 保存 sectionStart 变量供当前逻辑使用。
   const sectionStart = canonical.indexOf(sectionMarker)
   if (sectionStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${sectionMarker}`)
-  // 保存 canonicalSections 变量供当前逻辑使用。
-  const canonicalSections = canonical.slice(sectionStart).trim()
+  // 保存 allCanonicalSections 变量供验证并按宿主裁剪规范使用。
+  const allCanonicalSections = canonical.slice(sectionStart).trim()
+  // 保存 webListStart 与 httpStart 变量供验证 Web-only 章节边界使用。
+  const webListStart = allCanonicalSections.indexOf(webListMarker)
+  const httpStart = allCanonicalSections.indexOf(httpMarker)
+  if (webListStart < 0 || httpStart <= webListStart) {
+    throw new Error("Canonical DATA_ACCESS.md has invalid Web list section markers")
+  }
+  // 保存 canonicalSections 变量；Extension 删除只适用于 React Web 的列表正向契约。
+  const canonicalSections =
+    config.projectType === "web"
+      ? allCanonicalSections
+      : `${allCanonicalSections.slice(0, webListStart).trimEnd()}\n\n${allCanonicalSections
+          .slice(httpStart)
+          .trimStart()}`
   // 保存 deliveryStart 变量供当前逻辑使用。
   const deliveryStart = canonicalSections.indexOf(deliveryMarker)
   if (deliveryStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${deliveryMarker}`)
@@ -244,6 +260,9 @@ ${derivedSections}
 function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
   // 保存 sharedMarker 变量供当前逻辑使用。
   const sharedMarker = "## 1. 规范等级与使用方式"
+  // 保存 webListMarker 与 feedbackMarker 变量供 Extension 裁掉 Web-only 列表规范使用。
+  const webListMarker = "### 5.4 React Web 重复记录视图"
+  const feedbackMarker = "## 6. 状态与反馈"
   // 保存 webMarker 变量供当前逻辑使用。
   const webMarker = "## 8. Web 宿主规范"
   // 保存 extensionMarker 变量供当前逻辑使用。
@@ -252,6 +271,9 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
   const deliveryMarker = "## 10. 交付检查"
   // 保存 sharedStart 变量供当前逻辑使用。
   const sharedStart = canonical.indexOf(sharedMarker)
+  // 保存 webListStart 与 feedbackStart 变量供验证 Web-only 章节边界使用。
+  const webListStart = canonical.indexOf(webListMarker)
+  const feedbackStart = canonical.indexOf(feedbackMarker)
   // 保存 webStart 变量供当前逻辑使用。
   const webStart = canonical.indexOf(webMarker)
   // 保存 extensionStart 变量供当前逻辑使用。
@@ -260,15 +282,23 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
   const deliveryStart = canonical.indexOf(deliveryMarker)
   if (
     sharedStart < 0 ||
+    webListStart <= sharedStart ||
+    feedbackStart <= webListStart ||
     webStart <= sharedStart ||
+    feedbackStart >= webStart ||
     extensionStart <= webStart ||
     deliveryStart <= extensionStart
   ) {
     throw new Error("Canonical MANTINE_UI_GUIDELINES.md has invalid section markers")
   }
 
-  // 保存 shared 变量供当前逻辑使用。
-  const shared = canonical.slice(sharedStart, webStart).trim()
+  // 保存 shared 变量；Extension 删除只适用于 React Web 的列表正向规范。
+  const shared =
+    config.projectType === "web"
+      ? canonical.slice(sharedStart, webStart).trim()
+      : `${canonical.slice(sharedStart, webListStart).trimEnd()}\n\n${canonical
+          .slice(feedbackStart, webStart)
+          .trimStart()}`
   // 保存 hostSection 变量供当前逻辑使用。
   const hostSection =
     config.projectType === "web"
@@ -289,7 +319,7 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
 
 本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的 Mantine UI 设计事实。项目身份与品牌色仍以 \`.harness/project.json\` 为唯一来源；工程和测试通则仍以 [\`ENGINEERING_RULES.md\`](ENGINEERING_RULES.md) 为准。
 
-当前项目声明 Mantine \`9.5.1\`，并以根级 \`MantineProvider\`、\`createTheme\` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须重新核对主题、Styles API 和响应式机制；未安装的 \`@mantine/form\`、\`@mantine/notifications\` 等扩展包不是现有能力。
+当前项目声明 Mantine \`9.6.1\`，并以根级 \`MantineProvider\`、\`createTheme\` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须重新核对主题、Styles API 和响应式机制；未安装的 \`@mantine/form\`、\`@mantine/notifications\` 等扩展包不是现有能力。
 
 ${shared}
 

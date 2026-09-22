@@ -1,22 +1,22 @@
 # 分页、数据访问与事件流集成技术选型
 
-本文档是 Bifang Web Harness Template 及其生成下游在统一分页、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成不含业务 endpoint 的原生 Fetch client、语言偏好、分页基础与非空测试；它不安装 Ky、Axios 或其他请求库，不生成占位业务请求、登录页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
+本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成不含业务 endpoint 的原生 Fetch client、语言偏好、分页基础与非空测试；它不安装 Ky、Axios 或其他请求库，不生成占位业务请求、登录页、列表页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
 
 固定生成的 HTTP/分页基础（`.harness/tooling/templates/http.ts`、`pagination.ts`）体量明显大于"不生成空壳"原则通常允许的规模，这是刻意例外而非疏漏：动态 header、乱序 revision、迟到 401 与 single-flight 是认证/并发正确性问题，一旦交给每个下游各自实现，出错代价（安全绕过、竞态覆盖新状态）远高于集中维护的成本；因此即便当前项目零业务 endpoint，也在初始化阶段一次性生成并测试，而不是等首个真实 endpoint 出现才补。这与 Ky/OpenAPI/GraphQL/SSE/RxJS 按真实消费者才安装的策略并不矛盾：后者是可替换的传输/协议适配器，前者是所有适配器共享、不可省略的正确性契约。
 
 ## 1. 选型结论
 
-| 能力                           | 默认选型                                                    | 何时改选                                                                                                      |
-| ------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 统一集合分页                   | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态 | 真实接口使用 cursor、offset 或其他字段时，由域 service 映射为内部契约，不另建页面私有分页标准                 |
-| 基础 HTTP                      | 生成的类型化原生 Fetch client factory                       | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                            |
-| 无可靠 OpenAPI 契约的 REST     | 原生 Fetch 基础；真实复杂度需要时可加 `ky` adapter          | 只有真实消费者需要 Ky 的 hooks/人体工学时安装；已有必须保留的 Axios 生态或 Fetch 无法满足的能力才使用 `axios` |
-| 有可靠 OpenAPI 契约的 REST     | `openapi-typescript` + `openapi-fetch`                      | Schema 不完整、长期漂移或无法进入生成/类型检查门禁时使用原生 Fetch 或 Ky adapter，并在运行时校验响应          |
-| 不需要规范化实体缓存的 GraphQL | `graphql-request` + `@graphql-codegen/client-preset`        | 只有明确需要跨查询实体归一化、Fragments 驱动缓存更新等能力时才选择 Apollo Client                              |
-| 简单 SSE                       | 浏览器原生 `EventSource`                                    | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                          |
-| Fetch 风格 SSE 备选            | `@microsoft/fetch-event-source`                             | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                   |
-| 多来源持续事件编排             | RxJS（按需）                                                | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                  |
-| 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | `openapi-fetch` 等适配器已自带对应运行时校验时复用其结果，不重复引入第二套校验库                              |
+| 能力                           | 默认选型                                                    | 何时改选                                                                                                           |
+| ------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 统一集合分页                   | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态 | 真实接口使用 cursor/offset 时由域 service 映射；Web 路由列表按 §2.5 改用 Router 运行时 owner，但仍复用同一内部契约 |
+| 基础 HTTP                      | 生成的类型化原生 Fetch client factory                       | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                 |
+| 无可靠 OpenAPI 契约的 REST     | 原生 Fetch 基础；真实复杂度需要时可加 `ky` adapter          | 只有真实消费者需要 Ky 的 hooks/人体工学时安装；已有必须保留的 Axios 生态或 Fetch 无法满足的能力才使用 `axios`      |
+| 有可靠 OpenAPI 契约的 REST     | `openapi-typescript` + `openapi-fetch`                      | Schema 不完整、长期漂移或无法进入生成/类型检查门禁时使用原生 Fetch 或 Ky adapter，并在运行时校验响应               |
+| 不需要规范化实体缓存的 GraphQL | `graphql-request` + `@graphql-codegen/client-preset`        | 只有明确需要跨查询实体归一化、Fragments 驱动缓存更新等能力时才选择 Apollo Client                                   |
+| 简单 SSE                       | 浏览器原生 `EventSource`                                    | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
+| Fetch 风格 SSE 备选            | `@microsoft/fetch-event-source`                             | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
+| 多来源持续事件编排             | RxJS（按需）                                                | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
+| 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | `openapi-fetch` 等适配器已自带对应运行时校验时复用其结果，不重复引入第二套校验库                                   |
 
 原生 Fetch、分页和语言基础是生成项目的固定源码与测试，不是新增运行时依赖。Ky、OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
 
@@ -33,7 +33,8 @@
 ### 2.1 状态的单一所有者
 
 - 每项可恢复状态先选择一个权威所有者：组件私有交互使用 React 局部状态；确需跨组件共享的纯客户端状态使用 Jotai；远端结果使用 TanStack Query。不得把同一筛选、页码、实体或异步结果同时写入 URL、sessionStorage、Jotai 与 Query 再靠 effect 同步。
-- Web 中需要分享、书签、前进/后退或刷新恢复的筛选、排序和页码使用经过运行时校验的 TanStack Router search；只在当前标签页会话恢复、且不需要 URL 语义的状态才使用 sessionStorage。路由 search 与 sessionStorage 不能同时拥有同一字段。
+- Web 中需要分享、书签、前进/后退或刷新恢复的筛选、排序和页码使用经过运行时校验的 TanStack Router search；只在当前标签页会恢复、且不需要 URL 语义的状态才使用 sessionStorage。除下一条的封闭启动恢复外，路由 search 与 sessionStorage 不能同时拥有同一字段。
+- `projectType=web` 的重复记录列表只有一个封闭例外：Router search 始终是已应用搜索、筛选、排序、`page` 和 `pageSize` 的运行时 owner。原始 URL 包含任一当前列表 owned key 时只采用其合法值并以默认值补齐，不混入旧会话；完全没有 owned key 时才按稳定 `listId` 从 sessionStorage 读取一次启动快照。首次 Query 前以一次 `replace` 写入 canonical search 并保留无关 query；此后只由 Router 驱动，sessionStorage 最多单向记录已应用快照，不是第二个可写权威或 effect 双向同步对象。
 - Extension 的 Popup/Options 局部短会话状态留在组件；需要跨重新打开或跨执行上下文恢复时，使用类型化 `chrome.storage` 与消息契约并先评审数据、权限和失效策略。Jotai/React 内存不能冒充 Popup、Options、content script 或 service worker 之间的共享存储。
 - 派生值在读取时计算，不保存为可漂移副本。状态所有权变化必须覆盖刷新、卸载/重挂载、浏览器导航或 Extension 上下文销毁中实际适用的边界测试。
 
@@ -62,6 +63,14 @@
 3. 已校验的 `items` 为空且当前 `page > 1`。
 
 满足后只执行一次 `page = 1` 转移并持久化新状态，由 Query key 变化发起第一页请求。loading、error、取消、placeholder、旧 `page`/`pageSize` 响应、第一页空态和成功非空页都保持当前位置；不得仅根据缺失数据、`total` 变化或渲染时的暂时空数组猜测回退。
+
+### 2.5 React Web 路由列表契约
+
+- 列表实现复用 `src/pagination/` 的 1-based `page`、`10|20|50|100` 受控 `pageSize`、safe-integer 校验与受控组件；Router adapter 在该页拥有页码时，不再挂载 `useSessionPagination` 作为第二份可变状态。外部 cursor/offset 仍只在 endpoint adapter 映射，不建立页面私有分页标准。
+- 每个列表声明稳定 `listId`、业务 id 类型、默认确定性排序与允许排序字段；同值记录由服务端追加稳定业务 id tie-breaker。搜索、筛选、排序或 `pageSize` 变化与 `page=1` 原子提交。
+- 业务行、`total`、错误、loading 与 placeholder 只属于 TanStack Query/feature，不写入 Router、Jotai 或 Storage。Query key 至少包含 `listId`、非 PII scope、规范化筛选、sort、`pageSize`、`page` 和影响结果的语言/target。
+- 只在成功、非 fetching、非 placeholder 且响应通过 items/total/业务 id 一致性校验后纠正越界页：非零总页数使用 `replace` 转到末页，零结果规范为第 1 页。这是对 §2.4 通用空页回首页的 Web 路由列表特化，不改写通用 `useSessionPagination` 行为。
+- 本节仅用于 React Web，并由 `$web-implement-list-view` 编排。Extension Popup/Options 不引入 Router 或复用该启动恢复；它们按 Extension 执行上下文、类型化消息和 Storage 边界单独实现。
 
 ## 3. HTTP、认证与 REST/OpenAPI
 

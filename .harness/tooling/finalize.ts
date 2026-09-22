@@ -329,6 +329,16 @@ function downstreamAgents(config: ProjectConfig): string {
     config.projectType === "web"
       ? "- `src/routes/`: file-route source; `src/routeTree.gen.ts` is generated, Git-ignored, and never edited by hand.\n"
       : ""
+  // 保存 hostSkills 变量供当前宿主专用 Skill 地图使用。
+  const hostSkills =
+    config.projectType === "web"
+      ? "- `$web-implement-list-view`：创建、修改或审查可恢复、可访问的 React Web 列表页。\n"
+      : ""
+  // 保存 hostMinimumReading 变量供当前宿主专用任务路由使用。
+  const hostMinimumReading =
+    config.projectType === "web"
+      ? "For a list, data table, admin list, or search-results task, read both `docs/MANTINE_UI_GUIDELINES.md` and `docs/DATA_ACCESS.md`, then invoke `$web-implement-list-view` alongside the implementation workflow.\n\n"
+      : ""
   return `# Project Agent Instructions
 
 This repository is the terminal \`${config.projectType}\` project **${config.name}**. Keep it flat and single-package. Do not add project-generation commands, a workspace layout, or a second project type.
@@ -337,7 +347,7 @@ This repository is the terminal \`${config.projectType}\` project **${config.nam
 
 Always inspect the workspace and protect existing changes. Read this file and \`.harness/project.json\`; read \`docs/AGENT_POLICY.md\` for capability preferences, title lifecycle, persistent planning, parallel work, smoke, or E2E. Read \`docs/ENGINEERING_RULES.md\` before modifying code, tests, docs, or configuration, plus the selected Skill. Read \`docs/MANTINE_UI_GUIDELINES.md\` for theme, page, Popup, Options, layout, component, interaction-state, responsive, or UI-accessibility work. Read \`docs/RUNTIME_CONFIGURATION.md\` for environment work, \`docs/LOGGING.md\` for logging/error handling, and \`docs/DATA_ACCESS.md\` for pagination, HTTP headers, authentication, REST/OpenAPI, GraphQL, SSE, multiple remote endpoints, multi-source event streams, or RxJS. Read only the additional facts needed.
 
-## Event-driven execution
+${hostMinimumReading}## Event-driven execution
 
 Implement clear daily requests directly and run only the affected checks and related non-empty tests. Multi-step, multi-module, medium-risk, or user-visible work does not by itself create a Work Plan, full-repository check, build, smoke test, or E2E run. Create a persistent plan only when the user explicitly requests one, work must cross sessions, or release/high-risk coordination genuinely needs it. Behavior-preserving refactors run the full unit suite.
 
@@ -372,7 +382,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-implement-change\`：实施并验证已批准的 Web Harness 前端变更。
-- \`$web-refactor-code\`：在保持行为不变时整理 TypeScript/TSX 前端代码。
+${hostSkills}- \`$web-refactor-code\`：在保持行为不变时整理 TypeScript/TSX 前端代码。
 - \`$web-prepare-brand-identity\`：同步当前前端宿主的 Logo 与品牌元数据。
 - \`$web-run-parallel-worktrees\`：仅在用户当前明确要求且策略启用时，隔离并协调写入范围互不重叠的前端并行工作。
 - \`$web-summarize-development-history\`：只读追溯项目记忆与 Git 历史，区分已决定、已实现、已验证与推测。
@@ -543,6 +553,9 @@ export async function finalizeDownstream(
         /* 执行 当前声明 函数的处理逻辑。 */ (relativePath) => removeIfPresent(root, relativePath)
       )
   )
+  if (config.projectType === "extension") {
+    await removeIfPresent(root, ".agents/skills/web-implement-list-view")
+  }
   // 保存 scriptsPath 变量供当前逻辑使用。
   const scriptsPath = path.join(root, "scripts")
   if (

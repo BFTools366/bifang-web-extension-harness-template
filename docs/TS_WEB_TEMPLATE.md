@@ -124,7 +124,7 @@ Extension 初始化必须同步：
 两种项目都生成 `src/pagination/`、`src/api/client/`、`src/i18n/language.ts` 和对应非空测试，但不生成真实 endpoint、登录页、refresh/replay 或占位网络调用：
 
 - 分页以 1-based `page`、`10|20|50|100` 的受控 `pageSize`、`items` 与非负安全整数 `total` 为内部结构，默认 `{ page: 1, pageSize: 20 }`。sessionStorage 只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；切换 `pageSize` 回第一页。
-- 只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；旧响应、错误和暂时空态保持当前位置。生成的组件/hook 不自动挂进非分页 Landing、404、Popup 或 Options。
+- 只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；旧响应、错误和暂时空态保持当前位置。这是通用 session 分页状态机；Web 路由列表按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 的封闭 Router 恢复契约特化。生成的组件/hook 不自动挂进非分页 Landing、404、Popup 或 Options。
 - 原生 Fetch client 当前只接受冻结 `APP_CONFIG` 单一 BaseURL 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；未来多 target 由真实域 adapter 与只读 registry 加入。每次 dispatch 动态发送有值的 `X-Http-Request`、`X-Lang` 与 `X-AUTH-TOKEN`；continuation 和 Token 只从同一受控 API 边界的 2xx 响应提取，并用 sequence/revision 防止乱序覆盖。
 - `X-Http-Request` 是服务端签发、供后续请求传播的 opaque continuation/correlation 值，不是客户端 request-id。语言偏好按项目命名空间写入 localStorage，异常时回退浏览器语言与英文；Token/continuation 只保存在当前执行上下文内存，禁止写入环境、localStorage、sessionStorage 或日志。
 - 401 只在当前请求使用的 Token 仍为当前 revision 时清理它与同一会话的 continuation，并通过 single-flight `UnauthorizedHandler` 调用真实宿主 adapter。同一失效周期只调用一次；Web 只有存在真实登录 route 后才注入 `router.navigate`，Extension 不使用 Router，也不虚构 background、登录页或跨 Popup/Options 共享会话。
@@ -136,6 +136,13 @@ Extension 初始化必须同步：
 
 该规范不要求初始化器预装 `@mantine/form`、`@mantine/notifications` 等可选包，也不把最小 Landing、Popup 或 Options 宣称为完整业务设计系统。真实 UI 开始实施时以 Mantine theme 和当前包内受控样式落实规范，不建立第二套基础组件库或跨宿主源码共享层。
 
+### 3.8 Web-only 列表治理基线
+
+- 源 Harness 保留 `$web-implement-list-view` 的 Skill、references 与中性资产；`projectType=web` 终端保留该 Skill，`projectType=extension` 终端必须裁掉它。
+- 该能力只在 Web 下游真实出现列表页、数据表格、后台列表或搜索结果时调用；不把 Extension Popup/Options 视为可共享宿主。
+- 初始化不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
+- 列表页仍复用 `src/pagination/` 的 1-based page/pageSize 契约；Router search 的封闭启动恢复、Query 对 rows/`total` 的唯一所有权和稳定排序详见 [`DATA_ACCESS.md`](DATA_ACCESS.md)，Table/卡片/搜索形态与条件 DnD 详见 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)。
+
 ## 4. Web 技术基线
 
 | 能力        | 选型                                           | 边界                                                                             |
@@ -145,6 +152,7 @@ Extension 初始化必须同步：
 | 路由        | TanStack Router 文件路由                       | Vite plugin 生成路由树并自动 route 拆包                                          |
 | 异步数据    | TanStack Query                                 | 负责远端数据、缓存、重试和失效                                                   |
 | HTTP 与分页 | 原生 Fetch + 统一分页基础                      | 生成 client/测试但不生成业务 endpoint                                            |
+| 列表页      | `$web-implement-list-view`                     | 仅真实重复记录页触发；不强制 Table/DnD，不在初始化中生成业务 UI                  |
 | 实时数据    | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                                                          |
 | 事件流编排  | RxJS（按需）                                   | 只有真实多来源或复杂时序需求时安装                                               |
 | 客户端状态  | Jotai                                          | 只保存需要跨组件共享的客户端状态                                                 |
@@ -199,6 +207,7 @@ src/
 - `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`test` 与 `typecheck` 必须先生成它，保证全新克隆可直接运行门禁。
 - `api/client/` 是初始化生成的原生 Fetch 基础，统一受控 BaseURL、三个 header、timeout/取消、并发 revision、`ApiError` 与 401 handler；它不包含真实 endpoint、refresh/replay 或登录地址。真实业务出现后才在 `api/` 下增加按域划分的 service；Ky/OpenAPI adapter 不得复制第二套请求上下文。
 - `pagination/` 提供所有真实集合页复用的 sessionStorage adapter、hook、受控组件与成功空页 reconciliation。TanStack Query 的 key、缓存、mutation、失效、`items` 与 `total` 属于消费端 feature，服务器状态不得复制进 Jotai 或分页 Storage。
+- 真实 Web 列表页使用 `$web-implement-list-view`：复用 `pagination/` 的页码/pageSize 基础，但由类型化 Router adapter 拥有已应用状态；sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复，不挂载第二份 session 状态。业务行、`total`、错误和请求结果继续只属于 Query/feature。
 - 依赖方向保持为 `main/app → routes → features → pagination/api`；API 与分页基础不反向依赖 React route 或 feature，401 client 只接受宿主注入的窄 handler。跨 feature 共享组件和纯逻辑只有出现真实复用后才提取，禁止为了目录对称生成空壳。
 
 ## 5. Extension 技术基线
@@ -218,6 +227,8 @@ src/
 | 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；E2E、完整验收 smoke 或硬要求需要时使用真实 Chrome            |
 
 Extension 基线不使用 TanStack Router。Popup 与 Options 是独立入口；如果某个入口内部没有真实多页需求，不应引入站内路由抽象。
+
+Extension 不保留或调用 `$web-implement-list-view`，也不为复用其 URL/session 恢复、图标或 DnD 路径增加 Router 和可选依赖。
 
 Extension 与 Web 生成相同的 `src/pagination/` 和 `src/api/client/` 本地工程契约，但每个 Popup、Options、content script 或 service worker 都有独立的 JavaScript 执行上下文。sessionStorage、内存 Token/continuation 与 401 single-flight 不跨上下文；初始化不为了共享它们增加 background、`storage`、消息入口或权限。产品确需跨上下文认证时必须先定义唯一所有者、类型化消息、生命周期和拒绝路径，再取得权限/隐私批准并进入真实 Chrome 验证门禁。
 
@@ -349,7 +360,7 @@ pnpm harness validate
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
-12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。
+12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。源 Harness 共 17 个 Skills，Web 终端保留 15 个并含 `$web-implement-list-view`，Extension 终端保留 14 个且不含该 Skill。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力

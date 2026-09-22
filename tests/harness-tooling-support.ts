@@ -123,6 +123,10 @@ async function seedTemplateRoot(): Promise<string> {
     await readFile(path.join(repositoryRoot, ".harness/tooling/release.ts"), "utf8")
   )
   await writeFile(
+    path.join(root, ".harness/tooling/skill-validation.ts"),
+    await readFile(path.join(repositoryRoot, ".harness/tooling/skill-validation.ts"), "utf8")
+  )
+  await writeFile(
     path.join(root, ".harness/tooling/comment-policy.ts"),
     await readFile(path.join(repositoryRoot, ".harness/tooling/comment-policy.ts"), "utf8")
   )

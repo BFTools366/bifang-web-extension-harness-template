@@ -2,7 +2,7 @@
 
 本文档是 Bifang Web Harness Template 及其下游 Mantine 界面的唯一详细设计规范。它约束视觉令牌、布局、组件语义、交互状态、响应式、无障碍与国际化；具体项目身份与品牌色仍以 `.harness/project.json` 为事实源，工程和测试通则仍以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 为准。
 
-当前模板声明 Mantine `9.5.1`，并以根级 `MantineProvider`、`createTheme` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须先核对本文引用的主题、Styles API 和响应式机制；未安装的 `@mantine/form`、`@mantine/notifications` 等扩展包不是现有能力。
+当前模板声明 Mantine `9.6.1`，并以根级 `MantineProvider`、`createTheme` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须先核对本文引用的主题、Styles API 和响应式机制；未安装的 `@mantine/form`、`@mantine/notifications`、图标或 DnD 包不是现有能力。
 
 ## 1. 规范等级与使用方式
 
@@ -118,6 +118,16 @@
 - 分页继续复用 `src/pagination/` 的受控 page/pageSize 基础。页码、上一页/下一页和每页条数保留本地化名称；窄容器允许操作组换行，不复制另一套分页状态。
 - Tooltip、Popover、Menu、Modal 和 Drawer 必须可由键盘打开/关闭，关闭后焦点回到触发器。弹层内容超过当前宿主空间时改用更宽或更持久的宿主界面，而不是无限嵌套或缩小文字。
 
+### 5.4 React Web 重复记录视图
+
+- `projectType=web` 的列表页、数据表格、后台列表或搜索结果页同时调用 `$web-implement-list-view`；该 Skill 只编排本文和 [`DATA_ACCESS.md`](DATA_ACCESS.md) 的当前事实，不建立第二套 UI 或分页规范。
+- 先根据真实信息结构选择 Table、卡片列表或搜索结果；只有二维关系确实需要行列语义时才使用 Mantine Table，不为命中 Skill 强制改为表格。
+- 首次 loading、后台刷新、筛选无结果、全局无数据、可重试错误与终态错误分别表达；纯翻页 placeholder 只读，选择、分页、批量和行内副作用在旧内容上禁用。
+- 可见结果范围、总数、刷新、错误和选择反馈使用稳定的 live region，不因同一状态的组件重渲染重复播报。分页 landmark、页码、上/下页和每页数量具有本地化可访问名称。
+- 表格仅在局部、有名称、可聚焦且焦点可见的滚动区内双向滚动，sticky offset 来自共享布局事实，不让页面根水平滚动。卡片/行的子控件自己拥有动作，hover 高亮不得暗示父容器是按钮。
+- Table 的唯一主业务单元格使用 `th scope="row"` 给行提供可理解名称；可排序列同时提供与当前方向一致的 `aria-sort` 和可见图标，不只用颜色或隐藏文本表示状态。
+- 选择、列显隐与列顺序只在真实产品需求出现时启用。拖拽列重排才需按授权流程在当前 Web 项目本地安装 DnD 依赖，并同时提供键盘 sensor、命名手柄、移动按钮和位置播报；不因列表能力存在而预装依赖或生成空 UI。
+
 ## 6. 状态与反馈
 
 | 状态       | 必需信息                           | 默认呈现                                                        |
@@ -169,6 +179,7 @@ Web 页面采用以下三类布局，不把初始化的居中 Hero 复制到所�
 - 全局 theme 固定由 `src/app/theme.ts` 导出，并由 `src/app/AppProviders.tsx` 的根 `MantineProvider` 消费；不要在 route 或 feature 内重建 Provider。
 - 页面主体下限为 `320px`，不依赖固定高度垂直居中。sticky 区域不得遮挡焦点或错误；路由切换后标题与焦点策略可理解。
 - route 文件只声明路由契约，页面布局和状态组件留在 feature。跨页面重复的 PageShell、状态面板或 SectionHeader 出现真实复用后再提取。
+- 浏览或管理重复记录的页面按 §5.4 调用 `$web-implement-list-view`，路由状态、Query 数据与分页的详细所有权以 [`DATA_ACCESS.md`](DATA_ACCESS.md) 为准。
 - CSS Modules 和 Mantine CSS variables 承担复杂布局；不要在全局 `styles.css` 为业务页面不断追加类名和品牌常量。
 - 当前单包只保留站点入口、路由与资源，不增加第二宿主。
 
@@ -182,6 +193,7 @@ Popup 与 Options 使用同一主题语义，但服务不同任务：
 | Options | 完成长表单、详细配置和帮助     | 默认最大宽 `760px`、居中单列；设置按 section 分组，必要时再引入两列                   |
 
 - Popup 首屏应看到当前状态和主动作；不放多层导航、复杂表格、长帮助、无限滚动列表或需要长期阅读的内容。超出范围的任务明确跳转 Options。
+- Extension Popup/Options 不调用 `$web-implement-list-view`，不为复用 Web 列表恢复逻辑安装 Router、图标或 DnD 依赖；扩展的重复项界面仍按当前 surface、消息与 Storage 契约单独设计。
 - Popup 使用 compact but operable 密度：可以采用 `sm` gap/控件，但可点击目标、可见焦点、错误和文本缩放不得牺牲。核心 CTA 不应依赖滚动才能发现。
 - Options 不复用 Popup 的固定宽度和紧凑密度，也不引入与设置任务无关的站点式导航。只有设置量真实增长后才增加目录/侧栏。
 - theme 与根 `MantineProvider` 保持在 `src/providers.tsx`；只有出现真实跨入口复用需求时才提取单独 theme 模块。
@@ -202,6 +214,7 @@ Popup 与 Options 使用同一主题语义，但服务不同任务：
 - [ ] 未移动焦点的动态加载、提交和错误状态具有明确 live region 语义，且不会漏报或重复播报。
 - [ ] 颜色与非颜色线索共同表达状态，对比度达到目标；减少动态效果设置得到尊重。
 - [ ] 当前单包只保留 `.harness/project.json.projectType` 对应的宿主入口、资源与已批准权限。
+- [ ] Web 重复记录视图选择了有信息结构理由的 Table/卡片/搜索形态，并按 `$web-implement-list-view` 清单记录适用项；Extension 该项为 N/A。
 
 ### 10.2 测试与验收
 
@@ -220,6 +233,7 @@ Popup 与 Options 使用同一主题语义，但服务不同任务：
 - 用 placeholder 代替 label、用 Tooltip 代替可访问名称、用颜色或 Toast 作为唯一反馈。
 - 用 Jotai 镜像 Query 数据只为改变样式，或为局部 hover/open 状态创建全局 atom。
 - 在大列表逐项生成响应式 style props，或以 JS 宽度判断替代可由 CSS 完成的布局。
+- 只因页面包含重复记录就强制 Table、选择、列偏好或拖拽，或在中性初始化中生成假列表来展示能力。
 - 为未来可能使用的 form、notifications、dates、charts 或图标库预装依赖和空组件。
 
 ## 12. 官方依据

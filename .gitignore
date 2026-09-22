@@ -14,6 +14,3 @@ build/
 !.env.production
 .harness/trash/
 src/routeTree.gen.ts
-__pycache__/
-*.py[cod]
-.pytest_cache/

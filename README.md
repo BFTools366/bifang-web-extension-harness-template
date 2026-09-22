@@ -24,6 +24,8 @@
 
 两种下游还会携带按当前宿主裁剪的 Mantine UI 规范，统一 theme/语义令牌、排版、间距、组件层级、异步状态、响应式、无障碍和 i18n 实施边界；源规范见 [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)。
 
+React Web 下游额外保留 `$web-implement-list-view`，在真实列表页、数据表格、后台列表或搜索结果出现时统一 Router 恢复、Query 分页、状态反馈与无障碍。该 Skill 不强制使用 Table、选择或拖拽；中性初始化不生成业务列表、不预装图标或 DnD 等可选依赖。Extension Popup/Options 不携带或调用该 Web-only Skill。
+
 ## 快速开始
 
 准备 Node.js `>=22.22.2`、Corepack 与 pnpm `>=10.33.3` 后，在 Harness 根目录安装依赖。`engines` 是兼容性最低版本，实际工具可以更高；`packageManager` 仍使用精确 `pnpm@x.y.z` pin 供 Corepack 与复现使用，但这个 pin 也只需不低于最低版本：
@@ -123,7 +125,7 @@ pnpm harness validate
 
 `brand refresh` 的两个选项都可省略；它不会添加、删除或切换宿主。
 
-成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 或任何其他项目派生入口；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。
+成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 或任何其他项目派生入口；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。Web 终端保留 15 个维护 Skills；Extension 还会裁掉 `$web-implement-list-view`，保留 14 个。
 
 Harness 根目录当前提供以下维护门禁；根项目没有应用 `dev` 或 `build` 脚本：
 
@@ -205,7 +207,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 | 路径                                                                      | 作用                                                |
 | ------------------------------------------------------------------------- | --------------------------------------------------- |
 | [`AGENTS.md`](AGENTS.md)                                                  | Agent 的渐进读取、事件路由、Skills 与约束地图       |
-| [`.agents/skills/`](.agents/skills/)                                      | 16 个按触发条件读取的源 `web-*` 项目 Skills         |
+| [`.agents/skills/`](.agents/skills/)                                      | 17 个按触发条件读取的源 `web-*` 项目 Skills         |
 | [`.harness/tooling/`](.harness/tooling/)                                  | 初始化、品牌刷新和下游校验的 TypeScript 工具        |
 | 生成项目中的 `.harness/project.json`                                      | 下游项目身份、唯一 `projectType` 与品牌的单一事实源 |
 | [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                              | 数据访问、SSE 与可选 RxJS 事件流编排                |

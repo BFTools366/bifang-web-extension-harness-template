@@ -12,6 +12,7 @@ import {
   validateRepositoryPaths,
   validateContent,
   validateEventDrivenWorkflow,
+  validateListViewSkillContracts,
   validateMarkdownLinks,
   validateSkills
 } from "./harness-validation/repository.ts"
@@ -27,6 +28,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   validateRepositoryPaths(files, errors)
   const markdownFiles = governedMarkdownFiles(files)
   const skills = await validateSkills(root, errors)
+  await validateListViewSkillContracts(root, errors)
   await validateAgentsEntrypoint(root, errors)
   await validateEventDrivenWorkflow(root, errors)
   await validateSourceAgentPolicy(root, errors)

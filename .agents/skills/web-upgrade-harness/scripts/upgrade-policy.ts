@@ -39,6 +39,7 @@ export const UPSTREAM_LOCK_RELATIVE_PATH = ".harness/upstream-lock.json"
 /** 保存所有权清单不可弱化的关键规则。 */
 export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = {
   ".agents/skills/web-configure-git-commits/**": "managed",
+  ".agents/skills/web-implement-list-view/**": "conditional",
   ".agents/skills/web-run-parallel-worktrees/**": "managed",
   ".agents/skills/web-summarize-development-history/**": "managed",
   ".agents/skills/web-upgrade-harness/**": "managed-self",
@@ -54,6 +55,7 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   ".harness/tooling/logo.ts": "managed",
   ".harness/tooling/project-memory.ts": "managed",
   ".harness/tooling/release.ts": "managed",
+  ".harness/tooling/skill-validation.ts": "managed",
   ".harness/tooling/source-size-policy.ts": "managed",
   ".harness/tooling/types.ts": "managed",
   ".harness/tooling/validate.ts": "managed",
@@ -166,6 +168,7 @@ export const REQUIRED_MANAGED_SOURCE_PATHS = [
   ".harness/tooling/logo.ts",
   ".harness/tooling/project-memory.ts",
   ".harness/tooling/release.ts",
+  ".harness/tooling/skill-validation.ts",
   ".harness/tooling/source-size-policy.ts",
   ".harness/tooling/validate.ts",
   ".harness/tooling/version.ts",

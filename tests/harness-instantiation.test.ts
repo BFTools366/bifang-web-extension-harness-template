@@ -1,9 +1,12 @@
 import { describe, test } from "vitest"
 import { execFileSync } from "node:child_process"
+import { validateHarness } from "../scripts/validate-harness.ts"
+import { REQUIRED_FILES } from "../scripts/harness-validation/contracts.ts"
 import {
   INSTANTIATION_ONLY_EXCLUDED_PATHS,
   TEST_BASE_URLS,
   TEST_AGENT_POLICY,
+  cp,
   downstreamGovernanceFiles,
   expect,
   initializeProject,
@@ -14,12 +17,38 @@ import {
   readFile,
   readdir,
   repositoryRoot,
+  rm,
   seedTemplateRoot,
   symlink,
   temporaryDirectory,
   writeFile
 } from "./harness-tooling-support.ts"
 import type { ProjectConfig } from "./harness-tooling-support.ts"
+
+/** 锁定 React Web 列表页 Skill 必须完整分发的资产与参考资料。 */
+const LIST_VIEW_REQUIRED_FILES = [
+  ".agents/skills/web-implement-list-view/assets/ListPage.contracts.test.ts",
+  ".agents/skills/web-implement-list-view/assets/listPageState.ts",
+  ".agents/skills/web-implement-list-view/references/checklist.md",
+  ".agents/skills/web-implement-list-view/references/mantine-api.md",
+  ".agents/skills/web-implement-list-view/references/offset-list-pattern.md"
+] as const
+
+/** 复制不含 Git 与依赖目录的源 Harness，供破坏性验证器负例隔离使用。 */
+async function copyRepositoryForValidation(): Promise<string> {
+  const parent = await temporaryDirectory("web-harness-list-view-validator-")
+  const targetRoot = path.join(parent, "repository")
+  await cp(repositoryRoot, targetRoot, {
+    recursive: true,
+    /** 排除不属于模板验证输入的 Git 元数据与项目依赖目录。 */
+    filter(source) {
+      const relative = path.relative(repositoryRoot, source)
+      const topLevel = relative.split(path.sep)[0]
+      return topLevel !== ".git" && topLevel !== "node_modules"
+    }
+  })
+  return targetRoot
+}
 
 describe("safe template instantiation", /* 执行 当前声明 函数的处理逻辑。 */ () => {
   /** 验证 keeps the Extension package inspection as a hard candidate gate 场景。 */
@@ -50,6 +79,53 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(release).toContain("`pnpm package`")
     expect(release).toContain("自动执行 `pnpm harness validate` 与 `pnpm release:inspect`")
     expect(release).toContain("当次 E2E 选择 `enabled`")
+  })
+
+  /** 验证源 Harness 必需清单覆盖列表页 Skill 的两份资产与三份参考资料。 */
+  test("requires every list-view skill asset and reference", async () => {
+    expect(REQUIRED_FILES).toEqual(expect.arrayContaining([...LIST_VIEW_REQUIRED_FILES]))
+    for (const relativePath of LIST_VIEW_REQUIRED_FILES) {
+      await expect(readFile(path.join(repositoryRoot, relativePath), "utf8")).resolves.not.toBe("")
+    }
+
+    const missingRoot = await copyRepositoryForValidation()
+    const missingAsset = LIST_VIEW_REQUIRED_FILES[0]
+    await rm(path.join(missingRoot, missingAsset))
+    await expect(validateHarness(missingRoot)).rejects.toThrow(
+      /web-implement-list-view\/assets\/ListPage\.contracts\.test\.ts/
+    )
+  })
+
+  /** 验证 Web-only 路由恢复与状态权威语义受正文契约保护。 */
+  test("rejects drift in the list-view workflow semantics", async () => {
+    const root = await copyRepositoryForValidation()
+    const skillPath = path.join(root, ".agents/skills/web-implement-list-view/SKILL.md")
+    const skill = await readFile(skillPath, "utf8")
+    for (const required of [
+      "projectType=web",
+      "完全无 owned key",
+      "不是双向状态同步",
+      "assets/listPageState.ts"
+    ]) {
+      expect(skill).toContain(required)
+    }
+    await writeFile(skillPath, skill.replace("完全无 owned key", "没有列表参数"))
+    await expect(validateHarness(root)).rejects.toThrow(
+      /web-implement-list-view\/SKILL\.md is missing required workflow/
+    )
+  })
+
+  /** 验证纯 TypeScript 列表状态资产的可执行契约不能随实现漂移。 */
+  test("rejects drift in the executable list-state contract", async () => {
+    const root = await copyRepositoryForValidation()
+    const stateAssetPath = path.join(
+      root,
+      ".agents/skills/web-implement-list-view/assets/listPageState.ts"
+    )
+    const stateAsset = await readFile(stateAssetPath, "utf8")
+    expect(stateAsset).toContain("[10, 20, 50, 100]")
+    await writeFile(stateAssetPath, stateAsset.replace("[10, 20, 50, 100]", "[10, 20, 50]"))
+    await expect(validateHarness(root)).rejects.toThrow()
   })
 
   /** 验证 preflights environment failures before creating the target 场景。 */
@@ -181,7 +257,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(14)
+    expect(skills).toHaveLength(15)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
@@ -190,6 +266,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
         "web-define-product",
         "web-extract-i18n-strings",
         "web-implement-change",
+        "web-implement-list-view",
         "web-plan-change",
         "web-prepare-brand-identity",
         "web-prepare-release",
@@ -206,6 +283,34 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(skills).not.toContain("web-instantiate-project")
     expect(skills).not.toContain("web-curate-harness-memory")
     expect(skills).not.toContain("manage-project-surfaces")
+
+    // 保存 listViewSkillRoot 变量供 Web-only Skill 完整资产回归使用。
+    const listViewSkillRoot = path.join(targetRoot, ".agents/skills/web-implement-list-view")
+    // 保存 listViewSkillFiles 变量供逐个验证终端必须保留的执行资产与参考资料。
+    const listViewSkillFiles = [
+      "SKILL.md",
+      "agents/openai.yaml",
+      "assets/ListPage.contracts.test.ts",
+      "assets/listPageState.ts",
+      "references/checklist.md",
+      "references/mantine-api.md",
+      "references/offset-list-pattern.md"
+    ] as const
+    for (const relativePath of listViewSkillFiles) {
+      await expect(readFile(path.join(listViewSkillRoot, relativePath), "utf8")).resolves.not.toBe(
+        ""
+      )
+    }
+    // 保存 listViewContractOutput 变量供下游纯 TypeScript 契约可执行性回归使用。
+    const listViewContractOutput = execFileSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        path.join(listViewSkillRoot, "assets/ListPage.contracts.test.ts")
+      ],
+      { cwd: listViewSkillRoot, encoding: "utf8" }
+    ).trim()
+    expect(listViewContractOutput).toBe("mantine-list-view executable contracts passed")
 
     // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(targetRoot, "package.json"), "utf8")) as {

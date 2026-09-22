@@ -10,6 +10,7 @@ import {
   options,
   path,
   readFile,
+  readdir,
   resolveConfig,
   seedTemplateRoot,
   sharp
@@ -105,6 +106,8 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     }
     // 保存 terminalConfig 变量供当前逻辑使用。
     const terminalConfig = await readFile(path.join(root, ".harness/tooling/config.ts"), "utf8")
+    // 保存 webRouteEntries 变量，锁定中性 Web 不继承桌面赞助页或关于页。
+    const webRouteEntries = (await readdir(path.join(root, "src/routes"))).sort()
     expect(index).toContain("<title>Aurora Notes</title>")
     expect(index).toContain('content="A focused notes workspace."')
     expect(index).toContain('content="#5B5BD6"')
@@ -127,6 +130,7 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(indexRoute).toContain('createFileRoute("/")')
     expect(indexRoute).toContain("WelcomePage")
     expect(rootRoute).toContain("createRootRoute")
+    expect(webRouteEntries).toEqual(["__root.tsx", "index.tsx"])
     expect(router).toContain('from "../routeTree.gen"')
     expect(viteConfig).toContain("@tanstack/router-plugin/vite")
     expect(viteConfig.indexOf("tanstackRouter(")).toBeLessThan(viteConfig.indexOf("react()"))
@@ -173,12 +177,16 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(dataAccess).toContain("X-Http-Request")
     expect(dataAccess).toContain("sessionStorage")
     expect(dataAccess).toContain("UnauthorizedHandler")
+    expect(dataAccess).toContain("### 2.5 React Web 路由列表契约")
+    expect(dataAccess).toContain("$web-implement-list-view")
     expect(dataAccess).not.toContain("由源 Harness")
     expect(engineeringRules).toContain("RxJS 只在多来源或复杂时序需求出现时")
     expect(engineeringRules).toContain("src/routeTree.gen.ts")
     expect(engineeringRules).toContain("route 级自动拆包")
     expect(engineeringRules).toContain("docs/MANTINE_UI_GUIDELINES.md")
     expect(mantineUiGuidelines).toContain("## 3. Theme 与设计令牌")
+    expect(mantineUiGuidelines).toContain("### 5.4 React Web 重复记录视图")
+    expect(mantineUiGuidelines).toContain("$web-implement-list-view")
     expect(mantineUiGuidelines).toContain("## 8. Web 宿主规范")
     expect(mantineUiGuidelines).not.toContain("## 9. Extension 宿主规范")
     expect(mantineUiGuidelines).toContain('Container size="lg/xl"')
@@ -232,6 +240,9 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
       engines: Record<string, string>
     }
     expect(manifest.engines).toEqual({ node: ">=22.22.2", pnpm: ">=10.33.3" })
+    expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.1")
+    expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.1")
+    expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.102.8")
     expect(manifest.dependencies).toHaveProperty("@tanstack/react-router")
     expect(manifest.devDependencies).toHaveProperty("@tanstack/router-cli", "1.167.27")
     expect(manifest.devDependencies).toHaveProperty("@tanstack/router-plugin", "1.168.29")
@@ -250,6 +261,11 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(manifest.scripts.typecheck).toContain("pnpm routes:generate")
     expect(manifest.scripts.test).toBe("vitest run")
     expect(manifest.scripts["test:related"]).toBe("vitest related --run")
+    // 保存 webInstalledPackages 变量供列表页条件依赖不得预装的回归使用。
+    const webInstalledPackages = { ...manifest.dependencies, ...manifest.devDependencies }
+    expect(webInstalledPackages).not.toHaveProperty("@dnd-kit/core")
+    expect(webInstalledPackages).not.toHaveProperty("@dnd-kit/sortable")
+    expect(webInstalledPackages).not.toHaveProperty("@tabler/icons-react")
     expectOptionalIntegrationPackagesNotInstalled(manifest)
     expect(manifest.scripts).not.toHaveProperty("harness:init")
     expect(manifest.scripts).not.toHaveProperty("instantiate")
@@ -356,10 +372,13 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(dataAccess).toContain("RxJS（按需）")
     expect(dataAccess).toContain("`chrome.runtime`/tabs messaging 或 Port")
     expect(dataAccess).toContain("不能让 service worker 常驻")
+    expect(dataAccess).not.toContain("React Web 路由列表契约")
+    expect(dataAccess).not.toContain("$web-implement-list-view")
     expect(engineeringRules).toContain("RxJS 只能编排当前执行上下文内的事件")
     expect(engineeringRules).not.toContain("src/routeTree.gen.ts")
     expect(engineeringRules).toContain("docs/MANTINE_UI_GUIDELINES.md")
     expect(mantineUiGuidelines).toContain("## 3. Theme 与设计令牌")
+    expect(mantineUiGuidelines).not.toContain("React Web 重复记录视图")
     expect(mantineUiGuidelines).toContain("## 8. Extension 宿主规范")
     expect(mantineUiGuidelines).not.toContain("## 8. Web 宿主规范")
     expect(mantineUiGuidelines).toContain("默认宽 `380px`")
@@ -424,10 +443,18 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(manifest.manifest.description).toBe("Clip useful pages.")
     expect(manifest.manifest).not.toHaveProperty("permissions")
     expect(manifest.manifest).not.toHaveProperty("host_permissions")
+    expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.1")
+    expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.1")
+    expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.102.8")
     expect(manifest.dependencies).not.toHaveProperty("@tanstack/react-router")
     expect(manifest.devDependencies).not.toHaveProperty("@tanstack/router-cli")
     expect(manifest.devDependencies).not.toHaveProperty("@tanstack/router-plugin")
     expect(manifest).not.toHaveProperty("scripts.routes:generate")
+    // 保存 extensionInstalledPackages 变量供 Extension 不继承列表页条件依赖。
+    const extensionInstalledPackages = { ...manifest.dependencies, ...manifest.devDependencies }
+    expect(extensionInstalledPackages).not.toHaveProperty("@dnd-kit/core")
+    expect(extensionInstalledPackages).not.toHaveProperty("@dnd-kit/sortable")
+    expect(extensionInstalledPackages).not.toHaveProperty("@tabler/icons-react")
     expectOptionalIntegrationPackagesNotInstalled(manifest)
     expect(manifest.devDependencies.plasmo).toBe("0.90.5")
     expect(manifest.scripts).not.toHaveProperty("build:development")
@@ -436,6 +463,20 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(manifest.scripts["build:release"]).toBe("tsx .harness/tooling/build.ts build")
     expect(manifest.scripts.package).toBe("tsx .harness/tooling/build.ts package")
     expect(Object.values(manifest.scripts).join("\n")).not.toContain("env:validate -- --profile")
+    // 保存 extensionSkills 变量供终端 Skill 集合与 Web-only Skill 裁剪回归使用。
+    const extensionSkills = (
+      await readdir(path.join(root, ".agents/skills"), {
+        withFileTypes: true
+      })
+    )
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+    expect(extensionSkills).toHaveLength(14)
+    expect(extensionSkills).not.toContain("web-implement-list-view")
+    await expect(
+      readFile(path.join(root, ".agents/skills/web-implement-list-view/SKILL.md"), "utf8")
+    ).rejects.toThrow()
     await expect(readFile(path.join(root, "index.html"), "utf8")).rejects.toThrow()
   })
 

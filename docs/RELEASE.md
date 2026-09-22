@@ -28,7 +28,7 @@
 Harness 候选至少满足：
 
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
-- 源 Harness 的 16 个项目 Skills、成功下游保留的 14 个维护 Skills 及创建/源记忆治理 Skill 删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
+- 源 Harness 的 17 个项目 Skills、Web 下游保留的 15 个维护 Skills、Extension 下游保留的 14 个维护 Skills，以及创建/源记忆治理 Skill 和 Extension 中 Web-only `$web-implement-list-view` 的删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <absolute-target-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；

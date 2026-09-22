@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import path from "node:path"
 import sharp from "sharp"
 import ts from "typescript"
@@ -12,129 +12,7 @@ import { assertPackageManagerPins, declaredVersionAtLeast } from "./version.ts"
 import { inspectProjectChineseComments } from "./comment-policy.ts"
 import { validateAgentPolicyBody, validateAgentPolicyDocument } from "./agent-policy.ts"
 import { validateOptionalProjectMemory } from "./project-memory.ts"
-
-/** 保存终端项目必须精确保留的 Web Harness 前端维护 Skill。 */
-const EXPECTED_TERMINAL_SKILLS = [
-  "web-check-development-environment",
-  "web-configure-git-commits",
-  "web-define-product",
-  "web-extract-i18n-strings",
-  "web-implement-change",
-  "web-plan-change",
-  "web-prepare-brand-identity",
-  "web-prepare-release",
-  "web-refactor-code",
-  "web-run-parallel-worktrees",
-  "web-summarize-development-history",
-  "web-test-final-artifact-e2e",
-  "web-upgrade-harness",
-  "web-verify-delivery"
-] as const
-
-/** 锁定终端候选验收 Skill 必须消费的 smoke 策略矩阵。 */
-const VERIFY_DELIVERY_REQUIRED_FRAGMENTS = [
-  "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
-  "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
-  "用户、产品、安全或渠道硬要求优先于持久值",
-  "源 Harness 的 `pending` 不授权可选 smoke"
-] as const
-
-/** 将 Skill 与发现元数据换行规范化后再做跨平台语义校验。 */
-function normalizeLineEndings(source: string): string {
-  return source.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
-}
-
-/** 从 Codex Skill 元数据中读取一个双引号包裹的单行字段。 */
-function quotedSkillMetadataField(source: string, field: string): string | undefined {
-  // 保存 match 变量供当前逻辑使用。
-  const match = new RegExp(`^\\s*${field}: "([^"]*)"$`, "mu").exec(source)
-  return match?.[1]
-}
-
-/** 校验终端只暴露精确的 Web 前端 Skill 目录及中文调用元数据。 */
-async function validateTerminalSkills(root: string, errors: string[]): Promise<void> {
-  // 保存 skillsRoot 变量供当前逻辑使用。
-  const skillsRoot = path.join(root, ".agents/skills")
-  // 保存 actualSkills 变量供当前逻辑使用。
-  let actualSkills: string[]
-  try {
-    actualSkills = (await readdir(skillsRoot)).sort()
-  } catch {
-    errors.push("Missing .agents/skills")
-    return
-  }
-
-  // 保存 expectedSkills 变量供当前逻辑使用。
-  const expectedSkills = [...EXPECTED_TERMINAL_SKILLS].sort()
-  if (JSON.stringify(actualSkills) !== JSON.stringify(expectedSkills)) {
-    errors.push(
-      `Terminal Skill directories must exactly equal ${EXPECTED_TERMINAL_SKILLS.join(", ")}`
-    )
-  }
-
-  // 保存 skillName 变量供当前逻辑使用。
-  for (const skillName of EXPECTED_TERMINAL_SKILLS) {
-    // 保存 skillPath 变量供当前逻辑使用。
-    const skillPath = path.join(skillsRoot, skillName, "SKILL.md")
-    // 保存 metadataPath 变量供当前逻辑使用。
-    const metadataPath = path.join(skillsRoot, skillName, "agents/openai.yaml")
-    // 保存 skillExists 变量供当前逻辑使用。
-    const skillExists = await pathExists(skillPath)
-    // 保存 metadataExists 变量供当前逻辑使用。
-    const metadataExists = await pathExists(metadataPath)
-    if (!skillExists) errors.push(`Terminal Skill ${skillName} is missing SKILL.md`)
-    if (!metadataExists) errors.push(`Terminal Skill ${skillName} is missing agents/openai.yaml`)
-    if (!skillExists || !metadataExists) continue
-    // 保存 [skillSource, metadataSource] 变量供当前逻辑使用。
-    const [rawSkillSource, rawMetadataSource] = await Promise.all([
-      readFile(skillPath, "utf8"),
-      readFile(metadataPath, "utf8")
-    ])
-    // 保存规范化后的 Skill 与发现元数据供跨平台正文契约校验使用。
-    const skillSource = normalizeLineEndings(rawSkillSource)
-    const metadataSource = normalizeLineEndings(rawMetadataSource)
-    // 保存 description 变量供当前逻辑使用。
-    const description = /^description: (.+)$/mu.exec(skillSource)?.[1]
-    // 保存 displayName 变量供当前逻辑使用。
-    const displayName = quotedSkillMetadataField(metadataSource, "display_name")
-    // 保存 shortDescription 变量供当前逻辑使用。
-    const shortDescription = quotedSkillMetadataField(metadataSource, "short_description")
-    // 保存 defaultPrompt 变量供当前逻辑使用。
-    const defaultPrompt = quotedSkillMetadataField(metadataSource, "default_prompt")
-    if (!skillSource.startsWith(`---\nname: ${skillName}\n`)) {
-      errors.push(`Terminal Skill ${skillName} frontmatter name is invalid`)
-    }
-    if (!skillSource.includes("\n# Web Harness：")) {
-      errors.push(`Terminal Skill ${skillName} title must use Web Harness Chinese naming`)
-    }
-    if (description === undefined || !/\p{Script=Han}/u.test(description)) {
-      errors.push(`Terminal Skill ${skillName} description must be Chinese`)
-    }
-    if (displayName === undefined || !/^Web Harness：\p{Script=Han}/u.test(displayName)) {
-      errors.push(`Terminal Skill ${skillName} display_name must use Chinese Web Harness naming`)
-    }
-    if (shortDescription === undefined || !/\p{Script=Han}/u.test(shortDescription)) {
-      errors.push(`Terminal Skill ${skillName} short_description must be Chinese`)
-    }
-    if (
-      defaultPrompt === undefined ||
-      !/\p{Script=Han}/u.test(defaultPrompt) ||
-      !defaultPrompt.includes(`使用 $${skillName}`)
-    ) {
-      errors.push(`Terminal Skill ${skillName} default_prompt must call $${skillName}`)
-    }
-    if (/\b(?:Rust|Server)\b/iu.test(`${description ?? ""}\n${metadataSource}`)) {
-      errors.push(`Terminal Skill ${skillName} contains non-Web Rust/Server language`)
-    }
-    if (skillName === "web-verify-delivery") {
-      for (const fragment of VERIFY_DELIVERY_REQUIRED_FRAGMENTS) {
-        if (!skillSource.includes(fragment)) {
-          errors.push(`Terminal Skill ${skillName} is missing required workflow: ${fragment}`)
-        }
-      }
-    }
-  }
-}
+import { validateTerminalSkills } from "./skill-validation.ts"
 
 // 执行 requirePaths 函数的处理逻辑。
 async function requirePaths(
@@ -724,8 +602,18 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       ".harness/tooling/environment.ts",
       ".harness/tooling/project-memory.ts",
       ".harness/tooling/release.ts",
+      ".harness/tooling/skill-validation.ts",
       ".harness/tooling/source-size-policy.ts",
       ".harness/tooling/version.ts",
+      ...(config.projectType === "web"
+        ? [
+            ".agents/skills/web-implement-list-view/assets/ListPage.contracts.test.ts",
+            ".agents/skills/web-implement-list-view/assets/listPageState.ts",
+            ".agents/skills/web-implement-list-view/references/checklist.md",
+            ".agents/skills/web-implement-list-view/references/mantine-api.md",
+            ".agents/skills/web-implement-list-view/references/offset-list-pattern.md"
+          ]
+        : []),
       "tsconfig.json",
       ...Object.values(ENVIRONMENT_FILES),
       "src/brand.ts",
@@ -770,7 +658,7 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     ]
     errors.push(...agentPolicyErrors.map((message) => `Invalid Agent policy: ${message}`))
   }
-  await validateTerminalSkills(root, errors)
+  await validateTerminalSkills(root, config, errors)
   await validateOptionalProjectMemory(root, errors)
 
   // 保存 forbiddenMonorepoPaths 变量供当前逻辑使用。
@@ -799,6 +687,17 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   const devDependencies = recordField(manifest, "devDependencies")
   // 保存 scripts 变量供当前逻辑使用。
   const scripts = scriptsOf(manifest)
+  if (config.projectType === "web") {
+    // 保存 [dependency, minimum] 变量供 Web-only 列表 Skill 兼容下限校验使用。
+    for (const [dependency, minimum] of [
+      ["@mantine/core", "9.6.1"],
+      ["@tanstack/react-query", "5.102.8"]
+    ] as const) {
+      if (!declaredVersionAtLeast(dependencies[dependency], minimum)) {
+        errors.push(`${dependency} minimum must not be lower than ${minimum}`)
+      }
+    }
+  }
   // 保存 [dependency, minimum] 变量供当前逻辑使用。
   for (const [dependency, minimum] of [
     ["typescript", "6.0.3"],

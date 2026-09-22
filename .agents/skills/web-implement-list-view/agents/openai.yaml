@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施 React 列表页"
+  short_description: "统一实现可恢复、可访问的 React Web 列表体验"
+  default_prompt: "使用 $web-implement-list-view 创建或审查一个路由、分页、状态反馈和可访问性一致的 React Web 列表页。"

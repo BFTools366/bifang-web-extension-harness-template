@@ -26,13 +26,13 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
    - React 组件拥有展示、表单输入和局部交互；可复用 feature hook/service 拥有该功能的请求、缓存、持久化和协调。
    - TanStack Query 管理远端/异步服务状态；Jotai 只管理确需跨组件共享的客户端交互状态，不镜像 Query 数据。
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
-3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。
+3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。
 5. Extension 使用 Plasmo Chrome MV3 约定。popup/options/content/background 各自拥有宿主生命周期；消息与 storage 契约显式类型化，监听器可清理，权限保持最小。新增或扩大 permissions/host_permissions 必须取得明确批准，并执行权限、安全及真实 Chrome 专项门禁。
 6. 面向用户的新文案通过既有 `i18next`/`react-i18next` 资源，不引入第二套 i18n 机制。
 7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止 `.env`/`.env*.local` 隐式覆盖及未知公开键，不得把浏览器公开变量当秘密。
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
-9. 集合分页与 HTTP client 变化读取 `DATA_ACCESS.md`：复用 `src/pagination/` 的 1-based page/pageSize session 契约和 `src/api/client/` 的 header/Token/401 边界；真实 endpoint 负责把外部分页字段映射为内部结构，不能复制一套页面私有标准。
+9. 集合分页与 HTTP client 变化读取 `DATA_ACCESS.md`：复用 `src/pagination/` 的 1-based page/pageSize 契约和 `src/api/client/` 的 header/Token/401 边界；普通集合使用生成的 session 状态机，Web 路由列表则按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复。真实 endpoint 负责把外部分页字段映射为内部结构，不能复制一套页面私有标准；业务行与 `total` 只属于 Query/feature。
 10. 不留下 mock、stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力。
 
 ## 测试与验证

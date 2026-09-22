@@ -13,14 +13,14 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 2. 用户必须明确提供 source Harness 根。source、渲染候选和目标必须是三个互不嵌套、拒绝符号链接的真实绝对目录；source 和目标的 Git 顶层分别等于声明根，source 工作树必须 clean 且有确定 HEAD。
 3. 在 source 根运行 `pnpm validate:harness`，从 `Version.md` 读取 12 位版本并记录 source HEAD。验证失败时不信任候选。
 4. 固定目标 `.harness/project.json.projectType`。候选只渲染该单一宿主的工程层，不增加另一类型、workspace、初始化入口或类型切换能力。
-5. 渲染候选必须保留目标名称、标识、说明、三环境公开配置结构及已决策略，但传给 plan 的候选投影只包含生产清单允许的 `managed`、`managed-self`、`merge-sections` 与 `conditional` 路径。产品源码、品牌、项目身份、记忆、策略值、许可证和 tombstone 不进入候选投影。
+5. 渲染候选必须保留目标名称、标识、说明、三环境公开配置结构及已决策略，但传给 plan 的候选投影只包含生产清单允许的 `managed`、`managed-self`、`merge-sections` 与 `conditional` 路径。`.agents/skills/web-implement-list-view/**` 只在目标 `projectType=web` 时进入候选；Extension 不增加该 Skill，它的缺席也不构成 required 缺失。产品源码、品牌、项目身份、记忆、策略值、许可证和 tombstone 不进入候选投影。
 
 ## 所有权
 
 - `managed`：Harness 独占文件；只有目标仍匹配已记录基线时才允许 helper 原子更新一个现有文件。
 - `managed-self`：升级器自身；规则同 `managed`，但必须在普通 managed 后按路径稳定顺序更新，CLI runner 始终最后。
 - `merge-sections`：AGENTS、README、DATA_ACCESS、ENGINEERING_RULES、MANTINE_UI_GUIDELINES、RELEASE、RUNTIME_CONFIGURATION、package 等混合文件；只人工合并已复核章节或键。
-- `conditional`：三环境等依赖目标真实值的文件；只人工处理，不复制源值。
+- `conditional`：三环境或宿主专用能力等依赖目标真实值的文件；只人工处理，不复制源值，Web-only 列表 Skill 只能在 `projectType=web` 目标中收敛。
 - `protected`：产品源码/测试、`.harness/project.json`、品牌、项目记忆、Agent Policy、许可证和未登记本地文件；候选包含即阻断。
 - `tombstone`：终端下游不得恢复的一次性实例化、源验证、源记忆治理、另一宿主模板和 Harness 方法论入口；候选或目标包含即阻断。
 

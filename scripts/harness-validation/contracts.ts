@@ -1,4 +1,4 @@
-/** 保存源 Harness 唯一允许的 16 个 Web Skill canonical id。 */
+/** 保存源 Harness 唯一允许的 17 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
   "web-check-development-environment",
   "web-configure-git-commits",
@@ -6,6 +6,7 @@ export const EXPECTED_SKILLS = [
   "web-define-product",
   "web-extract-i18n-strings",
   "web-implement-change",
+  "web-implement-list-view",
   "web-instantiate-project",
   "web-plan-change",
   "web-prepare-brand-identity",
@@ -32,7 +33,7 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 16 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 17 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
@@ -87,6 +88,15 @@ export const SKILL_CONTRACTS = {
     shortDescription: "实施 Web Harness 或其 React Web、Plasmo MV3 前端下游变更",
     defaultPrompt:
       "使用 $web-implement-change 在 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游中实施并验证当前范围内的前端变更。"
+  },
+  "web-implement-list-view": {
+    description:
+      "为单 package React Web 下游创建、修改、重构或审查重复记录的列表页、数据表格、后台列表与搜索结果页，并统一路由恢复、Query 分页、状态反馈和可访问性。仅用于 projectType=web；Extension Popup/Options 不调用。",
+    title: "# Web Harness：实施 React 列表页",
+    displayName: "Web Harness：实施 React 列表页",
+    shortDescription: "统一实现可恢复、可访问的 React Web 列表体验",
+    defaultPrompt:
+      "使用 $web-implement-list-view 创建或审查一个路由、分页、状态反馈和可访问性一致的 React Web 列表页。"
   },
   "web-instantiate-project": {
     description:
@@ -198,6 +208,12 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入",
     "git status --porcelain=v1 --untracked-files=all"
   ],
+  "web-implement-list-view": [
+    "仅用于 projectType=web",
+    "完全无 owned key",
+    "不是双向状态同步",
+    "assets/listPageState.ts"
+  ],
   "web-verify-delivery": [
     "不为最终构建预先调用环境检查",
     "只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时",
@@ -259,6 +275,7 @@ export const REQUIRED_FILES = [
   ".harness/tooling/brand.ts",
   ".harness/tooling/environment.ts",
   ".harness/tooling/release.ts",
+  ".harness/tooling/skill-validation.ts",
   ".harness/tooling/templates/build.ts",
   ".harness/tooling/templates/environment.ts",
   ".harness/tooling/templates/downstream-docs.ts",
@@ -272,6 +289,11 @@ export const REQUIRED_FILES = [
   ".agents/skills/web-configure-git-commits/assets/commit-template.txt",
   ".agents/skills/web-configure-git-commits/references/commit-convention.md",
   ".agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts",
+  ".agents/skills/web-implement-list-view/assets/ListPage.contracts.test.ts",
+  ".agents/skills/web-implement-list-view/assets/listPageState.ts",
+  ".agents/skills/web-implement-list-view/references/checklist.md",
+  ".agents/skills/web-implement-list-view/references/mantine-api.md",
+  ".agents/skills/web-implement-list-view/references/offset-list-pattern.md",
   ".agents/skills/web-run-parallel-worktrees/scripts/parallel-worktrees.ts",
   ".agents/skills/web-upgrade-harness/references/ownership-manifest.json",
   ".agents/skills/web-upgrade-harness/references/ownership-policy.md",

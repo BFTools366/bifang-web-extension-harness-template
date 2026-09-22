@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process"
 import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
+import { promisify } from "node:util"
 import { pathExists, walkFiles } from "../../.harness/tooling/files.ts"
 import {
   EXPECTED_SKILLS,
@@ -13,6 +15,12 @@ import {
   SKILL_CONTRACTS
 } from "./contracts.ts"
 import type { SkillContract } from "./contracts.ts"
+
+/** 保存无需 Shell 的异步 Node 子进程入口。 */
+const execFileAsync = promisify(execFile)
+
+/** 锁定列表页纯函数资产必须执行并输出的稳定成功标记。 */
+const LIST_VIEW_CONTRACT_SUCCESS = "mantine-list-view executable contracts passed"
 
 /** 将文本换行规范化后再做语义合同比较。 */
 function normalizeLineEndings(contents: string): string {
@@ -180,6 +188,29 @@ export async function validateSkills(root: string, errors: string[]): Promise<st
   // 保存 skillErrors 变量供当前逻辑使用。
   for (const skillErrors of perSkillErrors) errors.push(...skillErrors)
   return actual
+}
+
+/** 使用当前 Node 直接执行列表页纯 TypeScript 契约，拒绝状态资产与测试静默漂移。 */
+export async function validateListViewSkillContracts(
+  root: string,
+  errors: string[]
+): Promise<void> {
+  // 保存 skillRoot 与 contractPath 变量供绑定源 Harness 内的精确资产使用。
+  const skillRoot = path.join(root, ".agents/skills/web-implement-list-view")
+  const contractPath = path.join(skillRoot, "assets/ListPage.contracts.test.ts")
+  try {
+    // 保存 stdout 变量供成功标记精确校验使用。
+    const { stdout } = await execFileAsync(
+      process.execPath,
+      ["--experimental-strip-types", contractPath],
+      { cwd: skillRoot, encoding: "utf8", timeout: 30_000 }
+    )
+    if (stdout.trim() !== LIST_VIEW_CONTRACT_SUCCESS) {
+      errors.push("web-implement-list-view executable contract failed")
+    }
+  } catch {
+    errors.push("web-implement-list-view executable contract failed")
+  }
 }
 
 /** 拒绝当前规范重新引入已废弃的三档任务路径语义。 */

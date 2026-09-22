@@ -7,8 +7,8 @@ type PackageJson = Record<string, unknown>
 const runtimeVersions = {
   react: "19.2.8",
   reactDom: "19.2.8",
-  mantine: "9.5.1",
-  query: "5.101.4",
+  mantine: "9.6.1",
+  query: "5.102.8",
   router: "1.170.25",
   jotai: "2.20.2",
   i18next: "26.3.6",

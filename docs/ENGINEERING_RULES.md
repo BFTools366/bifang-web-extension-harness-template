@@ -26,6 +26,7 @@
 - `src/routeTree.gen.ts` 是 Git、格式化器和 lint 忽略的临时生成文件，只能由 `pnpm routes:generate`、开发或构建流程再生，禁止手工编辑或固化进模板。没有实际 bundle 证据时不预设 `manualChunks`。
 - 路由加载、页面数据和错误状态应有清晰职责。不要把服务器缓存复制进 Jotai，也不要为局部输入状态建立全局 atom。真实多来源事件需要时可按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 引入 RxJS，但事件流不成为第二状态仓库。
 - 初始化生成 `src/pagination/`、`src/api/client/` 与语言偏好基础，但不把分页控件或网络请求强塞进静态 Landing/404。真实集合页复用统一 page/pageSize 状态，真实登录路由存在后才装配 401 导航 adapter。
+- Web 的列表页、数据表格、后台列表与搜索结果同时调用 `$web-implement-list-view`，但根据真实信息结构选择 Table、卡片或搜索形态，不强制 Table、选择、列偏好或 DnD。初始化不生成业务列表、假 endpoint 或可选列表依赖。
 - 根 `index.html` 只承载文档元数据、挂载点与当前项目资源引用；业务内容留在 React 页面。
 - 初始化必须同步 `public/logo.png`、`public/favicon.png`、根 `index.html` 和 Landing 页面；不得生成 Extension 的 Popup、Options、manifest 或图标路径。
 
@@ -33,6 +34,7 @@
 
 - Plasmo 负责 Chrome Manifest V3 开发与构建，React + TypeScript 负责 Popup、Options 和真实需要的其他扩展界面。`package.json.targets.default` 必须显式使用 browser context 并启用 `includeNodeModules`，最终浏览器 bundle 不得把 React、Mantine、Query 等运行时包保留为裸依赖映射。
 - Mantine 提供 UI；TanStack Query 管理异步数据；Jotai 管理跨组件客户端状态；i18next 管理用户可见文案。Extension 基线不引入 TanStack Router；Popup 与 Options 是独立入口，不模拟 Web 站内路由。
+- `$web-implement-list-view` 只适用 React Web，Extension Popup/Options 不为复用它安装 Router、图标或 DnD 依赖；扩展中的重复项 UI 仍按当前 surface 和执行上下文实现。
 - 初始化生成的分页与原生 Fetch 基础只属于当前执行上下文，不承诺 Popup、Options、content script 或 service worker 共享 sessionStorage、Token、continuation 或 401 single-flight。跨上下文所有者必须使用明确的消息/Storage 架构并进入权限与隐私评审。
 - 只有产品真实需要时才新增 background service worker、content script、side panel 或其他入口。入口之间通过类型化消息契约通信，不共享隐式全局状态；RxJS 只能包装单个执行上下文内的消息流，不能替代 `chrome.runtime`/Port 的跨上下文传输。
 - 权限遵循最小授权：没有真实消费者就不声明 `permissions`、`host_permissions` 或可访问资源；新增权限必须解释用途并补充失败/拒绝测试。
@@ -46,7 +48,7 @@
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`api/` 承载生成的 client 基础与真实远端边界。页面或 route 文件不得直接拼任意 URL。
 - `api/client/` 是两种宿主都生成的原生 Fetch 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一 `ApiError` 与 401 `UnauthorizedHandler` 属于 client；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。初始化不生成业务请求、refresh/replay、登录页、Cookie 策略或第二套 `services/`，也不安装 Ky/Axios；未来 Ky/OpenAPI adapter 必须复用同一安全语义。
-- `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。sessionStorage 只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。
+- `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
 - Query key、缓存、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target 与语言。服务器列表、`total`、错误和认证状态不得复制进分页 Storage 或 Jotai。
 - React 组件负责呈现和交互编排；可复用的纯逻辑放在当前单包内有业务名称的模块或 hook 中。不要为假想复用建立跨包抽象。
 - 副作用集中在明确边界：网络、Storage、Chrome API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 只留在当前执行上下文内存，不得写入环境或任一 Storage。
@@ -84,6 +86,7 @@
 - 用户可见文案通过 i18next 翻译键提供；项目名称、描述等身份值从事实源派生，不复制为可独立漂移的翻译常量。
 - 日期、数字、语言和时区使用明确 locale；不要把开发机默认值写死为业务事实。
 - 分页控件必须是受控且键盘可操作的 Mantine/语义化组件，页码、每页数据量、总量和禁用/加载状态具有可理解的本地化名称；没有真实分页集合时不得为了展示基础能力制造假列表。
+- React Web 重复记录视图按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §5.4 与 `$web-implement-list-view` 选择形态、状态反馈和无障碍路径；Extension 不调用该 Skill。
 - 使用 Mantine theme、语义令牌和受控样式表达视觉规则，不在页面散落重复品牌常量、另建基础组件系统或跨宿主共享 UI 源码。
 
 ## 6. 测试与验证
@@ -96,6 +99,7 @@
 - Extension 重点覆盖 Popup/Options、消息契约、Storage、权限拒绝与 Chrome API 错误；Chrome API 可在单元测试中使用受控替身。
 - 环境配置变化必须覆盖三份文件缺失/错配、URL/级别/超时边界与宿主前缀；logger 变化必须覆盖级别阈值、嵌套/循环数据、Error、敏感键和 Release 裁剪。
 - 分页基础必须覆盖合法恢复、损坏/异常 Storage、版本与 scope 隔离、换页、`pageSize` 重置，以及 current-success-empty 与 loading/error/placeholder/旧响应的状态机分支。HTTP/语言基础必须覆盖三个动态 header、语言 fallback/持久化、continuation/Token 的同源 2xx 提取、异步 Token extractor、乱序 revision、迟到 401、single-flight handler、timeout/取消、受控 URL 和安全日志。
+- Web 列表实现或修改还必须运行适配后的纯函数契约，并以 Vitest/Testing Library 覆盖 URL 启动恢复、Query 所有权、placeholder 只读、成功越界纠页、四态与已触发的选择/列偏好条件契约；按 Skill checklist 为不适用项记录有证据的 N/A。
 - 使用 RxJS 时覆盖来源校验、错误隔离、共享订阅、取消/清理、重复/乱序事件和 Query/Jotai 状态投影；时间算子优先使用虚拟时间而非真实等待。
 - 测试替身只能证明代码边界行为，不能证明最终页面或扩展已在真实浏览器可用。
 - 快照只用于稳定且可审阅的结构，不替代语义断言，也不得用大面积更新掩盖行为变化。
@@ -142,7 +146,7 @@
 
 ## 8. 依赖与安全
 
-- 只安装当前单包真实使用的依赖。生成的基础 client 使用浏览器原生 Fetch，不安装 Ky/Axios；这些库与 OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
+- 只安装当前单包真实使用的依赖。生成的基础 client 使用浏览器原生 Fetch，不安装 Ky/Axios；这些库与 OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 不得写入 localStorage/sessionStorage。
 - 外部 URL、HTML、消息、Storage 与网络响应均视为不可信输入；验证并编码后再使用。
 - Extension 权限、content script 匹配范围和 Web 可访问资源必须最小化。Web 的第三方脚本、CSP 与跨域配置也需要显式安全评估。

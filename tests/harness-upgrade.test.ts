@@ -487,6 +487,19 @@ describe("three-way Harness upgrade", () => {
     }
   })
 
+  /** 验证 Web-only 列表页 Skill 通过 conditional 规则参与升级而不弱化宿主边界。 */
+  test("keeps the list-view skill conditional in both ownership policies", async () => {
+    const conditionalPattern = ".agents/skills/web-implement-list-view/**"
+    const manifest = JSON.parse(await readFile(ownershipPath, "utf8")) as {
+      rules: Array<{ pattern: string; mode: string }>
+    }
+
+    expect(MINIMUM_OWNERSHIP_RULES[conditionalPattern]).toBe("conditional")
+    expect(manifest.rules.filter((rule) => rule.pattern === conditionalPattern)).toEqual([
+      { pattern: conditionalPattern, mode: "conditional" }
+    ])
+  })
+
   /** 验证新增 source-only 墓碑与可选兼容记忆保护规则都会代表性阻断。 */
   test("blocks representative source-only residue and compatibility-file injection", async () => {
     const tombstoneFixture = await upgradeFixture()

@@ -10,16 +10,16 @@ description: 对 Web Harness 受管前端模板或其单 package 纯 TypeScript 
 ## 工作流程
 
 1. 行为保持时直接重构。若发现真实缺陷、安全/隐私问题、Extension 权限变化或公开契约必须改变，停止重构范围蔓延，转 `$web-implement-change` 并进入适用的专项批准与验证门禁。
-2. 读取工程规则、受影响代码/测试和 Git diff；保护用户修改，只处理声明范围。存在 `.harness/project.json` 时读取并核对唯一 `projectType`；不存在但根 manifest 暴露源专用 `instantiate` 入口时，只重构 Harness 自身受管模板与工具链，不分析或加入具体产品业务。
+2. 读取工程规则、受影响代码/测试和 Git diff；保护用户修改，只处理声明范围。存在 `.harness/project.json` 时读取并核对唯一 `projectType`；不存在但根 manifest 暴露源专用 `instantiate` 入口时，只重构 Harness 自身受管模板与工具链，不分析或加入具体产品业务。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还要读取并遵守 `$web-implement-list-view`；Extension 不调用该 Skill。
 3. 复核文件体积：501–1000 行逐项判断业务高内聚、单一职责和职责相近性，任一不满足就按职责拆分；1001 行起必须拆分。拆分文件留在原功能或工具模块目录，不得用跨模块兜底目录、压缩格式、转发壳或空文件规避。
 4. 按 feature 内聚组织组件、hooks、services、state、样式和测试。调用方优先从具体文件导入；只有真实稳定公共 API 才保留 `index.ts`，必须具名导出，不使用 `export *` 隐藏来源。
 5. 不建立 `utils`、`common`、`helpers`、`misc` 等兜底目录，不因文件数量或想象中的共享需要创建 workspace/package 层。
 6. 把泛化的 manager/processor/handler、占位缩写和模糊状态名改为真实功能概念；同步引用和测试名称。
 7. 只对重复或语义不直观的字面量提取命名常量；不把单次简单值包装成抽象。
-8. 复核状态归属：TanStack Query 不与 Jotai 重复保存服务数据；派生值不落成可漂移状态；React effect 依赖和清理完整；memoization 必须有真实渲染或计算收益。
+8. 复核状态归属：TanStack Query 不与 Jotai 重复保存服务数据；派生值不落成可漂移状态；React effect 依赖和清理完整；memoization 必须有真实渲染或计算收益。Web 路由列表中 Router search 继续是已应用搜索/筛选/排序/页码的唯一运行时 owner，sessionStorage 不得被重构为第二个可写状态，rows/`total` 仍只属于 Query。
 9. Web 检查重复请求、路由生命周期、事件/定时器清理和 bundle 边界。Extension 额外检查 runtime/storage 消息监听清理、content script 重复注入、MV3 service worker 唤醒假设和 popup/options 卸载行为。
 10. 保持 i18next key、无障碍名称、DOM/路由契约、manifest 权限、存储格式、`APP_CONFIG` 字段/三环境映射、logger scope/event 与 Release 脱敏语义不变；需要改变时退出本 Skill。
-11. 先运行本次重构直接影响的非空测试，再运行全量 `pnpm test` 证明行为保持；只对本次触及文件执行确有必要的格式、lint、类型、中文注释或体积门禁，不自动扩大为全仓静态检查。只有本次还要求最终候选时才询问当次 E2E 选择并运行唯一 Release `pnpm build -- --e2e=enabled|disabled`，确认其自动完成环境、Harness、版本注入与 `release:inspect` 门禁。文件移动后确认测试发现、环境加载、logger 入口和生产入口没有失效。
+11. 先运行本次重构直接影响的非空测试，Web 列表还要运行 `$web-implement-list-view` 指定的适配后纯函数契约；再运行全量 `pnpm test` 证明行为保持。只对本次触及文件执行确有必要的格式、lint、类型、中文注释或体积门禁，不自动扩大为全仓静态检查。只有本次还要求最终候选时才询问当次 E2E 选择并运行唯一 Release `pnpm build -- --e2e=enabled|disabled`，确认其自动完成环境、Harness、版本注入与 `release:inspect` 门禁。文件移动后确认测试发现、环境加载、logger 入口和生产入口没有失效。
 12. 纯重构本身不触发 Product Spec、ADR、Status、Changelog 或 Verification；范围外问题只在现有技术债机制被真实触发时登记。
 
 ## 硬边界
