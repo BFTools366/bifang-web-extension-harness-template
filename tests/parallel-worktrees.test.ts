@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { lstat, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises"
+import { lstat, mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
@@ -11,6 +11,7 @@ import {
   removeParallelWorktree,
   verifyParallelWorktree
 } from "../.agents/skills/web-run-parallel-worktrees/scripts/parallel-worktrees.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 /** 保存测试使用的异步无 Shell 进程入口。 */
 const execFileAsync = promisify(execFile)
@@ -379,12 +380,12 @@ describe("registered parallel Worktrees", () => {
     expect(await git(root, ["branch", "--list", "codex/unit-sync-harness-invalid-*"])).toBe("")
   })
 
-  /** 验证 ownership 与 Worktree 容器均不能通过符号链接重定向。 */
-  test("rejects symlink escapes and symlinked Worktree containers", async () => {
+  /** 验证 ownership 不能通过符号链接重定向。 */
+  test("rejects symlink escapes in ownership", async (context) => {
     const first = await taskRepository()
     const external = path.join(path.dirname(first.root), "external")
     await mkdir(external)
-    await symlink(external, path.join(first.source, "linked"), "dir")
+    await createSymlinkOrSkip(context, external, path.join(first.source, "linked"), "dir")
     await git(first.source, ["add", "linked"])
     await git(first.source, ["commit", "-m", "test: add unsafe ownership fixture"])
 
@@ -401,11 +402,19 @@ describe("registered parallel Worktrees", () => {
         executionRoot: first.source
       })
     ).rejects.toThrow(/crosses a symbolic link/)
+  })
 
+  /** 验证 Worktree 容器不能通过符号链接重定向。 */
+  test("rejects symlinked Worktree containers", async (context) => {
     const second = await taskRepository()
     const redirected = path.join(path.dirname(second.root), "redirected-worktrees")
     await mkdir(redirected)
-    await symlink(redirected, path.join(path.dirname(second.root), ".codex-worktrees"), "dir")
+    await createSymlinkOrSkip(
+      context,
+      redirected,
+      path.join(path.dirname(second.root), ".codex-worktrees"),
+      "dir"
+    )
     await expect(
       createParallelWorktree({
         projectRoot: second.root,

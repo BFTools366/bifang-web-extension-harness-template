@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
@@ -11,6 +11,7 @@ import {
   parseOpenAiMetadata,
   validateRepositoryPaths
 } from "../scripts/harness-validation/repository.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 // 保存 temporaryRoots 变量供当前逻辑使用。
 const temporaryRoots: string[] = []
@@ -169,7 +170,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
   /** 验证 Version.md 的日历、时区、格式与状态都是精确事实。 */
   test("rejects invalid Harness version facts", async () => {
     for (const [from, to, message] of [
-      ["202609091041", "202613011041", "valid 12-digit Shanghai minute"],
+      [/(?<=- 当前版本：`)\d{12}(?=`)/, "202613011041", "valid 12-digit Shanghai minute"],
       ["Asia/Shanghai", "UTC", "timezone must exactly equal Asia/Shanghai"],
       ["YYYYMMDDHHMM", "YYYYMMDD", "format must exactly equal YYYYMMDDHHMM"],
       ["发布状态：Released", "发布状态：Ready", "status must be exactly Released or Unreleased"]
@@ -923,8 +924,8 @@ describe("project-memory compatibility manifest", /* 执行当前声明函数的
     )
   })
 
-  /** 验证兼容正文必须存在、不是符号链接，并出现在对应索引中。 */
-  test("requires a real indexed non-symlink file", async () => {
+  /** 验证兼容正文必须存在并出现在对应索引中。 */
+  test("requires a real indexed file", async () => {
     // 保存 missingRoot 变量供缺失正文测试使用。
     const missingRoot = await createProjectMemoryRoot()
     await mkdir(path.join(missingRoot, "docs/work_plan"), { recursive: true })
@@ -949,14 +950,17 @@ describe("project-memory compatibility manifest", /* 执行当前声明函数的
     await expect(projectMemoryErrors(unindexedRoot)).resolves.toEqual(
       expect.arrayContaining([expect.stringMatching(/missing from index/)])
     )
+  })
 
+  /** 验证兼容正文不能通过符号链接逃逸受管目录。 */
+  test("rejects a symlinked compatibility file", async (context) => {
     // 保存 symlinkRoot、targetPath 与 linkPath 变量供符号链接拒绝测试使用。
     const symlinkRoot = await createProjectMemoryRoot()
     await mkdir(path.join(symlinkRoot, "docs/changelog"), { recursive: true })
     const targetPath = path.join(symlinkRoot, "target.md")
     const linkPath = path.join(symlinkRoot, "docs/changelog/legacy_changelog.md")
     await writeFile(targetPath, "# Target\n")
-    await symlink(targetPath, linkPath)
+    await createSymlinkOrSkip(context, targetPath, linkPath, "file")
     await writeFile(
       path.join(symlinkRoot, "docs/changelog/README.md"),
       "[Legacy](./legacy_changelog.md)\n"

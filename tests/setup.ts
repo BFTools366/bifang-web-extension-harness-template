@@ -1,4 +1,28 @@
+import { symlink } from "node:fs/promises"
 import "@testing-library/jest-dom/vitest"
+import type { TestContext } from "vitest"
+
+/** 在 Windows 缺少符号链接权限时仅跳过当前用例，其余平台与错误继续失败。 */
+export async function createSymlinkOrSkip(
+  context: TestContext,
+  target: string,
+  link: string,
+  type?: "dir" | "file" | "junction"
+): Promise<void> {
+  try {
+    await symlink(target, link, type)
+  } catch (error) {
+    if (
+      process.platform === "win32" &&
+      error instanceof Error &&
+      "code" in error &&
+      error.code === "EPERM"
+    ) {
+      return context.skip("Windows does not grant symlink creation permission")
+    }
+    throw error
+  }
+}
 
 if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
   Object.defineProperty(window, "matchMedia", {

@@ -1,4 +1,6 @@
-# 2026-09-22 变更记录
+# 2026-09-29 变更记录
+
+本记录汇总自上一正式版本以来的 Harness 变化，包含 2026-09-22 的 Web 列表能力与本次通用规则更新。
 
 ## Added
 
@@ -6,6 +8,7 @@
 - 新增只读 `$web-summarize-development-history` Skill，依据当前记忆索引和 Git 事实汇总历史，并区分已决定、已实现、已验证、计划与推测。
 - `pnpm validate:harness` 新增 `Version.md` 自然日分钟、时区、格式和发布状态校验，并直接复用生产升级器校验 ownership manifest。
 - 源 validator 新增 CRLF、Windows 风格相对路径、策略必需片段、终端 Skill 漂移和所有权/版本变异回归。
+- 源仓库增加 `.gitattributes`，让规则、模板和脚本在跨平台检出时保持 LF，二进制品牌资产不转换换行。
 
 ## Changed
 
@@ -19,8 +22,10 @@
 - 生成界面统一由 Mantine theme 管理默认 light、字体和语义令牌；语言切换同步 `<html lang>`，动态计数使用 live region，Extension 使用顶层 `h1`，并以行为测试锁定子控件与外围容器的交互边界。
 - 品牌、运行时配置和数据访问文档不再把日常变化自动升级为构建；只有显式候选、完整验收或硬要求触发构建门禁。
 - `web-refactor-code` 明确覆盖源 Harness 管理的前端模板；文件遍历和治理解析对 LF/CRLF、POSIX/Windows 路径使用稳定规范化。
+- Web 列表的粘滞表头 `th` 使用随主题变化的不透明 `var(--mantine-color-body)` 背景，避免滚动行从表头透出。
+- 源验证器独立锚定下游升级所有权下限；即使运行时规则与清单同时弱化，也会拒绝候选。Windows 缺少符号链接权限时只跳过相应测试用例，POSIX 权限位断言仅在适用平台执行。
 
 ## Scope
 
 - 保持 Vite React Web、Plasmo Chrome MV3 Extension、三环境、原生 Fetch、构建与发布协议，不引入新第三方依赖。
-- 本次是 Harness 源维护，不创建 Release 候选、不运行浏览器 E2E、不修改 `Version.md` 发布事实，也不创建 tag、PR、部署或上传。
+- 桌面客户端、Rust/Tauri 构建和发布链不进入当前双宿主 Web Harness；源仓库的 `.gitattributes` 不作为下游升级候选，避免旧 ownership manifest 将新顶层文件误判为受保护路径。

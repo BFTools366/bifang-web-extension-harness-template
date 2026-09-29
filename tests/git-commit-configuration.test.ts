@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises"
+import { mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { promisify } from "node:util"
@@ -11,6 +11,7 @@ import {
   installCommitConfiguration,
   reportGitIdentity
 } from "../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 /** 保存测试使用的异步无 Shell 进程入口。 */
 const execFileAsync = promisify(execFile)
@@ -231,11 +232,11 @@ describe("repository-local Git commit configuration", () => {
   })
 
   /** 验证符号链接项目根不会被当成可写 Git 根。 */
-  test("rejects a symbolic-link project root", async () => {
+  test("rejects a symbolic-link project root", async (context) => {
     const root = await initializedRepository("web-git-real-root-")
     const aliasParent = await temporaryDirectory("web-git-root-alias-")
     const alias = path.join(aliasParent, "repository")
-    await symlink(root, alias)
+    await createSymlinkOrSkip(context, root, alias, "dir")
 
     await expect(reportGitIdentity(alias)).rejects.toThrow(/real directory/)
   })

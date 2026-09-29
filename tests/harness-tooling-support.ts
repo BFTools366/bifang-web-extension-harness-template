@@ -1,4 +1,4 @@
-import { cp, mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises"
+import { cp, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { format, resolveConfig } from "prettier"
@@ -223,7 +223,6 @@ export {
   runPostInitialization,
   seedTemplateRoot,
   sharp,
-  symlink,
   temporaryDirectory,
   validateEnvironmentFiles,
   validateProject,

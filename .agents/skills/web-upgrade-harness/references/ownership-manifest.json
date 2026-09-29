@@ -105,6 +105,7 @@
     { "pattern": "tests/harness-initialization.test.ts", "mode": "tombstone" },
     { "pattern": "tests/harness-instantiation.test.ts", "mode": "tombstone" },
     { "pattern": "tests/harness-memory.test.ts", "mode": "tombstone" },
+    { "pattern": "tests/harness-ownership-validation.test.ts", "mode": "tombstone" },
     { "pattern": "tests/harness-tooling-support.ts", "mode": "tombstone" },
     { "pattern": "tests/harness-tooling.test.ts", "mode": "tombstone" },
     { "pattern": "tests/harness-validator.test.ts", "mode": "tombstone" },

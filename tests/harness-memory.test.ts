@@ -1,9 +1,10 @@
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises"
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, test } from "vitest"
 import { validateOptionalProjectMemory } from "../.harness/tooling/project-memory.ts"
 import { validateDailyHarnessMemory } from "../scripts/harness-validation/memory.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 /** 保存真实仓库根。 */
 const repositoryRoot = path.resolve(import.meta.dirname, "..")
@@ -99,12 +100,12 @@ describe("daily Harness memory", () => {
   })
 
   /** 验证符号链接目录不能冒充受管记忆根。 */
-  test("rejects a symbolic-link memory directory", async () => {
+  test("rejects a symbolic-link memory directory", async (context) => {
     const root = await copyMemory()
     const source = path.join(root, "docs/product_spec")
     const alias = path.join(root, "docs/project_status")
     await rm(alias, { recursive: true })
-    await symlink(source, alias)
+    await createSymlinkOrSkip(context, source, alias, "dir")
 
     await expect(memoryErrors(root)).resolves.toContain(
       "missing or unsafe daily Product Status directory: docs/project_status"
@@ -173,8 +174,8 @@ describe("optional project-memory compatibility safety", () => {
     await expect(optionalMemoryErrors(encodedRoot)).resolves.toEqual([])
   })
 
-  /** 验证 docs 与 .harness 祖先目录都不能通过符号链接逃逸仓库根。 */
-  test("rejects symlinked compatibility ancestors", async () => {
+  /** 验证 docs 祖先目录不能通过符号链接逃逸仓库根。 */
+  test("rejects a symlinked docs compatibility ancestor", async (context) => {
     // 保存 docsRoot 与 externalDocs 变量供构造仓库外项目记忆使用。
     const docsRoot = await createOptionalMemoryRoot()
     const externalDocs = await mkdtemp(path.join(os.tmpdir(), "optional-memory-external-docs-"))
@@ -182,12 +183,15 @@ describe("optional project-memory compatibility safety", () => {
     await mkdir(path.join(externalDocs, "product_spec"), { recursive: true })
     await writeFile(path.join(externalDocs, "product_spec/legacy.md"), "# External\n")
     await writeFile(path.join(externalDocs, "product_spec/README.md"), "[Legacy](./legacy.md)\n")
-    await symlink(externalDocs, path.join(docsRoot, "docs"))
+    await createSymlinkOrSkip(context, externalDocs, path.join(docsRoot, "docs"), "dir")
     await writeCompatibilityManifest(docsRoot, "docs/product_spec/legacy.md")
     await expect(optionalMemoryErrors(docsRoot)).resolves.toContain(
       "Unsafe optional project-memory directory: docs"
     )
+  })
 
+  /** 验证 .harness 祖先目录不能通过符号链接逃逸仓库根。 */
+  test("rejects a symlinked harness compatibility ancestor", async (context) => {
     // 保存 harnessRoot 与 externalHarness 变量供拒绝清单祖先符号链接使用。
     const harnessRoot = await mkdtemp(path.join(os.tmpdir(), "optional-memory-harness-link-"))
     const externalHarness = await mkdtemp(path.join(os.tmpdir(), "optional-memory-harness-"))
@@ -204,7 +208,7 @@ describe("optional project-memory compatibility safety", () => {
         grandfatheredPaths: ["docs/product_spec/legacy.md"]
       })}\n`
     )
-    await symlink(externalHarness, path.join(harnessRoot, ".harness"))
+    await createSymlinkOrSkip(context, externalHarness, path.join(harnessRoot, ".harness"), "dir")
     await expect(optionalMemoryErrors(harnessRoot)).resolves.toContain(
       "Unsafe project-memory compatibility directory: .harness"
     )

@@ -9,7 +9,6 @@ import {
   realpath,
   rename,
   rm,
-  symlink,
   unlink,
   writeFile
 } from "node:fs/promises"
@@ -26,6 +25,7 @@ import {
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import type { InitOptions } from "../.harness/tooling/types.ts"
 import { validateProject } from "../.harness/tooling/validate.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 // 保存 temporaryRoots 变量供当前逻辑使用。
 const temporaryRoots: string[] = []
@@ -153,8 +153,8 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     expect(await snapshotTree(root)).toEqual(before)
   })
 
-  /** 验证 blocks the internal initializer at the source root, child paths, and aliases 场景。 */
-  test("blocks the internal initializer at the source root, child paths, and aliases", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+  /** 验证源根及其子路径不会被内部初始化器写入。 */
+  test("blocks the internal initializer at the source root and child paths", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 manifestPath 变量供当前逻辑使用。
     const manifestPath = path.join(repositoryRoot, "package.json")
     // 保存 tsconfigPath 变量供当前逻辑使用。
@@ -163,14 +163,8 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     const beforeManifest = await readFile(manifestPath)
     // 保存 beforeTsconfig 变量供当前逻辑使用。
     const beforeTsconfig = await readFile(tsconfigPath)
-    // 保存 aliasParent 变量供当前逻辑使用。
-    const aliasParent = await temporaryDirectory("harness-source-alias-")
-    // 保存 sourceAlias 变量供当前逻辑使用。
-    const sourceAlias = path.join(aliasParent, "source-alias")
-    await symlink(repositoryRoot, sourceAlias)
-
     // 保存 root 变量供当前逻辑使用。
-    for (const root of [repositoryRoot, path.join(repositoryRoot, ".harness"), sourceAlias]) {
+    for (const root of [repositoryRoot, path.join(repositoryRoot, ".harness")]) {
       await expect(initializeProject(initOptions(root, "web", "blocked-source"))).rejects.toThrow(
         DOWNSTREAM_ONLY_INITIALIZATION_ERROR
       )
@@ -178,6 +172,19 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
 
     expect(await readFile(manifestPath)).toEqual(beforeManifest)
     expect(await readFile(tsconfigPath)).toEqual(beforeTsconfig)
+    await expect(lstat(path.join(repositoryRoot, ".harness/project.json"))).rejects.toMatchObject({
+      code: "ENOENT"
+    })
+  })
+
+  /** 验证源根的符号链接别名也无法绕过内部初始化门禁。 */
+  test("blocks the internal initializer through a source alias", async (context) => {
+    const aliasParent = await temporaryDirectory("harness-source-alias-")
+    const sourceAlias = path.join(aliasParent, "source-alias")
+    await createSymlinkOrSkip(context, repositoryRoot, sourceAlias, "dir")
+    await expect(
+      initializeProject(initOptions(sourceAlias, "web", "blocked-source"))
+    ).rejects.toThrow(DOWNSTREAM_ONLY_INITIALIZATION_ERROR)
     await expect(lstat(path.join(repositoryRoot, ".harness/project.json"))).rejects.toMatchObject({
       code: "ENOENT"
     })
@@ -276,7 +283,7 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     }
   })
 
-  /** 验证已存在的空目标在成功发布后保留其冻结权限模式。 */
+  /** 验证已存在的空目标可成功发布，POSIX 额外核对冻结权限模式。 */
   test("publishes over the bound empty target with its frozen mode", async () => {
     const sourceRoot = await temporaryDirectory("harness-bound-target-source-")
     await mkdir(path.join(sourceRoot, "docs"))
@@ -285,7 +292,7 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     const id = "bound-empty-target"
     const targetRoot = path.join(targetParent, id)
     await mkdir(targetRoot)
-    await chmod(targetRoot, 0o751)
+    if (process.platform !== "win32") await chmod(targetRoot, 0o751)
     const originalTargetStat = await lstat(targetRoot)
     const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", id)
     void ignoredRoot
@@ -299,7 +306,9 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
 
     const publishedTargetStat = await lstat(targetRoot)
     expect(publishedTargetStat.isDirectory()).toBe(true)
-    expect(publishedTargetStat.mode).toBe(originalTargetStat.mode)
+    if (process.platform !== "win32") {
+      expect(publishedTargetStat.mode).toBe(originalTargetStat.mode)
+    }
     expect(await readFile(path.join(targetRoot, "published.txt"), "utf8")).toBe("published\n")
     expect(
       (await readdir(targetParent)).filter(
@@ -350,7 +359,7 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
   })
 
   /** 验证冻结父目录被替换后不会发布或递归清理替代树。 */
-  test("fails closed when the target parent identity changes", async () => {
+  test("fails closed when the target parent identity changes", async (context) => {
     const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined)
     const sourceRoot = await temporaryDirectory("harness-parent-swap-source-")
     await mkdir(path.join(sourceRoot, "docs"))
@@ -365,12 +374,15 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     const targetRoot = path.join(targetParent, id)
     const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", id)
     void ignoredRoot
+    const permissionProbe = path.join(container, "symlink-permission-probe")
+    await createSymlinkOrSkip(context, attackerParent, permissionProbe, "dir")
+    await unlink(permissionProbe)
 
     await expect(
       instantiateProject({ sourceRoot, targetRoot, init }, async (stagedOptions) => {
         await writeFile(path.join(stagedOptions.root, "staged.txt"), "bound staging\n")
         await rename(targetParent, displacedParent)
-        await symlink(attackerParent, targetParent)
+        await createSymlinkOrSkip(context, attackerParent, targetParent, "dir")
         return createProjectConfig(stagedOptions)
       })
     ).rejects.toThrow(/staging cleanup also failed/)
@@ -460,7 +472,7 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     ).toEqual([])
   })
 
-  /** 验证 staging 消失时拒绝发布并保留原空目录的同一身份。 */
+  /** 验证 staging 消失时拒绝发布并保留原空目录，POSIX 额外核对身份。 */
   test("preserves the frozen empty-target identity when staging disappears", async () => {
     const sourceRoot = await temporaryDirectory("harness-target-rollback-source-")
     await mkdir(path.join(sourceRoot, "docs"))
@@ -469,7 +481,7 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
     const id = "rollback-empty-target"
     const targetRoot = path.join(targetParent, id)
     await mkdir(targetRoot)
-    await chmod(targetRoot, 0o711)
+    if (process.platform !== "win32") await chmod(targetRoot, 0o711)
     const originalTargetStat = await lstat(targetRoot)
     const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", id)
     void ignoredRoot
@@ -483,9 +495,11 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
 
     const restoredTargetStat = await lstat(targetRoot)
     expect(restoredTargetStat.isDirectory()).toBe(true)
-    expect(restoredTargetStat.dev).toBe(originalTargetStat.dev)
-    expect(restoredTargetStat.ino).toBe(originalTargetStat.ino)
-    expect(restoredTargetStat.mode).toBe(originalTargetStat.mode)
+    if (process.platform !== "win32") {
+      expect(restoredTargetStat.dev).toBe(originalTargetStat.dev)
+      expect(restoredTargetStat.ino).toBe(originalTargetStat.ino)
+      expect(restoredTargetStat.mode).toBe(originalTargetStat.mode)
+    }
     expect(await readdir(targetRoot)).toEqual([])
     expect(
       (await readdir(targetParent)).filter(
@@ -562,13 +576,17 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
           await writeFile(markerPath, "changed\\n")
         }
       },
-      {
-        name: "mode",
-        run: async (sourceRoot: string, markerPath: string) => {
-          void sourceRoot
-          await chmod(markerPath, 0o755)
-        }
-      },
+      ...(process.platform === "win32"
+        ? []
+        : [
+            {
+              name: "mode",
+              run: async (sourceRoot: string, markerPath: string) => {
+                void sourceRoot
+                await chmod(markerPath, 0o755)
+              }
+            }
+          ]),
       {
         name: "addition",
         run: async (sourceRoot: string) => {
@@ -657,11 +675,11 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
   })
 
   /** 验证实例化源根的符号链接别名在首个目标写入前被拒绝。 */
-  test("rejects a symbolic-link instantiation source", async () => {
+  test("rejects a symbolic-link instantiation source", async (context) => {
     const sourceRoot = await temporaryDirectory("harness-source-real-")
     const aliasParent = await temporaryDirectory("harness-source-alias-parent-")
     const sourceAlias = path.join(aliasParent, "source")
-    await symlink(sourceRoot, sourceAlias)
+    await createSymlinkOrSkip(context, sourceRoot, sourceAlias, "dir")
     const targetParent = await temporaryDirectory("harness-source-alias-target-")
     const targetRoot = path.join(targetParent, "source-alias")
     const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", "source-alias")
@@ -804,12 +822,17 @@ describe("failure-safe initialization", /* 执行 当前声明 函数的处理�
   })
 
   /** 验证 rejects symbolic links inside an allowlisted seed 场景。 */
-  test("rejects symbolic links inside an allowlisted seed", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+  test("rejects symbolic links inside an allowlisted seed", /* 执行 当前声明 函数的处理逻辑。 */ async (context) => {
     // 保存 sourceRoot 变量供当前逻辑使用。
     const sourceRoot = await temporaryDirectory("harness-seed-symlink-source-")
     await mkdir(path.join(sourceRoot, "docs"))
     await writeFile(path.join(sourceRoot, "symlink-target.md"), "not copied directly\n")
-    await symlink(path.join(sourceRoot, "symlink-target.md"), path.join(sourceRoot, "docs/link.md"))
+    await createSymlinkOrSkip(
+      context,
+      path.join(sourceRoot, "symlink-target.md"),
+      path.join(sourceRoot, "docs/link.md"),
+      "file"
+    )
     // 保存 targetParent 变量供当前逻辑使用。
     const targetParent = await temporaryDirectory("harness-seed-symlink-target-")
     // 保存 id 变量供当前逻辑使用。

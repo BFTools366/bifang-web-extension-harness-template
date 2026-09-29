@@ -212,6 +212,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "仅用于 projectType=web",
     "完全无 owned key",
     "不是双向状态同步",
+    "background-color: var(--mantine-color-body)",
     "assets/listPageState.ts"
   ],
   "web-verify-delivery": [
@@ -238,6 +239,7 @@ export const MAX_SHORT_DESCRIPTION_LENGTH = 64
 
 // 保存 REQUIRED_FILES 变量供当前逻辑使用。
 export const REQUIRED_FILES = [
+  ".gitattributes",
   "AGENTS.md",
   "README.md",
   "LICENSE.en.md",
@@ -316,6 +318,7 @@ export const REQUIRED_FILES = [
   "tests/build-tooling.test.ts",
   "tests/git-commit-configuration.test.ts",
   "tests/harness-memory.test.ts",
+  "tests/harness-ownership-validation.test.ts",
   "tests/harness-upgrade.test.ts",
   "tests/initialization-atomicity.test.ts",
   "tests/parallel-worktrees.test.ts",

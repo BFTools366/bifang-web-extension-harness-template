@@ -12,7 +12,7 @@ description: 按 $web-verify-delivery 已批准的执行契约，在隔离的真
 1. 接收 `$web-verify-delivery` 的执行契约：精确候选路径与 SHA-256、`projectType`、Release profile、批准场景、预期、超时、外部授权边界和清理要求。不得重新解析 Agent Policy 或扩大场景。
 2. 防御性确认调用来自已进入候选验收的 `$web-verify-delivery`，候选字节仍与输入 hash 一致；不重新检查全部 Todo，也不另行决定候选是否准入。
 3. 任何登录、真实账号、生产数据、付费、商店上传、凭据或不可逆副作用必须已在执行契约中取得独立明确授权；没有授权就返回对应场景 `blocked`，不自行扩权。
-4. 要求 Node.js、pnpm、真实 Google Chrome 和逻辑 Release 候选已有 `pnpm env:validate`、自动通过的 `pnpm release:inspect` 与 `.env.production` 构建证据。拒绝 development/test 构建、开发服务器、源码调用、mock、脚手架、历史产物和推测路径。
+4. 要求 Node.js、pnpm、真实 Google Chrome 和逻辑 Release 候选已有 `pnpm env:validate`、自动通过的 `pnpm release:inspect` 与 `.env.production` 构建证据。拒绝 development/test 构建、开发服务器、源码调用、mock、未构建的初始化空壳、历史产物和推测路径。源 Harness 完整验收生成的中性下游可使用其精确 Release 候选执行 E2E；结论只证明中性基线交付链，不代表任何业务产品已验收。
 
 ## 场景设计
 

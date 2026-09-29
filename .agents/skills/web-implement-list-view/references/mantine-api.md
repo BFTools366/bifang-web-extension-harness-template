@@ -15,12 +15,14 @@
   tabIndex={0}
 >
   <Table stickyHeader stickyHeaderOffset={layout.listStickyHeaderOffset}>
-    {/* thead / tbody */}
+    <Table.Thead className={styles.tableHeader}>{/* column headers */}</Table.Thead>
+    <Table.Tbody>{/* rows */}</Table.Tbody>
   </Table>
 </Table.ScrollContainer>
 ```
 
 - offset 从当前 AppShell/页面布局事实传入，不在列表组件硬编码。
+- `Table.Thead` 的稳定 CSS Module 类使用 `.tableHeader th { background-color: var(--mantine-color-body); }`；表头背景不得透明或固定为单一色彩模式的颜色，以免滚动数据透出。粘滞定位仍由 Mantine 管理。
 - `minWidth` 按真实列宽声明；页面根不横向滚动，局部 viewport 可由键盘进入且有 focus ring。
 - 主业务列可用 `Table.Th scope="row"`；列标题用 `scope="col"`，当前排序列才设置 `aria-sort`。
 - 行 hover/focus 只提供位置反馈，不自动赋予点击语义，也不代替状态文字、选择控件或可见焦点。

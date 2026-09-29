@@ -33,6 +33,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/harness-initialization.test.ts",
   "tests/harness-instantiation.test.ts",
   "tests/harness-memory.test.ts",
+  "tests/harness-ownership-validation.test.ts",
   "tests/harness-tooling-support.ts",
   "tests/harness-tooling.test.ts",
   "tests/harness-validator.test.ts",

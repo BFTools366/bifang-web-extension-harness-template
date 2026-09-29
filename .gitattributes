@@ -1,0 +1,7 @@
+# 保持源 Harness 的规则、模板与脚本在跨平台检出时使用稳定的 LF 字节。
+* text=auto eol=lf
+
+# 二进制品牌资产不做换行转换。
+*.png binary
+*.jpg binary
+*.jpeg binary

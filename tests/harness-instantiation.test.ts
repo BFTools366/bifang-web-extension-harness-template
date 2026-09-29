@@ -19,11 +19,11 @@ import {
   repositoryRoot,
   rm,
   seedTemplateRoot,
-  symlink,
   temporaryDirectory,
   writeFile
 } from "./harness-tooling-support.ts"
 import type { ProjectConfig } from "./harness-tooling-support.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 /** 锁定 React Web 列表页 Skill 必须完整分发的资产与参考资料。 */
 const LIST_VIEW_REQUIRED_FILES = [
@@ -562,8 +562,8 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(await readFile(path.join(targetRoot, "keep.txt"), "utf8")).toBe("user data")
   })
 
-  /** 验证 requires target basename to match id and rejects symlink targets 场景。 */
-  test("requires target basename to match id and rejects symlink targets", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+  /** 验证目标目录名必须与项目 id 一致。 */
+  test("requires target basename to match id", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-path-")
     // 保存 wrongTarget 变量供当前逻辑使用。
@@ -585,13 +585,17 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
         }
       })
     ).rejects.toThrow(/must exactly match project id/)
+  })
 
+  /** 验证符号链接目标不会被当作可写项目目录。 */
+  test("rejects symlink targets", async (context) => {
+    const parent = await temporaryDirectory("web-harness-path-link-")
     // 保存 realTarget 变量供当前逻辑使用。
     const realTarget = path.join(parent, "real-target")
     // 保存 linkTarget 变量供当前逻辑使用。
     const linkTarget = path.join(parent, "linked-project")
     await mkdir(realTarget)
-    await symlink(realTarget, linkTarget)
+    await createSymlinkOrSkip(context, realTarget, linkTarget, "dir")
     await expect(
       instantiateProject({
         sourceRoot: repositoryRoot,

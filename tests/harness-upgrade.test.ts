@@ -8,7 +8,6 @@ import {
   readdir,
   rename,
   rm,
-  symlink,
   writeFile
 } from "node:fs/promises"
 import os from "node:os"
@@ -28,6 +27,7 @@ import {
 } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-mutation.ts"
 import { MINIMUM_OWNERSHIP_RULES } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-policy.ts"
 import { runUpgradeCli } from "../.agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts"
+import { createSymlinkOrSkip } from "./setup.ts"
 
 /** 保存测试使用的异步无 Shell 进程入口。 */
 const execFileAsync = promisify(execFile)
@@ -362,11 +362,11 @@ describe("three-way Harness upgrade", () => {
   })
 
   /** 验证以符号链接伪装的 tombstone 目录根仍会阻断计划。 */
-  test("blocks a tombstoned directory root represented by a symlink", async () => {
+  test("blocks a tombstoned directory root represented by a symlink", async (context) => {
     const fixture = await upgradeFixture()
     const tombstoneRoot = path.join(fixture.target, ".agents/skills/web-instantiate-project")
     await mkdir(path.dirname(tombstoneRoot), { recursive: true })
-    await symlink(fixture.evidence, tombstoneRoot)
+    await createSymlinkOrSkip(context, fixture.evidence, tombstoneRoot, "dir")
 
     const plan = await planFor(fixture)
     expect(plan.entries).toEqual(
@@ -607,7 +607,7 @@ describe("three-way Harness upgrade", () => {
   })
 
   /** 验证父目录在捕获后被替换为符号链接时不会写入攻击者目录。 */
-  test("binds atomic mutation to the captured parent inode", async () => {
+  test("binds atomic mutation to the captured parent inode", async (context) => {
     const parent = await mkdtemp(path.join(os.tmpdir(), "web-upgrade-parent-"))
     temporaryRoots.push(parent)
     const stable = path.join(parent, "stable")
@@ -619,7 +619,7 @@ describe("three-way Harness upgrade", () => {
     await writeFile(target, original)
     const identity = await captureStablePath(parent, "stable/managed.ts")
     await rename(stable, displaced)
-    await symlink(attacker, stable)
+    await createSymlinkOrSkip(context, attacker, stable, "dir")
 
     const replacement = Buffer.from("replacement\n")
     expect(() =>
@@ -835,11 +835,6 @@ describe("three-way Harness upgrade", () => {
     await expect(runUpgradeCli(planCliArguments(fixture, targetOutput))).rejects.toThrow(
       /outside candidate and target roots/
     )
-    const linkedTarget = path.join(fixture.evidence, "linked-target")
-    await symlink(fixture.target, linkedTarget, "dir")
-    await expect(
-      runUpgradeCli(planCliArguments(fixture, path.join(linkedTarget, "linked-plan.json")))
-    ).rejects.toThrow(/real directory/)
     await expect(readFile(candidateOutput, "utf8")).rejects.toThrow()
     await expect(readFile(targetOutput, "utf8")).rejects.toThrow()
     await expect(runUpgradeCli(["plan", "--unknown", "value"])).rejects.toThrow(/Unexpected option/)
@@ -869,4 +864,14 @@ describe("three-way Harness upgrade", () => {
       ok: false
     })
   }, 20_000)
+
+  /** 验证 CLI 计划输出目录不能通过符号链接绕过真实目录检查。 */
+  test("rejects a symlinked plan output ancestor", async (context) => {
+    const fixture = await upgradeFixture()
+    const linkedTarget = path.join(fixture.evidence, "linked-target")
+    await createSymlinkOrSkip(context, fixture.target, linkedTarget, "dir")
+    await expect(
+      runUpgradeCli(planCliArguments(fixture, path.join(linkedTarget, "linked-plan.json")))
+    ).rejects.toThrow(/real directory/)
+  })
 })

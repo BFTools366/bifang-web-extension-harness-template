@@ -29,7 +29,7 @@
 
 ## Conditional：二维表格
 
-- [ ] （Table）使用 Mantine Table；粘滞 offset 来自共享布局事实，没有手写 sticky 字面量。
+- [ ] （Table）使用 Mantine Table；粘滞 offset 来自共享布局事实，没有手写 sticky 字面量；`Table.Thead` 有稳定 CSS Module 类，表头 `th` 使用不透明 `var(--mantine-color-body)` 背景，滚动数据不会透出。
 - [ ] （Table）局部滚动区有真实 minWidth、本地化区域名称、键盘入口和可见焦点；页面根不横向滚动。
 - [ ] （可排序列）排序状态、可见方向图标和 `aria-sort` 一致；清除入口在窄屏仍可感知。
 - [ ] （Table）唯一主业务单元格使用 `th scope="row"`，行名称可理解；颜色不是选中或状态的唯一线索。
