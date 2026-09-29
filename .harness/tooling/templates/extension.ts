@@ -189,7 +189,7 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
         <Stack gap="md">
           <Group justify="space-between" align="flex-start">
             <Image src={iconUrl} alt={BRAND.name} w={64} h={64} radius="lg" />
-            <Badge color="brand" variant="light">
+            <Badge variant="default">
               {t(surface === "popup" ? "popupReady" : "optionsReady")}
             </Badge>
           </Group>

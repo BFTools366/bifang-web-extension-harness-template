@@ -277,7 +277,7 @@ export function WelcomePage() {
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start">
               <Image src={BRAND.logoPath} alt={BRAND.name} w={88} h={88} radius="xl" />
-              <Badge variant="light" color="brand">
+              <Badge variant="default">
                 {t("eyebrow")}
               </Badge>
             </Group>

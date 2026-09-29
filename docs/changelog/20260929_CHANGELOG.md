@@ -20,6 +20,7 @@
 - 列表治理复用 `src/pagination/` 的 1-based page/pageSize 基础，但不强制 Table、选择、列偏好或 DnD；中性初始化不生成业务列表或预装图标/DnD 依赖。
 - 受管运行时基线升级为 Mantine `9.6.1` 与 TanStack Query `5.102.8`，不因列表 Skill 增加新的第三方包。
 - 生成界面统一由 Mantine theme 管理默认 light、字体和语义令牌；语言切换同步 `<html lang>`，动态计数使用 live region，Extension 使用顶层 `h1`，并以行为测试锁定子控件与外围容器的交互边界。
+- Web Landing 与 Extension Popup/Options 的中性状态 Badge 使用 Mantine 默认对比令牌，修复单色品牌 tuple 下浅色 Badge 文字与背景同色的问题。
 - 品牌、运行时配置和数据访问文档不再把日常变化自动升级为构建；只有显式候选、完整验收或硬要求触发构建门禁。
 - `web-refactor-code` 明确覆盖源 Harness 管理的前端模板；文件遍历和治理解析对 LF/CRLF、POSIX/Windows 路径使用稳定规范化。
 - Web 列表的粘滞表头 `th` 使用随主题变化的不透明 `var(--mantine-color-body)` 背景，避免滚动行从表头透出。
