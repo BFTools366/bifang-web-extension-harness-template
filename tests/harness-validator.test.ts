@@ -173,7 +173,11 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
       [/(?<=- 当前版本：`)\d{12}(?=`)/, "202613011041", "valid 12-digit Shanghai minute"],
       ["Asia/Shanghai", "UTC", "timezone must exactly equal Asia/Shanghai"],
       ["YYYYMMDDHHMM", "YYYYMMDD", "format must exactly equal YYYYMMDDHHMM"],
-      ["发布状态：Released", "发布状态：Ready", "status must be exactly Released or Unreleased"]
+      [
+        /发布状态：(?:Released|Unreleased)/,
+        "发布状态：Ready",
+        "status must be exactly Released or Unreleased"
+      ]
     ] as const) {
       const root = await copyRepository()
       const versionPath = path.join(root, "Version.md")
