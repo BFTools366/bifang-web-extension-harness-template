@@ -106,6 +106,8 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const styles = await readFile(path.join(root, "src/styles.css"), "utf8")
     // 保存 main 变量供当前逻辑使用。
     const main = await readFile(path.join(root, "src/main.tsx"), "utf8")
+    // 核对真实 Web 根入口绑定安全的 React 错误上报，而非只生成未消费文件。
+    const reactRoot = await readFile(path.join(root, "src/observability/reactRoot.ts"), "utf8")
     // 保存 buildVersion 变量供 Web 构建版本契约断言使用。
     const buildVersion = await readFile(path.join(root, "src/buildVersion.ts"), "utf8")
     // 保存 buildTooling 变量供统一构建入口断言使用。
@@ -142,6 +144,10 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(indexRoute).toContain('createFileRoute("/")')
     expect(indexRoute).toContain("WelcomePage")
     expect(rootRoute).toContain("createRootRoute")
+    expect(main).toContain("createRoot(root, reactRootErrorHandlers)")
+    expect(reactRoot).toContain("onCaughtError")
+    expect(reactRoot).toContain("onUncaughtError")
+    expect(reactRoot).toContain("onRecoverableError")
     expect(webRouteEntries).toEqual(["__root.tsx", "index.tsx"])
     expect(router).toContain('from "../routeTree.gen"')
     expect(router).toContain("...routeStateDefaults")

@@ -5,6 +5,7 @@ import { httpFiles } from "./http.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
 import { themeFiles } from "./theme.ts"
+import { webReactRootFiles } from "./web-react-root.ts"
 import { webRouteStateFiles } from "./web-route-state.ts"
 
 // 执行 renderWebIndex 函数的处理逻辑。
@@ -57,6 +58,7 @@ export function webFiles(
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
     ...themeFiles(),
+    ...webReactRootFiles(),
     ...webRouteStateFiles(),
     ["index.html", renderWebIndex(config)],
     [
@@ -430,6 +432,7 @@ import { AppProviders } from "./app/AppProviders"
 import { router } from "./app/router"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
 import { createLogger } from "./observability/logger"
+import { reactRootErrorHandlers } from "./observability/reactRoot"
 
 const root = document.getElementById("root")
 const logger = createLogger("bootstrap")
@@ -453,7 +456,7 @@ if (import.meta.env.VITE_APP_ENV !== "release") {
   logger.info("application_started", { surface: "web" })
 }
 
-createRoot(root).render(
+createRoot(root, reactRootErrorHandlers).render(
   <StrictMode>
     <AppErrorBoundary>
       <AppProviders>

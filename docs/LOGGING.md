@@ -47,6 +47,7 @@ Release 配置即使被错误设置成更低级别，logger 也必须把有效�
 ## 5. 使用边界
 
 - UI、route、Query、API client、Chrome message/Port、Storage 和生命周期边界使用各自稳定 scope/event；不要用日志代替用户错误反馈。
+- React Web 的 `createRoot` 明确接入 `src/observability/reactRoot.ts` 的已捕获、未捕获和可恢复错误回调，替代 React 默认的原始异常 console 输出；回调只交给统一 logger，不传递 `componentStack`。
 - 异步请求通过 correlation/request ID 串联；不要以 Token、用户标识或完整 URL 充当关联键。
 - 基础 HTTP client 使用稳定的 `http.request_failed`、`http.unauthorized` 与 `http.unauthorized_handler_failed` 事件；只记录状态、耗时、稳定 code/reason/retryable。非法响应 header 或 extractor 通过 `http.request_failed` 与稳定 code 表达；基线不记录 URL、Error、header 或 body。真实域层只有提供不含标识符的静态 endpoint 模板后才可把它作为批准字段加入。`X-Http-Request` 是服务端允许传播的 opaque continuation，不自动等同于可记录的 request ID。
 - transport 层只记录协议、网络与认证边界；TanStack Query 的全局错误日志负责最终 query/mutation 失败。接入真实 feature 时应明确单一所有者，避免同一失败在两层重复记录。
