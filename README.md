@@ -1,233 +1,91 @@
 # Bifang Web Harness Template
 
-这是一个面向 AI Agent 的纯 TypeScript 项目 Harness，只生成两种互斥的终端下游：**纯 React Web 页面**或 **Chrome MV3 Plasmo 扩展**。事件触发、渐进读取、工程约束、验证与发布治理共同形成可验证的交付闭环。
+让 AI Agent 为你创建独立的 **React Web 项目**或 **Chrome MV3 扩展项目**。模板提供 TypeScript、UI、路由、状态管理、国际化和工程规范，创建后即可在新项目中继续开发。
 
-每次初始化只生成一个平铺的 pnpm 单包项目。下游仓库不会同时包含 Web 与 Extension，不声明多包 workspace、`apps/`、`packages/` 或共享 core。`pnpm-workspace.yaml` 仅保存 pnpm 构建脚本许可，不声明 `packages`。若同一产品需要两种宿主，应分别初始化两个独立仓库，并独立维护版本、品牌、状态和测试。
+## 让 Agent 创建项目
 
-## 当前状态
-
-- 维护状态：Active
-- 模板名称：Bifang Web Harness Template
-- 当前版本：见 [`Version.md`](Version.md)
-- 发布状态：见 [`Version.md`](Version.md)
-- 许可证：企业专有商业许可，见 [`LICENSE.zh-CN.md`](LICENSE.zh-CN.md) 与 [`LICENSE.en.md`](LICENSE.en.md)
-
-## 固定技术选型
-
-| 项目类型    | 技术基线                                                                                                                                                         |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `web`       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai、i18next                                                                      |
-| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Router 代码路由、TanStack Query、Jotai、i18next                                                |
-| 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；当前 E2E、完整验收 smoke 或浏览器硬要求需要时增加真实 Chrome 验证 |
-
-初始化器会生成不含业务 endpoint 的原生 Fetch client、语言偏好和分页基础层，统一 `X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、401、错误日志与 sessionStorage 分页语义。Ky、OpenAPI、GraphQL、SSE 与 RxJS 等集成仍只随真实消费者按需加入；初始化不预装这些依赖、不生成占位请求/事件总线，也不预置 Extension 权限。完整协议见 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。
-
-两种下游都生成品牌十阶色、跟随系统/亮色/暗色切换与项目命名空间下的外观偏好持久化，并携带按当前宿主裁剪的 Mantine UI 规范；源规范见 [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)。Extension 的 Popup 使用内存历史，Options 使用 hash 历史，彼此仍是独立入口。
-
-React Web 下游额外保留 `$web-implement-list-view`，在真实列表页、数据表格、后台列表或搜索结果出现时统一 Router 恢复、Query 分页、状态反馈与无障碍。该 Skill 不强制使用 Table、选择或拖拽；中性初始化不生成业务列表、不预装图标或 DnD 等可选依赖。Extension Popup/Options 不携带或调用该 Web-only Skill。
-
-React Web 还生成统一的路由加载、错误、显式重试与回归测试。表单、远端读写、多页面和部署的当前覆盖及真实设计触发见 [`docs/TS_WEB_TEMPLATE.md` §4.2](docs/TS_WEB_TEMPLATE.md#42-web-功能覆盖与设计触发)；该清单不把中性 Landing 当作完整产品。
-
-## 快速开始
-
-准备 Node.js `>=26.10.0` 与 pnpm `>=12.8.1` 后，在 Harness 根目录安装依赖。Node.js 26 不内置 Corepack，pnpm 需要按其官方安装方式单独准备；不依赖全局第三方包作为项目运行时依赖。`engines` 是兼容性最低版本；`packageManager` 固定为精确的 `pnpm@12.8.1`，复现和生成下游时使用该版本：
-
-```bash
-pnpm install
-```
-
-项目只能从源 Harness 根创建。唯一公开创建入口是 `pnpm instantiate -- <absolute-target-outside-harness> ...`；目标必须位于源 Harness 目录之外、不存在或为空，并且目录 basename 与 `--id` 完全相同：
-
-```bash
-pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --id example-web \
-  --description "示例 React Web 页面" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" \
-  --policy-mode recommended --confirmed-by project-owner
-```
-
-创建纯 Chrome 扩展时仍从同一个源 Harness 根调用，并使用另一个源外绝对目标：
-
-```bash
-pnpm instantiate -- /absolute/path/example-extension --type extension \
-  --name "示例扩展" --id example-extension \
-  --description "示例 Chrome 扩展" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" \
-  --policy-mode recommended --confirmed-by project-owner
-```
-
-不要复制模板后原地初始化。源 Harness 不再提供 `pnpm harness:init` script；`pnpm harness init` 会在解析项目输入或写入文件前明确拒绝，并指向源外的 `pnpm instantiate`。底层 initializer 只是 `instantiate` 在目标同级 sibling staging 中调用的内部步骤，不是受支持的用户或 Agent 入口。
-
-非交互调用还必须提供 `--development-base-url`、`--test-base-url`、`--release-base-url`、`--policy-mode recommended|custom` 与 `--confirmed-by <source>`；自定义模式还必须显式提供五项策略选择（`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint`）。三个 URL 都必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 必须使用 HTTPS。初始化不生成 Release 候选，因此不询问或接受 E2E 选择；E2E 只在后续显式 `pnpm build` 时决定。`pnpm instantiate` 可追加 `--logo /absolute/path/logo.png` 或 `--brand-color "#4C6EF5"`；没有上传 Logo 时生成器会创建确定性母版。
-
-`pnpm instantiate` 会先完成输入、一次 Node.js/pnpm 环境检查与源模板预检，再在目标同级的临时目录中复制模板，通过内部 initializer 生成并终端化当前宿主、只格式化本次生成/改写文件并执行静态下游校验，然后安装一次依赖并建立独立 Git 根；全部成功后才以原子 rename 发布到目标。创建期不运行 lint、typecheck、全量测试、生产构建或 `release:inspect`，也不生成 `dist/`、`build/` 或 zip。中途失败只清理该临时目录：原先不存在的目标仍不存在，原先为空的目标仍为空。源 Harness 根、其任意子路径以及模板副本自身都不能作为初始化位置。
-
-非交互初始化必须显式传入 `--type web` 或 `--type extension`。交互式 TTY 可以在开始时提示用户二选一，但提示不得提供默认类型，也不得接受 `both`、逗号列表或重复类型。生成后的 `projectType` 是仓库边界；不得通过在同一仓库补入另一套宿主来改变它。
-
-初始化命令的完整参数和三环境配置契约见 [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)；其他可用参数以根 [`package.json`](package.json) 中的真实脚本和命令帮助为准。不要根据文档示例推测尚不存在的参数。
-
-首次生成会先写入当前类型的 `package.json`，再执行一次 `pnpm install --no-frozen-lockfile --prefer-offline` 解析依赖并产出 `pnpm-lock.yaml`；已有 pnpm store 可避免不必要的远端元数据等待，缺失内容仍正常联网获取。公开 CLI 不允许跳过安装；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。锁文件形成后，CI 和可复现检查使用 frozen lockfile，不在复现阶段静默重算依赖。初始化成功只证明工程基线已安全创建；需要最终候选时进入下游并显式运行 `pnpm build`。
-
-## 初始化会写入什么
-
-每个下游项目都以 `.harness/project.json` 作为项目名称、标识、描述、唯一 `projectType` 和品牌信息的单一事实来源。Logo 使用以下流程：
-
-1. 用户提供 Logo 时，将其标准化为 `.harness/brand/logo-1024.png` 母版。
-2. 用户未提供 Logo 时，根据项目身份确定性生成母版；同一输入应得到同一结果。
-3. 只从母版生成当前项目类型需要的派生资产，不维护另一宿主的资产。
-
-Web 初始化同步：
-
-- 根 `index.html` 的标题、描述和图标引用；
-- `public/logo.png` 与 `public/favicon.png`；
-- Landing 页面中的 Logo、项目名称与描述。
-
-Extension 初始化同步：
-
-- `assets/icon.png`；
-- `package.json` 中的 Plasmo/Chrome manifest 项目身份；Plasmo 从 `assets/icon.png` 生成所需图标尺寸；
-- Popup 与 Options 页面中的 Logo、项目名称与描述。
-
-派生文件不是身份事实源。修改身份或品牌时应先更新 `.harness/project.json` 和 Logo 母版，再通过项目提供的品牌流程重新生成并验证派生资产。
-
-初始化还会生成 `.env.development`、`.env.test` 与 `.env.production` 三份基础配置、类型化 `APP_CONFIG`、统一 logger、分页状态层及原生 Fetch 请求层。逻辑 `release` 映射到 `.env.production`；Web 暴露 `VITE_` 前缀，Extension 暴露 `PLASMO_PUBLIC_` 前缀。每份至少包含 `APP_ENV`、`API_BASE_URL`、`LOG_LEVEL` 和 `REQUEST_TIMEOUT_MS`。`.env` 及四种 `.env*.local` 隐式覆盖被明确禁止；只有当前进程可用当前宿主的四个已声明键覆盖选定 profile，未知公开键会失败。分页位置写入 sessionStorage，语言偏好写入 localStorage，认证 Token 默认只在当前运行上下文内存中保存；它们都不是环境变量。详细事实见 [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)、[`docs/LOGGING.md`](docs/LOGGING.md) 与 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。浏览器端配置可被用户观察，不能存放秘密。
-
-## 生成项目的日常命令
-
-Web 与 Extension 模板都必须提供同一组单包开发入口：
-
-```bash
-pnpm dev
-pnpm build
-pnpm build -- --e2e=disabled
-pnpm test
-pnpm test:related <changed-source...>
-pnpm typecheck
-pnpm lint
-pnpm source-size:check
-pnpm env:validate
-pnpm release:inspect
-```
-
-这些命令在各自项目内运行。日常实现只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证，不自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–1000 行要求复核，1001 行起拒绝。
-
-`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。同一发布流程复用已明确的 E2E 选择并传 `--e2e=enabled|disabled`，不重复询问；尚无选择且无硬要求时只询问一次，交互式 CLI 缺少参数时提供终端选择。Web 构建器按 `Asia/Shanghai` 生成 `YYMMDDHHMMSS` 版本并注入 Landing；Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`），注入 Popup/Options 并与 MV3 manifest 保持一致。完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
-
-Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器、注释和源码体积门禁忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
-
-品牌变更后，重新派生当前宿主资产并校验项目：
-
-```bash
-pnpm harness brand refresh --logo /absolute/path/logo.png --brand-color "#4C6EF5"
-pnpm harness validate
-```
-
-`brand refresh` 的两个选项都可省略；它不会添加、删除或切换宿主。
-
-成功生成的下游是终端项目，不再保留 `pnpm instantiate`、`pnpm harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 或任何其他项目派生入口；只保留品牌刷新、校验、日常开发和 Harness 安全升级所需入口。源 Harness 的实例化/方法论文档也会被删除，剩余 `docs/` 按已选项目类型重写。Web 终端保留 15 个维护 Skills；Extension 还会裁掉 `$web-implement-list-view`，保留 14 个。
-
-Harness 根目录当前提供以下维护门禁；根项目没有应用 `dev` 或 `build` 脚本：
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm format:check
-pnpm validate:harness
-```
-
-## 两种输出的目录大纲
-
-Web 下游是一个平铺 Vite 单包：
+把下面的提示词发给能够访问 Git 仓库、读写本地文件并执行终端命令的 AI Agent：
 
 ```text
-<web-project>/
-├── .env.development
-├── .env.test
-├── .env.production
-├── .harness/
-│   ├── project.json
-│   └── brand/logo-1024.png
-├── public/
-│   ├── logo.png
-│   └── favicon.png
-├── src/
-│   ├── api/             # 原生 Fetch client 契约与真实业务域边界
-│   ├── app/             # Providers、主题、QueryClient 与 Router 装配
-│   ├── config/          # 环境 Schema 与冻结的 APP_CONFIG
-│   ├── features/        # 按业务能力内聚组件、hooks、客户端状态与测试
-│   ├── i18n/            # i18next 初始化、语言持久化与资源
-│   ├── observability/   # 统一结构化 logger 与测试
-│   ├── pagination/      # 规范化分页、sessionStorage 与受控交互
-│   ├── routes/          # TanStack Router 文件路由
-│   └── main.tsx
-├── index.html
-├── package.json
-└── tsconfig.json
+使用 {GitHub 链接} 为我创建一个新的项目。
+请先获取模板仓库，读取 AGENTS.md，按 web-instantiate-project Skill 收集缺少的初始化信息，
+再从模板源目录调用 pnpm instantiate，在模板目录之外创建独立项目。
+已经提供的信息无需重复询问。
 ```
 
-Extension 下游是一个平铺 Plasmo 单包：
+将 `{GitHub 链接}` 替换为[本仓库的 GitHub 地址](https://github.com/BFTools366/bifang-web-extension-harness-template)。也可以在第一句直接指定“React Web 项目”或“Chrome MV3 扩展项目”。
 
-```text
-<extension-project>/
-├── .env.development
-├── .env.test
-├── .env.production
-├── .harness/
-│   ├── project.json
-│   └── brand/logo-1024.png
-├── assets/icon.png
-├── src/
-│   ├── api/             # 原生 Fetch client 契约与真实业务域边界
-│   ├── config/          # 环境 Schema 与冻结的 APP_CONFIG
-│   ├── i18n/            # 语言偏好持久化
-│   ├── observability/   # 统一结构化 logger 与测试
-│   ├── pagination/      # 规范化分页、sessionStorage 与受控交互
-│   ├── popup.tsx
-│   ├── options.tsx
-│   ├── style.css
-│   └── ...              # 组件、状态、查询、i18n 与测试
-├── package.json         # 同时承载 Plasmo/Chrome manifest 配置
-└── tsconfig.json
-```
+### 需要提供的信息
 
-具体文件以生成器当前输出为准；只有当前类型真实需要的入口才应存在。
+你可以随提示词一起提供以下信息；缺少的基础信息由 Agent 一次收集：
 
-Web 的依赖方向保持为 `main/app → routes → features → api`；跨 feature 的真实共享 UI 或纯逻辑出现后才增加有明确职责的模块。分页与请求层是明确受管的工程基础，不包含假列表或占位 API 请求；真实 endpoint 和登录入口仍由产品功能提供。
+| 信息             | 如何填写                                                                       |
+| ---------------- | ------------------------------------------------------------------------------ |
+| 项目类型         | `web`（React Web）或 `extension`（Chrome MV3 扩展），每个项目只选一种          |
+| 项目名称         | 页面或扩展中显示的名称                                                         |
+| 项目标识         | 以小写字母开头，使用小写字母与数字，单个连字符分隔非空片段，例如 `example-web` |
+| 简短说明         | 用于项目元数据的介绍                                                           |
+| 目标目录         | 模板目录之外的绝对路径；目录不存在或为空，目录名与项目标识一致                 |
+| 三个 API BaseURL | 开发、测试、正式环境各一个；正式环境必须使用 HTTPS                             |
+| Agent 策略       | 选择仓库的推荐策略，或逐项自定义；记录真实确认人或确认来源                     |
 
-## “后续增减”的边界
+BaseURL 必须是无凭据、查询参数或片段的绝对 HTTP(S) URL。请提供真实地址，Agent 不会替你猜测。Logo 和品牌色可以同时提供，也可以使用模板生成的默认品牌资产。
 
-后续增减指 **Harness 维护者**可以在未来增加或移除一种独立项目类型、模板能力或受支持技术，而不是让已生成的下游在同一仓库叠加另一宿主。
+Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md)汇总创建参数，并在确认后执行创建。本地需要 Git、Node.js `>=26.10.0` 和 pnpm `12.8.1`；Agent 会检查创建环境，工具缺失或需要升级时再指导你准备。
 
-新增 Harness 类型时，必须同时提供独立模板、类型校验、品牌派生规则、测试与文档；移除类型时不得破坏已生成项目的维护与升级边界。已有下游若需要另一类型，应新建独立仓库，不能执行 target add/remove，也不能把 `projectType` 改成列表。
+### 创建后会得到什么
 
-## Harness 目录入口
+- 一个独立的 pnpm 单包项目，包含所选类型的页面或扩展入口。
+- 项目名称、说明、Logo、主题、亮暗模式和国际化基础。
+- 开发、测试、正式三环境配置，以及请求、分页、日志和测试基础。
+- 适用的 `AGENTS.md`、项目 Skills 和工程文档，供 Agent 继续开发。
+- 独立的本地 Git 仓库和一个中性基线提交，尚未绑定远端。
 
-| 路径                                                                      | 作用                                                |
-| ------------------------------------------------------------------------- | --------------------------------------------------- |
-| [`AGENTS.md`](AGENTS.md)                                                  | Agent 的渐进读取、事件路由、Skills 与约束地图       |
-| [`.agents/skills/`](.agents/skills/)                                      | 17 个按触发条件读取的源 `web-*` 项目 Skills         |
-| [`.harness/tooling/`](.harness/tooling/)                                  | 初始化、品牌刷新和下游校验的 TypeScript 工具        |
-| 生成项目中的 `.harness/project.json`                                      | 下游项目身份、唯一 `projectType` 与品牌的单一事实源 |
-| [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)                              | 数据访问、SSE 与可选 RxJS 事件流编排                |
-| [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)          | Mantine UI 令牌、布局、组件、状态与无障碍规范       |
-| [`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)          | 三环境、BaseURL、公开变量与构建模式                 |
-| [`docs/LOGGING.md`](docs/LOGGING.md)                                      | 结构化日志、Release 脱敏与产物扫描                  |
-| [`docs/`](docs/)                                                          | 工程、技术基线、发布、技术债与方法论                |
-| [`Version.md`](Version.md)                                                | Harness 时间版本唯一事实来源                        |
-| [`LICENSE.zh-CN.md`](LICENSE.zh-CN.md) / [`LICENSE.en.md`](LICENSE.en.md) | 中英文企业专有商业许可                              |
+创建完成后，在新项目目录中打开 Agent，再描述具体功能、页面和交互需求。模板源只负责创建工程基线；业务开发在生成的新项目中进行。
 
-## 验证原则
+每个项目只包含 Web 或 Extension 中的一种。需要两种时分别创建两个独立项目。初始化成功仅表示工程基线创建完成；正式产物需要后续构建和验收。
 
-- 涉及初始化器、类型生成/终端化或 Harness 发布候选时，必须分别在隔离目录验证 `web` 与 `extension`，并确认每个输出只有一个 `projectType`；无关文档、局部实现或单一宿主下游任务不重复执行双类型生成。
-- Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收；`Version.md` 当前值、候选版本、源码提交、lockfile、Schema/协议版本、`manifest_version` 与 `projectType` 等身份或协议事实继续精确匹配。
-- 三份环境必须同时齐全并通过 Schema 校验；`pnpm release:inspect` 必须按 [`docs/LOGGING.md`](docs/LOGGING.md) 在文件名层拒绝 `.env*`/`.map`，并只在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机路径与 `sourceMappingURL`，作为 `build:release`/Extension `package` 的自动失败门禁；它不提供通用秘密扫描。
-- 行为变化至少运行相关非空单元/组件测试；文档与元数据变化运行链接、解析或差异检查。
-- 同一 Web/Extension 发布流程复用已明确的 E2E 选择，新产物仍重新验收；完整候选验收另按 `acceptance_smoke` 决定是否运行有边界的 smoke。E2E、smoke 或产品/安全/渠道硬要求任一要求浏览器证据时，必须针对刚生成的最终构建验证当前项目真实需要的页面、入口与权限行为。
-- Mock、占位页面、开发预览或仅检查源码不能替代最终产物验收。
-- 未实际运行的平台和浏览器范围必须标记为 `Unverified`。
+## 在新项目中使用
 
-详细规则见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md)、[`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)、[`docs/TS_WEB_TEMPLATE.md`](docs/TS_WEB_TEMPLATE.md)、[`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)、[`docs/RUNTIME_CONFIGURATION.md`](docs/RUNTIME_CONFIGURATION.md)、[`docs/LOGGING.md`](docs/LOGGING.md) 与 [`docs/RELEASE.md`](docs/RELEASE.md)。
+以下命令在生成的新项目目录中运行：
+
+| 命令                                    | 用途                                                 |
+| --------------------------------------- | ---------------------------------------------------- |
+| `pnpm dev`                              | 启动开发环境                                         |
+| `pnpm test:related <changed-source...>` | 运行与改动相关的测试                                 |
+| `pnpm test`                             | 运行全部测试                                         |
+| `pnpm build -- --e2e=enabled`           | 构建正式产物并要求 E2E 验证                          |
+| `pnpm build -- --e2e=disabled`          | 构建正式产物，不执行 E2E；仍需满足适用的浏览器硬要求 |
+
+Web 使用 Vite；Extension 使用 Plasmo。扩展的本地加载和开发方式见生成项目的 README。正式构建与发布流程见 [发布说明](docs/RELEASE.md)。
+
+日常也可以直接让 Agent 修改功能、修复问题或更新品牌。请在新项目中操作，Agent 会读取该项目的规则并执行与改动相称的检查。
+
+## 技术与目录
+
+| 项目类型        | 技术基线                                                      |
+| --------------- | ------------------------------------------------------------- |
+| React Web       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由   |
+| Chrome MV3 扩展 | React + TypeScript、Plasmo、Mantine、TanStack Router 代码路由 |
+| 共同基础        | TanStack Query、Jotai、i18next、Vitest、Testing Library       |
+
+生成项目中的主要入口：
+
+| 路径                           | 用途                           |
+| ------------------------------ | ------------------------------ |
+| `src/`                         | 当前项目的页面、组件与功能代码 |
+| `.harness/project.json`        | 项目身份、类型与品牌配置       |
+| `AGENTS.md`、`.agents/skills/` | Agent 开发入口与项目 Skills    |
+| `docs/`                        | 当前项目的工程与发布说明       |
+| `package.json`                 | 依赖和可执行命令               |
+
+## 更多说明
+
+- [手动创建与技术基线](docs/TS_WEB_TEMPLATE.md)：公开创建入口为模板源根目录的 `pnpm instantiate -- <绝对目标目录> ...`，完整命令与参数见文档。
+- [运行配置](docs/RUNTIME_CONFIGURATION.md)：三环境配置与 BaseURL。
+- [Agent 创建项目 Skill](.agents/skills/web-instantiate-project/SKILL.md)：创建流程与输入规则。
+- [Agent 入口](AGENTS.md)：让 Agent 按任务读取适用的规则。
+
+维护状态：Active。当前版本与发布状态见 [Version.md](Version.md)。
+
+许可证：企业专有商业许可，使用与分发前请阅读[中文许可](LICENSE.zh-CN.md)或[英文许可](LICENSE.en.md)。
