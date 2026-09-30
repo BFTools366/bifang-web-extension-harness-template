@@ -717,12 +717,12 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await updateManifest(
       targetRoot,
       /* 执行 当前声明 函数的处理逻辑。 */ (manifest) => {
-        manifest.packageManager = "pnpm@10.34.0"
-        manifest.engines = { node: ">=23.0.0", pnpm: ">=10.34.0" }
+        manifest.packageManager = "pnpm@12.9.0"
+        manifest.engines = { node: ">=27.0.0", pnpm: ">=12.9.0" }
         // 保存 devDependencies 变量供当前逻辑使用。
         const devDependencies = manifest.devDependencies as Record<string, string>
         devDependencies.typescript = "^6.1.0"
-        devDependencies.vitest = "~4.2.0"
+        devDependencies.vitest = "~5.1.0"
         devDependencies.eslint = "11.0.0"
       }
     )
@@ -737,11 +737,11 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await updateManifest(
       lowNodeRoot,
       /* 执行 当前声明 函数的处理逻辑。 */ (manifest) => {
-        manifest.engines = { node: ">=22.22.1", pnpm: ">=10.33.3" }
+        manifest.engines = { node: ">=26.9.0", pnpm: ">=12.8.1" }
       }
     )
     await expect(validateHarness(lowNodeRoot)).rejects.toThrow(
-      /Node engine minimum must not be lower than 22\.22\.2/
+      /Node engine minimum must not be lower than 26\.10\.0/
     )
 
     // 保存 rangedPnpmRoot 变量供当前逻辑使用。
@@ -749,7 +749,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await updateManifest(
       rangedPnpmRoot,
       /* 执行 当前声明 函数的处理逻辑。 */ (manifest) => {
-        manifest.packageManager = "pnpm@>=10.33.3"
+        manifest.packageManager = "pnpm@>=12.8.1"
       }
     )
     await expect(validateHarness(rangedPnpmRoot)).rejects.toThrow(
@@ -760,17 +760,17 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
   /** 验证 requires engines to express an open minimum rather than equality or capped ranges 场景。 */
   test("requires engines to express an open minimum rather than equality or capped ranges", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 node 变量供当前逻辑使用。
-    for (const node of ["22.22.2", "=22.22.2", "^22.22.2", "~22.22.2", ">=22.22.2 <23.0.0"]) {
+    for (const node of ["26.10.0", "=26.10.0", "^26.10.0", "~26.10.0", ">=26.10.0 <27.0.0"]) {
       // 保存 targetRoot 变量供当前逻辑使用。
       const targetRoot = await copyRepository()
       await updateManifest(
         targetRoot,
         /* 执行 当前声明 函数的处理逻辑。 */ (manifest) => {
-          manifest.engines = { node, pnpm: ">=10.33.3" }
+          manifest.engines = { node, pnpm: ">=12.8.1" }
         }
       )
       await expect(validateHarness(targetRoot)).rejects.toThrow(
-        /Node engine minimum must not be lower than 22\.22\.2/
+        /Node engine minimum must not be lower than 26\.10\.0/
       )
     }
   })
@@ -817,7 +817,7 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await updateManifest(
       prereleaseRoot,
       /* 执行 当前声明 函数的处理逻辑。 */ (manifest) => {
-        manifest.engines = { node: ">=23.0.0-beta.1", pnpm: ">=10.33.3" }
+        manifest.engines = { node: ">=27.0.0-beta.1", pnpm: ">=12.8.1" }
       }
     )
     await expect(validateHarness(prereleaseRoot)).rejects.toThrow(/Node engine minimum/)
@@ -827,8 +827,8 @@ describe("Harness template validator", /* 执行 当前声明 函数的处理逻
     await updateManifest(
       inconsistentPnpmRoot,
       /* 执行 当前声明 函数的处理逻辑。 */ (manifest) => {
-        manifest.packageManager = "pnpm@10.33.3"
-        manifest.engines = { node: ">=22.22.2", pnpm: ">=10.34.0" }
+        manifest.packageManager = "pnpm@12.8.1"
+        manifest.engines = { node: ">=26.10.0", pnpm: ">=12.9.0" }
       }
     )
     await expect(validateHarness(inconsistentPnpmRoot)).rejects.toThrow(

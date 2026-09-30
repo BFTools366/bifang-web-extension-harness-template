@@ -13,14 +13,14 @@
 
 ## 当前矩阵
 
-| 层级             | 必需证据                                                                                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------ |
-| 源结构           | `pnpm validate:harness`：文件、Skills、日期记忆、Markdown 链接、policy、注释、行数与初始化静态契约           |
-| 源行为           | `pnpm lint`、`pnpm typecheck`、非空 `pnpm test` 与相关 helper 隔离 Git 回归                                  |
-| Web 实例化       | 源外空目录、单一 `projectType=web`、无派生入口、三环境有效、独立 Git 根                                      |
-| Extension 实例化 | 源外空目录、单一 `projectType=extension`、最小 MV3 权限、无 Web Router/另一宿主、独立 Git 根                 |
-| Web 候选         | 唯一 Release build、版本注入、敏感信息扫描、Vite `dist`，以及当次适用的真实 Chrome 证据                      |
-| Extension 候选   | 唯一 Release build、版本/manifest/权限/敏感信息检查、同 profile zip，以及当次适用的真实 Chrome 证据          |
-| 源发布           | `Version.md` 为 Shanghai 时间版本 `Released`，提交完整，工作树 clean，`HEAD == origin/master` 且远端回读一致 |
+| 层级             | 必需证据                                                                                                                  |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 源结构           | `pnpm validate:harness`：文件、Skills、日期记忆、Markdown 链接、policy、注释、行数与初始化静态契约                        |
+| 源行为           | `pnpm lint`、`pnpm typecheck`、非空 `pnpm test` 与相关 helper 隔离 Git 回归                                               |
+| Web 实例化       | 源外空目录、单一 `projectType=web`、无派生入口、三环境有效、独立 Git 根                                                   |
+| Extension 实例化 | 源外空目录、单一 `projectType=extension`、最小 MV3 权限、独立入口代码 Router、无 Web 文件路由生成器/另一宿主、独立 Git 根 |
+| Web 候选         | 唯一 Release build、版本注入、敏感信息扫描、Vite `dist`，以及当次适用的真实 Chrome 证据                                   |
+| Extension 候选   | 唯一 Release build、版本/manifest/权限/敏感信息检查、同 profile zip，以及当次适用的真实 Chrome 证据                       |
+| 源发布           | `Version.md` 为 Shanghai 时间版本 `Released`，提交完整，工作树 clean，`HEAD == origin/master` 且远端回读一致              |
 
 桌面客户端、Rust/Tauri、桌面打包、签名、公证和桌面发布验证不属于本仓库。

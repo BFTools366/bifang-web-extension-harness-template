@@ -21,21 +21,30 @@ const publicEnvironmentKeys = [
   "VITE_APP_ENV",
   "VITE_API_BASE_URL",
   "VITE_LOG_LEVEL",
-  "VITE_REQUEST_TIMEOUT_MS"
+  "VITE_REQUEST_TIMEOUT_MS",
+  "PLASMO_PUBLIC_APP_ENV",
+  "PLASMO_PUBLIC_API_BASE_URL",
+  "PLASMO_PUBLIC_LOG_LEVEL",
+  "PLASMO_PUBLIC_REQUEST_TIMEOUT_MS"
 ] as const
 // 保存 savedEnvironment 变量供当前逻辑使用。
 const savedEnvironment = new Map<string, string | undefined>()
 
 // 执行 environmentFile 函数的处理逻辑。
-function environmentFile(environment: keyof BaseUrls, baseUrl: string): string {
+function environmentFile(
+  environment: keyof BaseUrls,
+  baseUrl: string,
+  projectType: "web" | "extension" = "web"
+): string {
   // 保存 logLevel 变量供当前逻辑使用。
   const logLevel =
     environment === "development" ? "debug" : environment === "test" ? "info" : "warn"
+  const prefix = projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
   return [
-    `VITE_APP_ENV=${environment}`,
-    `VITE_API_BASE_URL=${baseUrl}`,
-    `VITE_LOG_LEVEL=${logLevel}`,
-    "VITE_REQUEST_TIMEOUT_MS=10000",
+    `${prefix}APP_ENV=${environment}`,
+    `${prefix}API_BASE_URL=${baseUrl}`,
+    `${prefix}LOG_LEVEL=${logLevel}`,
+    `${prefix}REQUEST_TIMEOUT_MS=10000`,
     ""
   ].join("\n")
 }
@@ -44,21 +53,22 @@ function environmentFile(environment: keyof BaseUrls, baseUrl: string): string {
 async function createFixture(
   baseUrls: BaseUrls,
   contents: string,
-  options: { requireOtherReadableWebFiles?: boolean } = {}
+  options: { requireOtherReadableWebFiles?: boolean; projectType?: "web" | "extension" } = {}
 ): Promise<{ artifactRoot: string; root: string }> {
   // 保存 root 变量供当前逻辑使用。
   const root = await mkdtemp(path.join(os.tmpdir(), "release-inspection-"))
   roots.push(root)
   // 保存 artifactRoot 变量供当前逻辑使用。
-  const artifactRoot = path.join(root, "dist")
+  const projectType = options.projectType ?? "web"
+  const artifactRoot = path.join(root, projectType === "web" ? "dist" : "build/chrome-mv3-prod")
   await mkdir(path.join(root, ".harness"), { recursive: true })
-  await mkdir(artifactRoot)
+  await mkdir(artifactRoot, { recursive: true })
   await writeFile(
     path.join(root, ".harness/project.json"),
     `${JSON.stringify(
       {
         schemaVersion: 1,
-        projectType: "web",
+        projectType,
         name: "Release inspection fixture",
         id: "release-inspection-fixture",
         description: "Exercises release URL scanning.",
@@ -93,13 +103,21 @@ async function createFixture(
             : environment === "test"
               ? ".env.test"
               : ".env.production"
-        await writeFile(path.join(root, filename), environmentFile(environment, baseUrl))
+        await writeFile(
+          path.join(root, filename),
+          environmentFile(environment, baseUrl, projectType)
+        )
       }
     )
   )
-  await writeFile(path.join(artifactRoot, "index.html"), contents)
+  const pagePath = path.join(artifactRoot, projectType === "web" ? "index.html" : "popup.html")
+  await writeFile(pagePath, contents)
+  if (projectType === "extension") {
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "1.2.3" }))
+    await writeFile(path.join(artifactRoot, "manifest.json"), JSON.stringify({ version: "1.2.3" }))
+  }
   if (process.platform !== "win32") {
-    await chmod(path.join(artifactRoot, "index.html"), 0o644)
+    await chmod(pagePath, 0o644)
   }
   return { artifactRoot, root }
 }
@@ -122,7 +140,7 @@ afterEach(
       // 保存 value 变量供当前逻辑使用。
       const value = savedEnvironment.get(key)
       if (value === undefined) delete process.env[key]
-      else process.env[key] = value
+      else Object.assign(process.env, { [key]: value })
     }
     await Promise.all(
       roots
@@ -212,23 +230,46 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
   })
 
-  /** 验证 requires the current YYYYMMDDHHMM build version in the artifact 场景。 */
-  test("requires the current YYYYMMDDHHMM build version in the artifact", /* 执行当前测试用例的验证逻辑。 */ async () => {
+  /** 验证 Web 产物包含当次 YYMMDDHHMMSS 版本并拒绝旧字段顺序。 */
+  test("requires the current YYMMDDHHMMSS Web version in the artifact", /* 执行当前测试用例的验证逻辑。 */ async () => {
     // 保存 { root } 变量供版本注入断言使用。
     const { root } = await createFixture(
       baseUrls,
-      '<script>const buildVersion = "202608241234"</script>\n'
+      '<script>const buildVersion = "260824123459"</script>\n'
     )
 
     await expect(
-      inspectReleaseArtifact(root, { expectedBuildVersion: "202608241234" })
-    ).resolves.toMatchObject({ buildVersion: "202608241234" })
+      inspectReleaseArtifact(root, { expectedBuildVersion: "260824123459" })
+    ).resolves.toMatchObject({ buildVersion: "260824123459" })
     await expect(
-      inspectReleaseArtifact(root, { expectedBuildVersion: "202608241235" })
+      inspectReleaseArtifact(root, { expectedBuildVersion: "260824123500" })
     ).rejects.toThrow(/does not contain build version/)
     await expect(
-      inspectReleaseArtifact(root, { expectedBuildVersion: "2026-08-24" })
-    ).rejects.toThrow(/must use YYYYMMDDHHMM/)
+      inspectReleaseArtifact(root, { expectedBuildVersion: "202608241234" })
+    ).rejects.toThrow(/must use YYMMDDHHMMSS/)
+  })
+
+  /** 验证 Extension 的 package、manifest 与界面版本必须使用同一 SemVer。 */
+  test("matches Extension SemVer across package, manifest, and UI", /* 执行当前测试用例的验证逻辑。 */ async () => {
+    const { artifactRoot, root } = await createFixture(
+      baseUrls,
+      '<script>const buildVersion = "1.2.3"</script>\n',
+      { projectType: "extension" }
+    )
+    await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({ buildVersion: "1.2.3" })
+    await expect(inspectReleaseArtifact(root, { expectedBuildVersion: "1.2.4" })).rejects.toThrow(
+      /must equal package.json.version/
+    )
+    await writeFile(path.join(artifactRoot, "manifest.json"), JSON.stringify({ version: "1.2.4" }))
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/manifest version does not match/)
+    await writeFile(path.join(artifactRoot, "manifest.json"), JSON.stringify({ version: "1.2.3" }))
+    await writeFile(path.join(artifactRoot, "popup.html"), "<main>Release</main>\n")
+    await writeFile(path.join(artifactRoot, "metadata.json"), JSON.stringify({ note: "1.2.3" }))
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/does not contain build version/)
+    for (const version of ["1.2.3-beta.1", "0.0.0", "65536.0.0"]) {
+      await writeFile(path.join(root, "package.json"), JSON.stringify({ version }))
+      await expect(inspectReleaseArtifact(root)).rejects.toThrow(/stable SemVer/)
+    }
   })
 
   /** 验证 POSIX Web 候选的每个静态文件都必须允许 other 读取。 */

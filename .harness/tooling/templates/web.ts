@@ -4,6 +4,7 @@ import { escapeHtml, tsString } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
+import { themeFiles } from "./theme.ts"
 
 // 执行 renderWebIndex 函数的处理逻辑。
 export function renderWebIndex(config: ProjectConfig): string {
@@ -54,6 +55,7 @@ export function webFiles(
     ...httpFiles(config),
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
+    ...themeFiles(),
     ["index.html", renderWebIndex(config)],
     [
       "vite.config.ts",
@@ -133,6 +135,10 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
   notFoundDescription: "The requested page does not exist.",
   backHome: "Back to home",
   buildVersion: "Build version: {{version}}",
+  colorSchemeLabel: "Appearance",
+  colorSchemeAuto: "System",
+  colorSchemeLight: "Light",
+  colorSchemeDark: "Dark",
   paginationNavigation: "Pagination",
   paginationPage: "Page {{page}}",
   paginationPrevious: "Previous page",
@@ -152,6 +158,10 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
   notFoundDescription: "你访问的页面不存在。",
   backHome: "返回首页",
   buildVersion: "构建版本：{{version}}",
+  colorSchemeLabel: "外观",
+  colorSchemeAuto: "跟随系统",
+  colorSchemeLight: "亮色",
+  colorSchemeDark: "暗色",
   paginationNavigation: "分页",
   paginationPage: "第 {{page}} 页",
   paginationPrevious: "上一页",
@@ -203,17 +213,18 @@ export const queryClient = new QueryClient({
     ],
     [
       "src/app/theme.ts",
-      `import { createTheme, type MantineColorsTuple } from "@mantine/core"
+      `import { createTheme } from "@mantine/core"
 import { BRAND } from "../brand"
-
-const brandScale = Array.from(
-  { length: 10 },
-  () => BRAND.primaryColor
-) as unknown as MantineColorsTuple
+import { BRAND_TEXT_LUMINANCE_THRESHOLD, createBrandScale } from "../theme/brandScale"
 
 export const theme = createTheme({
-  colors: { brand: brandScale },
+  colors: { brand: createBrandScale(BRAND.primaryColor) },
   primaryColor: "brand",
+  primaryShade: { light: 6, dark: 4 },
+  autoContrast: true,
+  luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD,
+  focusRing: "auto",
+  respectReducedMotion: true,
   fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
   headings: { fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }
 })
@@ -221,11 +232,16 @@ export const theme = createTheme({
     ],
     [
       "src/app/AppProviders.tsx",
-      `import { MantineProvider } from "@mantine/core"
+      `import { MantineProvider, localStorageColorSchemeManager } from "@mantine/core"
 import { QueryClientProvider } from "@tanstack/react-query"
 import type { ReactNode } from "react"
+import { BRAND } from "../brand"
 import { queryClient } from "./queryClient"
 import { theme } from "./theme"
+
+const colorSchemeManager = localStorageColorSchemeManager({
+  key: BRAND.id + ":color-scheme:v1"
+})
 
 /** 说明 AppProvidersProps 的稳定结构与职责边界。 */
 interface AppProvidersProps {
@@ -235,7 +251,7 @@ interface AppProvidersProps {
 /** 说明 AppProviders 的稳定结构与职责边界。 */
 export function AppProviders({ children }: AppProvidersProps) {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={theme} defaultColorScheme="auto" colorSchemeManager={colorSchemeManager}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   )
@@ -264,6 +280,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
 import { BUILD_VERSION } from "../../buildVersion"
+import { ColorSchemeControl } from "../../theme/ColorSchemeControl"
 
 /** 说明 WelcomePage 的稳定结构与职责边界。 */
 export function WelcomePage() {
@@ -277,9 +294,10 @@ export function WelcomePage() {
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start">
               <Image src={BRAND.logoPath} alt={BRAND.name} w={88} h={88} radius="xl" />
-              <Badge variant="default">
-                {t("eyebrow")}
-              </Badge>
+              <Stack gap="xs" align="flex-end">
+                <Badge variant="default">{t("eyebrow")}</Badge>
+                <ColorSchemeControl />
+              </Stack>
             </Group>
             <div>
               <Title order={1}>{BRAND.name}</Title>
@@ -332,6 +350,9 @@ test("renders the branded landing interaction", async () => {
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
+  await user.click(screen.getByText("Dark"))
+  expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
+  expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
 })
 `
     ],
@@ -434,8 +455,12 @@ createRoot(root).render(
     ],
     [
       "src/styles.css",
-      `:root {
+      `:root[data-mantine-color-scheme="light"] {
   color-scheme: light;
+}
+
+:root[data-mantine-color-scheme="dark"] {
+  color-scheme: dark;
 }
 
 body {
@@ -448,7 +473,8 @@ body {
   display: grid;
   place-items: center;
   padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
-  background: var(--mantine-color-gray-0);
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
 }
 `
     ]

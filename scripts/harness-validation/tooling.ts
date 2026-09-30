@@ -3,6 +3,7 @@ import path from "node:path"
 import { inspectChineseComments } from "../../.harness/tooling/comment-policy.ts"
 import { pathExists, readJson } from "../../.harness/tooling/files.ts"
 import { assertPackageManagerPins, declaredVersionAtLeast } from "../../.harness/tooling/version.ts"
+import { validatePnpmBuildPolicy } from "../../.harness/tooling/pnpm-policy.ts"
 import { REQUIRED_FILES } from "./contracts.ts"
 import {
   containsIdentifier,
@@ -23,7 +24,6 @@ import {
 
 // 保存 FORBIDDEN_TEMPLATE_PATHS 变量供当前逻辑使用。
 const FORBIDDEN_TEMPLATE_PATHS = [
-  "pnpm-workspace.yaml",
   "apps",
   "packages",
   ".harness/project.json",
@@ -71,6 +71,7 @@ export async function validateToolingContract(root: string, errors: string[]): P
   const manifest = await readJson<Record<string, unknown>>(path.join(root, "package.json"))
   if ("workspaces" in manifest) errors.push("Template package.json must not define workspaces")
   assertPackageManagerPins(manifest, errors)
+  await validatePnpmBuildPolicy(root, errors)
   // 保存 scripts 变量供当前逻辑使用。
   const scripts = manifest.scripts as Record<string, unknown> | undefined
   // 保存 script 变量供当前逻辑使用。
@@ -98,8 +99,8 @@ export async function validateToolingContract(root: string, errors: string[]): P
   // 保存 [dependency, version] 变量供当前逻辑使用。
   for (const [dependency, version] of [
     ["typescript", "6.0.3"],
-    ["vitest", "4.1.10"],
-    ["eslint", "10.8.1"]
+    ["vitest", "5.0.2"],
+    ["eslint", "10.11.0"]
   ] as const) {
     if (!declaredVersionAtLeast(devDependencies?.[dependency], version)) {
       errors.push(`${dependency} minimum must not be lower than ${version}`)

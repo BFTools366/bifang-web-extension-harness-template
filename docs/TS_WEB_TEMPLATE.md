@@ -10,7 +10,7 @@
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
 - 不支持 `both`，不提供默认类型，也不提供下游 target add/remove。
 - Web 与 Extension 是两个独立模板；它们不在同一仓库共存，不共享源码、状态、测试、品牌派生或构建产物。
-- 输出是单个 pnpm package，不存在 `pnpm-workspace.yaml`、`apps/`、`packages/` 或 workspace 内部依赖。
+- 输出是单个 pnpm package，不存在 `apps/`、`packages/` 或 workspace 内部依赖。根 `pnpm-workspace.yaml` 只配置 `allowBuilds`，不得声明 `packages` 或引入第二个包。
 - 已生成项目不原地切换类型。需要另一宿主时，在另一个目录初始化新的独立仓库。
 - 初始化同时建立 development、test、release 三个逻辑环境；逻辑 `release` 固定映射到 `.env.production`，不生成 `.env.release`。
 
@@ -127,7 +127,7 @@ Extension 初始化必须同步：
 - 只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；旧响应、错误和暂时空态保持当前位置。这是通用 session 分页状态机；Web 路由列表按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 的封闭 Router 恢复契约特化。生成的组件/hook 不自动挂进非分页 Landing、404、Popup 或 Options。
 - 原生 Fetch client 当前只接受冻结 `APP_CONFIG` 单一 BaseURL 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；未来多 target 由真实域 adapter 与只读 registry 加入。每次 dispatch 动态发送有值的 `X-Http-Request`、`X-Lang` 与 `X-AUTH-TOKEN`；continuation 和 Token 只从同一受控 API 边界的 2xx 响应提取，并用 sequence/revision 防止乱序覆盖。
 - `X-Http-Request` 是服务端签发、供后续请求传播的 opaque continuation/correlation 值，不是客户端 request-id。语言偏好按项目命名空间写入 localStorage，异常时回退浏览器语言与英文；Token/continuation 只保存在当前执行上下文内存，禁止写入环境、localStorage、sessionStorage 或日志。
-- 401 只在当前请求使用的 Token 仍为当前 revision 时清理它与同一会话的 continuation，并通过 single-flight `UnauthorizedHandler` 调用真实宿主 adapter。同一失效周期只调用一次；Web 只有存在真实登录 route 后才注入 `router.navigate`，Extension 不使用 Router，也不虚构 background、登录页或跨 Popup/Options 共享会话。
+- 401 只在当前请求使用的 Token 仍为当前 revision 时清理它与同一会话的 continuation，并通过 single-flight `UnauthorizedHandler` 调用真实宿主 adapter。同一失效周期只调用一次；Web 只有存在真实登录 route 后才注入 `router.navigate`，Extension 只有存在真实登录入口后才接入本入口 Router 或宿主 adapter，也不虚构 background、登录页或跨 Popup/Options 共享会话。
 - 基线不安装 Ky/Axios。真实 Ky/openapi-fetch adapter、CORS、Cookie、跨域 endpoint 与 Extension 跨上下文认证仍按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 单独落地；配置 BaseURL 不自动新增 `permissions` 或 `host_permissions`。
 
 ### 3.7 Mantine UI 规范基线
@@ -216,6 +216,7 @@ src/
 | ----------- | ---------------------------------------------- | ----------------------------------------------------------------------------------- |
 | 构建与开发  | Plasmo + Chrome MV3                            | 只服务当前 Extension 单包                                                           |
 | UI          | React + TypeScript + Mantine                   | Popup/Options 各自挂载并遵循 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) |
+| 路由        | TanStack Router 代码路由                       | Popup memory history；Options hash history；各自持有 Router 实例                    |
 | 异步数据    | TanStack Query                                 | 负责异步数据与缓存，不包装全部 Chrome API                                           |
 | HTTP 与分页 | 原生 Fetch + 统一分页基础                      | 无业务 endpoint 或预置 host permissions                                             |
 | 实时数据    | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                                                             |
@@ -226,13 +227,13 @@ src/
 | 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                    |
 | 测试        | Vitest + Testing Library                       | Chrome API 可受控替换；E2E、完整验收 smoke 或硬要求需要时使用真实 Chrome            |
 
-Extension 基线不使用 TanStack Router。Popup 与 Options 是独立入口；如果某个入口内部没有真实多页需求，不应引入站内路由抽象。
+Extension 基线在 Popup 与 Options 分别挂载 TanStack Router，使用共享的代码路由工厂而非 Web 文件路由生成器。中性基线各只有一个根页面；真实页内导航随产品需求加入，不让两个入口共享内存路由状态。
 
-Extension 不保留或调用 `$web-implement-list-view`，也不为复用其 URL/session 恢复、图标或 DnD 路径增加 Router 和可选依赖。
+Extension 不保留或调用 `$web-implement-list-view`，也不复用其 Web 列表 URL/session 恢复、图标或 DnD 路径。
 
 Extension 与 Web 生成相同的 `src/pagination/` 和 `src/api/client/` 本地工程契约，但每个 Popup、Options、content script 或 service worker 都有独立的 JavaScript 执行上下文。sessionStorage、内存 Token/continuation 与 401 single-flight 不跨上下文；初始化不为了共享它们增加 background、`storage`、消息入口或权限。产品确需跨上下文认证时必须先定义唯一所有者、类型化消息、生命周期和拒绝路径，再取得权限/隐私批准并进入真实 Chrome 验证门禁。
 
-Extension 的 `package.json.targets.default` 必须显式声明 `context: "browser"` 与 `includeNodeModules: true`。这不是 Chrome manifest 权限，而是 Parcel 打包边界：React、Mantine、TanStack Query、Jotai、i18next 等运行时依赖必须进入最终浏览器 bundle，不得留下浏览器无法解析的裸包 self-map。
+Extension 的 `package.json.targets.default` 必须显式声明 `context: "browser"` 与 `includeNodeModules: true`，`@parcel/resolver-default.packageExports` 必须为 `true`。这不是 Chrome manifest 权限，而是 Parcel 打包边界：React、Mantine、TanStack Router、TanStack Query、Jotai、i18next 等运行时依赖必须进入最终浏览器 bundle，TanStack Router 的 `isServer` 子路径必须选择浏览器条件入口，不得留下浏览器无法解析的裸包 self-map。
 
 Chrome MV3 额外约束：
 
@@ -275,6 +276,9 @@ src/pagination/PaginationControls.tsx
 src/pagination/useSessionPagination.ts
 src/pagination/pagination.test.tsx
 src/routes/
+src/theme/brandScale.ts
+src/theme/brandScale.test.ts
+src/theme/ColorSchemeControl.tsx
 src/main.tsx
 index.html
 package.json
@@ -303,6 +307,10 @@ src/
   pagination/PaginationControls.tsx
   pagination/useSessionPagination.ts
   pagination/pagination.test.tsx
+  theme/brandScale.ts
+  theme/brandScale.test.ts
+  theme/ColorSchemeControl.tsx
+  extension-router.tsx
   popup.tsx
   options.tsx
   style.css

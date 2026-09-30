@@ -5,34 +5,34 @@ type PackageJson = Record<string, unknown>
 
 // 保存 runtimeVersions 变量供当前逻辑使用。
 const runtimeVersions = {
-  react: "19.2.8",
-  reactDom: "19.2.8",
-  mantine: "9.6.1",
-  query: "5.102.8",
-  router: "1.170.25",
-  jotai: "2.20.2",
-  i18next: "26.3.6",
-  reactI18next: "17.0.11"
+  react: "19.3.0",
+  reactDom: "19.3.0",
+  mantine: "9.6.3",
+  query: "5.104.0",
+  router: "1.170.40",
+  jotai: "3.0.1",
+  i18next: "26.4.2",
+  reactI18next: "17.0.15"
 } as const
 
 // 保存 toolingVersions 变量供当前逻辑使用。
 const toolingVersions = {
-  typesReact: "19.2.18",
-  typesReactDom: "19.2.4",
-  vite: "8.2.1",
-  viteReact: "6.0.5",
-  routerCli: "1.167.27",
-  routerPlugin: "1.168.29",
+  typesReact: "19.3.0",
+  typesReactDom: "19.3.0",
+  vite: "8.3.1",
+  viteReact: "6.1.1",
+  routerCli: "1.167.39",
+  routerPlugin: "1.168.41",
   plasmo: "0.90.5",
-  typesChrome: "0.2.5"
+  typesChrome: "0.3.4"
 } as const
 
 // 保存 testingVersions 变量供当前逻辑使用。
 const testingVersions = {
-  testingLibrary: "16.3.2",
-  jestDom: "6.9.1",
-  userEvent: "14.6.3",
-  jsdom: "30.0.1"
+  testingLibrary: "16.3.3",
+  jestDom: "7.0.1",
+  userEvent: "14.6.7",
+  jsdom: "30.1.1"
 } as const
 
 // 执行 asRecord 函数的处理逻辑。
@@ -83,7 +83,7 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
   const dependencies = {
     ...asRecord(existing.dependencies),
     ...commonDependencies(),
-    ...(config.projectType === "web" ? { "@tanstack/react-router": runtimeVersions.router } : {})
+    "@tanstack/react-router": runtimeVersions.router
   }
   // 保存 devDependencies 变量供当前逻辑使用。
   const devDependencies = {
@@ -131,11 +131,8 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
     private: true,
     description: config.description,
     type: "module",
-    engines: { node: ">=22.22.2", pnpm: ">=10.33.3" },
-    packageManager: "pnpm@10.33.3",
-    pnpm: {
-      onlyBuiltDependencies: ["@parcel/watcher", "esbuild", "sharp"]
-    },
+    engines: { node: ">=26.10.0", pnpm: ">=12.8.1" },
+    packageManager: "pnpm@12.8.1",
     scripts,
     dependencies,
     devDependencies
@@ -143,6 +140,8 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
 
   delete manifest.workspaces
   if (config.projectType === "extension") {
+    // 强制 Parcel 按浏览器条件解析 TanStack Router 的 isServer 子路径。
+    manifest["@parcel/resolver-default"] = { packageExports: true }
     manifest.targets = {
       default: {
         context: "browser",

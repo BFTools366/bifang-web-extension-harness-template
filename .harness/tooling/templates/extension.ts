@@ -4,6 +4,7 @@ import { tsString } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
+import { themeFiles } from "./theme.ts"
 
 // 执行 renderExtensionBrand 函数的处理逻辑。
 export function renderExtensionBrand(config: ProjectConfig): string {
@@ -33,6 +34,7 @@ export function extensionFiles(
     ...httpFiles(config),
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
+    ...themeFiles(),
     ["src/brand.ts", renderExtensionBrand(config)],
     [
       "src/plasmo.d.ts",
@@ -78,6 +80,10 @@ void i18n.use(initReactI18next).init({
         action: "Test local state",
         buildVersion: "Build version: {{version}}",
         count: "Interaction count: {{count}}",
+        colorSchemeLabel: "Appearance",
+        colorSchemeAuto: "System",
+        colorSchemeLight: "Light",
+        colorSchemeDark: "Dark",
         paginationNavigation: "Pagination",
         paginationPage: "Page {{page}}",
         paginationPrevious: "Previous page",
@@ -93,6 +99,10 @@ void i18n.use(initReactI18next).init({
         action: "测试本地状态",
         buildVersion: "构建版本：{{version}}",
         count: "交互次数：{{count}}",
+        colorSchemeLabel: "外观",
+        colorSchemeAuto: "跟随系统",
+        colorSchemeLight: "亮色",
+        colorSchemeDark: "暗色",
         paginationNavigation: "分页",
         paginationPage: "第 {{page}} 页",
         paginationPrevious: "上一页",
@@ -112,17 +122,25 @@ export default i18n
     [
       "src/providers.tsx",
       `import type { PropsWithChildren } from "react"
-import { MantineProvider, createTheme, type MantineColorsTuple } from "@mantine/core"
+import { MantineProvider, createTheme, localStorageColorSchemeManager } from "@mantine/core"
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BRAND } from "./brand"
 import { createLogger } from "./observability/logger"
+import { BRAND_TEXT_LUMINANCE_THRESHOLD, createBrandScale } from "./theme/brandScale"
 
-const brandScale = Array.from({ length: 10 }, () => BRAND.primaryColor) as unknown as MantineColorsTuple
 const theme = createTheme({
-  colors: { brand: brandScale },
+  colors: { brand: createBrandScale(BRAND.primaryColor) },
   primaryColor: "brand",
+  primaryShade: { light: 6, dark: 4 },
+  autoContrast: true,
+  luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD,
+  focusRing: "auto",
+  respectReducedMotion: true,
   fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
   headings: { fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }
+})
+const colorSchemeManager = localStorageColorSchemeManager({
+  key: BRAND.id + ":color-scheme:v1"
 })
 const logger = createLogger("query")
 const queryClient = new QueryClient({
@@ -137,7 +155,7 @@ const queryClient = new QueryClient({
 /** 说明 Providers 的稳定结构与职责边界。 */
 export function Providers({ children }: PropsWithChildren) {
   return (
-    <MantineProvider theme={theme} defaultColorScheme="light">
+    <MantineProvider theme={theme} defaultColorScheme="auto" colorSchemeManager={colorSchemeManager}>
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </MantineProvider>
   )
@@ -152,6 +170,7 @@ import { useEffect, useState } from "react"
 import { BRAND } from "./brand"
 import { BUILD_VERSION } from "./buildVersion"
 import { createLogger } from "./observability/logger"
+import { ColorSchemeControl } from "./theme/ColorSchemeControl"
 
 /** 说明 ExtensionShellProps 的稳定结构与职责边界。 */
 interface ExtensionShellProps {
@@ -189,9 +208,14 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
         <Stack gap="md">
           <Group justify="space-between" align="flex-start">
             <Image src={iconUrl} alt={BRAND.name} w={64} h={64} radius="lg" />
-            <Badge variant="default">
-              {t(surface === "popup" ? "popupReady" : "optionsReady")}
-            </Badge>
+            <Stack gap="xs" align="flex-end" miw={0} maw="100%">
+              {surface === "popup" ? (
+                <Text c="dimmed" size="xs" fw={600}>{t("popupReady")}</Text>
+              ) : (
+                <Badge variant="default">{t("optionsReady")}</Badge>
+              )}
+              <ColorSchemeControl compact={surface === "popup"} />
+            </Stack>
           </Group>
           <div>
             <Title order={1}>{BRAND.name}</Title>
@@ -210,14 +234,55 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
 `
     ],
     [
+      "src/extension-router.tsx",
+      `import {
+  Outlet,
+  createHashHistory,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter
+} from "@tanstack/react-router"
+import { ExtensionShell } from "./ExtensionShell"
+
+/** 约束 Extension 路由所属的独立入口。 */
+type ExtensionSurface = "popup" | "options"
+
+/** 为 Popup 和 Options 分别创建单入口路由树与历史记录。 */
+export function createExtensionRouter(surface: ExtensionSurface, iconUrl: string) {
+  const rootRoute = createRootRoute({ component: Outlet })
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => <ExtensionShell iconUrl={iconUrl} surface={surface} />
+  })
+  return createRouter({
+    routeTree: rootRoute.addChildren([indexRoute]),
+    history: surface === "popup"
+      ? createMemoryHistory({ initialEntries: ["/"] })
+      : createHashHistory()
+  })
+}
+
+declare module "@tanstack/react-router" {
+  /** 绑定 Extension 代码路由工厂的类型注册。 */
+  interface Register {
+    router: ReturnType<typeof createExtensionRouter>
+  }
+}
+`
+    ],
+    [
       "src/ExtensionShell.test.tsx",
       `// @vitest-environment jsdom
 import "./i18n"
 import { render, screen } from "@testing-library/react"
+import { RouterProvider } from "@tanstack/react-router"
 import userEvent from "@testing-library/user-event"
 import { expect, test } from "vitest"
 import { BRAND } from "./brand"
 import { ExtensionShell } from "./ExtensionShell"
+import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
 
 /** 验证当前场景的核心成功或风险边界。 */
@@ -235,40 +300,93 @@ test("renders the branded popup interaction", async () => {
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
+  await user.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "dark")
+  expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
+  expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
+})
+
+/** 验证 Popup 与 Options 各自的代码路由可以挂载页面。 */
+test("mounts the popup route", async () => {
+  const router = createExtensionRouter("popup", "data:image/png;base64,test")
+  render(<Providers><RouterProvider router={router} /></Providers>)
+  expect(await screen.findByText("Chrome extension ready")).toBeInTheDocument()
+})
+
+/** 验证 Options 首次打开没有 hash 时仍进入根路由。 */
+test("mounts the options route without a hash", async () => {
+  const originalUrl = window.location.href
+  window.history.replaceState(null, "", window.location.pathname + window.location.search)
+  try {
+    const router = createExtensionRouter("options", "data:image/png;base64,test")
+    const view = render(<Providers><RouterProvider router={router} /></Providers>)
+    expect(await screen.findByText("Extension settings")).toBeInTheDocument()
+    expect(router.history.location.pathname).toBe("/")
+    view.unmount()
+  } finally {
+    window.history.replaceState(null, "", originalUrl)
+  }
+})
+
+/** 验证 Options 导航写入 hash 后新 Router 能从 URL 恢复。 */
+test("restores options hash navigation after a reload", async () => {
+  const originalUrl = window.location.href
+  window.history.replaceState(null, "", window.location.pathname + window.location.search)
+  try {
+    const router = createExtensionRouter("options", "data:image/png;base64,test")
+    const view = render(<Providers><RouterProvider router={router} /></Providers>)
+    expect(await screen.findByText("Extension settings")).toBeInTheDocument()
+    await router.navigate({ to: "/", hash: "probe" })
+    expect(window.location.hash).toContain("probe")
+    view.unmount()
+
+    const reloadedRouter = createExtensionRouter("options", "data:image/png;base64,test")
+    render(<Providers><RouterProvider router={reloadedRouter} /></Providers>)
+    expect(await screen.findByText("Extension settings")).toBeInTheDocument()
+    expect(reloadedRouter.history.location.href).toContain("probe")
+  } finally {
+    window.history.replaceState(null, "", originalUrl)
+  }
 })
 `
     ],
     [
       "src/popup.tsx",
-      `${entryStyles}import iconUrl from "data-base64:../assets/icon.png"
-import { ExtensionShell } from "./ExtensionShell"
+      `${entryStyles}import { RouterProvider } from "@tanstack/react-router"
+import iconUrl from "data-base64:../assets/icon.png"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
+import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
+
+const router = createExtensionRouter("popup", iconUrl)
 
 /** 说明 Popup 的稳定结构与职责边界。 */
 export default function Popup() {
-  return <AppErrorBoundary><Providers><ExtensionShell iconUrl={iconUrl} surface="popup" /></Providers></AppErrorBoundary>
+  return <AppErrorBoundary><Providers><RouterProvider router={router} /></Providers></AppErrorBoundary>
 }
 `
     ],
     [
       "src/options.tsx",
-      `${entryStyles}import iconUrl from "data-base64:../assets/icon.png"
-import { ExtensionShell } from "./ExtensionShell"
+      `${entryStyles}import { RouterProvider } from "@tanstack/react-router"
+import iconUrl from "data-base64:../assets/icon.png"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
+import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
+
+const router = createExtensionRouter("options", iconUrl)
 
 /** 说明 Options 的稳定结构与职责边界。 */
 export default function Options() {
-  return <AppErrorBoundary><Providers><ExtensionShell iconUrl={iconUrl} surface="options" /></Providers></AppErrorBoundary>
+  return <AppErrorBoundary><Providers><RouterProvider router={router} /></Providers></AppErrorBoundary>
 }
 `
     ],
     [
       "src/style.css",
-      `:root { color-scheme: light; }
-body { margin: 0; background: var(--mantine-color-gray-0); }
-.popup-shell { box-sizing: border-box; width: 380px; padding: var(--mantine-spacing-md); }
+      `:root[data-mantine-color-scheme="light"] { color-scheme: light; }
+:root[data-mantine-color-scheme="dark"] { color-scheme: dark; }
+body { margin: 0; background: var(--mantine-color-body); color: var(--mantine-color-text); }
+.popup-shell { box-sizing: border-box; min-width: 320px; width: min(380px, 100%); padding: var(--mantine-spacing-md); overflow-wrap: anywhere; }
 .options-shell { box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: var(--mantine-spacing-xl) var(--mantine-spacing-md); }
 `
     ]

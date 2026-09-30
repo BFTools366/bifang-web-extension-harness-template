@@ -4,7 +4,7 @@ import type { ProjectConfig } from "../types.ts"
 function stackName(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "Vite + React/TypeScript、Mantine、TanStack Router、TanStack Query、Jotai 与 i18next"
-    : "Plasmo + Chrome MV3 + React/TypeScript、Mantine、TanStack Query、Jotai 与 i18next"
+    : "Plasmo + Chrome MV3 + React/TypeScript、Mantine、TanStack Router、TanStack Query、Jotai 与 i18next"
 }
 
 // 执行 brandAssets 函数的处理逻辑。
@@ -21,13 +21,20 @@ function artifact(config: ProjectConfig): string {
     : "Plasmo 生成的 Chrome MV3 构建与受验收 zip"
 }
 
+// 返回当前宿主独立的页面构建版本来源。
+function buildVersionSource(config: ProjectConfig): string {
+  return config.projectType === "web"
+    ? "上海时区 `YYMMDDHHMMSS`"
+    : "`package.json.version` 的稳定 SemVer（`X.Y.Z`）"
+}
+
 // 执行 engineeringRules 函数的处理逻辑。
 function engineeringRules(config: ProjectConfig): string {
   // 保存 hostRules 变量供当前逻辑使用。
   const hostRules =
     config.projectType === "web"
       ? `- Web 按 \`app → routes → features → api\` 组织；\`api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 部署前明确 base path、路由回退、CSP、跨域、缓存和环境变量边界。`
-      : `- Popup 与 Options 是独立 Plasmo 入口；没有真实页内导航需求时不引入路由器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Service worker 可能随时回收，不能依赖进程内长期状态；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化 Chrome 消息或 Port。`
+      : `- Popup 与 Options 是独立 Plasmo 入口，各自挂载 TanStack Router；Popup 使用 memory history，Options 使用 hash history。 \`src/extension-router.tsx\` 用代码声明路由，不使用 Web 文件路由生成器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Service worker 可能随时回收，不能依赖进程内长期状态；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化 Chrome 消息或 Port。`
   // 保存 routeTreeExclusion 变量供当前逻辑使用。
   const routeTreeExclusion = config.projectType === "web" ? " src/routeTree.gen.ts、" : " "
 
@@ -38,7 +45,7 @@ function engineeringRules(config: ProjectConfig): string {
 ## 项目边界
 
 - \`.harness/project.json\` 是项目名称、标识、描述、唯一 \`projectType\` 与品牌配置的事实源。
-- 项目保持平铺 pnpm 单包；不得加入 workspace、\`apps/\`、\`packages/\`、第二宿主或项目类型切换入口。
+- 项目保持平铺 pnpm 单包；\`pnpm-workspace.yaml\` 仅配置 \`allowBuilds\`，不得声明 \`packages\`、引入多包 workspace、\`apps/\`、第二宿主或项目类型切换入口。
 - 固定技术栈：${stackName(config)}。
 - \`.harness/brand/logo-1024.png\` 是 Logo 母版；${brandAssets(config)}只能由受管品牌流程派生。
 - 保护用户和其他 Agent 的既有修改；未知文件默认归用户所有，不得用整文件覆盖绕过冲突。
@@ -72,8 +79,8 @@ ${hostRules}
 
 - 行为变化必须有非空测试，至少覆盖核心成功路径和最高风险失败路径。
 - 日常任务只运行本次变化需要的相关非空测试或最小替代检查，通常使用 \`pnpm test:related <changed-source...>\`；依赖图没有发现测试时，必须改跑所属非空测试文件或说明相称替代验证。不得自动追加格式、lint、类型、全仓检查或构建；全量 \`pnpm test\` 只在行为保持重构或最终构建/发布时运行。
-- \`pnpm build\` 是唯一最终产物入口并固定委托 \`build:release\`，无论本机还是 CI/其他平台都使用逻辑 Release。每次构建先询问当次 E2E 选择，非交互入口显式传 \`--e2e=enabled|disabled\`；它自动运行环境、Harness、格式、lint、类型与全量测试，按上海时区注入 \`YYYYMMDDHHMM\` 页面版本，再完成生产构建与含版本命中的 \`release:inspect\`。不得提供 development/test 产物构建脚本。
-- 构建命令、时间版本、E2E 选择及其测试、扫描或浏览器结果只进入命令输出和当前任务交付说明，不创建或更新 Work Plan、ADR、Status、Changelog、Verification 或其他持久项目记忆。
+- \`pnpm build\` 是唯一最终产物入口并固定委托 \`build:release\`，无论本机还是 CI/其他平台都使用逻辑 Release。每次构建先询问当次 E2E 选择，非交互入口显式传 \`--e2e=enabled|disabled\`；它自动运行环境、Harness、格式、lint、类型与全量测试，注入${buildVersionSource(config)}页面版本，再完成生产构建与含版本命中的 \`release:inspect\`。不得提供 development/test 产物构建脚本。
+- 构建命令、页面版本、E2E 选择及其测试、扫描或浏览器结果只进入命令输出和当前任务交付说明，不创建或更新 Work Plan、ADR、Status、Changelog、Verification 或其他持久项目记忆。
 - Mock 只能隔离外部依赖，不能替代最终构建验收。未运行的浏览器、操作系统或渠道写为 \`Unverified\`。
 - 发布、部署、商店上传、凭据、生产数据和不可逆外部副作用必须另行取得明确授权。
 `
@@ -93,7 +100,7 @@ function releaseRules(config: ProjectConfig): string {
 
 ## 版本事实
 
-- 根 \`package.json.version\` 是软件版本事实；\`pnpm-lock.yaml\` 固定依赖解析。
+- ${config.projectType === "web" ? "页面候选版本由构建时的上海时间 `YYMMDDHHMMSS` 生成；`package.json.version` 仅是包元数据。" : "根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）是软件、页面与 MV3 manifest 的同一版本事实；每段不超过 65535，三段不能全为零，构建和打包不自动递增。"}\`pnpm-lock.yaml\` 固定依赖解析。
 - 版本、源码提交、锁文件、构建产物和验证证据必须指向同一候选；构建后的行为或品牌修改会产生新候选。
 - 当前唯一发布产物是${artifact(config)}，不得用另一宿主或开发预览替代。
 
@@ -101,7 +108,7 @@ function releaseRules(config: ProjectConfig): string {
 
 1. \`.harness/project.json.projectType\` 必须仍为 \`${config.projectType}\`，仓库保持单包且没有另一宿主入口。
 2. 每次构建前取得当次 E2E \`enabled|disabled\` 选择，再对同一源码实际运行 \`pnpm build -- --e2e=<selection>\`；该唯一 Release 构建入口必须自动完成 \`pnpm harness validate\`、格式、lint、typecheck 与非空全量单元测试，不在外层重复执行同一批门禁。
-3. \`pnpm build\` 必须校验三份受管环境配置和活动 Release profile，生成并展示上海时区 \`YYYYMMDDHHMM\` 构建版本，并在生产构建后自动通过包含版本命中的 \`pnpm release:inspect\`；${artifactChecks}development/test profile 不得生成候选产物。
+3. \`pnpm build\` 必须校验三份受管环境配置和活动 Release profile，${config.projectType === "web" ? "生成" : "读取"}并展示${buildVersionSource(config)}构建版本，并在生产构建后自动通过包含版本命中的 \`pnpm release:inspect\`；${artifactChecks}development/test profile 不得生成候选产物。
 4. 当次 E2E 选择 \`enabled\` 或产品、安全、渠道硬要求浏览器验证时，只对上述精确 Release 候选运行；选择 \`disabled\` 时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
 5. 在当前任务交付说明中报告源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题；构建操作本身不写入 ADR、Changelog、Verification 或其他持久项目记忆。
 6. 必需检查失败、取消、超时或未执行时结论为 \`Not ready\`；不能用历史结果或部分成功替代。
@@ -135,7 +142,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 浏览器公开前缀中的值会进入产物，绝不保存 Token、Cookie、密码、API key 或服务端秘密。业务代码只读 \`src/config/environment.ts\` 导出的冻结 \`APP_CONFIG\`，不得散落读取宿主环境变量或拼接任意 BaseURL。
 
-构建编排器只向宿主生产构建子进程注入只读的 \`${prefix}BUILD_VERSION\`，值为上海时区 \`YYYYMMDDHHMM\`；它不属于四个可配置 profile 键，不得写入 \`.env*\` 或 \`APP_CONFIG\`。页面通过 \`src/buildVersion.ts\` 展示该值，\`release:inspect\` 使用同一私有期望值确认候选命中。
+构建编排器只向宿主生产构建子进程注入只读的 \`${prefix}BUILD_VERSION\`，值为${buildVersionSource(config)}；它不属于四个可配置 profile 键，不得写入 \`.env*\` 或 \`APP_CONFIG\`。页面通过 \`src/buildVersion.ts\` 展示该值，\`release:inspect\` 使用同一私有期望值确认候选命中。${config.projectType === "extension" ? "MV3 manifest 版本还必须与 `package.json.version` 一致。" : ""}
 
 语言偏好、分页 session、\`X-Http-Request\` continuation 与 \`X-AUTH-TOKEN\` 都是运行时状态，不进入任何公开环境键；其存储、并发和清理规则见 \`docs/DATA_ACCESS.md\`。
 
@@ -145,7 +152,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 - \`pnpm env:validate\`：校验三份文件。
 - \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖。
-- \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；每次先询问 E2E，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入 12 位页面版本后自动运行 \`pnpm release:inspect\`。
+- \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；每次先询问 E2E，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
 
 Node.js、pnpm 与 Chrome 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。
 
@@ -175,7 +182,7 @@ function loggingRules(config: ProjectConfig): string {
 - body、headers、GraphQL variables、Storage、页面内容、完整标签页 URL 与任意对象快照禁止记录。
 - 日志构造、清理、时钟或 sink 失败不得中断业务路径。
 
-\`pnpm build:release\` 和 Extension \`pnpm package\` 在注入当次 12 位页面版本并生成产物后自动运行 \`pnpm release:inspect\`。${
+\`pnpm build:release\` 和 Extension \`pnpm package\` 在注入${buildVersionSource(config)}页面版本并生成产物后自动运行 \`pnpm release:inspect\`。${
     config.projectType === "extension"
       ? "Extension 还会先运行 `pnpm harness validate`，拒绝错误 browser target 或运行时依赖 Parcel self-map。"
       : ""
@@ -319,7 +326,7 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
 
 本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的 Mantine UI 设计事实。项目身份与品牌色仍以 \`.harness/project.json\` 为唯一来源；工程和测试通则仍以 [\`ENGINEERING_RULES.md\`](ENGINEERING_RULES.md) 为准。
 
-当前项目声明 Mantine \`9.6.1\`，并以根级 \`MantineProvider\`、\`createTheme\` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须重新核对主题、Styles API 和响应式机制；未安装的 \`@mantine/form\`、\`@mantine/notifications\` 等扩展包不是现有能力。
+当前项目声明 Mantine \`9.6.3\`，并以根级 \`MantineProvider\`、\`createTheme\` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须重新核对主题、Styles API 和响应式机制；未安装的 \`@mantine/form\`、\`@mantine/notifications\` 等扩展包不是现有能力。
 
 ${shared}
 

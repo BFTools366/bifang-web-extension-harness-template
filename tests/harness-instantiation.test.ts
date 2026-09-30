@@ -404,7 +404,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamReadme).toContain("pnpm routes:generate")
     expect(downstreamReadme).toContain("pnpm test:related <changed-source...>")
     expect(downstreamReadme).toContain("single Release artifact entry point")
-    expect(downstreamReadme).toContain("YYYYMMDDHHMM")
+    expect(downstreamReadme).toContain("YYMMDDHHMMSS")
     expect(downstreamReadme).toContain("--e2e=enabled|disabled")
     // 保存 downstreamPolicy 变量供当前逻辑使用。
     const downstreamPolicy = await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")

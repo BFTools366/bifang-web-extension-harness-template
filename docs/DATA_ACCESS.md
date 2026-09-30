@@ -16,7 +16,7 @@
 | 简单 SSE                       | 浏览器原生 `EventSource`                                    | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
 | Fetch 风格 SSE 备选            | `@microsoft/fetch-event-source`                             | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
 | 多来源持续事件编排             | RxJS（按需）                                                | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
-| 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | `openapi-fetch` 等适配器已自带对应运行时校验时复用其结果，不重复引入第二套校验库                                   |
+| 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | 已有等价运行时校验器时复用；`openapi-fetch` 的静态类型本身不能验证运行时响应                                       |
 
 原生 Fetch、分页和语言基础是生成项目的固定源码与测试，不是新增运行时依赖。Ky、OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
 
@@ -70,7 +70,7 @@
 - 每个列表声明稳定 `listId`、业务 id 类型、默认确定性排序与允许排序字段；同值记录由服务端追加稳定业务 id tie-breaker。搜索、筛选、排序或 `pageSize` 变化与 `page=1` 原子提交。
 - 业务行、`total`、错误、loading 与 placeholder 只属于 TanStack Query/feature，不写入 Router、Jotai 或 Storage。Query key 至少包含 `listId`、非 PII scope、规范化筛选、sort、`pageSize`、`page` 和影响结果的语言/target。
 - 只在成功、非 fetching、非 placeholder 且响应通过 items/total/业务 id 一致性校验后纠正越界页：非零总页数使用 `replace` 转到末页，零结果规范为第 1 页。这是对 §2.4 通用空页回首页的 Web 路由列表特化，不改写通用 `useSessionPagination` 行为。
-- 本节仅用于 React Web，并由 `$web-implement-list-view` 编排。Extension Popup/Options 不引入 Router 或复用该启动恢复；它们按 Extension 执行上下文、类型化消息和 Storage 边界单独实现。
+- 本节仅用于 React Web，并由 `$web-implement-list-view` 编排。Extension Popup/Options 虽有各自的 Router，但不复用该启动恢复；它们按 Extension 执行上下文、类型化消息和 Storage 边界单独实现。
 
 ## 3. HTTP、认证与 REST/OpenAPI
 
@@ -109,7 +109,7 @@ client 把 HTTP 非成功、timeout、网络失败、取消和响应/提取校�
 2. 基线只记录稳定 scope/event、状态码和安全 code/reason/retryable；不得记录三个 header 的值、请求/响应 body、Token、continuation、完整 URL、Error stack/cause 或本机路径。真实域层只有提供不含标识符的静态 endpoint 模板后才可记录该模板。
 3. 同一会话失效周期内，共享一个 in-flight Promise 调用 `UnauthorizedHandler`；并发 401 只能触发一次 handler/导航。新的显式认证会话重置该 latch；handler 自身失败只记录稳定 `unauthorized-handler` 错误且不递归调用，原 request 仍向调用方抛出 `authentication_required` 401。
 4. Web 只有在产品已经存在真实、可访问的登录路由后，才在 app/route 组合层注入类型化 `router.navigate` adapter；登录目标与可选 return target 必须显式、同源且受控。模板不得硬编码不存在的 `/login`，也不得在 client 中使用 `window.location`。
-5. Extension 不使用 TanStack Router。只有产品明确真实登录入口后，Popup/Options 才呈现重新认证状态或由宿主 adapter 打开批准的入口；模板不虚构登录页面、background 或 Chrome 导航。跨 Popup/Options 的 single-flight 与会话共享不能依赖模块全局变量，必须另行设计 background/message/Storage 所有者并取得权限与隐私专项批准。
+5. Extension Popup/Options 各自持有 TanStack Router。只有产品明确真实登录入口后，当前入口才呈现重新认证状态或由宿主 adapter 打开批准的入口；模板不虚构登录页面、background 或 Chrome 导航。跨 Popup/Options 的 single-flight 与会话共享不能依赖模块全局变量，必须另行设计 background/message/Storage 所有者并取得权限与隐私专项批准。
 
 refresh endpoint、Cookie/credentials 策略、自动重放和非幂等幂等键都不属于初始化基线。真实产品增加这些能力时必须只有一个重试/重放所有者，防止 client 与 TanStack Query 次数相乘，并覆盖 refresh 自身 401、并发、重放上限和副作用安全。
 
@@ -141,6 +141,10 @@ Axios 不是新项目默认值。只有现有业务已经依赖其 interceptors�
 ### 4.1 默认组合
 
 在不需要规范化实体缓存时，使用 `graphql-request` 发起最小 GraphQL 请求，并使用 GraphQL Code Generator 的 `client` preset 生成 `TypedDocumentNode`/类型化文档。运行时依赖通常包括 `graphql` 与 `graphql-request`，生成期依赖包括 `@graphql-codegen/cli` 和 `@graphql-codegen/client-preset`；只有首次真实 GraphQL 功能落地时才安装。
+
+- GraphQL operation 在 feature 层交给 TanStack Query 管理查询、mutation、取消与失效；`queryFn` 将 `AbortSignal` 传到实际请求，不建立另一份全局 GraphQL 缓存。
+- 为 `graphql-request` 注入受管 custom Fetch adapter。adapter 先将其 URL/Request 输入与当前编译期 target registry 核对，映射到原生 client 接受的相对路径，再复用三个 header、超时、Token revision、401 single-flight、错误归一化与日志脱敏。直接调用未受管的全局 `fetch` 会绕开这条边界。
+- Codegen 文档提供静态类型；GraphQL `errors`、`data`、安全关键字段与外部响应仍需按真实 schema 和信任边界做运行时校验。
 
 ### 4.2 多 GraphQL 基地址
 

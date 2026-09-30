@@ -277,12 +277,17 @@ function downstreamReadme(config: ProjectConfig): string {
   const stack =
     config.projectType === "web"
       ? "React, Vite, Mantine, TanStack Router file routing, TanStack Query, Jotai, and i18next"
-      : "Plasmo (Chrome MV3), React, Mantine, TanStack Query, Jotai, and i18next"
+      : "Plasmo (Chrome MV3), React, Mantine, TanStack Router code routing, TanStack Query, Jotai, and i18next"
   // 保存 routeCommand 变量供当前逻辑使用。
   const routeCommand =
     config.projectType === "web"
       ? "- `pnpm routes:generate` — regenerate the Git-ignored TanStack route tree.\n"
       : ""
+  // 保存 versionDescription 变量供当前宿主版本说明使用。
+  const versionDescription =
+    config.projectType === "web"
+      ? "the Shanghai `YYMMDDHHMMSS` version"
+      : "stable SemVer (`X.Y.Z`) from `package.json.version`"
   return `# ${config.name}
 
 ${config.description}
@@ -295,7 +300,7 @@ ${stack}.
 
 The generated native Fetch and pagination foundations standardize request headers, authentication handoff, 401 handling, language persistence, and per-list session state without inventing a business endpoint. Optional Ky/OpenAPI, GraphQL, SSE, and RxJS integrations remain on demand; their rules live in \`docs/DATA_ACCESS.md\`.
 
-Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`.
+Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`. The generated appearance control follows the system setting by default and lets users choose light or dark mode.
 
 ## Identity and brand
 
@@ -308,7 +313,7 @@ Mantine theme, tokens, layout, component hierarchy, interaction states, responsi
 
 - \`pnpm dev\` — start development.
 ${routeCommand}- \`pnpm env:validate\` — validate all three runtime profiles.
-- \`pnpm build\` / \`pnpm build:release\` — the single Release artifact entry point; every run asks whether to enable E2E, then runs environment, Harness, format, lint, type, and full test gates, injects the Shanghai \`YYYYMMDDHHMM\` version into the UI, and inspects the artifact. Non-interactive runs pass \`--e2e=enabled|disabled\`. Development and test profiles never produce a final artifact.
+- \`pnpm build\` / \`pnpm build:release\` — the single Release artifact entry point; every run asks whether to enable E2E, then runs environment, Harness, format, lint, type, and full test gates, injects ${versionDescription} into the UI, and inspects the artifact. Non-interactive runs pass \`--e2e=enabled|disabled\`. Development and test profiles never produce a final artifact.
 - \`pnpm release:inspect\` — rescan the existing Release artifact for configuration or source leakage.
 - \`pnpm test\` — run the full test suite.
 - \`pnpm test:related <changed-source...>\` — run only tests related to changed sources, for daily work.
@@ -334,6 +339,11 @@ function downstreamAgents(config: ProjectConfig): string {
     config.projectType === "web"
       ? "- `$web-implement-list-view`：创建、修改或审查可恢复、可访问的 React Web 列表页。\n"
       : ""
+  // 保存 versionDescription 变量供当前宿主构建版本约束说明使用。
+  const versionDescription =
+    config.projectType === "web"
+      ? "上海时区 `YYMMDDHHMMSS`"
+      : "`package.json.version` 的稳定 SemVer（`X.Y.Z`）"
   // 保存 hostMinimumReading 变量供当前宿主专用任务路由使用。
   const hostMinimumReading =
     config.projectType === "web"
@@ -393,9 +403,9 @@ ${hostSkills}- \`$web-refactor-code\`：在保持行为不变时整理 TypeScrip
 
 ## Validation loop
 
-Use \`pnpm harness brand refresh\` after intentional identity changes. Daily work runs only the related non-empty tests or smallest substitute checks required by the change, usually through \`pnpm test:related <changed-source...>\`; a zero-test batch is not evidence, so run the owning test file when dependency discovery finds none. Do not automatically add format, lint, typecheck, repository-wide checks, or builds. Run the full unit suite only through \`pnpm build\`/Release or an explicit behavior-preserving refactor. Before every artifact build, ask the user for the current E2E choice and pass \`--e2e=enabled|disabled\`. Every artifact-producing build is \`pnpm build\` → \`build:release\`; it owns environment validation, Harness/format/lint/type/full-test gates, \`YYYYMMDDHHMM\` UI version injection${
+Use \`pnpm harness brand refresh\` after intentional identity changes. Daily work runs only the related non-empty tests or smallest substitute checks required by the change, usually through \`pnpm test:related <changed-source...>\`; a zero-test batch is not evidence, so run the owning test file when dependency discovery finds none. Do not automatically add format, lint, typecheck, repository-wide checks, or builds. Run the full unit suite only through \`pnpm build\`/Release or an explicit behavior-preserving refactor. Before every artifact build, ask the user for the current E2E choice and pass \`--e2e=enabled|disabled\`. Every artifact-producing build is \`pnpm build\` → \`build:release\`; it owns environment validation, Harness/format/lint/type/full-test gates, ${versionDescription} UI version injection${
     config.projectType === "extension" ? ", browser-bundle self-containment validation," : ""
-  } and \`pnpm release:inspect\`. Build commands, timestamp versions, E2E choices, and test/inspection results stay in command output and the current task report; they do not create or update Work Plans, ADRs, Status, Changelogs, Verifications, or other persistent project memory. Development and test profiles never produce final artifacts. Manually maintained code is reviewed from 501 through 1000 lines and must be split from 1001 lines. Report skipped or blocked checks explicitly; do not claim success from partial evidence.
+  } and \`pnpm release:inspect\`. Build commands, UI versions, E2E choices, and test/inspection results stay in command output and the current task report; they do not create or update Work Plans, ADRs, Status, Changelogs, Verifications, or other persistent project memory. Development and test profiles never produce final artifacts. Manually maintained code is reviewed from 501 through 1000 lines and must be split from 1001 lines. Report skipped or blocked checks explicitly; do not claim success from partial evidence.
 `
 }
 

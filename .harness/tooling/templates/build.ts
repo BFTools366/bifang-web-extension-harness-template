@@ -30,19 +30,67 @@ function terminalBuildSource(config: ProjectConfig): string {
     args,
     env: { PLASMO_PUBLIC_BUILD_VERSION: buildVersion }
   }`
+  // 保存 versionImport 变量供当前宿主版本校验依赖生成使用。
+  const versionImport =
+    config.projectType === "web"
+      ? 'import { WEB_BUILD_VERSION_PATTERN as BUILD_VERSION_PATTERN } from "./version.ts"'
+      : 'import { isValidExtensionVersion } from "./version.ts"'
+  // 保存 versionSource 变量供当前宿主版本解析函数生成使用。
+  const versionSource =
+    config.projectType === "web"
+      ? `const BUILD_TIME_ZONE = "Asia/Shanghai" as const
+
+/** 按上海时区生成 YYMMDDHHMMSS 构建版本。 */
+export function formatBuildVersion(now: Date): string {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    month: "2-digit",
+    second: "2-digit",
+    timeZone: BUILD_TIME_ZONE,
+    year: "numeric"
+  })
+  const values = new Map<string, string>()
+  for (const part of formatter.formatToParts(now)) values.set(part.type, part.value)
+  const version = ["year", "month", "day", "hour", "minute", "second"]
+    .map((name) => (name === "year" ? values.get(name)?.slice(-2) : values.get(name)) ?? "")
+    .join("")
+  if (!BUILD_VERSION_PATTERN.test(version)) {
+    throw new Error("Cannot format build version in " + BUILD_TIME_ZONE)
+  }
+  return version
+}`
+      : `/** 从 package.json 读取 Extension 稳定 SemVer，不改写版本文件。 */
+export async function readExtensionBuildVersion(root: string): Promise<string> {
+  const manifest: unknown = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"))
+  const version =
+    manifest !== null && typeof manifest === "object" && "version" in manifest
+      ? manifest.version
+      : undefined
+  if (!isValidExtensionVersion(version)) {
+    throw new Error("Extension package.json.version must use Chrome-compatible stable SemVer X.Y.Z")
+  }
+  return version
+}`
+  // 保存 versionError 变量供当前宿主错误文案生成使用。
+  const versionError =
+    config.projectType === "web"
+      ? "Web build version must use YYMMDDHHMMSS"
+      : "Extension build version must use Chrome-compatible stable SemVer X.Y.Z"
 
   return `import { spawn } from "node:child_process"
 import { once } from "node:events"
+${config.projectType === "extension" ? 'import { readFile } from "node:fs/promises"' : ""}
 import path from "node:path"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
 import type { E2eSelection } from "./types.ts"
+${versionImport}
 
-const BUILD_TIME_ZONE = "Asia/Shanghai" as const
-/** 说明 BUILD_VERSION_PATTERN 的稳定结构与职责边界。 */
-export const BUILD_VERSION_PATTERN = /^\\d{12}$/
 const PROJECT_TYPE = "${config.projectType}" as const
 
 /** 说明 BuildTarget 的稳定结构与职责边界。 */
@@ -62,27 +110,7 @@ export interface BuildCommand {
   env?: Readonly<Record<string, string>>
 }
 
-/** 说明 formatBuildVersion 的稳定结构与职责边界。 */
-export function formatBuildVersion(now: Date): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
-    minute: "2-digit",
-    month: "2-digit",
-    timeZone: BUILD_TIME_ZONE,
-    year: "numeric"
-  })
-  const values = new Map<string, string>()
-  for (const part of formatter.formatToParts(now)) values.set(part.type, part.value)
-  const version = ["year", "month", "day", "hour", "minute"]
-    .map((name) => values.get(name) ?? "")
-    .join("")
-  if (!BUILD_VERSION_PATTERN.test(version)) {
-    throw new Error("Cannot format build version in " + BUILD_TIME_ZONE)
-  }
-  return version
-}
+${versionSource}
 
 /** 说明 parseBuildArguments 的稳定结构与职责边界。 */
 export function parseBuildArguments(argv: readonly string[]): BuildArguments {
@@ -112,8 +140,8 @@ export function createBuildCommandPlan(
   target: BuildTarget,
   buildVersion: string
 ): BuildCommand[] {
-  if (!BUILD_VERSION_PATTERN.test(buildVersion)) {
-    throw new Error("Build version must use YYYYMMDDHHMM")
+  if (!${config.projectType === "web" ? "BUILD_VERSION_PATTERN.test" : "isValidExtensionVersion"}(buildVersion)) {
+    throw new Error("${versionError}")
   }
   return [
     { command: "pnpm", args: ["env:validate", "--profile", "release"] },
@@ -179,8 +207,7 @@ async function runCommand(specification: BuildCommand, root: string): Promise<vo
 export async function runBuild(
   rootInput: string,
   args: BuildArguments,
-  interactive: boolean,
-  now = new Date()
+  interactive: boolean${config.projectType === "web" ? ",\n  now = new Date()" : ""}
 ): Promise<{ buildVersion: string; e2e: E2eSelection }> {
   const root = path.resolve(rootInput)
   const project = await loadProjectConfig(root)
@@ -188,7 +215,7 @@ export async function runBuild(
     throw new Error("Build tooling does not match .harness/project.json projectType")
   }
   const e2e = await resolveE2eSelection(args.e2e, interactive)
-  const buildVersion = formatBuildVersion(now)
+  const buildVersion = ${config.projectType === "web" ? "formatBuildVersion(now)" : "await readExtensionBuildVersion(root)"}
   for (const command of createBuildCommandPlan(args.target, buildVersion)) {
     await runCommand(command, root)
   }
@@ -220,39 +247,62 @@ if (executedPath === import.meta.url) void runCli()
 
 // 执行 terminalBuildTest 函数，生成当前宿主的构建编排回归测试。
 function terminalBuildTest(config: ProjectConfig): string {
+  // 保存 buildVersion 变量供当前宿主构建命令断言使用。
+  const buildVersion = config.projectType === "web" ? "260824123459" : "1.2.3"
   // 保存 hostAssertions 变量供当前宿主命令断言生成使用。
   const hostAssertions =
     config.projectType === "web"
       ? `expect(commands[6]).toMatchObject({
     args: ["exec", "vite", "build", "--mode", "production"],
-    env: { VITE_BUILD_VERSION: "202608241234" }
+    env: { VITE_BUILD_VERSION: "${buildVersion}" }
   })`
       : `expect(commands[6]).toMatchObject({
     args: ["exec", "plasmo", "build", "--env=.env.production"],
-    env: { PLASMO_PUBLIC_BUILD_VERSION: "202608241234" }
+    env: { PLASMO_PUBLIC_BUILD_VERSION: "${buildVersion}" }
   })
-  const packaged = createBuildCommandPlan("package", "202608241235")
+  const packaged = createBuildCommandPlan("package", "${buildVersion}")
   expect(packaged[6]).toMatchObject({
     args: ["exec", "plasmo", "build", "--zip", "--env=.env.production"],
-    env: { PLASMO_PUBLIC_BUILD_VERSION: "202608241235" }
+    env: { PLASMO_PUBLIC_BUILD_VERSION: "${buildVersion}" }
+  })`
+  // 保存 versionTest 变量供当前宿主版本来源与格式回归使用。
+  const versionTest =
+    config.projectType === "web"
+      ? `/** 验证上海时间的秒级 Web 版本并拒绝旧格式。 */
+  test("formats the Shanghai Web build version", () => {
+    expect(formatBuildVersion(new Date("2026-08-24T04:34:59.000Z"))).toBe("260824123459")
+    expect(formatBuildVersion(new Date("2026-08-24T04:35:00.000Z"))).toBe("260824123500")
+    expect(() => createBuildCommandPlan("build", "202608241234")).toThrow(/YYMMDDHHMMSS/)
+  })`
+      : `/** 验证 Extension 构建读取 package.json 的稳定 SemVer。 */
+  test("uses the package SemVer for Extension builds", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "extension-build-version-"))
+    try {
+      const manifestPath = path.join(root, "package.json")
+      await writeFile(manifestPath, JSON.stringify({ version: "1.2.3" }))
+      expect(await readExtensionBuildVersion(root)).toBe("1.2.3")
+      await writeFile(manifestPath, JSON.stringify({ version: "1.2.3-beta.1" }))
+      await expect(readExtensionBuildVersion(root)).rejects.toThrow(/stable SemVer/)
+      for (const version of ["0.0.0", "65536.0.0"]) {
+        await writeFile(manifestPath, JSON.stringify({ version }))
+        await expect(readExtensionBuildVersion(root)).rejects.toThrow(/Chrome-compatible/)
+      }
+      expect(() => createBuildCommandPlan("build", "260824123459")).toThrow(/stable SemVer/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })`
 
-  return `import { describe, expect, test } from "vitest"
+  return `${config.projectType === "extension" ? 'import { mkdtemp, rm, writeFile } from "node:fs/promises"\nimport { tmpdir } from "node:os"\nimport path from "node:path"\n' : ""}import { describe, expect, test } from "vitest"
 import {
-  BUILD_VERSION_PATTERN,
   createBuildCommandPlan,
-  formatBuildVersion,
+  ${config.projectType === "web" ? "formatBuildVersion" : "readExtensionBuildVersion"},
   parseBuildArguments,
   resolveE2eSelection
 } from "../.harness/tooling/build.ts"
 
 describe("release build orchestration", () => {
-  /** 验证当前场景的核心成功或风险边界。 */
-  test("formats the Shanghai build version", () => {
-    const version = formatBuildVersion(new Date("2026-08-24T04:34:59.000Z"))
-    expect(version).toBe("202608241234")
-    expect(version).toMatch(BUILD_VERSION_PATTERN)
-  })
+  ${versionTest}
 
   /** 验证当前场景的核心成功或风险边界。 */
   test("requires an E2E decision outside an interactive terminal", async () => {
@@ -267,7 +317,7 @@ describe("release build orchestration", () => {
 
   /** 验证当前场景的核心成功或风险边界。 */
   test("runs the full unit suite before the ${config.projectType} host build", () => {
-    const commands = createBuildCommandPlan("build", "202608241234")
+    const commands = createBuildCommandPlan("build", "${buildVersion}")
     expect(commands.map((command) => command.command + " " + command.args.join(" "))).toEqual([
       "pnpm env:validate --profile release",
       "pnpm harness validate",
@@ -283,7 +333,7 @@ describe("release build orchestration", () => {
       "pnpm release:inspect"
     ])
     ${hostAssertions}
-    expect(commands[7]?.env).toEqual({ HARNESS_BUILD_VERSION: "202608241234" })
+    expect(commands[7]?.env).toEqual({ HARNESS_BUILD_VERSION: "${buildVersion}" })
   })
 })
 `

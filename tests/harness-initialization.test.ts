@@ -7,13 +7,16 @@ import {
   expectOptionalIntegrationPackagesNotInstalled,
   format,
   initializeProject,
+  mkdir,
   options,
   path,
   readFile,
   readdir,
   resolveConfig,
   seedTemplateRoot,
-  sharp
+  sharp,
+  validateProject,
+  writeFile
 } from "./harness-tooling-support.ts"
 
 describe("single-package Harness initialization", /* 执行 当前声明 函数的处理逻辑。 */ () => {
@@ -92,6 +95,13 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const providers = await readFile(path.join(root, "src/app/AppProviders.tsx"), "utf8")
     // 保存 theme 变量供当前逻辑使用。
     const theme = await readFile(path.join(root, "src/app/theme.ts"), "utf8")
+    // 保存 colorSchemeControl 变量供双主题入口断言使用。
+    const colorSchemeControl = await readFile(
+      path.join(root, "src/theme/ColorSchemeControl.tsx"),
+      "utf8"
+    )
+    // 保存 brandScale 变量供品牌色阶断言使用。
+    const brandScale = await readFile(path.join(root, "src/theme/brandScale.ts"), "utf8")
     // 保存 styles 变量供当前逻辑使用。
     const styles = await readFile(path.join(root, "src/styles.css"), "utf8")
     // 保存 main 变量供当前逻辑使用。
@@ -126,6 +136,8 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(buildTooling).toContain("本次构建完成后是否启用 E2E 测试")
     expect(buildTooling).toContain("HARNESS_BUILD_VERSION")
     expect(buildTooling).toContain("VITE_BUILD_VERSION")
+    expect(buildTooling).toContain("YYMMDDHHMMSS")
+    expect(buildTooling).not.toContain("readExtensionBuildVersion")
     expect(buildTooling).not.toContain("PLASMO_PUBLIC_BUILD_VERSION")
     expect(indexRoute).toContain('createFileRoute("/")')
     expect(indexRoute).toContain("WelcomePage")
@@ -215,10 +227,19 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(paginationControls).toContain("onPageSizeChange")
     expect(paginationControls).toContain("labels")
     expect(queryClient).toContain('logger.error("query_failed"')
-    expect(providers).toContain('defaultColorScheme="light"')
+    expect(providers).toContain('defaultColorScheme="auto"')
+    expect(providers).toContain('key: BRAND.id + ":color-scheme:v1"')
     expect(providers).not.toContain("JotaiProvider")
+    expect(theme).toContain("createBrandScale(BRAND.primaryColor)")
+    expect(theme).toContain("luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD")
     expect(theme).toContain("fontFamily")
-    expect(styles).toContain("color-scheme: light")
+    expect(brandScale).toContain("MantineColorsTuple")
+    expect(brandScale).toContain("BRAND_TEXT_LUMINANCE_THRESHOLD = 0.179")
+    expect(colorSchemeControl).toContain('value: "dark"')
+    expect(landing).toContain("<ColorSchemeControl />")
+    expect(styles).toContain('data-mantine-color-scheme="dark"')
+    expect(styles).toContain("color-scheme: dark")
+    expect(styles).toContain("var(--mantine-color-body)")
     expect(styles).toContain("var(--mantine-spacing-xl)")
     expect(styles).not.toContain("font-family")
     expect(landing).not.toContain('shadow="lg"')
@@ -239,13 +260,13 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
       devDependencies: Record<string, string>
       engines: Record<string, string>
     }
-    expect(manifest.engines).toEqual({ node: ">=22.22.2", pnpm: ">=10.33.3" })
-    expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.1")
-    expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.1")
-    expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.102.8")
+    expect(manifest.engines).toEqual({ node: ">=26.10.0", pnpm: ">=12.8.1" })
+    expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.3")
+    expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.3")
+    expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.104.0")
     expect(manifest.dependencies).toHaveProperty("@tanstack/react-router")
-    expect(manifest.devDependencies).toHaveProperty("@tanstack/router-cli", "1.167.27")
-    expect(manifest.devDependencies).toHaveProperty("@tanstack/router-plugin", "1.168.29")
+    expect(manifest.devDependencies).toHaveProperty("@tanstack/router-cli", "1.167.39")
+    expect(manifest.devDependencies).toHaveProperty("@tanstack/router-plugin", "1.168.41")
     expect(manifest.scripts["routes:generate"]).toBe("tsr generate")
     expect(manifest.scripts["env:validate"]).toBe("tsx .harness/tooling/environment.ts validate")
     expect(manifest.scripts.build).toBe("pnpm build:release")
@@ -288,8 +309,8 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     )
   })
 
-  /** 验证 creates a terminal Chrome extension without Router or unused permissions 场景。 */
-  test("creates a terminal Chrome extension without Router or unused permissions", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+  /** 验证 creates a terminal Chrome extension with local Router and no unused permissions 场景。 */
+  test("creates a terminal Chrome extension with local Router and no unused permissions", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
@@ -299,6 +320,10 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect([icon.width, icon.height]).toEqual([1024, 1024])
     // 保存 popup 变量供当前逻辑使用。
     const popup = await readFile(path.join(root, "src/popup.tsx"), "utf8")
+    // 保存 optionsEntry 变量供独立入口路由断言使用。
+    const optionsEntry = await readFile(path.join(root, "src/options.tsx"), "utf8")
+    // 保存 extensionRouter 变量供路由历史策略断言使用。
+    const extensionRouter = await readFile(path.join(root, "src/extension-router.tsx"), "utf8")
     // 保存 extensionBrand 变量供当前逻辑使用。
     const extensionBrand = await readFile(path.join(root, "src/brand.ts"), "utf8")
     // 保存 i18n 变量供当前逻辑使用。
@@ -311,6 +336,8 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
     // 保存 engineeringRules 变量供当前逻辑使用。
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+    // 保存 releaseRules 变量供 Extension 版本事实断言使用。
+    const releaseRules = await readFile(path.join(root, "docs/RELEASE.md"), "utf8")
     // 保存 mantineUiGuidelines 变量供当前逻辑使用。
     const mantineUiGuidelines = await readFile(
       path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
@@ -328,6 +355,11 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     const buildTooling = await readFile(path.join(root, ".harness/tooling/build.ts"), "utf8")
     // 保存 providers 变量供当前逻辑使用。
     const providers = await readFile(path.join(root, "src/providers.tsx"), "utf8")
+    // 保存 extensionColorSchemeControl 变量供暗色切换断言使用。
+    const extensionColorSchemeControl = await readFile(
+      path.join(root, "src/theme/ColorSchemeControl.tsx"),
+      "utf8"
+    )
     // 保存 logger 变量供当前逻辑使用。
     const logger = await readFile(path.join(root, "src/observability/logger.ts"), "utf8")
     // 保存 pagination 变量供当前逻辑使用。
@@ -351,7 +383,11 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     // 保存 prettierConfig 变量供初始化 CSS 使用目标仓库正式格式配置。
     const prettierConfig = (await resolveConfig(path.join(root, "package.json"))) ?? {}
     expect(popup).toContain("data-base64:../assets/icon.png")
-    expect(popup).toContain('surface="popup"')
+    expect(popup).toContain('createExtensionRouter("popup", iconUrl)')
+    expect(popup).toContain("<RouterProvider router={router} />")
+    expect(optionsEntry).toContain('createExtensionRouter("options", iconUrl)')
+    expect(extensionRouter).toContain("createMemoryHistory")
+    expect(extensionRouter).toContain("createHashHistory")
     expect(extensionBrand).toContain("Aurora Clipper")
     expect(i18n).toContain("initializeLanguage")
     // 保存 key 变量供当前逻辑使用。
@@ -381,11 +417,11 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(mantineUiGuidelines).not.toContain("React Web 重复记录视图")
     expect(mantineUiGuidelines).toContain("## 8. Extension 宿主规范")
     expect(mantineUiGuidelines).not.toContain("## 8. Web 宿主规范")
-    expect(mantineUiGuidelines).toContain("默认宽 `380px`")
+    expect(mantineUiGuidelines).toContain("基线最小宽 `320px`")
     expect(mantineUiGuidelines).not.toContain("Landing")
     expect(mantineUiGuidelines).not.toContain("404")
     expect(mantineUiGuidelines).not.toContain("src/app/theme.ts")
-    expect(mantineUiGuidelines).not.toContain("TanStack Router")
+    expect(mantineUiGuidelines).toContain("TanStack Router")
     expect(developmentEnvironment).toContain("PLASMO_PUBLIC_APP_ENV=development")
     expect(developmentEnvironment).toContain(
       `PLASMO_PUBLIC_API_BASE_URL=${TEST_BASE_URLS.developmentBaseUrl}`
@@ -408,13 +444,22 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(i18n).toContain('buildVersion: "构建版本：{{version}}"')
     expect(buildVersion).toContain("process.env.PLASMO_PUBLIC_BUILD_VERSION")
     expect(buildTooling).toContain("PLASMO_PUBLIC_BUILD_VERSION")
+    expect(buildTooling).toContain("readExtensionBuildVersion")
+    expect(buildTooling).toContain("stable SemVer X.Y.Z")
+    expect(buildTooling).not.toContain("Asia/Shanghai")
+    expect(releaseRules).toContain("`package.json.version` 的稳定 SemVer")
     expect(buildTooling).not.toContain("VITE_BUILD_VERSION")
     expect(buildTooling).toContain('args: ["test"]')
     expect(buildTooling).toContain("本次构建完成后是否启用 E2E 测试")
     expect(providers).toContain('logger.error("mutation_failed"')
-    expect(providers).toContain('defaultColorScheme="light"')
+    expect(providers).toContain('defaultColorScheme="auto"')
+    expect(providers).toContain('key: BRAND.id + ":color-scheme:v1"')
+    expect(providers).toContain("luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD")
     expect(providers).toContain("fontFamily")
     expect(providers).not.toContain("JotaiProvider")
+    expect(extensionColorSchemeControl).toContain('value: "dark"')
+    expect(extensionColorSchemeControl).toContain("<NativeSelect")
+    expect(extensionShell).toContain('<ColorSchemeControl compact={surface === "popup"} />')
     expect(logger).toContain(
       'const RELEASE_BUILD = process.env.PLASMO_PUBLIC_APP_ENV === "release"'
     )
@@ -427,7 +472,12 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(await format(extensionStyle, { ...prettierConfig, filepath: extensionStylePath })).toBe(
       extensionStyle
     )
-    expect(extensionStyle).toContain("color-scheme: light")
+    expect(extensionStyle).toContain('data-mantine-color-scheme="dark"')
+    expect(extensionStyle).toContain("color-scheme: dark")
+    expect(extensionStyle).toContain("var(--mantine-color-body)")
+    expect(extensionStyle).toContain("min-width: 320px")
+    expect(extensionStyle).toContain("width: min(380px, 100%)")
+    expect(extensionStyle).toContain("overflow-wrap: anywhere")
     expect(extensionStyle).toContain("var(--mantine-spacing-md)")
     expect(extensionStyle).not.toContain("font-family")
 
@@ -438,15 +488,17 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
       dependencies: Record<string, string>
       devDependencies: Record<string, string>
       scripts: Record<string, string>
+      "@parcel/resolver-default": { packageExports: boolean }
     }
     expect(manifest.displayName).toBe("Aurora Clipper")
     expect(manifest.manifest.description).toBe("Clip useful pages.")
     expect(manifest.manifest).not.toHaveProperty("permissions")
     expect(manifest.manifest).not.toHaveProperty("host_permissions")
-    expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.1")
-    expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.1")
-    expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.102.8")
-    expect(manifest.dependencies).not.toHaveProperty("@tanstack/react-router")
+    expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.3")
+    expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.3")
+    expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.104.0")
+    expect(manifest.dependencies).toHaveProperty("@tanstack/react-router")
+    expect(manifest["@parcel/resolver-default"]).toEqual({ packageExports: true })
     expect(manifest.devDependencies).not.toHaveProperty("@tanstack/router-cli")
     expect(manifest.devDependencies).not.toHaveProperty("@tanstack/router-plugin")
     expect(manifest).not.toHaveProperty("scripts.routes:generate")
@@ -478,6 +530,37 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
       readFile(path.join(root, ".agents/skills/web-implement-list-view/SKILL.md"), "utf8")
     ).rejects.toThrow()
     await expect(readFile(path.join(root, "index.html"), "utf8")).rejects.toThrow()
+    // 旧构建的版本不能阻断新 SemVer 的预构建校验；产物一致性留给 release:inspect。
+    const buildRoot = path.join(root, "build/chrome-mv3-prod")
+    await mkdir(buildRoot, { recursive: true })
+    await writeFile(path.join(buildRoot, "popup.html"), "<main>Popup</main>\n")
+    await writeFile(path.join(buildRoot, "options.html"), "<main>Options</main>\n")
+    await writeFile(
+      path.join(buildRoot, "manifest.json"),
+      JSON.stringify({
+        manifest_version: 3,
+        name: "Aurora Clipper",
+        description: "Clip useful pages.",
+        version: "0.0.1",
+        action: { default_popup: "popup.html" },
+        options_ui: { page: "options.html" }
+      })
+    )
+    await expect(validateProject(root)).resolves.toContain("extension")
+    // 删除 Parcel 浏览器条件导出时，Harness 必须在构建前阻断。
+    const invalidManifest = { ...manifest, "@parcel/resolver-default": { packageExports: false } }
+    await writeFile(path.join(root, "package.json"), JSON.stringify(invalidManifest))
+    await expect(validateProject(root)).rejects.toThrow(
+      "Extension Parcel resolver must enable packageExports"
+    )
+    await writeFile(path.join(root, "package.json"), JSON.stringify(manifest))
+    await writeFile(
+      path.join(root, "src/options.tsx"),
+      optionsEntry.replaceAll("RouterProvider", "NoRoute")
+    )
+    await expect(validateProject(root)).rejects.toThrow(
+      "Extension options entry must mount its own TanStack Router"
+    )
   })
 
   /** 验证 reuses a preflighted uploaded Logo without reopening its source 场景。 */

@@ -4,9 +4,12 @@ import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
 import { validateEnvironmentFiles } from "./environment.ts"
 import { pathExists, walkFiles } from "./files.ts"
+import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
 
 // 保存 TEXT_EXTENSIONS 变量供当前逻辑使用。
 const TEXT_EXTENSIONS = new Set([".css", ".html", ".js", ".json", ".mjs", ".txt", ".xml"])
+// 保存版本注入可命中的页面代码文件类型，排除 manifest 与任意元数据。
+const VERSION_SURFACE_EXTENSIONS = new Set([".html", ".js", ".mjs"])
 // 保存 RELEASE_SENTINELS 变量供当前逻辑使用。
 const RELEASE_SENTINELS = [
   "debug_sentinel",
@@ -19,8 +22,6 @@ const RELEASE_SENTINELS = [
 const RELEASE_LOW_LEVEL_LOG_CALLS = ["console.debug", "console.info"] as const
 // 保存 HTTP_URL_PATTERN 变量供当前逻辑使用。
 const HTTP_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g
-// 保存 BUILD_VERSION_PATTERN 变量供候选版本注入校验使用。
-const BUILD_VERSION_PATTERN = /^\d{12}$/
 // 保存 RELEASE_POLICY_PATH 变量供下游选择可移植静态文件权限门禁使用。
 const RELEASE_POLICY_PATH = ".harness/release-policy.json"
 
@@ -126,9 +127,34 @@ export async function inspectReleaseArtifact(
   const files = await walkFiles(artifactRoot)
   if (files.length === 0) throw new Error(`Release artifact is empty: ${relativeArtifactRoot}`)
   // 保存 expectedBuildVersion 变量供候选内容校验使用。
-  const expectedBuildVersion = options.expectedBuildVersion
-  if (expectedBuildVersion !== undefined && !BUILD_VERSION_PATTERN.test(expectedBuildVersion)) {
-    throw new Error("Expected build version must use YYYYMMDDHHMM")
+  let expectedBuildVersion = options.expectedBuildVersion
+  if (project.projectType === "web") {
+    if (
+      expectedBuildVersion !== undefined &&
+      !WEB_BUILD_VERSION_PATTERN.test(expectedBuildVersion)
+    ) {
+      throw new Error("Expected Web build version must use YYMMDDHHMMSS")
+    }
+  } else {
+    // Extension 的软件版本以当前 package.json 为准，独立复查时也必须精确匹配。
+    const packageManifest: unknown = JSON.parse(
+      await readFile(path.join(root, "package.json"), "utf8")
+    )
+    const packageVersion =
+      packageManifest !== null &&
+      typeof packageManifest === "object" &&
+      "version" in packageManifest
+        ? packageManifest.version
+        : undefined
+    if (!isValidExtensionVersion(packageVersion)) {
+      throw new Error(
+        "Extension package.json.version must use Chrome-compatible stable SemVer X.Y.Z"
+      )
+    }
+    if (expectedBuildVersion !== undefined && expectedBuildVersion !== packageVersion) {
+      throw new Error("Expected Extension build version must equal package.json.version")
+    }
+    expectedBuildVersion = packageVersion
   }
   // 保存 releaseBaseUrl 变量供当前逻辑使用。
   const releaseBaseUrl = environments.release.apiBaseUrl
@@ -196,7 +222,10 @@ export async function inspectReleaseArtifact(
         }
         return {
           containsBuildVersion:
-            expectedBuildVersion !== undefined && contents.includes(expectedBuildVersion),
+            expectedBuildVersion !== undefined &&
+            (project.projectType === "web" ||
+              VERSION_SURFACE_EXTENSIONS.has(path.extname(absolute))) &&
+            contents.includes(expectedBuildVersion),
           errors: fileErrors
         }
       }
@@ -206,6 +235,21 @@ export async function inspectReleaseArtifact(
   const errors = perFileReports.flatMap(
     /* 执行当前文件报告到错误列表的映射。 */ (report) => report.errors
   )
+  if (project.projectType === "extension") {
+    const builtManifestPath = path.join(artifactRoot, "manifest.json")
+    if (!(await pathExists(builtManifestPath))) {
+      errors.push("Extension release artifact is missing manifest.json")
+    } else {
+      const builtManifest: unknown = JSON.parse(await readFile(builtManifestPath, "utf8"))
+      const builtVersion =
+        builtManifest !== null && typeof builtManifest === "object" && "version" in builtManifest
+          ? builtManifest.version
+          : undefined
+      if (builtVersion !== expectedBuildVersion) {
+        errors.push("Extension manifest version does not match package.json.version")
+      }
+    }
+  }
   if (
     expectedBuildVersion !== undefined &&
     !perFileReports.some(

@@ -39,6 +39,7 @@ const TOP_LEVEL_SEED_NAMES = new Set([
   "eslint.config.mjs",
   "package.json",
   "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
   "scripts",
   "tests",
   "tsconfig.json",

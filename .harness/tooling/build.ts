@@ -1,17 +1,16 @@
 import { spawn } from "node:child_process"
 import { once } from "node:events"
+import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
 import type { E2eSelection, ProjectType } from "./types.ts"
+import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
 
 // 保存 BUILD_TIME_ZONE 变量供构建版本生成使用。
 const BUILD_TIME_ZONE = "Asia/Shanghai" as const
-// 保存 BUILD_VERSION_PATTERN 变量供构建版本校验使用。
-export const BUILD_VERSION_PATTERN = /^\d{12}$/
-
 // 定义 BuildTarget 类型约束受支持的产物动作。
 export type BuildTarget = "build" | "package"
 export type { E2eSelection } from "./types.ts"
@@ -34,7 +33,7 @@ export interface BuildCommand {
   env?: Readonly<Record<string, string>>
 }
 
-// 执行 formatBuildVersion 函数，按上海时区生成十二位构建版本。
+// 执行 formatBuildVersion 函数，按上海时区生成 YYMMDDHHMMSS 构建版本。
 export function formatBuildVersion(now: Date): string {
   // 保存 formatter 变量供时间字段格式化使用。
   const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -43,6 +42,7 @@ export function formatBuildVersion(now: Date): string {
     hourCycle: "h23",
     minute: "2-digit",
     month: "2-digit",
+    second: "2-digit",
     timeZone: BUILD_TIME_ZONE,
     year: "numeric"
   })
@@ -53,16 +53,38 @@ export function formatBuildVersion(now: Date): string {
     values.set(part.type, part.value)
   }
   // 保存 version 变量供最终格式校验使用。
-  const version = ["year", "month", "day", "hour", "minute"]
+  const version = ["year", "month", "day", "hour", "minute", "second"]
     .map(
       // 执行当前字段到格式化值的映射。
-      (name) => values.get(name) ?? ""
+      (name) => (name === "year" ? values.get(name)?.slice(-2) : values.get(name)) ?? ""
     )
     .join("")
-  if (!BUILD_VERSION_PATTERN.test(version)) {
+  if (!WEB_BUILD_VERSION_PATTERN.test(version)) {
     throw new Error(`Cannot format build version in ${BUILD_TIME_ZONE}`)
   }
   return version
+}
+
+// 从 Extension 的 package.json 读取稳定 SemVer，不改变版本文件。
+export async function readExtensionBuildVersion(root: string): Promise<string> {
+  const manifest: unknown = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"))
+  const version =
+    manifest !== null && typeof manifest === "object" && "version" in manifest
+      ? manifest.version
+      : undefined
+  if (!isValidExtensionVersion(version)) {
+    throw new Error("Extension package.json.version must use Chrome-compatible stable SemVer X.Y.Z")
+  }
+  return version
+}
+
+// 按唯一 projectType 选择 Web 时间版本或 Extension 包版本。
+export async function resolveBuildVersion(
+  projectType: ProjectType,
+  root: string,
+  now: Date
+): Promise<string> {
+  return projectType === "web" ? formatBuildVersion(now) : readExtensionBuildVersion(root)
 }
 
 // 执行 parseBuildArguments 函数，解析产物动作和 E2E 选择。
@@ -99,8 +121,11 @@ export function createBuildCommandPlan(
   target: BuildTarget,
   buildVersion: string
 ): BuildCommand[] {
-  if (!BUILD_VERSION_PATTERN.test(buildVersion)) {
-    throw new Error("Build version must use YYYYMMDDHHMM")
+  if (projectType === "web" && !WEB_BUILD_VERSION_PATTERN.test(buildVersion)) {
+    throw new Error("Web build version must use YYMMDDHHMMSS")
+  }
+  if (projectType === "extension" && !isValidExtensionVersion(buildVersion)) {
+    throw new Error("Extension build version must use Chrome-compatible stable SemVer X.Y.Z")
   }
   if (target === "package" && projectType !== "extension") {
     throw new Error("Only an Extension project can create a package")
@@ -198,7 +223,7 @@ export async function runBuild(
   // 保存 e2e 变量供构建后验收提示使用。
   const e2e = await resolveE2eSelection(args.e2e, interactive)
   // 保存 buildVersion 变量供当前候选注入使用。
-  const buildVersion = formatBuildVersion(now)
+  const buildVersion = await resolveBuildVersion(project.projectType, root, now)
   // 保存 command 变量供顺序执行使用。
   for (const command of createBuildCommandPlan(project.projectType, args.target, buildVersion)) {
     await runCommand(command, root)

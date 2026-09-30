@@ -5,17 +5,10 @@
   "description": "A TypeScript Harness template for either a React web app or a Plasmo Chrome extension.",
   "type": "module",
   "engines": {
-    "node": ">=22.22.2",
-    "pnpm": ">=10.33.3"
+    "node": ">=26.10.0",
+    "pnpm": ">=12.8.1"
   },
-  "packageManager": "pnpm@10.33.3",
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@parcel/watcher",
-      "esbuild",
-      "sharp"
-    ]
-  },
+  "packageManager": "pnpm@12.8.1",
   "scripts": {
     "harness": "tsx .harness/tooling/cli.ts",
     "instantiate": "tsx scripts/instantiate.ts",
@@ -29,17 +22,17 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.3",
-    "@types/node": "26.2.0",
-    "eslint": "10.8.1",
-    "jsdom": "30.0.1",
-    "prettier": "3.9.6",
-    "sharp": "0.35.3",
-    "tsx": "4.20.6",
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "26.6.3",
+    "eslint": "10.11.0",
+    "jsdom": "30.1.1",
+    "prettier": "3.9.9",
+    "sharp": "0.35.5",
+    "tsx": "4.23.15",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.66.0",
-    "vitest": "4.1.10"
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.2"
   }
 }

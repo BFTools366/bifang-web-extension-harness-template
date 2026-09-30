@@ -13,7 +13,7 @@
 ### 2.1 硬规则
 
 - 一个生成仓库必须是一个平铺 pnpm 包，并且 `.harness/project.json.projectType` 恰好为 `web` 或 `extension`。
-- 不得创建 pnpm workspace、`apps/`、`packages/`、共享 core、跨宿主组件包或另一宿主入口。两种模板可以采用相同技术族，但各自拥有代码、依赖、状态、测试和发布生命周期。
+- 不得创建多包 pnpm workspace、`apps/`、`packages/`、共享 core、跨宿主组件包或另一宿主入口。`pnpm-workspace.yaml` 仅用于 pnpm 12 的 `allowBuilds` 策略，不得声明 `packages`。两种模板可以采用相同技术族，但各自拥有代码、依赖、状态、测试和发布生命周期。
 - Web 与 Extension 之间不存在运行时依赖或源码导入。需要两种宿主时创建两个独立仓库；不要把 `projectType` 改成数组，也不要新增 target add/remove 流程。
 - `.harness/project.json` 是名称、标识、描述、唯一类型和品牌信息的权威配置。页面、manifest、标题和图标是派生结果，不得反向成为第二事实源。
 - `.harness/brand/logo-1024.png` 是唯一 Logo 母版。派生资产必须能追溯到该母版，并且只生成当前类型需要的文件。
@@ -33,8 +33,8 @@
 ### 2.3 Extension 单包职责
 
 - Plasmo 负责 Chrome Manifest V3 开发与构建，React + TypeScript 负责 Popup、Options 和真实需要的其他扩展界面。`package.json.targets.default` 必须显式使用 browser context 并启用 `includeNodeModules`，最终浏览器 bundle 不得把 React、Mantine、Query 等运行时包保留为裸依赖映射。
-- Mantine 提供 UI；TanStack Query 管理异步数据；Jotai 管理跨组件客户端状态；i18next 管理用户可见文案。Extension 基线不引入 TanStack Router；Popup 与 Options 是独立入口，不模拟 Web 站内路由。
-- `$web-implement-list-view` 只适用 React Web，Extension Popup/Options 不为复用它安装 Router、图标或 DnD 依赖；扩展中的重复项 UI 仍按当前 surface 和执行上下文实现。
+- Mantine 提供 UI；TanStack Router 在 Popup 与 Options 独立入口内管理页内导航，分别使用 memory 与 hash history，并以代码声明路由；TanStack Query 管理异步数据；Jotai 管理跨组件客户端状态；i18next 管理用户可见文案。Extension 不继承 Web 的文件路由生成器。
+- `$web-implement-list-view` 只适用 React Web，Extension Popup/Options 不为复用它安装图标或 DnD 依赖，也不继承 Web 列表路由状态契约；扩展中的重复项 UI 仍按当前 surface 和执行上下文实现。
 - 初始化生成的分页与原生 Fetch 基础只属于当前执行上下文，不承诺 Popup、Options、content script 或 service worker 共享 sessionStorage、Token、continuation 或 401 single-flight。跨上下文所有者必须使用明确的消息/Storage 架构并进入权限与隐私评审。
 - 只有产品真实需要时才新增 background service worker、content script、side panel 或其他入口。入口之间通过类型化消息契约通信，不共享隐式全局状态；RxJS 只能包装单个执行上下文内的消息流，不能替代 `chrome.runtime`/Port 的跨上下文传输。
 - 权限遵循最小授权：没有真实消费者就不声明 `permissions`、`host_permissions` 或可访问资源；新增权限必须解释用途并补充失败/拒绝测试。
@@ -108,8 +108,8 @@
 
 - 生成项目日常开发只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或说明相称替代验证，不得自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`；纯文档、元数据或机械变化只做解析或差异完整性所需的最小检查。
 - `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖和建立 Git 根；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。用户明确要求完整验收或当前变更触发候选硬门禁时，才在两个真实下游创建成功后另行显式构建精确 Release 候选。
-- `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。每次调用先取得当次 E2E `enabled|disabled` 选择；交互式入口直接询问，非交互入口显式传参。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试，按上海时区生成 `YYYYMMDDHHMM` 版本并注入当前前端页面，再完成宿主生产构建和 `pnpm release:inspect`；不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
-- `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当次 12 位构建版本存在于候选。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
+- `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。每次调用先取得当次 E2E `enabled|disabled` 选择；交互式入口直接询问，非交互入口显式传参。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试；Web 按上海时区生成 `YYMMDDHHMMSS` 页面版本，Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`）并注入页面，再完成宿主生产构建和 `pnpm release:inspect`。不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip，不自动递增版本。
+- `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当前宿主的页面版本存在于候选；Extension 另须确认 MV3 manifest 与 `package.json.version` 精确一致。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
 - 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Web 使用对应范围的 Playwright 或可用浏览器能力打开最终构建，验证品牌、构建版本、关键路由、核心成功路径与风险失败路径。
 - 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Extension 在真实 Chrome 中加载最终 MV3 构建，按批准范围验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及真实 Chrome API 行为。
@@ -125,7 +125,7 @@
 - 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 对当前表格格式及兼容标题格式执行该矛盾检查。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
-- 日期采用 `YYYY-MM-DD`，上海时间版本采用 `YYYYMMDDHHMM`。
+- 日期采用 `YYYY-MM-DD`；Harness 源版本采用上海时间 `YYYYMMDDHHMM`，Web 候选页面版本采用上海时间 `YYMMDDHHMMSS`，Extension 候选使用 `package.json.version` 的稳定 SemVer。
 - 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。
 
 | 文件                            | 唯一职责                                                |
@@ -147,6 +147,7 @@
 ## 8. 依赖与安全
 
 - 只安装当前单包真实使用的依赖。生成的基础 client 使用浏览器原生 Fetch，不安装 Ky/Axios；这些库与 OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
+- pnpm 12 的依赖构建许可保存在根 `pnpm-workspace.yaml` 的 `allowBuilds` 中；该文件不得声明 `packages`。不再使用 `package.json` 的 `pnpm.onlyBuiltDependencies`。TypeScript 暂固定在 6.0.3：受管 AST 工具依赖其 JavaScript API，且当前 `typescript-eslint` 的 TypeScript peer 范围不支持 7.x；升级前须先解决这两处兼容性。
 - 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 不得写入 localStorage/sessionStorage。
 - 外部 URL、HTML、消息、Storage 与网络响应均视为不可信输入；验证并编码后再使用。
 - Extension 权限、content script 匹配范围和 Web 可访问资源必须最小化。Web 的第三方脚本、CSP 与跨域配置也需要显式安全评估。

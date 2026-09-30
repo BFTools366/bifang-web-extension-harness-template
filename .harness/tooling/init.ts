@@ -34,7 +34,7 @@ import type { InitOptions, ProjectConfig } from "./types.ts"
 import { validateProject } from "./validate.ts"
 
 // 保存 FORBIDDEN_LAYOUT_PATHS 变量供当前逻辑使用。
-const FORBIDDEN_LAYOUT_PATHS = ["pnpm-workspace.yaml", "apps", "packages"] as const
+const FORBIDDEN_LAYOUT_PATHS = ["apps", "packages"] as const
 // 保存 PLASMO_TYPE_PATH 变量供当前逻辑使用。
 const PLASMO_TYPE_PATH = ".plasmo/index.d.ts"
 // 保存 SOURCE_HARNESS_ROOT 变量供当前逻辑使用。

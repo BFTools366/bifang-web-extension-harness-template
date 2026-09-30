@@ -143,12 +143,20 @@ async function seedTemplateRoot(): Promise<string> {
     await readFile(path.join(repositoryRoot, ".harness/tooling/project-memory.ts"), "utf8")
   )
   await writeFile(
+    path.join(root, ".harness/tooling/pnpm-policy.ts"),
+    await readFile(path.join(repositoryRoot, ".harness/tooling/pnpm-policy.ts"), "utf8")
+  )
+  await writeFile(
     path.join(root, "tests/source-size-policy.test.ts"),
     await readFile(path.join(repositoryRoot, "tests/source-size-policy.test.ts"), "utf8")
   )
   await writeFile(
     path.join(root, "package.json"),
     await readFile(path.join(repositoryRoot, "package.json"), "utf8")
+  )
+  await writeFile(
+    path.join(root, "pnpm-workspace.yaml"),
+    await readFile(path.join(repositoryRoot, "pnpm-workspace.yaml"), "utf8")
   )
   await writeFile(
     path.join(root, "tsconfig.json"),

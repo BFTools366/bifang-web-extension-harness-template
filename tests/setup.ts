@@ -1,6 +1,29 @@
 import { symlink } from "node:fs/promises"
 import "@testing-library/jest-dom/vitest"
-import type { TestContext } from "vitest"
+import { vi, type TestContext } from "vitest"
+
+if (typeof window !== "undefined") {
+  // 为 Node 与 jsdom 的不同 localStorage 实现提供一致的偏好持久化测试边界。
+  const storedValues = new Map<string, string>()
+  const testStorage: Storage = {
+    /** 返回测试用本地存储的条目数。 */
+    get length() {
+      return storedValues.size
+    },
+    clear: () => storedValues.clear(),
+    getItem: (key) => storedValues.get(key) ?? null,
+    key: (index) => [...storedValues.keys()][index] ?? null,
+    removeItem: (key) => {
+      storedValues.delete(key)
+    },
+    setItem: (key, value) => {
+      storedValues.set(key, value)
+    }
+  }
+  Object.defineProperty(window, "localStorage", { configurable: true, value: testStorage })
+  vi.stubGlobal("localStorage", testStorage)
+  Object.defineProperty(window, "scrollTo", { configurable: true, value: () => undefined })
+}
 
 /** 在 Windows 缺少符号链接权限时仅跳过当前用例，其余平台与错误继续失败。 */
 export async function createSymlinkOrSkip(

@@ -9,7 +9,7 @@ description: 为单 package React Web 下游创建、修改、重构或审查重
 
 - 创建、修改、重构或审查 `projectType=web` 的列表页、数据表格、后台列表或搜索结果页时使用；用户没有写“表格”，但任务实质是检索、浏览或管理重复记录时同样适用。
 - 先读 [`docs/MANTINE_UI_GUIDELINES.md`](../../../docs/MANTINE_UI_GUIDELINES.md) 的当前 UI 规则与 [`docs/DATA_ACCESS.md`](../../../docs/DATA_ACCESS.md) 的列表状态和数据边界。本 Skill 只编排列表工作，不建立第二份 UI、分页或数据事实源。
-- Extension Popup/Options 继续使用 `$web-implement-change` 与 Extension 宿主规范；不要为复用本 Skill 给 Extension 安装 Router、列表依赖或复杂表格。
+- Extension Popup/Options 继续使用 `$web-implement-change` 与 Extension 宿主规范；已有的 Extension Router 不授权复用本 Skill 的 Web 列表恢复契约，也不为此增加列表依赖或复杂表格。
 
 ## 开始前确定
 

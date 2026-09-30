@@ -8,11 +8,16 @@ import { pathExists, readJson, walkFiles } from "./files.ts"
 import type { ProjectConfig } from "./types.ts"
 import { deriveLogoAssets } from "./logo.ts"
 import { ENVIRONMENT_FILES, validateEnvironmentFiles } from "./environment.ts"
-import { assertPackageManagerPins, declaredVersionAtLeast } from "./version.ts"
+import {
+  assertPackageManagerPins,
+  declaredVersionAtLeast,
+  isValidExtensionVersion
+} from "./version.ts"
 import { inspectProjectChineseComments } from "./comment-policy.ts"
 import { validateAgentPolicyBody, validateAgentPolicyDocument } from "./agent-policy.ts"
 import { validateOptionalProjectMemory } from "./project-memory.ts"
 import { validateTerminalSkills } from "./skill-validation.ts"
+import { validatePnpmBuildPolicy } from "./pnpm-policy.ts"
 
 // 执行 requirePaths 函数的处理逻辑。
 async function requirePaths(
@@ -365,6 +370,8 @@ async function validateWeb(root: string, config: ProjectConfig, errors: string[]
       "src/app/router.tsx",
       "src/app/queryClient.ts",
       "src/app/theme.ts",
+      "src/theme/brandScale.ts",
+      "src/theme/ColorSchemeControl.tsx",
       "src/features/not-found/NotFoundPage.tsx",
       "src/buildVersion.ts",
       "src/i18n/index.ts",
@@ -464,6 +471,9 @@ async function validateExtension(
       "src/buildVersion.ts",
       "src/i18n.ts",
       "src/providers.tsx",
+      "src/extension-router.tsx",
+      "src/theme/brandScale.ts",
+      "src/theme/ColorSchemeControl.tsx",
       "src/observability/logger.ts",
       "src/observability/logger.test.ts",
       "src/observability/AppErrorBoundary.tsx",
@@ -480,12 +490,20 @@ async function validateExtension(
     errors.push("Extension project contains Web entrypoints")
   }
   if (manifest.displayName !== config.name) errors.push("Extension displayName is stale")
+  if (!isValidExtensionVersion(manifest.version)) {
+    errors.push("Extension package.json.version must use Chrome-compatible stable SemVer X.Y.Z")
+  }
   // 保存 targets 变量供当前逻辑使用。
   const targets = manifest.targets as Record<string, unknown> | undefined
   // 保存 defaultTarget 变量供当前逻辑使用。
   const defaultTarget = targets?.default as Record<string, unknown> | undefined
   if (defaultTarget?.context !== "browser" || defaultTarget.includeNodeModules !== true) {
     errors.push("Extension default Parcel target must use browser context and include node_modules")
+  }
+  // 锁定浏览器条件导出，防止 Router 的 isServer 子路径落入服务端入口。
+  const parcelResolver = manifest["@parcel/resolver-default"] as Record<string, unknown> | undefined
+  if (parcelResolver?.packageExports !== true) {
+    errors.push("Extension Parcel resolver must enable packageExports")
   }
   // 保存 shellPath 变量供当前逻辑使用。
   const shellPath = path.join(root, "src/ExtensionShell.tsx")
@@ -510,6 +528,18 @@ async function validateExtension(
   }
   if (!(await hasBuildVersionSurface(root))) {
     errors.push("Extension production TSX surface must display an imported build-version value")
+  }
+  // 验证两个扩展入口各自持有 Router，避免意外退回无导航基线。
+  for (const surface of ["popup", "options"] as const) {
+    const entryPath = path.join(root, `src/${surface}.tsx`)
+    if (!(await pathExists(entryPath))) continue
+    const entry = await readFile(entryPath, "utf8")
+    if (
+      !entry.includes(`createExtensionRouter("${surface}"`) ||
+      !entry.includes("RouterProvider")
+    ) {
+      errors.push(`Extension ${surface} entry must mount its own TanStack Router`)
+    }
   }
   // 保存 browserManifest 变量供当前逻辑使用。
   const browserManifest = manifest.manifest
@@ -550,8 +580,7 @@ async function validateExtension(
       if (builtManifest.description !== config.description) {
         errors.push("Extension build description is stale")
       }
-      if (builtManifest.version !== manifest.version)
-        errors.push("Extension build version is stale")
+      // 旧产物的版本由构建后的 release:inspect 校验，避免版本变更阻断重建。
       if (action?.default_popup !== "popup.html")
         errors.push("Extension build is missing popup entry")
       if (options?.page !== "options.html") errors.push("Extension build is missing options entry")
@@ -662,7 +691,7 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   await validateOptionalProjectMemory(root, errors)
 
   // 保存 forbiddenMonorepoPaths 变量供当前逻辑使用。
-  const forbiddenMonorepoPaths = ["pnpm-workspace.yaml", "apps", "packages"] as const
+  const forbiddenMonorepoPaths = ["apps", "packages"] as const
   // 保存 forbiddenMonorepoPathsExist 变量供当前逻辑使用。
   const forbiddenMonorepoPathsExist = await Promise.all(
     forbiddenMonorepoPaths.map(
@@ -681,6 +710,7 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   if (manifest.description !== config.description) errors.push("package.json description is stale")
   if ("workspaces" in manifest) errors.push("package.json must not define workspaces")
   assertPackageManagerPins(manifest, errors)
+  await validatePnpmBuildPolicy(root, errors)
   // 保存 dependencies 变量供当前逻辑使用。
   const dependencies = dependenciesOf(manifest)
   // 保存 devDependencies 变量供当前逻辑使用。
@@ -690,8 +720,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   if (config.projectType === "web") {
     // 保存 [dependency, minimum] 变量供 Web-only 列表 Skill 兼容下限校验使用。
     for (const [dependency, minimum] of [
-      ["@mantine/core", "9.6.1"],
-      ["@tanstack/react-query", "5.102.8"]
+      ["@mantine/core", "9.6.3"],
+      ["@tanstack/react-query", "5.104.0"]
     ] as const) {
       if (!declaredVersionAtLeast(dependencies[dependency], minimum)) {
         errors.push(`${dependency} minimum must not be lower than ${minimum}`)
@@ -701,8 +731,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   // 保存 [dependency, minimum] 变量供当前逻辑使用。
   for (const [dependency, minimum] of [
     ["typescript", "6.0.3"],
-    ["vitest", "4.1.10"],
-    ["eslint", "10.8.1"]
+    ["vitest", "5.0.2"],
+    ["eslint", "10.11.0"]
   ] as const) {
     if (!declaredVersionAtLeast(devDependencies[dependency], minimum)) {
       errors.push(`${dependency} minimum must not be lower than ${minimum}`)
@@ -745,7 +775,6 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   // 保存 contract 变量供统一构建器必需片段校验使用。
   for (const contract of [
     'args: ["test"]',
-    "Asia/Shanghai",
     "HARNESS_BUILD_VERSION",
     "本次构建完成后是否启用 E2E 测试",
     "Non-interactive builds require --e2e=enabled or --e2e=disabled"
@@ -808,6 +837,9 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   }
 
   if (config.projectType === "web") {
+    if (!buildTooling.includes("Asia/Shanghai") || !buildTooling.includes("YYMMDDHHMMSS")) {
+      errors.push("Web build tooling must generate Shanghai YYMMDDHHMMSS versions")
+    }
     if (!buildTooling.includes("VITE_BUILD_VERSION")) {
       errors.push("Web build tooling is missing VITE_BUILD_VERSION")
     }
@@ -840,14 +872,17 @@ export async function validateProject(rootInput: string): Promise<string[]> {
     }
     await validateWeb(root, config, errors)
   } else {
+    if (!buildTooling.includes("readExtensionBuildVersion")) {
+      errors.push("Extension build tooling must read package.json.version")
+    }
     if (!buildTooling.includes("PLASMO_PUBLIC_BUILD_VERSION")) {
       errors.push("Extension build tooling is missing PLASMO_PUBLIC_BUILD_VERSION")
     }
     if (buildTooling.includes("VITE_BUILD_VERSION") || buildTooling.includes("vite")) {
       errors.push("Extension build tooling contains Web host logic")
     }
-    if ("@tanstack/react-router" in dependencies)
-      errors.push("Extension must not include TanStack Router")
+    if (!("@tanstack/react-router" in dependencies))
+      errors.push("Extension project is missing TanStack Router")
     // 保存 forbidden 变量供当前逻辑使用。
     for (const forbidden of ["@tanstack/router-cli", "@tanstack/router-plugin"]) {
       if (forbidden in dependencies || forbidden in devDependencies) {

@@ -19,7 +19,7 @@ pnpm instantiate -- <absolute-target-outside-harness> ...
 ## 技术职责
 
 - Web：Vite、React/TypeScript、Mantine、TanStack Router 文件路由、Query、Jotai、i18next。
-- Extension：Plasmo、Chrome MV3、React/TypeScript、Mantine、Query、Jotai、i18next；不引入 Router。
+- Extension：Plasmo、Chrome MV3、React/TypeScript、Mantine、TanStack Router 代码路由、Query、Jotai、i18next；Popup 与 Options 分别持有路由历史。
 - Query 管远端/异步服务器状态；Jotai 只管必要跨组件客户端状态；简单局部状态留在组件。
 - UI 只使用 Mantine theme、语义令牌与受控样式；Extension 权限保持真实最小集合。
 

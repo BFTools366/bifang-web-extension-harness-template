@@ -5,7 +5,8 @@
 ## 1. 版本事实
 
 - Harness 使用上海时区 `YYYYMMDDHHMM` 时间版本，Git 标签建议为 `vYYYYMMDDHHMM`。
-- 生成下游使用其根 `package.json` 的版本作为软件版本事实；若采用语义化版本，标签使用 `vX.Y.Z`。
+- Web 候选页面版本由构建时的上海时间生成，格式为 `YYMMDDHHMMSS`；其 `package.json.version` 仍是包元数据，不作为页面构建版本。Web 候选标签可使用 `vYYMMDDHHMMSS`。
+- Extension 以根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）作为软件、页面与 MV3 manifest 的同一版本事实；每段为 `0`–`65535`，三段不能全为零，以符合 [Chrome manifest version 规则](https://developer.chrome.com/docs/extensions/reference/manifest/version)。构建和打包只读取该值，不自动递增。Extension 标签可使用 `vX.Y.Z`。
 - `.harness/project.json.projectType` 是候选宿主类型事实，发布脚本不得从目录猜测或同时构建两个宿主。
 - 版本、源码提交、锁文件、构建产物和验证证据必须指向同一候选。任何构建后修改都会产生新候选。
 - `Unreleased` 表示尚未形成对外发布承诺，不能因本地构建成功改写为已发布。

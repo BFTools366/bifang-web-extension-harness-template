@@ -2,7 +2,7 @@
 
 这是一个面向 AI Agent 的纯 TypeScript 项目 Harness，只生成两种互斥的终端下游：**纯 React Web 页面**或 **Chrome MV3 Plasmo 扩展**。事件触发、渐进读取、工程约束、验证与发布治理共同形成可验证的交付闭环。
 
-每次初始化只生成一个平铺的 pnpm 单包项目。下游仓库不会同时包含 Web 与 Extension，不使用 pnpm workspace、`apps/`、`packages/` 或共享 core。若同一产品需要两种宿主，应分别初始化两个独立仓库，并独立维护版本、品牌、状态和测试。
+每次初始化只生成一个平铺的 pnpm 单包项目。下游仓库不会同时包含 Web 与 Extension，不声明多包 workspace、`apps/`、`packages/` 或共享 core。`pnpm-workspace.yaml` 仅保存 pnpm 构建脚本许可，不声明 `packages`。若同一产品需要两种宿主，应分别初始化两个独立仓库，并独立维护版本、品牌、状态和测试。
 
 ## 当前状态
 
@@ -17,18 +17,18 @@
 | 项目类型    | 技术基线                                                                                                                                                         |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `web`       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai、i18next                                                                      |
-| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Query、Jotai、i18next                                                                          |
+| `extension` | Plasmo、Chrome Manifest V3、React + TypeScript、Mantine、TanStack Router 代码路由、TanStack Query、Jotai、i18next                                                |
 | 两者共同    | pnpm 单包、三环境 `APP_CONFIG`、统一分页/Fetch 请求边界、统一 logger、Vitest、Testing Library；当前 E2E、完整验收 smoke 或浏览器硬要求需要时增加真实 Chrome 验证 |
 
 初始化器会生成不含业务 endpoint 的原生 Fetch client、语言偏好和分页基础层，统一 `X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、401、错误日志与 sessionStorage 分页语义。Ky、OpenAPI、GraphQL、SSE 与 RxJS 等集成仍只随真实消费者按需加入；初始化不预装这些依赖、不生成占位请求/事件总线，也不预置 Extension 权限。完整协议见 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md)。
 
-两种下游还会携带按当前宿主裁剪的 Mantine UI 规范，统一 theme/语义令牌、排版、间距、组件层级、异步状态、响应式、无障碍和 i18n 实施边界；源规范见 [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)。
+两种下游都生成品牌十阶色、跟随系统/亮色/暗色切换与项目命名空间下的外观偏好持久化，并携带按当前宿主裁剪的 Mantine UI 规范；源规范见 [`docs/MANTINE_UI_GUIDELINES.md`](docs/MANTINE_UI_GUIDELINES.md)。Extension 的 Popup 使用内存历史，Options 使用 hash 历史，彼此仍是独立入口。
 
 React Web 下游额外保留 `$web-implement-list-view`，在真实列表页、数据表格、后台列表或搜索结果出现时统一 Router 恢复、Query 分页、状态反馈与无障碍。该 Skill 不强制使用 Table、选择或拖拽；中性初始化不生成业务列表、不预装图标或 DnD 等可选依赖。Extension Popup/Options 不携带或调用该 Web-only Skill。
 
 ## 快速开始
 
-准备 Node.js `>=22.22.2`、Corepack 与 pnpm `>=10.33.3` 后，在 Harness 根目录安装依赖。`engines` 是兼容性最低版本，实际工具可以更高；`packageManager` 仍使用精确 `pnpm@x.y.z` pin 供 Corepack 与复现使用，但这个 pin 也只需不低于最低版本：
+准备 Node.js `>=26.10.0` 与 pnpm `>=12.8.1` 后，在 Harness 根目录安装依赖。Node.js 26 不内置 Corepack，pnpm 需要按其官方安装方式单独准备；不依赖全局第三方包作为项目运行时依赖。`engines` 是兼容性最低版本；`packageManager` 固定为精确的 `pnpm@12.8.1`，复现和生成下游时使用该版本：
 
 ```bash
 pnpm install
@@ -112,7 +112,7 @@ pnpm release:inspect
 
 这些命令在各自项目内运行。日常实现只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证，不自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–1000 行要求复核，1001 行起拒绝。
 
-`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。构建器按 `Asia/Shanghai` 生成 `YYYYMMDDHHMM` 版本，分别通过 Vite/Plasmo 临时变量注入 Web Landing 或 Extension Popup/Options；完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
+`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。Web 构建器按 `Asia/Shanghai` 生成 `YYMMDDHHMMSS` 版本并注入 Landing；Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`），注入 Popup/Options 并与 MV3 manifest 保持一致。完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
 
 Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器、注释和源码体积门禁忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
 

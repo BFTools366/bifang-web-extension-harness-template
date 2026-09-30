@@ -2,7 +2,7 @@
 
 本文档是 Bifang Web Harness Template 及其下游 Mantine 界面的唯一详细设计规范。它约束视觉令牌、布局、组件语义、交互状态、响应式、无障碍与国际化；具体项目身份与品牌色仍以 `.harness/project.json` 为事实源，工程和测试通则仍以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 为准。
 
-当前模板声明 Mantine `9.6.1`，并以根级 `MantineProvider`、`createTheme` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须先核对本文引用的主题、Styles API 和响应式机制；未安装的 `@mantine/form`、`@mantine/notifications`、图标或 DnD 包不是现有能力。
+当前模板声明 Mantine `9.6.3`，并以根级 `MantineProvider`、`createTheme` 和 Mantine CSS variables 为实现基线。升级 Mantine 时必须先核对本文引用的主题、Styles API 和响应式机制；未安装的 `@mantine/form`、`@mantine/notifications`、图标或 DnD 包不是现有能力。
 
 ## 1. 规范等级与使用方式
 
@@ -57,9 +57,9 @@
 
 **硬规则：**
 
-- Mantine 自定义颜色必须满足当前版本要求的至少 10 个条目。初始化生成的单色 `brand` tuple 只是从一个品牌值建立合法主题的保守起点；中性状态 Badge 使用 Mantine `default` 变体，不用会把单色 tuple 同时作为背景和文字的 `brand` + `light` 组合。当真实产品开始依赖 `brand.0`–`brand.9`、hover/active 层级、自动对比或暗色方案时，必须先提供并验证完整色阶，不能把重复色值误当作明暗语义。
+- Mantine 自定义颜色必须满足当前版本要求的至少 10 个条目。初始化从品牌主色派生十阶 `brand` 色阶，避免重复同一色值；真实产品使用 hover/active 和文本对比时，仍须针对实际品牌色逐项验证。中性状态 Badge 使用 Mantine `default` 变体。
 - 文字与背景、交互边界、状态和焦点指示满足 WCAG 2.2 AA；普通文字至少 `4.5:1`，大号文字和必要非文字界面信息至少 `3:1`。品牌 Logo 的豁免不能扩展到按钮文字或正文。
-- 色彩方案默认保持 `light`。只有产品范围明确包含暗色或跟随系统时，才启用 `defaultColorScheme="dark|auto"`，并逐项验证 surface、文字、边框、状态、Logo 和最终产物；设置持久化键使用项目命名空间。
+- 色彩方案默认跟随系统 `auto`，并提供显式亮色/暗色切换。偏好使用项目命名空间的 `localStorage` 键；页面背景与文字使用 Mantine 语义变量。真实产品增加新 surface、状态色或 Logo 时，逐项验证两种方案和最终产物。
 - focus ring 不得设为 `never`。主题与自定义组件必须保留键盘可见焦点，并避免被 sticky header、overlay 或滚动容器遮挡。
 - 动画和过渡必须尊重 `prefers-reduced-motion`；不得用动画作为唯一状态提示。
 
@@ -187,17 +187,17 @@ Web 页面采用以下三类布局，不把初始化的居中 Hero 复制到所�
 
 Popup 与 Options 使用同一主题语义，但服务不同任务：
 
-| Surface | 目标                           | 默认布局                                                                              |
-| ------- | ------------------------------ | ------------------------------------------------------------------------------------- |
-| Popup   | 在一次短会话中完成一个主要任务 | 默认宽 `380px`，可在 `360–400px` 内按内容调整；身份区 → 主任务 → 状态/帮助 → 次要操作 |
-| Options | 完成长表单、详细配置和帮助     | 默认最大宽 `760px`、居中单列；设置按 section 分组，必要时再引入两列                   |
+| Surface | 目标                           | 默认布局                                                                                |
+| ------- | ------------------------------ | --------------------------------------------------------------------------------------- |
+| Popup   | 在一次短会话中完成一个主要任务 | 基线最小宽 `320px`，内容可在 `320–400px` 内调整；身份区 → 主任务 → 状态/帮助 → 次要操作 |
+| Options | 完成长表单、详细配置和帮助     | 默认最大宽 `760px`、居中单列；设置按 section 分组，必要时再引入两列                     |
 
 - Popup 首屏应看到当前状态和主动作；不放多层导航、复杂表格、长帮助、无限滚动列表或需要长期阅读的内容。超出范围的任务明确跳转 Options。
-- Extension Popup/Options 不调用 `$web-implement-list-view`，不为复用 Web 列表恢复逻辑安装 Router、图标或 DnD 依赖；扩展的重复项界面仍按当前 surface、消息与 Storage 契约单独设计。
+- Extension Popup/Options 各自使用 TanStack Router 代码路由，不调用 `$web-implement-list-view` 或复用 Web 列表恢复逻辑；扩展的重复项界面仍按当前 surface、消息与 Storage 契约单独设计。
 - Popup 使用 compact but operable 密度：可以采用 `sm` gap/控件，但可点击目标、可见焦点、错误和文本缩放不得牺牲。核心 CTA 不应依赖滚动才能发现。
 - Options 不复用 Popup 的固定宽度和紧凑密度，也不引入与设置任务无关的站点式导航。只有设置量真实增长后才增加目录/侧栏。
 - theme 与根 `MantineProvider` 保持在 `src/providers.tsx`；只有出现真实跨入口复用需求时才提取单独 theme 模块。
-- Popup/Options 各自挂载 Provider 时使用同一包内 theme 定义；不跨执行上下文假定弹层、通知、焦点或色彩方案状态自动共享。
+- Popup/Options 各自挂载 Provider 时使用同一包内 theme 定义；外观偏好通过项目命名空间的 `localStorage` 保存，不跨执行上下文假定弹层、通知或焦点状态自动共享。
 - 避免远程字体与远程样式依赖，保持 MV3/CSP 自包含。Overlay、Select、Menu 和 Tooltip 必须在扩展 surface 的实际视口内验证位置、裁切和关闭行为。
 - 当前单包只保留扩展入口、资源和已批准的最小权限，不增加第二宿主或站点路由。
 

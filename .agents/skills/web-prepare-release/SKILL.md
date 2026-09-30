@@ -12,7 +12,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 1. 识别仓库：下游读取 `.harness/project.json`；源 Harness 读取 `Version.md` 且确认不存在该项目文件。再读取 `package.json`、锁文件、发布规则、最新相关 Product Spec、Changelog 和 Verification。
 2. 确认用户要求准备发布，并要求 `$web-verify-delivery` 对精确候选给出 `Milestone accepted`。开发检查、构建成功、历史证据或等待人工复核均不充分。
 3. 要求独立 Git 顶层目录，`HEAD` 等于已验收源码提交，候选可绑定到项目版本、提交、构建环境和 SHA-256。存在影响候选的脏修改时声明 `Not ready`。
-4. Harness 当前版本与发布状态只来自 `Version.md`；下游软件版本来自根 `package.json` 的 SemVer，并同步锁文件及当前类型的可见元数据。版本决定必须由用户确认；不得根据提交或旧版本自行升级。Node/pnpm/依赖按稳定 SemVer 最低版本准入不改变候选版本、提交、lock/hash、Schema/协议或 manifest 的精确匹配。
+4. Harness 当前版本与发布状态只来自 `Version.md`；Web 候选页面版本来自当次构建的上海时间 `YYMMDDHHMMSS`，`package.json.version` 仅是包元数据；Extension 的软件、页面和 MV3 manifest 版本来自根 `package.json.version` 的稳定 SemVer。人为修改 Extension SemVer 前须由用户确认，并同步锁文件；构建和打包不得自行升级。Node/pnpm/依赖按稳定 SemVer 最低版本准入不改变候选版本、提交、lock/hash、Schema/协议或 manifest 的精确匹配。
 5. 若版本变化会改变源码或产物，先更新版本、重新生产构建，再返回 `$web-verify-delivery` 验收新字节；旧结论不得复用。
 
 ## 唯一产物

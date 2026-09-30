@@ -8,6 +8,20 @@ export interface SemanticVersion {
   patch: number
 }
 
+// 保存 WEB_BUILD_VERSION_PATTERN 常量，校验上海时间的 YYMMDDHHMMSS 字段顺序。
+export const WEB_BUILD_VERSION_PATTERN =
+  /^\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])(?:[01]\d|2[0-3])[0-5]\d[0-5]\d$/
+
+// 保存 EXTENSION_VERSION_PATTERN 常量，约束 Extension 的稳定 SemVer 字段结构。
+const EXTENSION_VERSION_PATTERN = /^(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)$/
+
+// 校验 Extension SemVer 同时满足 Chrome manifest 的非全零与分段上限。
+export function isValidExtensionVersion(value: unknown): value is string {
+  if (typeof value !== "string" || !EXTENSION_VERSION_PATTERN.test(value)) return false
+  const parts = value.split(".").map(Number)
+  return parts.some((part) => part > 0) && parts.every((part) => part <= 65535)
+}
+
 // 保存 EXACT_VERSION 变量供当前逻辑使用。
 const EXACT_VERSION =
   /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/
@@ -94,16 +108,16 @@ export function assertPackageManagerPins(
 ): void {
   // 保存 engines 变量供当前逻辑使用。
   const engines = manifest.engines as Record<string, unknown> | undefined
-  if (!declaresMinimumVersion(engines?.node, "22.22.2")) {
-    errors.push("Node engine minimum must not be lower than 22.22.2")
+  if (!declaresMinimumVersion(engines?.node, "26.10.0")) {
+    errors.push("Node engine minimum must not be lower than 26.10.0")
   }
-  if (!declaresMinimumVersion(engines?.pnpm, "10.33.3")) {
-    errors.push("pnpm engine minimum must not be lower than 10.33.3")
+  if (!declaresMinimumVersion(engines?.pnpm, "12.8.1")) {
+    errors.push("pnpm engine minimum must not be lower than 12.8.1")
   }
   // 保存 pinnedPnpm 变量供当前逻辑使用。
   const pinnedPnpm = packageManagerVersion(manifest.packageManager, "pnpm")
-  if (!isVersionAtLeast(pinnedPnpm, "10.33.3")) {
-    errors.push("packageManager must be an exact pnpm pin not lower than 10.33.3")
+  if (!isVersionAtLeast(pinnedPnpm, "12.8.1")) {
+    errors.push("packageManager must be an exact pnpm pin not lower than 12.8.1")
   }
   // 保存 declaredPnpm 变量供当前逻辑使用。
   const declaredPnpm = minimumVersionFromRange(engines?.pnpm)

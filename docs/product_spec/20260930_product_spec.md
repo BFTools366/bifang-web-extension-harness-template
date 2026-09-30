@@ -1,4 +1,4 @@
-# 2026-09-22 产品规格
+# 2026-09-30 产品规格
 
 状态：Approved
 
@@ -21,15 +21,15 @@
 ## 固定范围
 
 - Web 使用 Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai 与 i18next。
-- Extension 使用 Plasmo、Chrome MV3、Mantine、TanStack Query、Jotai 与 i18next，不引入 TanStack Router。
-- 源 Harness 保留 Web-only `$web-implement-list-view`；Web 终端保留该 Skill 用于列表页、数据表格、后台列表与搜索结果，Extension 终端必须裁掉它且不为复用 Web 契约引入 Router。
+- Extension 使用 Plasmo、Chrome MV3、Mantine、TanStack Router 代码路由、TanStack Query、Jotai 与 i18next；Popup 与 Options 分别持有 Router。
+- 源 Harness 保留 Web-only `$web-implement-list-view`；Web 终端保留该 Skill 用于列表页、数据表格、后台列表与搜索结果，Extension 终端必须裁掉它且不复用 Web 列表路由恢复契约。
 - 两类项目共享工程契约但不在同一仓库共享业务源码。
 - `.harness/project.json` 是名称、标识、说明、唯一 `projectType` 和品牌事实源；Logo 母版固定为 `.harness/brand/logo-1024.png`。
 - development、test、release 三环境完整存在；浏览器端只读取当前宿主四个已声明公开变量，逻辑 release 映射 production。
 - 初始化器生成原生 Fetch、1-based 分页、语言/认证 header、超时、401 handler、安全 logger 与 Release 检查基线，不生成业务 endpoint、伪远端 Query、占位事件总线或为展示而设的全局状态。
 - 用户可见文案进入 i18next；可分享导航状态由 Router search 管理，会话态进入 `sessionStorage`，远端状态由 Query 管理，必要的跨组件客户端状态才由 Jotai 管理，组件局部交互留在 React；同一状态不得双重归属。Web 路由列表是封闭启动恢复例外：Router 始终是已应用列表状态的运行时 owner，仅在原始 URL 完全没有 owned key 时按 `listId` 读取一次 sessionStorage 快照；业务行和 `total` 只属于 Query。
 - 列表形态按真实信息结构选择 Table、卡片或搜索结果，不强制 Table、选择、列偏好或 DnD。中性初始化不生成业务列表、假 endpoint 或可选列表依赖。
-- 生成的中性界面使用 Mantine theme 和语义令牌，默认 light，顶层标题层级正确；动态状态可被辅助技术感知，父容器不代理子控件动作。
+- 生成的中性界面使用 Mantine theme 和语义令牌，品牌色形成十阶色阶，默认跟随系统并允许显式亮色/暗色切换；顶层标题层级正确，动态状态可被辅助技术感知，父容器不代理子控件动作。
 
 ## Agent-first 执行契约
 

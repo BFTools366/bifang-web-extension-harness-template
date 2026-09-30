@@ -1,4 +1,8 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import os from "node:os"
+import path from "node:path"
 import { describe, expect, test } from "vitest"
+import { validatePnpmBuildPolicy } from "../.harness/tooling/pnpm-policy.ts"
 import {
   declaredVersionAtLeast,
   declaresMinimumVersion,
@@ -9,18 +13,18 @@ import {
 describe("stable minimum-version gates", /* 执行 当前声明 函数的处理逻辑。 */ () => {
   /** 验证 accepts only an uncapped >= engine minimum 场景。 */
   test("accepts only an uncapped >= engine minimum", /* 执行 当前声明 函数的处理逻辑。 */ () => {
-    expect(declaresMinimumVersion(">=22.22.2", "22.22.2")).toBe(true)
-    expect(declaresMinimumVersion(">=23.0.0", "22.22.2")).toBe(true)
+    expect(declaresMinimumVersion(">=26.10.0", "26.10.0")).toBe(true)
+    expect(declaresMinimumVersion(">=27.0.0", "26.10.0")).toBe(true)
     // 保存 declaration 变量供当前逻辑使用。
     for (const declaration of [
-      "22.22.2",
-      "=22.22.2",
-      "^22.22.2",
-      "~22.22.2",
-      ">=22.22.2 <23.0.0",
-      ">=22.22.2-beta.1"
+      "26.10.0",
+      "=26.10.0",
+      "^26.10.0",
+      "~26.10.0",
+      ">=26.10.0 <27.0.0",
+      ">=26.10.0-beta.1"
     ]) {
-      expect(declaresMinimumVersion(declaration, "22.22.2")).toBe(false)
+      expect(declaresMinimumVersion(declaration, "26.10.0")).toBe(false)
     }
   })
 
@@ -38,10 +42,37 @@ describe("stable minimum-version gates", /* 执行 当前声明 函数的处理�
 
   /** 验证 rejects non-canonical exact versions while preserving an exact package-manager pin 场景。 */
   test("rejects non-canonical exact versions while preserving an exact package-manager pin", /* 执行 当前声明 函数的处理逻辑。 */ () => {
-    expect(parseExactVersion("v10.33.3+build.1")).toEqual({ major: 10, minor: 33, patch: 3 })
-    expect(parseExactVersion("10.033.3")).toBeUndefined()
-    expect(parseExactVersion("10.33.3-beta.1")).toBeUndefined()
-    expect(packageManagerVersion("pnpm@10.34.0", "pnpm")).toBe("10.34.0")
-    expect(packageManagerVersion("pnpm@>=10.33.3", "pnpm")).toBeUndefined()
+    expect(parseExactVersion("v12.8.1+build.1")).toEqual({ major: 12, minor: 8, patch: 1 })
+    expect(parseExactVersion("12.08.1")).toBeUndefined()
+    expect(parseExactVersion("12.8.1-beta.1")).toBeUndefined()
+    expect(packageManagerVersion("pnpm@12.9.0", "pnpm")).toBe("12.9.0")
+    expect(packageManagerVersion("pnpm@>=12.8.1", "pnpm")).toBeUndefined()
+  })
+
+  /** 验证 pnpm 12 构建许可完整且不声明多包工作区。 */
+  test("requires a single-package pnpm build policy", async () => {
+    // 保存 targetRoot 变量供隔离配置测试使用。
+    const targetRoot = await mkdtemp(path.join(os.tmpdir(), "pnpm-policy-test-"))
+    try {
+      // 保存 policyPath 变量供测试写入 pnpm 配置使用。
+      const policyPath = path.join(targetRoot, "pnpm-workspace.yaml")
+      await writeFile(policyPath, "allowBuilds:\n  esbuild: true\n")
+      // 保存 missingAllowlist 变量供缺项断言使用。
+      const missingAllowlist: string[] = []
+      await validatePnpmBuildPolicy(targetRoot, missingAllowlist)
+      expect(missingAllowlist).toContain("pnpm build policy must allow @parcel/watcher")
+      expect(missingAllowlist).toContain("pnpm build policy must allow sharp")
+
+      await writeFile(
+        policyPath,
+        'packages:\n  - "apps/*"\nallowBuilds:\n  "@parcel/watcher": true\n  esbuild: true\n  sharp: true\n'
+      )
+      // 保存 workspaceErrors 变量供多包声明断言使用。
+      const workspaceErrors: string[] = []
+      await validatePnpmBuildPolicy(targetRoot, workspaceErrors)
+      expect(workspaceErrors).toContain("pnpm build policy must not declare workspace packages")
+    } finally {
+      await rm(targetRoot, { recursive: true, force: true })
+    }
   })
 })
