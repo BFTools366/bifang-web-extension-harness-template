@@ -6,11 +6,12 @@ import { assertProjectType } from "./config.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
   isInteractiveTerminal,
+  parsePolicyMode,
   promptForIdentity,
   type PromptDefaults,
   type PromptedIdentity
 } from "./prompts.ts"
-import { parsePolicyMode, recommendedAgentPolicy } from "./agent-policy.ts"
+import { recommendedAgentPolicy } from "./agent-policy.ts"
 import type { AgentPolicyChoice, AgentPolicySelection, InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
 

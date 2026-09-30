@@ -1,5 +1,6 @@
 import { describe, test } from "vitest"
 import { execFileSync } from "node:child_process"
+import { checkCommitConfiguration } from "../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
 import { validateHarness } from "../scripts/validate-harness.ts"
 import { REQUIRED_FILES } from "../scripts/harness-validation/contracts.ts"
@@ -69,6 +70,50 @@ describe("minimal public instantiation inputs", () => {
       )
       expect(await readdir(targetRoot)).not.toContain("dist")
       expect(await readdir(targetRoot)).not.toContain("build")
+      const terminalPolicy = await readFile(
+        path.join(targetRoot, ".harness/tooling/agent-policy.ts"),
+        "utf8"
+      )
+      expect(terminalPolicy).not.toContain("AgentPolicyMode")
+      expect(terminalPolicy).not.toContain("parsePolicyMode")
+      expect(terminalPolicy).toContain("validateAgentPolicyDocument")
+    }
+  )
+
+  /** 验证暂存提交模板异常在原子发布前失败，保留缺席或空目标。 */
+  test.each([false, true])(
+    "rejects a changed staged template with empty target %s",
+    async (exists) => {
+      const parent = await temporaryDirectory("harness-template-binding-")
+      const targetRoot = path.join(parent, "template-binding")
+      if (exists) await mkdir(targetRoot)
+      const { root: ignoredRoot, ...init } = options(targetRoot, "web")
+      void ignoredRoot
+      await expect(
+        instantiateProject(
+          {
+            sourceRoot: repositoryRoot,
+            targetRoot,
+            init: { ...init, id: "template-binding", skipGit: false }
+          },
+          async (stagedOptions, logo) => {
+            const config = await initializeProject(stagedOptions, logo)
+            execFileSync(
+              "git",
+              ["config", "--local", "commit.template", "unexpected-template.txt"],
+              {
+                cwd: stagedOptions.root
+              }
+            )
+            return config
+          }
+        )
+      ).rejects.toThrow(/Local Git config commit.template/)
+      if (exists) expect(await readdir(targetRoot)).toEqual([])
+      else await expect(readdir(targetRoot)).rejects.toMatchObject({ code: "ENOENT" })
+      expect(
+        (await readdir(parent)).filter((entry) => entry.startsWith(".template-binding."))
+      ).toEqual([])
     }
   )
 })
@@ -296,6 +341,10 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(git(["status", "--porcelain=v1"])).toBe("")
     expect(git(["remote"])).toBe("")
     expect(git(["config", "--local", "--get", "core.commentString"])).toBe("#")
+    await expect(checkCommitConfiguration(targetRoot)).resolves.toMatchObject({ status: "ok" })
+    expect(
+      await readFile(path.join(targetRoot, ".harness/tooling/agent-policy.ts"), "utf8")
+    ).not.toContain("AgentPolicyMode")
 
     // 保存 skillEntries 变量供当前逻辑使用。
     const skillEntries = await readdir(path.join(targetRoot, ".agents/skills"), {

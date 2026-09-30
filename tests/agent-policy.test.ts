@@ -4,7 +4,6 @@ import { describe, expect, test } from "vitest"
 import {
   allocateProjectTaskSequences,
   isValidTaskProgressTitle,
-  parsePolicyMode,
   recommendedAgentPolicy,
   renderAgentPolicy,
   TASK_PROGRESS_STATES,
@@ -18,7 +17,7 @@ import {
   resolveInitOptions
 } from "../.harness/tooling/cli.ts"
 import { parseArgs } from "../.harness/tooling/args.ts"
-import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
+import { collectPromptedIdentity, parsePolicyMode } from "../.harness/tooling/prompts.ts"
 import { repositoryRoot } from "./harness-tooling-support.ts"
 
 /** 生成已解析下游策略文档，便于逐项篡改边界。 */

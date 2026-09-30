@@ -1,7 +1,7 @@
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import path from "node:path"
-import { parsePolicyMode, recommendedAgentPolicy } from "./agent-policy.ts"
+import { recommendedAgentPolicy } from "./agent-policy.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type {
@@ -11,6 +11,14 @@ import type {
   InitOptions,
   ProjectType
 } from "./types.ts"
+
+/** 将中文初始化策略选项与命令行模式统一为稳定内部值。 */
+export function parsePolicyMode(value: string): AgentPolicyMode {
+  const normalized = value.trim().toLowerCase()
+  if (["1", "预设", "recommended"].includes(normalized)) return "recommended"
+  if (["2", "自定义", "custom"].includes(normalized)) return "custom"
+  throw new Error("Agent 策略必须选择预设或自定义（recommended 或 custom）")
+}
 
 /** 描述交互表单可以复用的已提供值。 */
 export interface PromptDefaults {
