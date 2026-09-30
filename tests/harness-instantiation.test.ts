@@ -1,5 +1,6 @@
 import { describe, test } from "vitest"
 import { execFileSync } from "node:child_process"
+import { runInstantiateCli } from "../scripts/instantiate.ts"
 import { validateHarness } from "../scripts/validate-harness.ts"
 import { REQUIRED_FILES } from "../scripts/harness-validation/contracts.ts"
 import {
@@ -24,6 +25,53 @@ import {
 } from "./harness-tooling-support.ts"
 import type { ProjectConfig } from "./harness-tooling-support.ts"
 import { createSymlinkOrSkip } from "./setup.ts"
+
+describe("minimal public instantiation inputs", () => {
+  /** 验证公开入口仅凭五项基础信息即可生成两种宿主，未提供地址保持空值。 */
+  test.each(["web", "extension"] as const)(
+    "creates %s with only required public inputs",
+    async (projectType) => {
+      const parent = await temporaryDirectory("harness-minimal-public-")
+      const id = `minimal-${projectType}`
+      const targetRoot = path.join(parent, id)
+      const config = await runInstantiateCli(
+        [
+          targetRoot,
+          "--type",
+          projectType,
+          "--name",
+          "Minimal Project",
+          "--id",
+          id,
+          "--policy-mode",
+          "预设"
+        ],
+        {
+          sourceRoot: repositoryRoot,
+          interactive: false,
+          output: () => undefined,
+          instantiate: (supplied) =>
+            instantiateProject({
+              ...supplied,
+              init: { ...supplied.init, skipInstall: true, skipGit: true }
+            })
+        }
+      )
+      expect(config.description).toBe("Minimal Project")
+      const prefix = projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
+      for (const filename of [".env.development", ".env.test", ".env.production"]) {
+        expect(await readFile(path.join(targetRoot, filename), "utf8")).toContain(
+          `${prefix}API_BASE_URL=\n`
+        )
+      }
+      expect(await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")).toContain(
+        "confirmed_by: 当前用户"
+      )
+      expect(await readdir(targetRoot)).not.toContain("dist")
+      expect(await readdir(targetRoot)).not.toContain("build")
+    }
+  )
+})
 
 /** 锁定 React Web 列表页 Skill 必须完整分发的资产与参考资料。 */
 const LIST_VIEW_REQUIRED_FILES = [

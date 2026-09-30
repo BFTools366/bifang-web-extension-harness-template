@@ -69,10 +69,16 @@ function validatePublicKeys(
 }
 
 // 执行 normalizeBaseUrl 函数的处理逻辑。
-function normalizeBaseUrl(value: unknown, environment: ApplicationEnvironment): string {
-  if (typeof value !== "string" || value.trim() === "") {
-    throw new Error("API_BASE_URL is required")
+function normalizeBaseUrl(
+  value: unknown,
+  environment: ApplicationEnvironment,
+  requireConfigured = false
+): string {
+  if (value === undefined || (typeof value === "string" && value.trim() === "")) {
+    if (requireConfigured) throw new Error("Release API_BASE_URL is required before release")
+    return ""
   }
+  if (typeof value !== "string") throw new Error("API_BASE_URL must be a string")
   // 保存 url 变量供当前逻辑使用。
   let url: URL
   try {
@@ -108,7 +114,8 @@ export function validateBaseUrls(values: EnvironmentBaseUrls): EnvironmentBaseUr
 export function parseApplicationConfig(
   values: Record<string, string | undefined>,
   projectType: ProjectType,
-  expectedEnvironment: ApplicationEnvironment
+  expectedEnvironment: ApplicationEnvironment,
+  requireConfigured = false
 ): ApplicationConfig {
   // 保存 prefix 变量供当前逻辑使用。
   const prefix = publicPrefix(projectType)
@@ -137,7 +144,11 @@ export function parseApplicationConfig(
   }
   return Object.freeze({
     environment: expectedEnvironment,
-    apiBaseUrl: normalizeBaseUrl(values[`${prefix}API_BASE_URL`], expectedEnvironment),
+    apiBaseUrl: normalizeBaseUrl(
+      values[`${prefix}API_BASE_URL`],
+      expectedEnvironment,
+      requireConfigured
+    ),
     logLevel: logLevel as LogLevel,
     requestTimeoutMs
   })
@@ -179,7 +190,15 @@ export async function validateEnvironmentFiles(
             if (process.env[key] !== undefined) raw[key] = process.env[key]
           }
         }
-        return [environment, parseApplicationConfig(raw, project.projectType, environment)] as const
+        return [
+          environment,
+          parseApplicationConfig(
+            raw,
+            project.projectType,
+            environment,
+            environment === "release" && activeEnvironment === "release"
+          )
+        ] as const
       }
     )
   )

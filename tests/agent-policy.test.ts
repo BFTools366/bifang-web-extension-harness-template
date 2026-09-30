@@ -4,6 +4,7 @@ import { describe, expect, test } from "vitest"
 import {
   allocateProjectTaskSequences,
   isValidTaskProgressTitle,
+  parsePolicyMode,
   recommendedAgentPolicy,
   renderAgentPolicy,
   TASK_PROGRESS_STATES,
@@ -12,7 +13,12 @@ import {
   validateAgentPolicyBody,
   validateAgentPolicyDocument
 } from "../.harness/tooling/agent-policy.ts"
-import { requiresInteractiveAgentPolicyPrompt } from "../.harness/tooling/cli.ts"
+import {
+  requiresInteractiveAgentPolicyPrompt,
+  resolveInitOptions
+} from "../.harness/tooling/cli.ts"
+import { parseArgs } from "../.harness/tooling/args.ts"
+import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
 import { repositoryRoot } from "./harness-tooling-support.ts"
 
 /** 生成已解析下游策略文档，便于逐项篡改边界。 */
@@ -34,10 +40,85 @@ function record(
 }
 
 describe("Agent policy contract", () => {
+  /** 验证中文自定义必须完整提供五项，空说明与来源使用确定性默认值。 */
+  test("resolves Chinese custom policy and blank optional metadata", async () => {
+    const base = [
+      "--type",
+      "web",
+      "--name",
+      "Simple Web",
+      "--id",
+      "simple-web",
+      "--policy-mode",
+      "自定义",
+      "--description",
+      "  ",
+      "--confirmed-by",
+      "  ",
+      "--development-base-url=",
+      "--test-base-url=",
+      "--release-base-url="
+    ]
+    await expect(
+      resolveInitOptions(parseArgs(base), repositoryRoot, { interactive: false })
+    ).rejects.toThrow(/--superpowers/)
+    const choices = [
+      "--superpowers",
+      "disabled",
+      "--user-owned-tasks",
+      "disabled",
+      "--parallel-worktree-subagents",
+      "disabled",
+      "--acceptance-smoke",
+      "enabled",
+      "--e2e-hint",
+      "disabled"
+    ]
+    await expect(
+      resolveInitOptions(parseArgs([...base, ...choices]), repositoryRoot, { interactive: false })
+    ).resolves.toMatchObject({
+      description: "Simple Web",
+      developmentBaseUrl: "",
+      testBaseUrl: "",
+      releaseBaseUrl: "",
+      agentPolicy: {
+        confirmedBy: "当前用户",
+        superpowers: "disabled",
+        userOwnedTasks: "disabled",
+        parallelWorktreeSubagents: "disabled",
+        acceptanceSmoke: "enabled",
+        e2eHint: "disabled"
+      }
+    })
+    const interactive = await collectPromptedIdentity(
+      {
+        targetRoot: path.join(repositoryRoot, "..", "simple-web"),
+        projectType: "web",
+        name: "Simple Web",
+        id: "simple-web",
+        policyMode: "预设",
+        description: " ",
+        confirmedBy: " "
+      },
+      async () => {
+        throw new Error("All required fields were supplied")
+      }
+    )
+    expect(interactive.inputSources).toMatchObject({
+      description: "默认使用显示名称",
+      confirmedBy: "当前用户（自动记录）"
+    })
+  })
+
   /** 验证自定义策略只在仍有条件字段缺失时继续进入交互收集。 */
   test("detects incomplete custom policy input", () => {
     expect(requiresInteractiveAgentPolicyPrompt({ policyMode: "recommended" })).toBe(false)
     expect(requiresInteractiveAgentPolicyPrompt({ policyMode: "custom" })).toBe(true)
+    expect(requiresInteractiveAgentPolicyPrompt({ policyMode: "预设" })).toBe(false)
+    expect(requiresInteractiveAgentPolicyPrompt({ policyMode: "自定义" })).toBe(true)
+    expect(parsePolicyMode("预设")).toBe("recommended")
+    expect(parsePolicyMode("自定义")).toBe("custom")
+    expect(() => parsePolicyMode("其他")).toThrow(/预设或自定义/)
     expect(
       requiresInteractiveAgentPolicyPrompt({
         policyMode: "custom",

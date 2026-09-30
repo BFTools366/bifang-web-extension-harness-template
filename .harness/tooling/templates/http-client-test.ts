@@ -447,6 +447,11 @@ describe("HTTP client", () => {
     expect(() =>
       createLoginUnauthorizedHandler({ loginUrl: "https://evil.example/login", navigate })
     ).toThrow(/internal relative URL/)
+    const unconfiguredFetch = vi.fn<FetchLike>()
+    expect(() => createHttpClient({
+      config: { ...CONFIG, apiBaseUrl: "" }, fetch: unconfiguredFetch, unauthorizedHandler: loginHandler
+    })).toThrow(/API base URL is not configured/)
+    expect(unconfiguredFetch).not.toHaveBeenCalled()
     for (const apiBaseUrl of [
       "ftp://api.example.com/v1",
       "https://user:password@api.example.com/v1",

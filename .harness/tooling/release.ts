@@ -162,7 +162,7 @@ export async function inspectReleaseArtifact(
   const nonReleaseBaseUrls = new Set(
     [environments.development.apiBaseUrl, environments.test.apiBaseUrl].filter(
       // 执行 当前声明 函数的处理逻辑。
-      (value) => value !== releaseBaseUrl
+      (value) => value !== "" && value !== releaseBaseUrl
     )
   )
 

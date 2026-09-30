@@ -64,10 +64,13 @@ describe("single-package Harness validation and governance", () => {
       return answer
     })
 
-    expect(questions[0]).toContain("1. 源 Harness 外的目标目录")
+    expect(questions[0]).toContain("1. 项目类型")
     expect(questions[0]).toContain("JSON key: projectType")
     expect(questions[0]).toContain("JSON key: name")
-    expect(questions[0]).toContain("JSON key: releaseBaseUrl")
+    expect(questions[0]).not.toContain("JSON key: releaseBaseUrl")
+    expect(questions[0]).not.toContain("JSON key: description")
+    expect(questions[0]).not.toContain("JSON key: confirmedBy")
+    expect(questions[0]).toContain("预设（推荐）或自定义")
     expect(questions[1]).toContain("JSON key: id")
     expect(questions[1]).toContain("JSON key: releaseBaseUrl")
     expect(questions[1]).not.toContain("JSON key: name")
@@ -331,63 +334,6 @@ describe("single-package Harness validation and governance", () => {
     ).toThrow(/Usage/)
   })
 
-  /** 验证 uses the stable color default and keeps E2E outside initialization 场景。 */
-  test("uses the stable color default and keeps E2E outside initialization", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
-    const root = await seedTemplateRoot()
-    // 保存 resolved 变量供当前逻辑使用。
-    const resolved = await resolveInitOptions(
-      parseArgs([
-        "--type",
-        "web",
-        "--name",
-        "Default Brand",
-        "--id",
-        "default-brand",
-        "--description",
-        "Uses the default color",
-        "--development-base-url",
-        TEST_BASE_URLS.developmentBaseUrl,
-        "--test-base-url",
-        TEST_BASE_URLS.testBaseUrl,
-        "--release-base-url",
-        TEST_BASE_URLS.releaseBaseUrl,
-        "--policy-mode",
-        "recommended",
-        "--confirmed-by",
-        "test-owner"
-      ]),
-      root
-    )
-    expect(resolved.brandColor).toBe("#4C6EF5")
-    expect(resolved).not.toHaveProperty("e2e")
-    await expect(resolveInitOptions(parseArgs(["--e2e", "disabled"]), root)).rejects.toThrow(
-      /Unknown option\(s\): --e2e/
-    )
-    await expect(
-      resolveInitOptions(
-        parseArgs(["--name", "Missing Type", "--id", "missing-type", "--description", "No type"]),
-        root
-      )
-    ).rejects.toThrow(/--type/)
-
-    await expect(
-      resolveInitOptions(
-        parseArgs([
-          "--type",
-          "web",
-          "--name",
-          "Missing URLs",
-          "--id",
-          "missing-urls",
-          "--description",
-          "No environment URLs"
-        ]),
-        root
-      )
-    ).rejects.toThrow(/--development-base-url/)
-  })
-
   /** 验证 installs once without formatting or building and stops before Git on failure 场景。 */
   test("installs once without formatting or building and stops before Git on failure", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 root 变量供创建期命令计划测试使用。
@@ -490,10 +436,10 @@ describe("single-package Harness validation and governance", () => {
     await initializeProject(options(root, "extension"))
     await writeFile(
       path.join(root, ".env.test"),
-      "PLASMO_PUBLIC_APP_ENV=test\nPLASMO_PUBLIC_LOG_LEVEL=info\nPLASMO_PUBLIC_REQUEST_TIMEOUT_MS=10000\n"
+      "PLASMO_PUBLIC_API_BASE_URL=\nPLASMO_PUBLIC_LOG_LEVEL=info\nPLASMO_PUBLIC_REQUEST_TIMEOUT_MS=10000\n"
     )
 
-    await expect(validateProject(root)).rejects.toThrow(/API_BASE_URL is required/)
+    await expect(validateProject(root)).rejects.toThrow(/APP_ENV must be test/)
   })
 
   /** 验证 rejects hidden environment overrides and undeclared public browser values 场景。 */

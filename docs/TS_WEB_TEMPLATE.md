@@ -19,48 +19,27 @@
 从源 Harness 根创建独立 Web 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path/example-web --type web --name "示例 Web" --id example-web \
-  --description "示例 React Web 页面" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" \
-  --policy-mode recommended --confirmed-by project-owner
+pnpm instantiate -- /absolute/path/example-web --type web \
+  --name "示例 Web" --id example-web --policy-mode 预设
 ```
 
 从同一个源 Harness 根创建独立 Extension 目录：
 
 ```bash
 pnpm instantiate -- /absolute/path/example-extension --type extension \
-  --name "示例扩展" --id example-extension \
-  --description "示例 Chrome 扩展" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" \
-  --policy-mode recommended --confirmed-by project-owner
+  --name "示例扩展" --id example-extension --policy-mode 预设
 ```
 
 目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
-可选品牌输入：
-
-```bash
-pnpm instantiate -- /absolute/path/example-web --type web \
-  --name "示例 Web" --id example-web \
-  --description "示例页面" \
-  --development-base-url "http://localhost:3000" \
-  --test-base-url "https://test-api.example.com" \
-  --release-base-url "https://api.example.com" \
-  --policy-mode recommended --confirmed-by project-owner \
-  --logo /absolute/path/logo.png --brand-color "#3B82F6"
-```
-
 - `--name` 是用户可见名称。
 - `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
-- `--description` 是页面元数据或 Extension manifest/界面的简短说明。
-- `--development-base-url`、`--test-base-url` 与 `--release-base-url` 是三个环境的 API BaseURL；非交互调用全部必填，交互调用在首轮基础字段中收集且不得猜测默认值。三者必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，Release 只接受 HTTPS。
-- `--policy-mode recommended|custom` 与 `--confirmed-by <source>` 在非交互调用中必填；自定义模式还必须逐项显式提供五个 `enabled|disabled` 选择，推荐模式不得混入覆盖值。
-- `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
-- `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
+- `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`。自定义模式必须逐项显式提供五个 `enabled|disabled` 选择；预设模式不能混入单项覆盖。
+- 初始化不询问说明；可选 `--description` 缺省或为空时使用显示名称，作为页面和 Extension manifest 元数据。
+- `--development-base-url` 可选，可后续配置。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS；正式发布前及活动 Release 校验必须补齐正式地址。
+- 确认来源不作为表单字段；`confirmed_by` 自动记录“当前用户”，可选 `--confirmed-by` 只用于复用已明确来源。`confirmed_at` 记录最终收齐时间。
+- `--logo` 可选，指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
+- `--brand-color` 可选，使用 `#RRGGBB`；缺省为 `#4C6EF5`。例如追加 `--logo /absolute/path/logo.png --brand-color "#3B82F6"`。
 - 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；后续显式 `pnpm build` 解析或复用本次发布的 `--e2e=enabled|disabled` 选择。
 
 参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。

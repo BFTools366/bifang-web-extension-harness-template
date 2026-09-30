@@ -153,6 +153,28 @@ afterEach(
 )
 
 describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  /** 验证正式扫描允许开发和测试地址留空，但不会放过缺失或不安全的正式地址。 */
+  test.each(["web", "extension"] as const)(
+    "requires a configured HTTPS release API for %s",
+    async (projectType) => {
+      const { root } = await createFixture(
+        { development: "", test: "", release: "https://api.example.com" },
+        "<!doctype html><p>Release 1.2.3</p>",
+        { projectType }
+      )
+      await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({
+        files: projectType === "web" ? 1 : 2
+      })
+      for (const release of ["", "http://api.example.com"]) {
+        await writeFile(
+          path.join(root, ".env.production"),
+          environmentFile("release", release, projectType)
+        )
+        await expect(inspectReleaseArtifact(root)).rejects.toThrow(/Release API_BASE_URL/)
+      }
+    }
+  )
+
   // 保存 baseUrls 变量供当前逻辑使用。
   const baseUrls: BaseUrls = {
     development: "https://api.example.com",

@@ -29,7 +29,10 @@ export interface AppConfigInput {
 
 /** 说明 normalizeBaseUrl 的稳定结构与职责边界。 */
 function normalizeBaseUrl(value: string | undefined, environment: ApplicationEnvironment): string {
-  if (value === undefined || value.trim() === "") throw new Error("API_BASE_URL is required")
+  if (value === undefined || value.trim() === "") {
+    if (environment === "release") throw new Error("Release API_BASE_URL is required before release")
+    return ""
+  }
   let url: URL
   try {
     url = new URL(value.trim())
@@ -133,6 +136,16 @@ const ENVIRONMENT_TEST = `import { describe, expect, test } from "vitest"
 import { createAppConfig } from "./environment.schema"
 
 describe("application environment", () => {
+  /** 验证开发和测试允许未配置 API，正式运行始终拒绝空地址及 HTTP。 */
+  test("allows deferred APIs only outside release runtime", () => {
+    for (const appEnv of ["development", "test"]) {
+      expect(createAppConfig({ appEnv, apiBaseUrl: "", logLevel: "info", requestTimeoutMs: "10000" }).apiBaseUrl).toBe("")
+    }
+    for (const apiBaseUrl of [undefined, "", "http://api.example.com"]) {
+      expect(() => createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" })).toThrow()
+    }
+  })
+
   /** 验证当前场景的核心成功或风险边界。 */
   test("parses a complete typed configuration", () => {
     expect(

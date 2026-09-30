@@ -10,7 +10,7 @@ import {
   type PromptDefaults,
   type PromptedIdentity
 } from "./prompts.ts"
-import { recommendedAgentPolicy } from "./agent-policy.ts"
+import { parsePolicyMode, recommendedAgentPolicy } from "./agent-policy.ts"
 import type { AgentPolicyChoice, AgentPolicySelection, InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
 
@@ -40,9 +40,9 @@ function usage(): string {
 
 Project creation (the target must be outside this Harness repository):
   pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
-    --description <description> --development-base-url <url> \\
-    --test-base-url <url> --release-base-url <https-url> \\
-    --policy-mode recommended|custom --confirmed-by <source> \\
+    --policy-mode 预设|自定义 [--development-base-url <url>] \\
+    [--test-base-url <url>] [--release-base-url <https-url>] \\
+    [--description <description>] \\
     [--superpowers enabled|disabled] [--user-owned-tasks enabled|disabled] \\
     [--parallel-worktree-subagents enabled|disabled] \\
     [--acceptance-smoke enabled|disabled] [--e2e-hint enabled|disabled] \\
@@ -81,11 +81,9 @@ function nonInteractiveAgentPolicy(supplied: {
   acceptanceSmoke?: string
   e2eHint?: string
 }): AgentPolicySelection {
-  const confirmedBy = supplied.confirmedBy?.trim()
-  if (confirmedBy === undefined || confirmedBy === "") {
-    throw new Error("Non-interactive initialization requires --confirmed-by")
-  }
-  if (supplied.policyMode === "recommended") {
+  const confirmedBy = supplied.confirmedBy?.trim() || "当前用户"
+  const policyMode = parsePolicyMode(supplied.policyMode ?? "")
+  if (policyMode === "recommended") {
     if (
       supplied.superpowers !== undefined ||
       supplied.userOwnedTasks !== undefined ||
@@ -96,9 +94,6 @@ function nonInteractiveAgentPolicy(supplied: {
       throw new Error("Recommended policy mode does not accept individual policy overrides")
     }
     return recommendedAgentPolicy(confirmedBy)
-  }
-  if (supplied.policyMode !== "custom") {
-    throw new Error("Non-interactive initialization requires --policy-mode recommended or custom")
   }
   return {
     confirmedBy,
@@ -124,7 +119,8 @@ export function requiresInteractiveAgentPolicyPrompt(supplied: {
   e2eHint?: string
 }): boolean {
   return (
-    supplied.policyMode === "custom" &&
+    supplied.policyMode !== undefined &&
+    parsePolicyMode(supplied.policyMode) === "custom" &&
     [
       supplied.userOwnedTasks,
       supplied.superpowers,
@@ -152,13 +148,13 @@ export async function resolveInitOptions(
     projectType: readStringOption(args, "type"),
     name: readStringOption(args, "name"),
     id: readStringOption(args, "id"),
-    description: readStringOption(args, "description"),
+    description: readStringOption(args, "description", true),
     brandColor: suppliedBrandColor ?? (interactive ? undefined : "#4C6EF5"),
-    developmentBaseUrl: readStringOption(args, "development-base-url"),
-    testBaseUrl: readStringOption(args, "test-base-url"),
-    releaseBaseUrl: readStringOption(args, "release-base-url"),
+    developmentBaseUrl: readStringOption(args, "development-base-url", true),
+    testBaseUrl: readStringOption(args, "test-base-url", true),
+    releaseBaseUrl: readStringOption(args, "release-base-url", true),
     policyMode: readStringOption(args, "policy-mode"),
-    confirmedBy: readStringOption(args, "confirmed-by"),
+    confirmedBy: readStringOption(args, "confirmed-by", true),
     superpowers: readStringOption(args, "superpowers"),
     userOwnedTasks: readStringOption(args, "user-owned-tasks"),
     parallelWorktreeSubagents: readStringOption(args, "parallel-worktree-subagents"),
@@ -171,12 +167,7 @@ export async function resolveInitOptions(
     ["--type", supplied.projectType],
     ["--name", supplied.name],
     ["--id", supplied.id],
-    ["--description", supplied.description],
-    ["--development-base-url", supplied.developmentBaseUrl],
-    ["--test-base-url", supplied.testBaseUrl],
-    ["--release-base-url", supplied.releaseBaseUrl],
-    ["--policy-mode", supplied.policyMode],
-    ["--confirmed-by", supplied.confirmedBy]
+    ["--policy-mode", supplied.policyMode]
   ] as const
   // 保存 missing 变量供当前逻辑使用。
   const missing = required
@@ -199,7 +190,7 @@ export async function resolveInitOptions(
     "agentPolicy" in identity && identity.agentPolicy !== undefined
       ? identity.agentPolicy
       : nonInteractiveAgentPolicy(supplied)
-  runtime.onPolicyModeResolved?.(identity.policyMode === "custom" ? "custom" : "recommended")
+  runtime.onPolicyModeResolved?.(parsePolicyMode(identity.policyMode ?? ""))
   if ("inputSources" in identity) runtime.onInputSourcesResolved?.(identity.inputSources)
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
@@ -209,7 +200,7 @@ export async function resolveInitOptions(
     projectType: identity.projectType,
     name: identity.name ?? "",
     id: identity.id ?? "",
-    description: identity.description ?? "",
+    description: identity.description?.trim() || identity.name?.trim() || "",
     brandColor: identity.brandColor ?? "",
     developmentBaseUrl: identity.developmentBaseUrl ?? "",
     testBaseUrl: identity.testBaseUrl ?? "",

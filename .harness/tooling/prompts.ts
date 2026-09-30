@@ -1,7 +1,7 @@
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import path from "node:path"
-import { recommendedAgentPolicy } from "./agent-policy.ts"
+import { parsePolicyMode, recommendedAgentPolicy } from "./agent-policy.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type {
@@ -113,14 +113,18 @@ const BASIC_FIELDS: ReadonlyArray<{
   constraint: string
 }> = [
   {
+    key: "projectType",
+    label: "项目类型",
+    constraint: "web（React 网页）或 extension（Chrome 扩展），不设默认值"
+  },
+  { key: "name", label: "项目显示名称", constraint: "非空文本" },
+  { key: "id", label: "项目标识", constraint: "小写字母、数字和连字符，例如 my-project" },
+  {
     key: "targetRoot",
     label: "源 Harness 外的目标目录",
     constraint: "原始输入本身必须是完整绝对路径"
   },
-  { key: "projectType", label: "唯一项目类型", constraint: "web 或 extension，不设默认值" },
-  { key: "name", label: "项目显示名称", constraint: "非空文本" },
-  { key: "id", label: "项目 id", constraint: "ASCII lowercase kebab-case" },
-  { key: "description", label: "项目说明", constraint: "非空文本" },
+  { key: "description", label: "项目说明", constraint: "可省略，默认使用显示名称" },
   { key: "brandColor", label: "品牌颜色", constraint: "#RGB 或 #RRGGBB 十六进制颜色" },
   {
     key: "developmentBaseUrl",
@@ -140,18 +144,20 @@ const BASIC_FIELDS: ReadonlyArray<{
   {
     key: "policyMode",
     label: "Agent 策略模式",
-    constraint: "recommended 或 custom"
+    constraint: "预设（推荐）或自定义"
   },
   { key: "confirmedBy", label: "确认来源", constraint: "真实确认人或明确责任主体" }
 ]
 
-/** 将用户策略模式回答规范化为稳定值。 */
-function parsePolicyMode(value: string): AgentPolicyMode {
-  const normalized = value.trim().toLowerCase()
-  if (normalized === "1" || normalized === "recommended") return "recommended"
-  if (normalized === "2" || normalized === "custom") return "custom"
-  throw new Error('must be exactly "recommended" or "custom"')
-}
+/** 保存无需首轮询问、但可主动提供或修正的可选字段。 */
+const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
+  "description",
+  "brandColor",
+  "developmentBaseUrl",
+  "testBaseUrl",
+  "releaseBaseUrl",
+  "confirmedBy"
+]
 
 /** 将用户能力回答规范化为 enabled 或 disabled。 */
 function parsePolicyChoice(value: string, label: string): AgentPolicyChoice {
@@ -193,7 +199,7 @@ function normalizeBasicField(
     }
     return id
   }
-  if (field === "description") return requiredText(value, "Project description")
+  if (field === "description") return value?.trim() ?? ""
   if (field === "brandColor") return normalizeColor(requiredText(value, "Brand color"))
   if (field === "policyMode") {
     const policyMode = parsePolicyMode(requiredText(value, "Agent policy mode"))
@@ -211,15 +217,12 @@ function normalizeBasicField(
     }
     return policyMode
   }
-  if (field === "confirmedBy") return requiredText(value, "Agent policy confirmation source")
+  if (field === "confirmedBy") return value?.trim() || "当前用户"
 
   const baseUrls = {
-    developmentBaseUrl:
-      field === "developmentBaseUrl" ? requiredText(value, field) : "http://placeholder.invalid",
-    testBaseUrl:
-      field === "testBaseUrl" ? requiredText(value, field) : "https://placeholder.invalid",
-    releaseBaseUrl:
-      field === "releaseBaseUrl" ? requiredText(value, field) : "https://placeholder.invalid"
+    developmentBaseUrl: field === "developmentBaseUrl" ? (value ?? "") : "",
+    testBaseUrl: field === "testBaseUrl" ? (value ?? "") : "",
+    releaseBaseUrl: field === "releaseBaseUrl" ? (value ?? "") : ""
   }
   return validateBaseUrls(baseUrls)[field]
 }
@@ -240,14 +243,14 @@ function mergeBasicAnswer(
     throw new Error("回答必须是一个单行 JSON object")
   }
   const record = parsed as Record<string, unknown>
-  const allowed = new Set(pending)
+  const allowed = new Set([...pending, ...OPTIONAL_BASIC_FIELDS])
   const unknown = Object.keys(record).filter((key) => !allowed.has(key as BasicField))
   if (unknown.length > 0) {
     throw new Error(`本轮只接受这些字段：${pending.join(", ")}；发现 ${unknown.join(", ")}`)
   }
   const next = { ...current }
   const suppliedFields: BasicField[] = []
-  for (const field of pending) {
+  for (const field of allowed) {
     if (!(field in record)) continue
     const value = record[field]
     if (typeof value !== "string" && typeof value !== "number") {
@@ -266,7 +269,7 @@ function basicQuestion(issues: ReadonlyMap<BasicField, string>, parseError?: str
     const issue = issues.get(key)
     return `${index + 1}. ${label}（JSON key: ${key}）：${constraint}；当前问题：${issue}`
   })
-  return `${parseError === undefined ? "" : `上次回答无法解析：${parseError}\n`}请一次填写以下尚未解析的基础字段；输入单行 JSON，只包含列出的 key：\n${lines.join("\n")}\n> `
+  return `${parseError === undefined ? "" : `上次回答无法解析：${parseError}\n`}请一次填写以下尚未解析的基础字段；输入单行 JSON：\n${lines.join("\n")}\n开发 API 地址 developmentBaseUrl 可选，可后续配置；测试与正式地址可留到发布前配置。\n> `
 }
 
 /** 首轮批量收集基础字段，后续仅重问缺失或非法项。 */
@@ -283,9 +286,21 @@ async function collectBasicFields(
     if (defaults[key] !== undefined) inputSources[key] = "命令行参数"
   }
   if (defaults.brandColor === undefined) inputSources.brandColor = "Harness 默认值"
+  for (const key of OPTIONAL_BASIC_FIELDS) {
+    if (defaults[key] === undefined)
+      inputSources[key] =
+        key === "description"
+          ? "默认使用显示名称"
+          : key === "confirmedBy"
+            ? "当前用户（自动记录）"
+            : key === "brandColor"
+              ? "Harness 默认值"
+              : "未配置（可后续补齐）"
+  }
   let parseError: string | undefined
   while (true) {
     const normalized: PromptDefaults = { ...values }
+    if (!values.confirmedBy?.trim()) inputSources.confirmedBy = "当前用户（自动记录）"
     const issues = new Map<BasicField, string>()
     for (const { key } of BASIC_FIELDS) {
       try {
@@ -294,7 +309,13 @@ async function collectBasicFields(
         issues.set(key, error instanceof Error ? error.message : String(error))
       }
     }
-    if (issues.size === 0) return { values: normalized, inputSources }
+    if (issues.size === 0) {
+      if (!values.description?.trim()) inputSources.description = "默认使用显示名称"
+      for (const key of ["developmentBaseUrl", "testBaseUrl", "releaseBaseUrl"] as const) {
+        if (normalized[key] === "") inputSources[key] = "未配置（可后续补齐）"
+      }
+      return { values: normalized, inputSources }
+    }
 
     const pending = BASIC_FIELDS.filter(({ key }) => issues.has(key)).map(({ key }) => key)
     const answer = await ask(basicQuestion(issues, parseError))
@@ -410,11 +431,11 @@ export async function collectPromptedIdentity(
     projectType,
     name: requiredText(basic.name, "Project name"),
     id: requiredText(basic.id, "Project id"),
-    description: requiredText(basic.description, "Project description"),
+    description: basic.description?.trim() || requiredText(basic.name, "Project name"),
     brandColor: normalizeColor(requiredText(basic.brandColor, "Brand color")),
-    developmentBaseUrl: requiredText(basic.developmentBaseUrl, "developmentBaseUrl"),
-    testBaseUrl: requiredText(basic.testBaseUrl, "testBaseUrl"),
-    releaseBaseUrl: requiredText(basic.releaseBaseUrl, "releaseBaseUrl"),
+    developmentBaseUrl: basic.developmentBaseUrl ?? "",
+    testBaseUrl: basic.testBaseUrl ?? "",
+    releaseBaseUrl: basic.releaseBaseUrl ?? "",
     agentPolicy
   }
 }
@@ -441,16 +462,16 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 源路径（规范）：${summary.canonicalSourceRoot}
 - 目标路径（原始）：${summary.rawTargetRoot}
 - 目标路径（规范）：${summary.canonicalTargetRoot}
-- Agent 策略模式：${summary.policyMode}
+- Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}
 - 展示名称：${summary.init.name}
 - 项目 id：${summary.init.id}
 - 项目说明：${summary.init.description}
 - 品牌颜色：${summary.init.brandColor}
 - Logo：${summary.init.logoPath ?? "未提供（初始化器确定性生成）"}
-- Development BaseURL：${summary.init.developmentBaseUrl}
-- Test BaseURL：${summary.init.testBaseUrl}
-- Release BaseURL：${summary.init.releaseBaseUrl}
+- 开发 API 地址：${summary.init.developmentBaseUrl || "未配置，可后续补齐"}
+- 测试 API 地址：${summary.init.testBaseUrl || "未配置，可后续补齐"}
+- 正式 API 地址：${summary.init.releaseBaseUrl || "未配置，正式发布前必须补齐 HTTPS 地址"}
 - Agent Policy：user_owned_tasks=${policy.userOwnedTasks}, superpowers=${policy.superpowers}, parallel_worktree_subagents=${policy.parallelWorktreeSubagents}, acceptance_smoke=${policy.acceptanceSmoke}, e2e_hint=${policy.e2eHint}
 - 策略确认来源：${policy.confirmedBy}
 - 策略确认时间：${policy.confirmedAt}

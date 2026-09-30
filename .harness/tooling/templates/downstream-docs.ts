@@ -136,9 +136,11 @@ function runtimeConfiguration(config: ProjectConfig): string {
 ## 字段与边界
 
 - \`${prefix}APP_ENV\`：必须与文件的逻辑环境一致。
-- \`${prefix}API_BASE_URL\`：必填绝对 HTTP(S) URL；不得包含凭据、query 或 fragment，Release 必须为 HTTPS。
+- \`${prefix}API_BASE_URL\`：初始化和日常文件校验允许留空；已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS。正式发布前及活动 Release 校验必须补齐正式地址。
 - \`${prefix}LOG_LEVEL\`：只接受 \`debug|info|warn|error\`，Release 只接受 \`warn|error\`。
 - \`${prefix}REQUEST_TIMEOUT_MS\`：\`1000\`–\`120000\` 的正整数。
+
+开发/测试运行时允许地址为空；HTTP client 在未配置地址时于 Fetch 前报错，不猜测 endpoint 或发送相对请求。Release 运行时拒绝空地址。
 
 浏览器公开前缀中的值会进入产物，绝不保存 Token、Cookie、密码、API key 或服务端秘密。业务代码只读 \`src/config/environment.ts\` 导出的冻结 \`APP_CONFIG\`，不得散落读取宿主环境变量或拼接任意 BaseURL。
 
@@ -150,8 +152,8 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 ## 命令
 
-- \`pnpm env:validate\`：校验三份文件。
-- \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖。
+- \`pnpm env:validate\`：校验三份文件，允许 API 地址留空。
+- \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖；Release profile 要求正式地址非空且 HTTPS。
 - \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；复用本次发布已明确的 E2E 选择，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
 
 Node.js、pnpm 与 Chrome 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。

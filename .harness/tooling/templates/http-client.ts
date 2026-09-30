@@ -156,6 +156,14 @@ export function createLoginUnauthorizedHandler(options: LoginRedirectOptions): U
 
 /** 说明 controlledApiBaseUrl 的稳定结构与职责边界。 */
 function controlledApiBaseUrl(value: string): URL {
+  if (value.trim() === "") {
+    throw apiError({
+      kind: "http",
+      code: "api_base_url_not_configured",
+      message: "The API base URL is not configured. Set API_BASE_URL before making requests.",
+      retryable: false
+    })
+  }
   try {
     const baseUrl = new URL(value.endsWith("/") ? value : value + "/")
     if (

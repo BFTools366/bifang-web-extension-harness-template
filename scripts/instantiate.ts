@@ -49,7 +49,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension --name <name> --id <id> --description <description> --development-base-url <url> --test-base-url <url> --release-base-url <https-url> --policy-mode recommended|custom --confirmed-by <source> [custom policy flags]"
+  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension --name <name> --id <id> --policy-mode 预设|自定义 [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [custom policy flags]"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -123,14 +123,16 @@ function inputSources(
     projectType: source("type"),
     name: source("name"),
     id: source("id"),
-    description: source("description"),
-    developmentBaseUrl: source("development-base-url"),
-    testBaseUrl: source("test-base-url"),
-    releaseBaseUrl: source("release-base-url"),
+    description: optionNames.has("description") ? "命令行参数" : "默认使用显示名称",
+    developmentBaseUrl: optionNames.has("development-base-url")
+      ? "命令行参数"
+      : "未配置（可后续补齐）",
+    testBaseUrl: optionNames.has("test-base-url") ? "命令行参数" : "未配置（可后续补齐）",
+    releaseBaseUrl: optionNames.has("release-base-url") ? "命令行参数" : "未配置（可后续补齐）",
     brandColor: optionNames.has("brand-color") ? "命令行参数" : "Harness 默认值",
     logoPath: optionNames.has("logo") ? "命令行参数" : "Harness 确定性生成",
     policyMode: source("policy-mode"),
-    confirmedBy: source("confirmed-by")
+    confirmedBy: optionNames.has("confirmed-by") ? "命令行参数" : "当前用户（自动记录）"
   }
   for (const choice of choices) {
     result[choice.field] =

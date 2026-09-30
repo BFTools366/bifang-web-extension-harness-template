@@ -1,7 +1,15 @@
 import path from "node:path"
 import { readFile } from "node:fs/promises"
 import { writeAtomic } from "./files.ts"
-import type { AgentPolicyChoice, AgentPolicySelection } from "./types.ts"
+import type { AgentPolicyChoice, AgentPolicyMode, AgentPolicySelection } from "./types.ts"
+
+/** 将中文策略选项与命令行模式统一为稳定内部值。 */
+export function parsePolicyMode(value: string): AgentPolicyMode {
+  const normalized = value.trim().toLowerCase()
+  if (["1", "预设", "recommended"].includes(normalized)) return "recommended"
+  if (["2", "自定义", "custom"].includes(normalized)) return "custom"
+  throw new Error("Agent 策略必须选择预设或自定义（recommended 或 custom）")
+}
 
 /** 保存用户可见 Task 进度标题模板。 */
 export const TASK_PROGRESS_TITLE_TEMPLATE = "Task {序号} | {当前进度} | {单一结果}"

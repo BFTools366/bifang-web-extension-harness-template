@@ -27,10 +27,10 @@
 
 业务代码只读取冻结的 `APP_CONFIG`，不得在组件、route、service 或扩展入口中散落 `import.meta.env`、`process.env` 或任意字符串 URL。Vite 内置的 `import.meta.env.BASE_URL` 表示页面部署 base path，不是 API BaseURL；API 端点统一使用 `APP_CONFIG.apiBaseUrl`。
 
-## 3. 必填字段
+## 3. 字段与校验
 
 - `APP_ENV` 必须与文件代表的逻辑环境完全一致，只接受 `development`、`test`、`release`。
-- `API_BASE_URL` 必须是绝对 `http`/`https` URL，不得包含用户名、密码、query 或 fragment；末尾 `/` 在解析时规范化。`release` 必须使用 `https`。
+- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、query 或 fragment；末尾 `/` 在解析时规范化。已填 `release` 地址始终必须使用 `https`，正式发布前及活动 Release 校验必须非空。
 - `LOG_LEVEL` 只接受 `debug`、`info`、`warn`、`error`；`release` 只接受 `warn` 或 `error`。
 - `REQUEST_TIMEOUT_MS` 必须是 `1000`–`120000` 的正整数；初始化默认写入 `10000`。
 
@@ -38,16 +38,11 @@
 
 ## 4. 初始化输入
 
-非交互创建除身份和唯一项目类型外，还必须显式提供三份 API BaseURL、Agent policy 模式与真实确认来源。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
+非交互创建只要求目标、名称、标识、唯一项目类型和 Agent 策略模式。三份 API BaseURL 均可省略，开发地址可主动提供或后续配置，测试/正式地址无需初始化时填写。说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
 
 ```bash
 pnpm instantiate -- /absolute/path/example-web --type web \
-  --name "示例 Web" --id example-web \
-  --description "示例 React Web 页面" \
-  --development-base-url http://localhost:3000/api \
-  --test-base-url http://localhost:3100/api \
-  --release-base-url https://api.example.com \
-  --policy-mode recommended --confirmed-by project-owner
+  --name "示例 Web" --id example-web --policy-mode 预设
 ```
 
 命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建首轮收集尚未明确的基础字段与策略模式，自定义策略此后每轮只询问一个缺失字段；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
@@ -63,9 +58,9 @@ pnpm env:validate --profile test
 pnpm env:validate --profile release
 ```
 
-不带 `--profile` 时只读取并校验全部三份受管文件，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`；页面通过 `src/buildVersion.ts` 读取并展示该值，`release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
+不带 `--profile` 时只读取并校验全部三份受管文件，允许地址留空，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`；页面通过 `src/buildVersion.ts` 读取并展示该值，`release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
 
-所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
+`--profile release` 在应用合法进程覆盖后要求正式地址非空且 HTTPS；最终构建和 `release:inspect` 均消费此门禁。生成的运行时 schema 允许 development/test 地址为空，Release 运行时拒绝空地址；HTTP client 在地址未配置时于 Fetch 前报错，禁止相对请求或猜测地址。所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
 
 - `pnpm dev` 固定使用 `.env.development`，但普通开发不为预探测重复执行独立环境命令；出现配置错误时按故障诊断处理。
 - `pnpm test` 与 `pnpm test:related` 固定使用 `.env.test` 提供的测试运行时值。

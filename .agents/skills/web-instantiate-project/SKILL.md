@@ -9,9 +9,9 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 收集输入
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。首轮用一份编号表单批量收集全部尚未明确的基础字段：展示名称、跨平台安全的 ASCII kebab-case 项目标识、简短说明、development/test/release 三个 BaseURL、源 Harness 之外的完整绝对目标目录、唯一项目类型、策略模式和确认来源；只重问缺失或非法项。非交互命令必须把绝对目标作为位置参数；交互式终端未给位置参数时，把目标与其他缺失字段并入同一首轮。Release URL 必须使用 HTTPS；不得为未知 endpoint 猜测值。真实确认主体只记录为 Agent Policy 的 `confirmed_by`，不另设项目责任字段。
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。首轮用一份编号表单批量收集全部尚未明确的基础字段：唯一项目类型、展示名称、跨平台安全的 ASCII kebab-case 项目标识、源 Harness 之外的完整绝对目标目录和中文策略模式“预设/自定义”；只重问缺失或非法项。非交互命令必须把绝对目标作为位置参数；交互式终端未给位置参数时，把目标与其他缺失字段并入同一首轮。说明不询问，默认使用显示名称；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
 2. 要求用户明确选择且只能选择一种项目类型：`web` 或 `extension`。不得默认、推断、同时选择或保留稍后转换类型的入口。
-3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式此后每轮只询问一个仍缺失的策略字段，用户在一次回答中主动提供的多个合法值全部复用。记录真实确认人和日期，不把模板值当作用户决定。
+3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式此后每轮只询问一个仍缺失的策略字段，用户在一次回答中主动提供的多个合法值全部复用。按用户选择记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## 安全复制
 
@@ -31,19 +31,16 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 执行唯一创建入口
 
-1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、三个 BaseURL 与唯一类型。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
+1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、策略模式与唯一类型；BaseURL 仅在用户主动提供时传入。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
 
    ```text
    pnpm instantiate -- <absolute-target-outside-harness> --type <web|extension> \
-     --name "<display-name>" --id <project-id> --description "<description>" \
-     --development-base-url <url> --test-base-url <url> \
-     --release-base-url <https-url> \
-     --policy-mode <recommended|custom> --confirmed-by "<confirmation-source>"
+     --name "<display-name>" --id <project-id> --policy-mode <预设|自定义>
    ```
 
    自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
-   交互模式先批量解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数与 `--confirmed-by` 表达本次已确认输入，不追加隐式默认确认。
+   交互模式先批量解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；说明、三地址、品牌和已明确来源的覆盖参数均可省略。
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的原生 Fetch 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。默认在项目内检查 `design-taste-frontend`，有效已有版本原样保留，缺失时由 initializer 使用固定快照自动补装至 `.agents/skills/design-taste-frontend/`，不追加用户选择、不依赖全局版本、不执行远程安装器；快照及事务边界见 `docs/TS_WEB_TEMPLATE.md` §3.9，设计适用规则见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。

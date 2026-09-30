@@ -59,12 +59,16 @@ export function assertKnownOptions(args: ParsedArgs, allowed: readonly string[])
   }
 }
 
-// 执行 readStringOption 函数的处理逻辑。
-export function readStringOption(args: ParsedArgs, key: string): string | undefined {
+/** 读取字符串选项；只有显式允许的可选配置接受空白值，裸 flag 仍拒绝。 */
+export function readStringOption(
+  args: ParsedArgs,
+  key: string,
+  allowEmpty = false
+): string | undefined {
   // 保存 value 变量供当前逻辑使用。
   const value = args.options.get(key)
   if (value === undefined) return undefined
-  if (typeof value !== "string" || value.trim() === "") {
+  if (typeof value !== "string" || (!allowEmpty && value.trim() === "")) {
     throw new Error(`--${key} requires a value`)
   }
   return value.trim()

@@ -134,10 +134,10 @@ Task 绑定：
 
 ## 初始化与持久化
 
-- `$web-instantiate-project` 首轮一次收集尚未明确的项目类型、名称、id、描述、目标路径、三环境 BaseURL、品牌输入、策略模式和确认来源。项目类型不得有默认值；推荐预设必须显式确认。
+- `$web-instantiate-project` 首轮一次收集尚未明确的项目类型、名称、id、目标路径和策略模式；策略以中文“预设”（推荐）或“自定义”提示。项目类型不得有默认值；推荐预设必须显式确认。说明默认使用显示名称，三环境 BaseURL 可留空，开发地址可主动提供或后续配置，测试/正式地址不在首轮询问；正式发布前必须补齐 HTTPS 正式地址。品牌输入可选，确认来源不作为用户必填项。
 - 选择自定义后，`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint` 每轮只询问一个当前缺失字段；用户一次主动提供多个合法字段时全部复用。`user_owned_tasks` 的推荐/default 值都是 `disabled`。
 - 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: disabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。默认关闭的内部并行只限制当前 Task 的 `codex/unit-*` 写入单元，不影响用户明确创建的左侧 Git Task；预设只是输入捷径，不新增持久字段，也不得在用户未确认时静默采用其他值。
-- 五项值全部解析后才以 `schema_version: 3` 一次原子写入本文件；`confirmed_by` 记录真实确认来源，`confirmed_at` 记录最终收齐日期。内部初始化链只验证并复用，不重复询问。
+- 五项值全部解析后才以 `schema_version: 3` 一次原子写入本文件；`confirmed_by` 自动记录为“当前用户”，已明确提供合法来源时复用，`confirmed_at` 记录最终收齐日期。内部初始化链只验证并复用，不重复询问。
 - `pending` 只允许存在于源 Harness 或未完成 staging。最终下游任何 `pending`、空确认来源或非法确认日期都阻断原子发布。
 - 初始化后，用户可明确改变五项持久策略；例如“开启左侧 Task”或“关闭左侧 Task”只改变 `user_owned_tasks`。Agent 只更新被确认的字段、`confirmed_by` 与 `confirmed_at`。任何初始化后的永久策略变更都必须写入当日 ADR，目标值相同时按幂等 no-op 报告；临时 Task 限制不得改写持久策略。切换只影响之后的适用行为，不迁移或中断既有 Task/Worktree。
 - 本文件只有 `schema_version: 3` 一种有效形态，不兼容、不推断任何更早 schema 或缺少字段的旧形态（含改名前的 `milestone_smoke`/`milestone_e2e`）；不合规的文件必须由用户重新走五项确认一次性物化为 `schema_version: 3`。
