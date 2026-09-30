@@ -2,6 +2,7 @@ import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { pathExists } from "./files.ts"
 import type { ProjectConfig } from "./types.ts"
+import { DESIGN_SKILL_NAME, validateDesignSkill } from "./design-skill.ts"
 
 /** 保存两类终端项目必须精确保留的通用 Web Harness 前端维护 Skill。 */
 const EXPECTED_COMMON_TERMINAL_SKILLS = [
@@ -66,9 +67,16 @@ export async function validateTerminalSkills(
     ...EXPECTED_COMMON_TERMINAL_SKILLS,
     ...(config.projectType === "web" ? EXPECTED_WEB_ONLY_TERMINAL_SKILLS : [])
   ].sort()
-  if (JSON.stringify(actualSkills) !== JSON.stringify(expectedSkills)) {
-    errors.push(`Terminal Skill directories must exactly equal ${expectedSkills.join(", ")}`)
+  // 旧下游升级不补写受保护设计文件；仅在实际存在时将支持 Skill 纳入维护门禁。
+  const designSkillPresent = actualSkills.includes(DESIGN_SKILL_NAME)
+  const expectedDirectories = [
+    ...expectedSkills,
+    ...(designSkillPresent ? [DESIGN_SKILL_NAME] : [])
+  ].sort()
+  if (JSON.stringify(actualSkills) !== JSON.stringify(expectedDirectories)) {
+    errors.push(`Terminal Skill directories must exactly equal ${expectedDirectories.join(", ")}`)
   }
+  if (designSkillPresent) await validateDesignSkill(root, errors)
 
   // 保存 skillName 变量供当前逻辑使用。
   for (const skillName of expectedSkills) {

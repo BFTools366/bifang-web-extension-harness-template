@@ -257,10 +257,11 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(15)
+    expect(skills).toHaveLength(16)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
+        "design-taste-frontend",
         "web-check-development-environment",
         "web-configure-git-commits",
         "web-define-product",
@@ -388,7 +389,7 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamVerifyDeliveryMetadata).toContain('display_name: "Web Harness：验证前端交付"')
     expect(downstreamVerifyDeliveryMetadata).toContain("使用 $web-verify-delivery 验收 Web Harness")
     // 保存 skillName 变量供当前逻辑使用。
-    for (const skillName of skills) {
+    for (const skillName of skills.filter((skill) => skill.startsWith("web-"))) {
       // 保存 metadata 变量供当前逻辑使用。
       const metadata = await readFile(
         path.join(targetRoot, ".agents/skills", skillName, "agents/openai.yaml"),

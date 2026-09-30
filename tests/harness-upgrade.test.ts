@@ -172,6 +172,37 @@ afterEach(async () => {
 })
 
 describe("three-way Harness upgrade", () => {
+  /** 验证设计支持不进入工程候选投影，升级计划原样保留目标用户版本。 */
+  test("excludes protected design support from the upgrade projection", async () => {
+    const fixture = await upgradeFixture()
+    const relativePath = ".agents/skills/design-taste-frontend/SKILL.md"
+    const existing = "User maintained design support\n"
+    await mkdir(path.dirname(path.join(fixture.target, relativePath)), { recursive: true })
+    await writeFile(path.join(fixture.target, relativePath), existing)
+    await git(fixture.target, ["add", relativePath])
+    await git(fixture.target, ["commit", "-m", "test: add user design support"])
+    const projected = await planFor(fixture)
+    expect(projected.entries).not.toContainEqual(expect.objectContaining({ path: relativePath }))
+    expect(projected.problems).toEqual([])
+    await mkdir(path.dirname(path.join(fixture.candidate, relativePath)), { recursive: true })
+    await writeFile(path.join(fixture.candidate, relativePath), "Unapproved upstream version\n")
+    const blocked = await planFor(fixture)
+    expect(blocked.entries).toContainEqual(
+      expect.objectContaining({
+        path: relativePath,
+        ownership: "protected",
+        classification: "blocked"
+      })
+    )
+    await rm(path.join(fixture.candidate, ".agents/skills/design-taste-frontend"), {
+      recursive: true
+    })
+    const reprojected = await planFor(fixture)
+    expect(reprojected.entries).not.toContainEqual(expect.objectContaining({ path: relativePath }))
+    expect(reprojected.problems).toEqual([])
+    expect(await readFile(path.join(fixture.target, relativePath), "utf8")).toBe(existing)
+  })
+
   /** 验证 bootstrap、单路径 managed 更新、重规划和基线记录闭环。 */
   test("applies one reviewed managed update and records a converged baseline", async () => {
     const fixture = await upgradeFixture()

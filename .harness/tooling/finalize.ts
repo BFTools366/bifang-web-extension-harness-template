@@ -302,6 +302,8 @@ The generated native Fetch and pagination foundations standardize request header
 
 Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`. The generated appearance control follows the system setting by default and lets users choose light or dark mode.
 
+Project-local \`.agents/skills/design-taste-frontend/\` provides optional visual guidance for landing pages, portfolios, and redesigns. It is installed automatically when missing; valid existing files are preserved. Read the applicability rules in \`docs/MANTINE_UI_GUIDELINES.md\` before using it.
+
 ## Identity and brand
 
 - \`.harness/project.json\` is the identity and brand source of truth.
@@ -400,6 +402,10 @@ ${hostSkills}- \`$web-refactor-code\`：在保持行为不变时整理 TypeScrip
 - \`$web-prepare-release\`：整理 Web Harness、Vite dist 或 Chrome MV3 zip 发布候选。
 - \`$web-upgrade-harness\`：保留产品所有权并同步较新的 Web Harness 前端工程层。
 - \`$web-verify-delivery\`：运行并报告 Web Harness 前端交付门禁。
+
+## 设计风格支持
+
+项目级 \`.agents/skills/design-taste-frontend/SKILL.md\` 提供落地页、作品集和视觉改版的风格建议；适用设计任务先读取 \`docs/MANTINE_UI_GUIDELINES.md\` 的设计支持边界再调用 \`$design-taste-frontend\`。它独立于 canonical \`web-*\` 维护 Skills，不自动用于数据表、后台工作流或 Extension Popup/Options。项目的 Mantine、纯 TypeScript、Query/Jotai、i18n、宿主权限和日常验证规则优先；上游 Tailwind、Next、动画、字体与组件库偏好不授权新增依赖、远程资源、浏览器检查、构建或其他外部操作。有效已有版本由项目维护，Harness 升级保留它。
 
 ## Validation loop
 

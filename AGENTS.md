@@ -54,7 +54,7 @@
 - 开发与治理：`$web-define-product`、`$web-implement-change`、`$web-implement-list-view`（仅 Web）、`$web-refactor-code`、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-run-parallel-worktrees`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。
 
-源 Harness 共保留 17 个 canonical `web-*` Skills；Web 终端下游删除实例化与源记忆整理能力，保留 15 个维护 Skills；Extension 再删除仅适用 Web 的 `$web-implement-list-view`，保留 14 个。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
+源 Harness 共保留 17 个 canonical `web-*` Skills；Web 终端下游删除实例化与源记忆整理能力，保留 15 个维护 Skills；Extension 再删除仅适用 Web 的 `$web-implement-list-view`，保留 14 个。两类下游另在项目内默认补装缺失的 `design-taste-frontend`，有效已有版本保留，不额外问询、不全局安装；适用范围与规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
 
 ## 约束地图
 

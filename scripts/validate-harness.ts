@@ -19,6 +19,7 @@ import {
 import { validateToolingContract } from "./harness-validation/tooling.ts"
 import { validateHarnessVersion } from "./harness-validation/version.ts"
 import { validateUpgradeOwnership } from "./harness-validation/upgrade-ownership.ts"
+import { loadDesignSkillBundle } from "../.harness/tooling/install-design-skill.ts"
 
 /** 执行完整源 Harness 验证并返回稳定统计。 */
 export async function validateHarness(rootInput: string): Promise<HarnessValidationReport> {
@@ -28,6 +29,11 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   validateRepositoryPaths(files, errors)
   const markdownFiles = governedMarkdownFiles(files)
   const skills = await validateSkills(root, errors)
+  try {
+    await loadDesignSkillBundle(root)
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error))
+  }
   await validateListViewSkillContracts(root, errors)
   await validateAgentsEntrypoint(root, errors)
   await validateEventDrivenWorkflow(root, errors)

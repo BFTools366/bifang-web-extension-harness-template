@@ -143,6 +143,14 @@ Extension 初始化必须同步：
 - 初始化不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
 - 列表页仍复用 `src/pagination/` 的 1-based page/pageSize 契约；Router search 的封闭启动恢复、Query 对 rows/`total` 的唯一所有权和稳定排序详见 [`DATA_ACCESS.md`](DATA_ACCESS.md)，Table/卡片/搜索形态与条件 DnD 详见 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)。
 
+### 3.9 项目级设计支持基线
+
+- Web 与 Extension 初始化默认检查项目内 `.agents/skills/design-taste-frontend/SKILL.md`；有效已有版本连同辅助文件原样保留，缺失时自动安装，无额外用户问询，不读取或写入全局 Skills。
+- 安装使用 `.harness/vendor/design-taste-frontend/` 中固定的 [Taste Skill](https://github.com/leonxlnx/taste-skill) 快照；原文、MIT 许可证及 `UPSTREAM.json` 记录的 commit/SHA-256 一并复制。源门禁和补装计划独立验证原文及许可证哈希；不执行上游安装器、`npx`、网络请求或依赖安装。
+- 检查与补装属于既有 sibling staging 事务；非法已有目录、损坏快照或来源不匹配使创建失败，目标保持零写入。源快照和安装器在终端化时移除，仅保留项目级支持 Skill 与必要验证模块。
+- 设计支持独立于 17 个源、15 个 Web 和 14 个 Extension canonical `web-*` Skills；新下游总数分别为 16/15。升级将设计 Skill 视为 `protected`，不覆盖用户版本，也不向旧下游补写；终端维护门禁允许旧下游缺失该支持 Skill，存在时必须有效，新下游创建门禁仍保证默认安装。
+- 适用页面、工程规范优先级和外部动作边界以 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §1.1 为准。
+
 ## 4. Web 技术基线
 
 | 能力        | 选型                                           | 边界                                                                             |
@@ -388,7 +396,7 @@ pnpm harness validate
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
-12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。源 Harness 共 17 个 Skills，Web 终端保留 15 个并含 `$web-implement-list-view`，Extension 终端保留 14 个且不含该 Skill。
+12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。源 Harness 共 17 个 canonical Skills，Web 终端保留 15 个并含 `$web-implement-list-view`，Extension 终端保留 14 个且不含该 Skill；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力

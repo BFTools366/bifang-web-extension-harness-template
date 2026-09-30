@@ -28,6 +28,8 @@ import { buildProjectManifest } from "./manifest.ts"
 import { ENVIRONMENT_FILES, FORBIDDEN_ENVIRONMENT_FILES, validateBaseUrls } from "./environment.ts"
 import { runCommand } from "./process.ts"
 import { finalizeDownstream, prepareDownstreamFinalization } from "./finalize.ts"
+import { prepareDesignSkillInstallation } from "./install-design-skill.ts"
+import { inspectDesignSkill } from "./design-skill.ts"
 import { extensionFiles } from "./templates/extension.ts"
 import { webFiles } from "./templates/web.ts"
 import type { InitOptions, ProjectConfig } from "./types.ts"
@@ -294,10 +296,11 @@ export async function initializeProject(
       ? webFiles(config, resolvedOptions)
       : extensionFiles(config, resolvedOptions)
   // 保存 [normalizedTsconfig, logoAssets, finalizationPlan] 变量供当前逻辑使用。
-  const [normalizedTsconfig, logoAssets, finalizationPlan] = await Promise.all([
+  const [normalizedTsconfig, logoAssets, finalizationPlan, designSkillFiles] = await Promise.all([
     prepareProjectTsconfig(root, config.projectType),
     deriveLogoAssets(config.projectType, logo),
-    prepareDownstreamFinalization(root, config, resolvedOptions.agentPolicy)
+    prepareDownstreamFinalization(root, config, resolvedOptions.agentPolicy),
+    prepareDesignSkillInstallation(root)
   ])
 
   if (normalizedTsconfig !== undefined) {
@@ -314,6 +317,13 @@ export async function initializeProject(
   }
   await writeJsonAtomic(path.join(root, "package.json"), projectManifest)
   await writeJsonNew(path.join(root, PROJECT_CONFIG_PATH), config)
+  // 将审核过的第三方原始字节仅写入项目目录，不纳入初始化文本格式化。
+  for (const [relativePath, contents] of designSkillFiles) {
+    await writeNew(path.join(root, relativePath), contents)
+  }
+  if ((await inspectDesignSkill(root)) !== "present") {
+    throw new Error("New downstream project must include its local design Skill")
+  }
   await finalizeDownstream(root, config, resolvedOptions.agentPolicy, finalizationPlan)
   await formatInitializationFiles(root, [
     ...projectFiles.keys(),

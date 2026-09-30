@@ -9,6 +9,11 @@ import type {
 
 /** 独立锚定升级所有权下限，避免运行时规则与清单同时弱化时绕过源门禁。 */
 export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
+  ".agents/skills/design-taste-frontend/**": "protected",
+  ".harness/tooling/design-skill.ts": "managed",
+  ".harness/tooling/install-design-skill.ts": "tombstone",
+  ".harness/vendor/design-taste-frontend/**": "tombstone",
+  "tests/design-skill-installation.test.ts": "tombstone",
   ".agents/skills/web-check-development-environment/**": "managed",
   ".agents/skills/web-configure-git-commits/**": "managed",
   ".agents/skills/web-define-product/**": "managed",

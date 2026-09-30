@@ -13,7 +13,7 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 2. 用户必须明确提供 source Harness 根。source、渲染候选和目标必须是三个互不嵌套、拒绝符号链接的真实绝对目录；source 和目标的 Git 顶层分别等于声明根，source 工作树必须 clean 且有确定 HEAD。
 3. 在 source 根运行 `pnpm validate:harness`，从 `Version.md` 读取 12 位版本并记录 source HEAD。验证失败时不信任候选。
 4. 固定目标 `.harness/project.json.projectType`。候选只渲染该单一宿主的工程层，不增加另一类型、workspace、初始化入口或类型切换能力。
-5. 渲染候选必须保留目标名称、标识、说明、三环境公开配置结构及已决策略，但传给 plan 的候选投影只包含生产清单允许的 `managed`、`managed-self`、`merge-sections` 与 `conditional` 路径。`.agents/skills/web-implement-list-view/**` 只在目标 `projectType=web` 时进入候选；Extension 不增加该 Skill，它的缺席也不构成 required 缺失。产品源码、品牌、项目身份、记忆、策略值、许可证和 tombstone 不进入候选投影。
+5. 渲染候选必须保留目标名称、标识、说明、三环境公开配置结构及已决策略，但传给 plan 的候选投影只包含生产清单允许的 `managed`、`managed-self`、`merge-sections` 与 `conditional` 路径。`.agents/skills/web-implement-list-view/**` 只在目标 `projectType=web` 时进入候选；Extension 不增加该 Skill，它的缺席也不构成 required 缺失。产品源码、品牌、项目身份、记忆、策略值、许可证和 tombstone 不进入候选投影。项目级 `.agents/skills/design-taste-frontend/**` 是 `protected` 设计支持，也不进入候选投影，保留目标已有版本；创建时默认补装不授权升级时覆盖或更新它。
 
 ## 所有权
 

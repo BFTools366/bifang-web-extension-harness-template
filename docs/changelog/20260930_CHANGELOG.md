@@ -4,6 +4,7 @@
 
 ## Added
 
+- Web 与 Extension 创建默认在项目内检查 `design-taste-frontend`；缺失时从固定上游快照自动补装原文、MIT 许可证、commit/SHA-256 来源与发现元数据，不额外问询、不全局安装。有效已有版本原样保留，升级视为 `protected`，旧下游未安装时仍可通过维护门禁；设计建议以 Mantine、宿主与工程规范为实施边界。
 - React Web 生成本地化路由加载/错误界面、显式重试和统一异常日志；真实 Router 回归覆盖慢加载、loader/渲染失败、持续失败与 404 返回首页。
 - Extension Popup/Options 生成 TanStack Router 代码路由，分别使用 memory/hash history，不增加 Chrome 权限或 Web 路由生成器。
 - Web 与 Extension 生成品牌十阶色、跟随系统/亮色/暗色切换和项目隔离的外观偏好持久化。

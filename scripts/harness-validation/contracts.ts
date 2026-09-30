@@ -239,6 +239,12 @@ export const MAX_SHORT_DESCRIPTION_LENGTH = 64
 
 // 保存 REQUIRED_FILES 变量供当前逻辑使用。
 export const REQUIRED_FILES = [
+  ".harness/tooling/design-skill.ts",
+  ".harness/tooling/install-design-skill.ts",
+  ".harness/vendor/design-taste-frontend/SKILL.md",
+  ".harness/vendor/design-taste-frontend/LICENSE",
+  ".harness/vendor/design-taste-frontend/UPSTREAM.json",
+  "tests/design-skill-installation.test.ts",
   ".gitattributes",
   "AGENTS.md",
   "README.md",

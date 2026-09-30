@@ -3,6 +3,7 @@ import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { promisify } from "node:util"
 import { pathExists, walkFiles } from "../../.harness/tooling/files.ts"
+import { DESIGN_SKILL_NAME, validateDesignSkill } from "../../.harness/tooling/design-skill.ts"
 import {
   EXPECTED_SKILLS,
   FORBIDDEN_SKILL_IDENTITY_LANGUAGE,
@@ -174,9 +175,11 @@ export async function validateSkills(root: string, errors: string[]): Promise<st
     .sort()
   // 保存 expected 变量供当前逻辑使用。
   const expected = [...EXPECTED_SKILLS].sort()
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+  const canonicalActual = actual.filter((skill) => skill !== DESIGN_SKILL_NAME)
+  if (JSON.stringify(canonicalActual) !== JSON.stringify(expected)) {
     errors.push(`Skill directories must exactly match: ${expected.join(", ")}`)
   }
+  if (actual.includes(DESIGN_SKILL_NAME)) await validateDesignSkill(root, errors)
 
   // 保存 perSkillErrors 变量供当前逻辑使用。
   const perSkillErrors = await Promise.all(

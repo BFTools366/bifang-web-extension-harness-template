@@ -94,6 +94,13 @@ async function seedTemplateRoot(): Promise<string> {
   await cp(path.join(repositoryRoot, ".agents"), path.join(root, ".agents"), {
     recursive: true
   })
+  await cp(path.join(repositoryRoot, ".harness/vendor"), path.join(root, ".harness/vendor"), {
+    recursive: true
+  })
+  await cp(
+    path.join(repositoryRoot, ".harness/tooling/design-skill.ts"),
+    path.join(root, ".harness/tooling/design-skill.ts")
+  )
   await writeFile(
     path.join(root, ".gitignore"),
     await readFile(path.join(repositoryRoot, ".gitignore"), "utf8")

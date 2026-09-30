@@ -38,6 +38,11 @@ export const UPSTREAM_LOCK_RELATIVE_PATH = ".harness/upstream-lock.json"
 
 /** 保存所有权清单不可弱化的关键规则。 */
 export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = {
+  ".agents/skills/design-taste-frontend/**": "protected",
+  ".harness/tooling/design-skill.ts": "managed",
+  ".harness/tooling/install-design-skill.ts": "tombstone",
+  ".harness/vendor/design-taste-frontend/**": "tombstone",
+  "tests/design-skill-installation.test.ts": "tombstone",
   ".agents/skills/web-check-development-environment/**": "managed",
   ".agents/skills/web-configure-git-commits/**": "managed",
   ".agents/skills/web-define-product/**": "managed",
@@ -164,6 +169,7 @@ export const MINIMUM_REQUIRED_OWNERSHIP_PATTERNS = new Set([
 
 /** 保存必须从 source 精确传播到候选的关键 managed 文件。 */
 export const REQUIRED_MANAGED_SOURCE_PATHS = [
+  ".harness/tooling/design-skill.ts",
   ".agents/skills/web-configure-git-commits/SKILL.md",
   ".agents/skills/web-configure-git-commits/agents/openai.yaml",
   ".agents/skills/web-configure-git-commits/assets/commit-template.txt",

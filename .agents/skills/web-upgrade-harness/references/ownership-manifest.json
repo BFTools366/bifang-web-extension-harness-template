@@ -2,6 +2,11 @@
   "schemaVersion": 1,
   "defaultMode": "protected",
   "rules": [
+    { "pattern": ".agents/skills/design-taste-frontend/**", "mode": "protected" },
+    { "pattern": ".harness/tooling/design-skill.ts", "mode": "managed" },
+    { "pattern": ".harness/tooling/install-design-skill.ts", "mode": "tombstone" },
+    { "pattern": ".harness/vendor/design-taste-frontend/**", "mode": "tombstone" },
+    { "pattern": "tests/design-skill-installation.test.ts", "mode": "tombstone" },
     { "pattern": ".agents/skills/web-check-development-environment/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-configure-git-commits/**", "mode": "managed" },
     { "pattern": ".agents/skills/web-define-product/**", "mode": "managed" },
