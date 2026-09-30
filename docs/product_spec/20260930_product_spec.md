@@ -39,7 +39,7 @@
 - 用户可见 Git Task 必须绑定真实 `threadId`、Git common dir、登记 Worktree 与派发前精确起始 OID；非 Git Task 绑定精确 cwd。首次编辑前复核绑定，写入型 Git Task 以本地提交、clean 工作树和报告 SHA 闭环。
 - 推荐 Agent policy 固定为关闭自动用户 Task、关闭 superpowers、关闭内部并行、启用完整候选 smoke、关闭 E2E 建议；内部并行默认关闭不影响用户明确创建的左侧 Git Task。
 - 初始化后的永久策略变更必须由用户明确确认并写入当日 ADR；同值按幂等 no-op，临时 Task 限制不得改写持久策略。
-- `acceptance_smoke` 只在完整候选验收解析：硬要求优先，`enabled` 为 `required`，`disabled` 为 `not-required`，源 `pending` 在无硬要求时也是 `not-required`。它与每次构建单独取得的 E2E 选择相互独立。
+- `acceptance_smoke` 只在完整候选验收解析：硬要求优先，`enabled` 为 `required`，`disabled` 为 `not-required`，源 `pending` 在无硬要求时也是 `not-required`。它与本次发布的 E2E 选择相互独立；同一流程内构建、打包及修复重建复用已明确的选择，新字节仍重新验收。
 - 初始化先完成首轮项目字段收集，再按条件确认 Agent policy；非交互调用必须显式给出全部必需决议。所有写入前冻结 source 文件、模式、Version 与可用 Git 身份，发布 staging 前再次逐字节复核；脚手架验证和裁剪完成后在 staging 建立独立 Git 根、受管 repo-local 身份/模板与恰好一个 `chore: initialize project` 中性基线提交。
 - Git 提交 helper 只补齐缺失的生效身份，复用合法 Unicode/global 配置；模板与配置只写仓库 local/common-dir，失败回滚，不自动提交。
 - 下游升级使用受保护双基线、不可弱化所有权、只读三方 plan、路径级批准、每次写后重规划与收敛后 record。
@@ -55,13 +55,13 @@
 - 初始化目标必须位于源外空目录，并经同目标合作租约、身份绑定 sibling staging、单次安装、Git 初始化、唯一 local root commit 和原子 rename 发布；结果保持 clean 且无远端。父目录漂移时失败关闭且不清理替代树。Node 标准库不具备跨平台目录 no-replace flag，故意绕过租约的同机竞态不属于本协议保证。
 - Extension 只申请真实功能所需最小权限，不使用远程托管可执行代码。
 - 不在浏览器配置、日志、候选或提交中泄漏秘密；Release logger 仅保留批准字段并脱敏 URL、路径、Error stack/cause。
-- 发布、推送、tag、部署、上传、商店提交、生产数据与不可逆副作用分别需要明确授权。
+- 明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；新增目的地或范围外的生产数据、付费及不可逆副作用才补充授权。
 
 ## 明确排除
 
 - Rust、Tauri、桌面 GUI、桌面 CLI/TUI/MCP、安装器、签名、公证和桌面发布链。
 - 同仓库 Web + Extension、workspace、`apps/`、`packages/` 或创建第二宿主的入口。
-- 初始化期间选择 E2E 或生成最终候选；最终构建必须在下游另行取得当次选择。
+- 初始化期间选择 E2E 或生成最终候选；最终构建在下游解析或复用本次发布的 E2E 选择。
 - 全局依赖安装、自动升级 Node.js/pnpm/Chrome、自动创建 PR/tag/发布或静默改写 Git 全局配置。
 
 ## 成功标准

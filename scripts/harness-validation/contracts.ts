@@ -127,7 +127,7 @@ export const SKILL_CONTRACTS = {
   },
   "web-prepare-release": {
     description:
-      "为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；不自动创建标签、推送、上传或发布。",
+      "为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。",
     title: "# Web Harness：准备前端发布",
     displayName: "Web Harness：准备前端发布",
     shortDescription: "准备 Web Harness 源码、Vite dist 或 Chrome MV3 zip 前端候选",

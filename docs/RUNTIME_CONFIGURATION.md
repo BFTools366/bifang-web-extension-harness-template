@@ -69,10 +69,10 @@ pnpm env:validate --profile release
 
 - `pnpm dev` 固定使用 `.env.development`，但普通开发不为预探测重复执行独立环境命令；出现配置错误时按故障诊断处理。
 - `pnpm test` 与 `pnpm test:related` 固定使用 `.env.test` 提供的测试运行时值。
-- `pnpm build` 是 `pnpm build:release` 的别名，固定使用逻辑 `release` 和 `.env.production`；每次先询问当次 E2E 选择，非交互调用显式传 `--e2e=enabled|disabled`。
+- `pnpm build` 是 `pnpm build:release` 的别名，固定使用逻辑 `release` 和 `.env.production`；同一发布流程复用已明确的 E2E 选择，非交互调用显式传 `--e2e=enabled|disabled`。
 - development/test profile 只服务运行和测试，不提供产物构建脚本；所有本机、CI 或其他平台的候选都固定使用 Release。
 - Web 生产构建使用 Vite `production` mode；Extension 显式把 `.env.production` 交给 Plasmo。
 - `pnpm build:release` 在宿主生产构建前后自动运行完整门禁（清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2），任一检查失败都会使整个命令失败。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip。
 - 上述 `.env*`/profile 校验属于应用运行配置门禁，不是 Node.js、pnpm 或 Chrome 工具链探测。工具链只在新下游首次初始化检查一次；其余命令直接运行，已经报出疑似环境错误后才诊断相关组件。
 
-修改任一配置后至少运行 `pnpm env:validate` 与相关非空测试；普通日常变更不自动构建。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才取得当次 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`。Release 候选还必须证明开发/测试 BaseURL、低级别日志和敏感信息未进入最终产物，详细门禁见 [`LOGGING.md`](LOGGING.md) 与 [`RELEASE.md`](RELEASE.md)。
+修改任一配置后至少运行 `pnpm env:validate` 与相关非空测试；普通日常变更不自动构建。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才解析或复用本次发布的 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`。Release 候选还必须证明开发/测试 BaseURL、低级别日志和敏感信息未进入最终产物，详细门禁见 [`LOGGING.md`](LOGGING.md) 与 [`RELEASE.md`](RELEASE.md)。

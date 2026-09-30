@@ -375,7 +375,9 @@ describe("safe template instantiation", /* 执行 当前声明 函数的处理�
     expect(downstreamAgents).toContain("$web-configure-git-commits")
     expect(downstreamAgents).not.toContain("Three delivery paths")
     expect(downstreamAgents).not.toContain("Milestone work")
-    expect(downstreamAgents).toContain("Every artifact build asks the user")
+    expect(downstreamAgents).toContain("Reuse the confirmed E2E selection across builds")
+    expect(downstreamAgents).toContain("An explicit release request covers necessary commits, push")
+    expect(downstreamAgents).not.toContain("Every artifact build asks the user")
     expect(downstreamAgents).toContain("they do not create or update Work Plans")
     expect(downstreamAgents).toContain("只在首次初始化或命令已报出环境错误时检查")
     // 保存 downstreamVerifyDeliveryMetadata 变量供当前逻辑使用。

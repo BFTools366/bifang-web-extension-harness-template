@@ -70,7 +70,7 @@ export const AGENT_POLICY_REQUIRED_BODY_FRAGMENTS = [
   "不兼容、不推断任何更早 schema 或缺少字段的旧形态",
   "`parallel_worktree_subagents` 只控制当前 Task 内部",
   "日常开发直接实施",
-  "显式发布候选构建必须为当前候选解析一次 E2E 选择",
+  "同一发布流程复用已明确的 E2E 选择",
   "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
   "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
   "用户、产品、安全或渠道硬要求优先于持久值",
@@ -90,7 +90,8 @@ export const AGENT_POLICY_REQUIRED_BODY_FRAGMENTS = [
   "`Not applicable`",
   "一次原子写入",
   "当前候选",
-  "不授权发布"
+  "复用 E2E 选择不复用旧候选的验证证据",
+  "明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认"
 ] as const
 
 /** 描述 Agent policy 文档校验选项。 */

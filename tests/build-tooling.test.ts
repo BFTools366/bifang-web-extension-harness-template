@@ -56,6 +56,10 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
       /Non-interactive builds require/
     )
     await expect(resolveE2eSelection("enabled", false)).resolves.toBe("enabled")
+    for (const selection of ["enabled", "disabled"] as const) {
+      await expect(resolveE2eSelection(selection, false)).resolves.toBe(selection)
+      await expect(resolveE2eSelection(selection, false)).resolves.toBe(selection)
+    }
     expect(parseBuildArguments(["build", "--e2e=disabled"])).toEqual({
       e2e: "disabled",
       target: "build"

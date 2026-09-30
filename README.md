@@ -114,7 +114,7 @@ pnpm release:inspect
 
 这些命令在各自项目内运行。日常实现只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related`；相关图返回零测试时必须改跑所属测试文件或记录相称替代验证，不自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`。`lint` 执行 ESLint、严格中文声明注释和终端源码体积门禁；500 行以内不提示，501–1000 行要求复核，1001 行起拒绝。
 
-`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。交互式构建会询问本次候选是否启用 E2E；非交互调用必须显式传 `--e2e=enabled|disabled`，Agent 不得替用户静默选择。Web 构建器按 `Asia/Shanghai` 生成 `YYMMDDHHMMSS` 版本并注入 Landing；Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`），注入 Popup/Options 并与 MV3 manifest 保持一致。完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
+`pnpm build` 固定委托 `pnpm build:release`，是唯一最终产物入口，只使用逻辑 release 与 `.env.production`。同一发布流程复用已明确的 E2E 选择并传 `--e2e=enabled|disabled`，不重复询问；尚无选择且无硬要求时只询问一次，交互式 CLI 缺少参数时提供终端选择。Web 构建器按 `Asia/Shanghai` 生成 `YYMMDDHHMMSS` 版本并注入 Landing；Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`），注入 Popup/Options 并与 MV3 manifest 保持一致。完整构建门禁清单见 [`docs/ENGINEERING_RULES.md`](docs/ENGINEERING_RULES.md) §6.2，产物扫描规则见 [`docs/LOGGING.md`](docs/LOGGING.md)。Extension 的 `pnpm package -- --e2e=enabled|disabled` 对同一 Release profile 执行同一批门禁并生成 zip。development/test 只服务运行和测试，不提供产物构建脚本。只有真实生成项目包含相应脚本且命令实际成功时，才能报告通过。
 
 Web 额外提供 `pnpm routes:generate`。`dev` 与 `build` 通过 Vite Router plugin 生成路由树，`typecheck` 会先执行同一生成命令；`src/routeTree.gen.ts` 是被 Git、格式化器、注释和源码体积门禁忽略的临时生成文件，不进入模板或人工维护范围。路由组件默认按 route 自动拆包，只有真实 bundle 证据证明需要时才增加手工 `manualChunks`。
 
@@ -226,7 +226,7 @@ Web 的依赖方向保持为 `main/app → routes → features → api`；跨 fe
 - Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收；`Version.md` 当前值、候选版本、源码提交、lockfile、Schema/协议版本、`manifest_version` 与 `projectType` 等身份或协议事实继续精确匹配。
 - 三份环境必须同时齐全并通过 Schema 校验；`pnpm release:inspect` 必须按 [`docs/LOGGING.md`](docs/LOGGING.md) 在文件名层拒绝 `.env*`/`.map`，并只在受支持的可读文本扩展中扫描非 Release BaseURL、固定日志哨兵、原始 `console.debug`/`console.info`、本机路径与 `sourceMappingURL`，作为 `build:release`/Extension `package` 的自动失败门禁；它不提供通用秘密扫描。
 - 行为变化至少运行相关非空单元/组件测试；文档与元数据变化运行链接、解析或差异检查。
-- 每次 Web/Extension 产物构建都先询问当次 E2E 选择；完整候选验收另按 `acceptance_smoke` 决定是否运行有边界的 smoke。E2E、smoke 或产品/安全/渠道硬要求任一要求浏览器证据时，必须针对刚生成的最终构建验证当前项目真实需要的页面、入口与权限行为。
+- 同一 Web/Extension 发布流程复用已明确的 E2E 选择，新产物仍重新验收；完整候选验收另按 `acceptance_smoke` 决定是否运行有边界的 smoke。E2E、smoke 或产品/安全/渠道硬要求任一要求浏览器证据时，必须针对刚生成的最终构建验证当前项目真实需要的页面、入口与权限行为。
 - Mock、占位页面、开发预览或仅检查源码不能替代最终产物验收。
 - 未实际运行的平台和浏览器范围必须标记为 `Unverified`。
 

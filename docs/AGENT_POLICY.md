@@ -20,8 +20,8 @@ e2e_hint: pending
 - `user_owned_tasks`：控制是否由 Agent 自动把新结果拆到 Codex 左侧菜单中用户可独立进入的 user-owned Task/thread。`disabled` 是默认值：不得自动创建或按阶段拆 Task，但用户明确要求创建时仍可执行；`enabled` 表示用户已经长期授权按本文件的结果边界自动创建，不得再次要求用户提醒。它不控制当前 Task 内部的 plan、Subagent 或单元 Worktree，也不替代 `parallel_worktree_subagents`。
 - `parallel_worktree_subagents`：`enabled` 只表示用户明确要求并行时允许使用 Worktree + 写入型 Subagent；`disabled` 使用单 Agent。持久启用本身不能触发并行步骤。只读 Subagent 可以对彼此独立的问题并行分析，不受写入开关限制。
 - `acceptance_smoke`：只在完整真实候选验收中，允许 Agent 对候选执行适用的浏览器冒烟。普通实现不消费该选择。
-- `e2e_hint`：仅作为每次显式候选构建询问 E2E 时展示的建议默认值；无论是 `enabled` 还是 `disabled`，都不能替代当前候选的明确选择，也不授权凭据、生产数据、商店上传或不可逆副作用。
-- `decision_mode: reuse_then_infer_then_ask`：先复用已确认偏好，再依据当前事实判断适用性；仍会改变产品范围、授权或当前候选时才询问。
+- `e2e_hint`：仅在本次发布尚无 E2E 选择时提供建议默认值；同一发布流程复用已明确的选择，也不授权凭据、生产数据、商店上传或不可逆副作用。
+- `decision_mode: reuse_then_infer_then_ask`：先复用已确认偏好，再依据当前事实判断适用性；仍会改变产品范围、授权或发布目标时才询问。
 
 `enabled` 表示允许且在真实触发时优先，不表示无条件执行；`user_owned_tasks: enabled` 是自动建 Task 的明确长期授权。安全、产品和渠道硬要求优先于项目偏好，不能用 `disabled` 绕过必需门禁；当前候选的 E2E 明确选择优先于 `e2e_hint` 建议值。
 
@@ -145,8 +145,8 @@ Task 绑定：
 ## Web/Extension 构建与验收
 
 - 本地开发、测试、类型检查和普通预览不消费 E2E 选择，不产生最终候选。
-- 显式发布候选构建必须为当前候选解析一次 E2E 选择。请求已明确 `enabled|disabled` 时直接复用，否则在任何测试或编译前询问一次；`e2e_hint` 仅用于询问时的建议默认值。
-- E2E 选择只对当前发布候选有效，不跨候选写回本文件。`enabled` 时只在 `pnpm build` 形成最终真实候选后调用 `$web-test-final-artifact-e2e`；`disabled` 时记录 `Not run` 与剩余风险。
+- 同一发布流程复用已明确的 E2E 选择，包括构建、打包、修复重建和发布元数据更新后的重建；仅在尚无选择且无硬要求时询问一次。`e2e_hint` 仅用于首次选择的建议默认值；用户、产品、安全或渠道硬要求时执行 `enabled`。每次命令显式传入已解析的 `--e2e=enabled|disabled`，不重复询问。
+- 复用 E2E 选择不复用旧候选的验证证据：每次重新构建或打包仍对新字节重新验收。临时选择不写回本文件，用户改变选择时以后续明确要求为准。`enabled` 时只在 `pnpm build` 形成最终真实候选后调用 `$web-test-final-artifact-e2e`；`disabled` 时记录 `Not run` 与剩余风险。
 - Web 候选是 Vite `dist/`；Extension 候选由唯一 `pnpm build` 形成，若需要分发 zip 再运行 `pnpm package`。构建、E2E、扫描和验收继续完全遵循当前仓库 `docs/RELEASE.md`，本文件不定义第二套发布逻辑。
 - `acceptance_smoke` 只在 `$web-verify-delivery` 的完整候选验收中解析。`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`；`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`；用户、产品、安全或渠道硬要求优先于持久值。源 Harness 的 `pending` 不授权可选 smoke，无硬要求时按 `not-required` 处理，不推断推荐预设。浏览器步骤只能针对精确 Release 候选，不能用开发页、源码片段、Mock 或占位内容冒充；smoke 与当次 E2E 选择相互独立。
 - 本地开发试包不消费 E2E 选择；本 Web Harness 不持久化桌面 GUI 性能选择，也不引入桌面签名、公证或分支发布链。
@@ -159,4 +159,4 @@ Task 绑定：
 4. Agent 根据唯一 `projectType`、真实产物和已批准场景作出的适用性判断。
 5. 仍会实质改变范围、授权或结果时询问用户。
 
-本文件不授权发布、push、商店提交、凭据操作、生产访问或数据删除；这些行为始终需要其自身的当前任务授权。
+明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；例如“发布并提交”包含向当前已配置远端推送验收通过的提交。仅要求准备候选或验收不会自动触发外部发布。新增目的地、渠道或超出请求的凭据、生产访问、付费及不可逆数据操作才补充授权。

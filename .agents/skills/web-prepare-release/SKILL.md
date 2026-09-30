@@ -1,6 +1,6 @@
 ---
 name: web-prepare-release
-description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；不自动创建标签、推送、上传或发布。
+description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。
 ---
 
 # Web Harness：准备前端发布
@@ -21,7 +21,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 
 1. 候选是绑定到 `Version.md`、源码提交和 lockfile 的源树；根没有应用 `build` 门禁，也不自行发明 zip、npm 发布包或另一种归档。
 2. 要求 `pnpm validate:harness` 及根级适用门禁通过，并复核 `$web-verify-delivery` 已在两个隔离目录验证带三 BaseURL 的 Web/Extension 输出、每个下游唯一 Release 构建，以及 `build:release`/Extension `package` 自动通过 `pnpm release:inspect`；development/test 不生成候选。
-3. 记录精确提交、版本、锁文件状态和生成候选证据；外部归档、包注册表上传或 GitHub Release 都需要另行授权。
+3. 记录精确提交、版本、锁文件状态和生成候选证据；当前明确发布请求覆盖的既有渠道步骤沿用授权；新增归档格式、注册表或托管 Release 渠道才补充授权。
 
 ### Web
 
@@ -46,7 +46,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 ## 安全边界
 
 - 不覆盖已发布版本，不编造版本、日期、提交、哈希、产物、测试或人工批准。
-- 不创建 tag、远端、push、托管 release、商店上传或部署；每项都需要用户另行明确授权。
+- 明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；仅要求准备候选不触发外部发布，新增远端、渠道或范围外副作用才补充授权。
 - 不处理签名、公证、桌面安装包、移动包、服务器容器、Firefox 包或另一项目类型的产物。
 - 不因 `release/`、`dist/` 或 zip 存在就推断其属于当前提交。
 

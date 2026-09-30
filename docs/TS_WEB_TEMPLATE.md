@@ -61,7 +61,7 @@ pnpm instantiate -- /absolute/path/example-web --type web \
 - `--policy-mode recommended|custom` 与 `--confirmed-by <source>` 在非交互调用中必填；自定义模式还必须逐项显式提供五个 `enabled|disabled` 选择，推荐模式不得混入覆盖值。
 - `--logo` 指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 使用 `#RRGGBB`；缺省时使用生成器声明的稳定默认色（当前为 `#4C6EF5`），Logo 几何形状仍按名称与标识稳定变化。
-- 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；只有后续显式 `pnpm build` 才现场询问或接收 `--e2e=enabled|disabled`。
+- 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；后续显式 `pnpm build` 解析或复用本次发布的 `--e2e=enabled|disabled` 选择。
 
 参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 sibling staging 完成复制，通过内部 initializer 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部 initializer 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
@@ -360,7 +360,7 @@ pnpm release:inspect
 
 命令名相同但宿主行为不同。Web 由 Vite 驱动，Extension 由 Plasmo 驱动；`dev` 使用 development，Vitest 使用 test，`build` 固定委派 `build:release` 并读取 `.env.production`。development/test 不提供产物脚本。日常实现只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `test:related`，空相关批次必须回退到所属非空测试文件；不自动追加格式、lint、类型、全仓检查或构建，行为保持重构才运行全量 `test`。`lint` 执行 ESLint、中文声明注释与 500/1000 行源码体积门禁，格式命令只检查格式。详细声明矩阵、精确排除与体积边界以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1、§4 为准。
 
-`build:release` 是唯一最终产物入口。每次构建先询问用户是否启用 E2E；非交互入口必须传 `--e2e=enabled|disabled`。随后在宿主生产构建前后自动执行完整环境、Harness、格式、lint、类型、测试与版本注入门禁，详见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 与 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) §5；Extension `package` 对同一 Release profile 执行相同门禁后生成 zip。`env:validate` 的 profile 覆盖规则见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) §5，产物扫描规则见 [`LOGGING.md`](LOGGING.md)。
+`build:release` 是唯一最终产物入口。同一发布流程复用已明确的 E2E 选择，尚无选择且无硬要求时才询问一次；非交互入口必须传 `--e2e=enabled|disabled`。随后在宿主生产构建前后自动执行完整环境、Harness、格式、lint、类型、测试与版本注入门禁，详见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 与 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) §5；Extension `package` 对同一 Release profile 执行相同门禁后生成 zip。`env:validate` 的 profile 覆盖规则见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) §5，产物扫描规则见 [`LOGGING.md`](LOGGING.md)。
 
 Web 还提供 `pnpm routes:generate`。`dev`/`build` 通过 Vite plugin 再生路由树，`typecheck` 在自身命令中先生成；该生成文件不进入 Git，也不进入注释或源码体积门禁。Extension 不包含 Router plugin、CLI 或路由生成脚本。
 

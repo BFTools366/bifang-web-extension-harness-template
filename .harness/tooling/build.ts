@@ -181,7 +181,7 @@ async function promptForE2eSelection(): Promise<E2eSelection> {
   }
 }
 
-// 执行 resolveE2eSelection 函数，禁止非交互构建静默跳过 E2E 决策。
+// 执行 resolveE2eSelection 函数，复用显式传入的发布 E2E 选择，缺少参数时才提示。
 export async function resolveE2eSelection(
   explicit: E2eSelection | undefined,
   interactive: boolean
@@ -189,7 +189,7 @@ export async function resolveE2eSelection(
   if (explicit !== undefined) return explicit
   if (interactive) return promptForE2eSelection()
   throw new Error(
-    "Non-interactive builds require --e2e=enabled or --e2e=disabled; ask the user before choosing."
+    "Non-interactive builds require --e2e=enabled or --e2e=disabled; reuse the current release selection."
   )
 }
 

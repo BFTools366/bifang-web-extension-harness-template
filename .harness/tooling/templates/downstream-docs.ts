@@ -79,10 +79,10 @@ ${hostRules}
 
 - 行为变化必须有非空测试，至少覆盖核心成功路径和最高风险失败路径。
 - 日常任务只运行本次变化需要的相关非空测试或最小替代检查，通常使用 \`pnpm test:related <changed-source...>\`；依赖图没有发现测试时，必须改跑所属非空测试文件或说明相称替代验证。不得自动追加格式、lint、类型、全仓检查或构建；全量 \`pnpm test\` 只在行为保持重构或最终构建/发布时运行。
-- \`pnpm build\` 是唯一最终产物入口并固定委托 \`build:release\`，无论本机还是 CI/其他平台都使用逻辑 Release。每次构建先询问当次 E2E 选择，非交互入口显式传 \`--e2e=enabled|disabled\`；它自动运行环境、Harness、格式、lint、类型与全量测试，注入${buildVersionSource(config)}页面版本，再完成生产构建与含版本命中的 \`release:inspect\`。不得提供 development/test 产物构建脚本。
+- \`pnpm build\` 是唯一最终产物入口并固定委托 \`build:release\`，无论本机还是 CI/其他平台都使用逻辑 Release。同一发布流程复用已明确的 E2E 选择，非交互入口显式传 \`--e2e=enabled|disabled\`；它自动运行环境、Harness、格式、lint、类型与全量测试，注入${buildVersionSource(config)}页面版本，再完成生产构建与含版本命中的 \`release:inspect\`。不得提供 development/test 产物构建脚本。
 - 构建命令、页面版本、E2E 选择及其测试、扫描或浏览器结果只进入命令输出和当前任务交付说明，不创建或更新 Work Plan、ADR、Status、Changelog、Verification 或其他持久项目记忆。
 - Mock 只能隔离外部依赖，不能替代最终构建验收。未运行的浏览器、操作系统或渠道写为 \`Unverified\`。
-- 发布、部署、商店上传、凭据、生产数据和不可逆外部副作用必须另行取得明确授权。
+- 明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；新增目的地或范围外的凭据、生产数据、付费及不可逆副作用才补充授权。
 `
 }
 
@@ -107,7 +107,7 @@ function releaseRules(config: ProjectConfig): string {
 ## 候选门禁
 
 1. \`.harness/project.json.projectType\` 必须仍为 \`${config.projectType}\`，仓库保持单包且没有另一宿主入口。
-2. 每次构建前取得当次 E2E \`enabled|disabled\` 选择，再对同一源码实际运行 \`pnpm build -- --e2e=<selection>\`；该唯一 Release 构建入口必须自动完成 \`pnpm harness validate\`、格式、lint、typecheck 与非空全量单元测试，不在外层重复执行同一批门禁。
+2. 解析或复用本次发布的 E2E \`enabled|disabled\` 选择，再对同一源码实际运行 \`pnpm build -- --e2e=<selection>\`；该唯一 Release 构建入口必须自动完成 \`pnpm harness validate\`、格式、lint、typecheck 与非空全量单元测试，不在外层重复执行同一批门禁。
 3. \`pnpm build\` 必须校验三份受管环境配置和活动 Release profile，${config.projectType === "web" ? "生成" : "读取"}并展示${buildVersionSource(config)}构建版本，并在生产构建后自动通过包含版本命中的 \`pnpm release:inspect\`；${artifactChecks}development/test profile 不得生成候选产物。
 4. 当次 E2E 选择 \`enabled\` 或产品、安全、渠道硬要求浏览器验证时，只对上述精确 Release 候选运行；选择 \`disabled\` 时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
 5. 在当前任务交付说明中报告源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题；构建操作本身不写入 ADR、Changelog、Verification 或其他持久项目记忆。
@@ -115,7 +115,7 @@ function releaseRules(config: ProjectConfig): string {
 
 ## 外部操作
 
-创建标签、push、部署、上传商店、使用账号或凭据、修改生产配置都需要对应操作的独立明确授权。本地构建成功不等于已经发布或渠道审核通过。
+明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；仅要求准备候选不触发外部发布，新增目的地、渠道或范围外副作用才补充授权。本地构建成功不等于已经发布或渠道审核通过。
 `
 }
 
@@ -152,7 +152,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 - \`pnpm env:validate\`：校验三份文件。
 - \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖。
-- \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；每次先询问 E2E，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
+- \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；复用本次发布已明确的 E2E 选择，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
 
 Node.js、pnpm 与 Chrome 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。
 

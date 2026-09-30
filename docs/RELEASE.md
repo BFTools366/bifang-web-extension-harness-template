@@ -39,7 +39,7 @@ Harness 候选至少满足：
 - Web 结果的 `public/logo.png`、`public/favicon.png`、根 `index.html` 与 Landing 身份一致；
 - Extension 结果的 `assets/icon.png`、manifest 身份、Popup 与 Options 一致，Plasmo 能从来源图标生成构建所需尺寸；`targets.default` 明确使用 browser context 与 `includeNodeModules: true`；
 - 两种生成项目都包含 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
-- 两种生成项目各自只运行唯一 `pnpm build` 形成候选；每次构建先取得当次 E2E `enabled|disabled` 选择，它固定委托 `build:release`，完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2，development/test profile 不提供产物入口；
+- 两种生成项目各自只运行唯一 `pnpm build` 形成候选；同一发布流程复用已明确的 E2E `enabled|disabled` 选择并显式传参，它固定委托 `build:release`，完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2，development/test profile 不提供产物入口；
 - 两种 Release 构建均自动执行 `pnpm release:inspect`（Extension 额外先执行 `pnpm harness validate`，`pnpm package` 同样门禁），扫描规则、检查对象与失败即禁止发布的约束以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 为唯一权威来源；
 - 未实际执行的操作系统、Chrome 版本和分发渠道明确标记 `Unverified`；
 - 当前已知重要限制已记录在 [`TECH_DEBT.md`](TECH_DEBT.md)。
@@ -56,7 +56,7 @@ Web 候选至少要求：
 4. 核心成功路径与最高风险失败路径有非空测试；当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，用对应范围的 Playwright 或真实浏览器场景验证最终构建及页面构建版本。
 5. 部署目标的 base path、环境变量、CSP、缓存和回退路由已按真实渠道验证；Release 产物和浏览器日志通过 [`LOGGING.md`](LOGGING.md) 的裁剪/敏感信息检查；未验证项公开。
 
-部署到具体托管平台、配置域名、生产密钥或上传产物需要对应外部操作授权。本 Harness 不因生成 `dist` 自动授权发布。
+明确发布请求覆盖既有部署目标与已批准范围的必要操作，不重复确认；目标、域名或生产密钥等信息缺失时只补充缺失项。仅生成 `dist` 不触发外部发布。
 
 ## 5. Extension 下游候选
 
@@ -69,7 +69,7 @@ Extension 候选至少要求：
 5. `pnpm package` 从同一 Release 配置生成 Chrome MV3 zip，并在打包后自动运行 `pnpm harness validate` 与 `pnpm release:inspect`；目录或 zip 重新生成后必须重新记录哈希和验收。
 6. 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，在真实 Chrome 中加载最终构建，按批准范围验证 Popup、Options、页面构建版本、必要消息/Storage/权限行为和 Release 日志脱敏；未实际加载时标记 `Unverified`。
 
-Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露和正式发布属于外部渠道操作，需要独立明确授权。构建成功不等于商店审核通过或可公开分发。
+明确要求通过既有 Chrome Web Store 渠道发布时，沿用该请求执行必要上传与发布步骤；新增渠道、账号或范围外副作用才补充授权。构建成功不等于商店审核通过或可公开分发。
 
 ## 6. 验收与发布顺序
 
@@ -77,9 +77,9 @@ Chrome Web Store 上传、开发者账号、签名、审核资料、隐私披露
 2. 固定源码提交与依赖锁，不做工具链预探测，直接运行当前项目类型的唯一 `pnpm build` 完成逻辑 Release 构建；只有真实失败指向环境时才诊断相关组件。完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2。
 3. 检查身份、Logo 母版、当前宿主品牌派生、manifest/HTML、配置与权限边界。
 4. 确认生成候选的 `build:release` 或 Extension `package` 已自动通过 `pnpm release:inspect`；需要独立复核既有目录时直接重跑该命令。任何命中先修复并生成新候选。
-5. 每次构建前询问用户是否启用当次 E2E；完整验收再按 Agent Policy 独立解析 smoke。E2E 或 smoke 为 `required`、或存在用户/产品/安全/渠道硬要求时，对刚生成的精确候选执行对应浏览器场景；两项均为 `not-required` 时记录 `Not run`、`not-probed` 与 `Unverified` 范围。浏览器流程不能覆盖环境、测试、版本注入、构建、扫描或渠道硬门禁。
+5. 同一发布流程沿用已明确的 E2E 选择，尚无选择且无硬要求时才询问一次；完整验收再按 Agent Policy 独立解析 smoke。E2E 或 smoke 为 `required`、或存在用户/产品/安全/渠道硬要求时，对刚生成的精确候选执行对应浏览器场景；两项均为 `not-required` 时记录 `Not run`、`not-probed` 与 `Unverified` 范围。浏览器流程不能覆盖环境、测试、版本注入、构建、扫描或渠道硬门禁。
 6. 在当前任务交付说明中报告实际环境、命令、结果、未执行项和剩余风险（持久记录边界见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §7）。需要人工复核时由真实复核人签署，Agent 不得代签。
-7. 只有全部必需门禁通过后才能准备标签或发布元数据；push、上传或正式发布仍需独立授权。
+7. 只有全部必需门禁通过后才能准备标签或发布元数据；明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；新增目的地或范围外副作用才补充授权。
 
 任何签名、重打包、manifest 修改、品牌替换或渠道处理若改变最终字节或运行行为，都产生新候选并重新执行受影响验收。
 

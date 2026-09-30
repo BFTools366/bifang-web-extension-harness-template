@@ -382,7 +382,7 @@ export async function collectPromptedIdentity(
     const e2eHint = await collectPolicyChoice(
       basic.e2eHint,
       "e2e-hint",
-      "构建 E2E 建议默认值（enabled 或 disabled；不替代以后每次构建询问）：",
+      "发布首次 E2E 选择的建议值（enabled 或 disabled；同一发布流程复用已明确选择）：",
       ask
     )
     agentPolicy = {

@@ -42,7 +42,7 @@
 4. `acceptance_smoke`
 5. `e2e_hint`
 
-`user_owned_tasks` 的推荐/default 值都是 `disabled`。`e2e_hint` 只保存以后每次候选构建询问时展示的建议值，不替代任何一次真实构建前的用户选择。`recommended` 模式一次确定性物化为：
+`user_owned_tasks` 的推荐/default 值都是 `disabled`。`e2e_hint` 只提供本次发布首次 E2E 选择的建议值；同一发布流程复用已明确的选择，不重复询问。`recommended` 模式一次确定性物化为：
 
 ```yaml
 user_owned_tasks: disabled

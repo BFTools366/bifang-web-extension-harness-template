@@ -77,7 +77,8 @@ describe("single-package Harness validation and governance", () => {
     expect(questions[4]).toContain("Superpowers")
     expect(questions[5]).toContain("并行 Worktree/Subagent")
     expect(questions[6]).toContain("完整候选冒烟")
-    expect(questions[7]).toContain("构建 E2E 建议默认值")
+    expect(questions[7]).toContain("发布首次 E2E 选择的建议值")
+    expect(questions[7]).toContain("同一发布流程复用已明确选择")
     expect(answers).toEqual([])
     expect(resolved).toMatchObject({
       targetRoot: path.join(repositoryRoot, "..", "interactive-web"),

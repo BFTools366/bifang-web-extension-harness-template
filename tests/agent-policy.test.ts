@@ -252,6 +252,21 @@ e2e_hint: pending
     )
   })
 
+  /** 验证发布选择与授权可延续，但新字节的验收契约不能删除。 */
+  test("preserves release decisions without reusing artifact evidence", async () => {
+    const source = await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
+    expect(validateAgentPolicyBody(source)).toEqual([])
+    for (const fragment of [
+      "同一发布流程复用已明确的 E2E 选择",
+      "复用 E2E 选择不复用旧候选的验证证据",
+      "明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认"
+    ]) {
+      expect(validateAgentPolicyBody(source.replaceAll(fragment, "已删除发布契约"))).toContain(
+        `Agent policy body is missing: ${fragment}`
+      )
+    }
+  })
+
   /** 验证完整候选 smoke 的启用、关闭、硬要求与源 pending 矩阵不能弱化。 */
   test("locks the complete acceptance smoke matrix", async () => {
     const source = await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")

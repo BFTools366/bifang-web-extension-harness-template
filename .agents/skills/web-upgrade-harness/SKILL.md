@@ -66,7 +66,7 @@ helper 会重新绑定 source、候选、目标、Git 状态、目标仓库内�
 ## 验证与记录
 
 1. 代码行为变化只运行本次升级实际影响的相关非空测试；纯文档或元数据升级只运行必要的最小替代检查。不得因 Harness 升级自动追加格式、lint、类型、全仓检查、独立构建、冒烟或 E2E；行为保持重构运行全量测试，只有发布、用户明确完整验收、当次 E2E 启用或浏览器硬要求触发完整候选验收。
-2. 需要最终候选时，构建前询问本次 E2E 选择，只使用当前 Web Harness 的 `pnpm build -- --e2e=enabled|disabled`；Extension `package` 同样沿用当前 Release profile。不得导入桌面客户端或桌面发布链。
+2. 需要最终候选时，构建前解析或复用本次发布的 E2E 选择，只使用当前 Web Harness 的 `pnpm build -- --e2e=enabled|disabled`；Extension `package` 同样沿用当前 Release profile。不得导入桌面客户端或桌面发布链。
 3. 再次创建全新 plan，要求只剩 `unchanged`、`converged`、`preserve_local` 或已逐项复核的 `manual_merge`。记录已有基线：
 
 ```bash

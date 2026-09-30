@@ -15,10 +15,11 @@
 
 ## Changed
 
+- 同一发布流程复用已明确的 E2E 选择，重建和打包继续验收新字节；明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认。
 - Web 候选页面版本改为上海时间 `YYMMDDHHMMSS`；Extension 构建与打包改为读取 `package.json.version` 的稳定 SemVer，并检查页面、包与 MV3 manifest 版本一致。
 - 推荐 Agent policy 默认关闭内部 Worktree Subagent 并行，但不影响用户明确创建的左侧 Git Task；任何初始化后的永久策略变更都必须由用户明确确认并写入当日 ADR，同值为幂等 no-op，临时 Task 限制不得持久化。
 - 用户可见 Task 统一采用 `Task {序号} | {当前进度} | {单一结果}`；实现 Skill 和生成下游入口补齐真实 `threadId`、Git common dir、登记 Worktree、起始 OID、非 Git cwd、本地提交与 clean 闭环。
-- 完整候选验收现在确定性消费 `acceptance_smoke`：硬要求优先，`enabled` 为 `required`，`disabled` 与无硬要求的源 `pending` 为 `not-required`；smoke 与每次构建单独取得的 E2E 选择保持独立。
+- 完整候选验收现在确定性消费 `acceptance_smoke`：硬要求优先，`enabled` 为 `required`，`disabled` 与无硬要求的源 `pending` 为 `not-required`；smoke 与本次发布的 E2E 选择保持独立。
 - Web/Extension 中性模板移除展示性全局计数状态和 Extension 伪 Query，局部交互改用 React state；数据规范明确 Router search、`sessionStorage`、Query、Jotai 与组件局部状态的唯一所有者。
 - React Web 路由列表建立封闭恢复例外：Router search 始终是已应用列表状态的运行时 owner，原始 URL 完全无 owned key 时才按 `listId` 读取一次 sessionStorage 快照；rows/`total` 只属于 Query。Extension 不保留该 Skill 或复用这项恢复契约。
 - 列表治理复用 `src/pagination/` 的 1-based page/pageSize 基础，但不强制 Table、选择、列偏好或 DnD；中性初始化不生成业务列表或预装图标/DnD 依赖。

@@ -184,7 +184,7 @@ export async function resolveE2eSelection(
   if (explicit !== undefined) return explicit
   if (interactive) return promptForE2eSelection()
   throw new Error(
-    "Non-interactive builds require --e2e=enabled or --e2e=disabled; ask the user before choosing."
+    "Non-interactive builds require --e2e=enabled or --e2e=disabled; reuse the current release selection."
   )
 }
 
@@ -309,6 +309,10 @@ describe("release build orchestration", () => {
     await expect(resolveE2eSelection(undefined, false)).rejects.toThrow(
       /Non-interactive builds require/
     )
+    for (const selection of ["enabled", "disabled"] as const) {
+      await expect(resolveE2eSelection(selection, false)).resolves.toBe(selection)
+      await expect(resolveE2eSelection(selection, false)).resolves.toBe(selection)
+    }
     expect(parseBuildArguments(["build", "--e2e=disabled"])).toEqual({
       e2e: "disabled",
       target: "build"
