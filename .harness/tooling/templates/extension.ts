@@ -296,7 +296,7 @@ test("renders the branded popup interaction", async () => {
   expect(screen.getByRole("heading", { name: BRAND.name, level: 1 })).toBeInTheDocument()
   expect(screen.getByText("Build version: development")).toBeInTheDocument()
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByText(BRAND.description))
+  await user.click(screen.getByRole("heading", { name: BRAND.name, level: 1 }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
