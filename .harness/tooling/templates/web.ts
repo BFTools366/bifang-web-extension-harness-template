@@ -5,6 +5,7 @@ import { httpFiles } from "./http.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
 import { themeFiles } from "./theme.ts"
+import { webRouteStateFiles } from "./web-route-state.ts"
 
 // 执行 renderWebIndex 函数的处理逻辑。
 export function renderWebIndex(config: ProjectConfig): string {
@@ -56,6 +57,7 @@ export function webFiles(
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
     ...themeFiles(),
+    ...webRouteStateFiles(),
     ["index.html", renderWebIndex(config)],
     [
       "vite.config.ts",
@@ -144,7 +146,11 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
   paginationPrevious: "Previous page",
   paginationNext: "Next page",
   paginationPageSize: "Items per page",
-  unexpectedError: "The application could not start. Please try again."
+  routeLoading: "Loading page…",
+  routeErrorTitle: "Unable to open this page",
+  routeErrorDescription: "Please retry the page or return home.",
+  routeRetry: "Retry page",
+  unexpectedError: "The application could not start. Please reopen the page."
 } as const
 `
     ],
@@ -167,7 +173,11 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
   paginationPrevious: "上一页",
   paginationNext: "下一页",
   paginationPageSize: "每页条数",
-  unexpectedError: "应用无法启动，请重试。"
+  routeLoading: "正在加载页面…",
+  routeErrorTitle: "页面暂时无法打开",
+  routeErrorDescription: "请重试加载页面，或返回首页。",
+  routeRetry: "重新加载页面",
+  unexpectedError: "应用无法启动，请重新打开页面。"
 } as const
 `
     ],
@@ -262,8 +272,9 @@ export function AppProviders({ children }: AppProvidersProps) {
       "src/app/router.tsx",
       `import { createRouter } from "@tanstack/react-router"
 import { routeTree } from "../routeTree.gen"
+import { routeStateDefaults } from "../features/route-state/RouteState"
 
-export const router = createRouter({ routeTree })
+export const router = createRouter({ routeTree, ...routeStateDefaults })
 
 declare module "@tanstack/react-router" {
   /** 说明 Register 的稳定结构与职责边界。 */
@@ -475,6 +486,11 @@ body {
   padding: var(--mantine-spacing-xl) var(--mantine-spacing-md);
   background: var(--mantine-color-body);
   color: var(--mantine-color-text);
+  overflow-wrap: anywhere;
+}
+.page-shell > * {
+  min-width: 0;
+  max-width: 100%;
 }
 `
     ]

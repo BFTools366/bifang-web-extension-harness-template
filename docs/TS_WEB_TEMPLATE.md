@@ -183,6 +183,7 @@ src/
 │   └── environment.ts
 ├── features/
 │   ├── not-found/NotFoundPage.tsx
+│   ├── route-state/RouteState.tsx
 │   └── welcome/
 ├── i18n/
 │   ├── index.ts
@@ -204,11 +205,30 @@ src/
 
 - `app/` 只装配全局 Provider、主题、QueryClient 与 Router；`routes/` 使用 TanStack 文件命名约定声明 URL、loader/search/context 等路由契约；具体业务 UI、hooks、Jotai atom 和测试留在 `features/`。
 - Vite 配置必须把 TanStack Router plugin 放在 React plugin 之前，并显式启用 `autoCodeSplitting`。route 组件按路由边界形成异步 chunk；共享依赖由 Vite/Rollup 根据真实引用处理，不在模板中预设手工 vendor 分组。
-- `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`test` 与 `typecheck` 必须先生成它，保证全新克隆可直接运行门禁。
+- `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`typecheck` script 先生成它；导入完整应用 Router 的测试先运行 `pnpm routes:generate`，中性页面和路由状态测试不依赖该临时文件。
 - `api/client/` 是初始化生成的原生 Fetch 基础，统一受控 BaseURL、三个 header、timeout/取消、并发 revision、`ApiError` 与 401 handler；它不包含真实 endpoint、refresh/replay 或登录地址。真实业务出现后才在 `api/` 下增加按域划分的 service；Ky/OpenAPI adapter 不得复制第二套请求上下文。
 - `pagination/` 提供所有真实集合页复用的 sessionStorage adapter、hook、受控组件与成功空页 reconciliation。TanStack Query 的 key、缓存、mutation、失效、`items` 与 `total` 属于消费端 feature，服务器状态不得复制进 Jotai 或分页 Storage。
 - 真实 Web 列表页使用 `$web-implement-list-view`：复用 `pagination/` 的页码/pageSize 基础，但由类型化 Router adapter 拥有已应用状态；sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复，不挂载第二份 session 状态。业务行、`total`、错误和请求结果继续只属于 Query/feature。
 - 依赖方向保持为 `main/app → routes → features → pagination/api`；API 与分页基础不反向依赖 React route 或 feature，401 client 只接受宿主注入的窄 handler。跨 feature 共享组件和纯逻辑只有出现真实复用后才提取，禁止为了目录对称生成空壳。
+
+### 4.2 Web 功能覆盖与设计触发
+
+固定栈不等于完整产品。下表区分当前生成代码与已有设计规则，避免把“未预装业务功能”误判为模板缺陷；详细 UI、数据与交付契约仍由各自唯一事实源维护。
+
+| 能力                         | 当前覆盖                                                            | 下一次真实设计触发                                                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| 品牌、亮暗主题、语言和无障碍 | 已生成主题、外观偏好、i18n/lang、基础语义与测试                     | 新 surface、品牌或真实交互出现时按 UI 规范验证对比度、键盘与回流                                                                             |
+| 页面与路由状态               | 已生成 Landing、404、统一 pending/error、显式重试和真实 Router 测试 | 首次多页面定义标题、焦点、导航、滚动与离开阻断，见 UI 规范 §8                                                                                |
+| 表单与设置                   | Mantine 输入及基础提交/错误/草稿规则；不生成业务表单                | 真实字段与校验协议明确后实现；复杂表单才评估 `@mantine/form`，见 UI 规范 §5.2                                                                |
+| 远端读写与缓存               | 已生成 Fetch、ApiError、Query 日志和分页；重试/失效规则已定义       | 首次 endpoint 确定 Schema、运行时校验、Query key、mutation 与缓存策略，见数据规范 §2.6/§3                                                    |
+| 登录、授权与私有会话         | 已生成 Token revision 与 401 handler 边界                           | 真实认证协议、登录入口、权限模型与 scope 明确后设计会话及缓存清理；不预置登录页                                                              |
+| 文件、富交互与实时数据       | 只保留现有组件与按需选型规则                                        | 真实消费者明确后设计大小/格式/取消、渲染边界或连接生命周期；不预装上传、编辑器、图表或事件流包                                               |
+| 导航与应用布局               | 单页中性布局，AppShell 按需                                         | 持续导航出现后设计移动导航、主内容入口、弹层与滚动容器；不生成空菜单                                                                         |
+| 部署、SEO 与运行性能         | 根路径 Vite SPA、路由自动拆包、Release 扫描                         | 首次真实渠道确定深链接回退、CSP、缓存、资源地址；需要搜索索引或分享预览时先评估静态 SPA 能否满足，再决定预渲染/SSR，不把框架切换当初始化步骤 |
+
+### 4.3 站点路径边界
+
+当前 Vite、Router、`/logo.png` 与 `/favicon.png` 默认从站点根路径提供；三环境 API BaseURL 不是站点部署路径。子路径渠道出现时必须同步 Vite `base`、Router `basepath`、公共资源引用及 fallback，不能只改其中一项。部署契约、缓存、CSP 与深链接刷新验证以 [`RELEASE.md`](RELEASE.md) 为准；初始化成功不证明任何线上渠道可达。
 
 ## 5. Extension 技术基线
 

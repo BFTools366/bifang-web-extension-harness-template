@@ -26,6 +26,8 @@
 
 React Web 下游额外保留 `$web-implement-list-view`，在真实列表页、数据表格、后台列表或搜索结果出现时统一 Router 恢复、Query 分页、状态反馈与无障碍。该 Skill 不强制使用 Table、选择或拖拽；中性初始化不生成业务列表、不预装图标或 DnD 等可选依赖。Extension Popup/Options 不携带或调用该 Web-only Skill。
 
+React Web 还生成统一的路由加载、错误、显式重试与回归测试。表单、远端读写、多页面和部署的当前覆盖及真实设计触发见 [`docs/TS_WEB_TEMPLATE.md` §4.2](docs/TS_WEB_TEMPLATE.md#42-web-功能覆盖与设计触发)；该清单不把中性 Landing 当作完整产品。
+
 ## 快速开始
 
 准备 Node.js `>=26.10.0` 与 pnpm `>=12.8.1` 后，在 Harness 根目录安装依赖。Node.js 26 不内置 Corepack，pnpm 需要按其官方安装方式单独准备；不依赖全局第三方包作为项目运行时依赖。`engines` 是兼容性最低版本；`packageManager` 固定为精确的 `pnpm@12.8.1`，复现和生成下游时使用该版本：

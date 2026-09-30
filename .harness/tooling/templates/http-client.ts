@@ -295,19 +295,24 @@ function normalizeFailure(cause: unknown, timedOut: boolean, callerAborted: bool
     })
   }
   if (callerAborted) {
-    return apiError({
-      kind: "aborted",
-      code: "request_aborted",
-      message: "The API request was cancelled.",
-      retryable: false,
-      cause
-    })
+    return cancelledError(cause)
   }
   return apiError({
     kind: "network",
     code: "network_error",
     message: "The API request could not be completed.",
     retryable: true,
+    cause
+  })
+}
+
+/** 调用方取消始终归一为不可重试错误，不让自定义 reason 冒充网络失败。 */
+function cancelledError(cause: unknown): ApiError {
+  return apiError({
+    kind: "aborted",
+    code: "request_aborted",
+    message: "The API request was cancelled.",
+    retryable: false,
     cause
   })
 }
@@ -414,7 +419,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
 
     const callerSignal = init.signal ?? undefined
     if (callerSignal?.aborted) {
-      throw normalizeFailure(callerSignal.reason, false, true)
+      throw cancelledError(callerSignal.reason)
     }
 
     const sequence = (nextSequence += 1)
@@ -434,22 +439,48 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
     if (authToken !== undefined) headers.set(HTTP_HEADERS.authToken, authToken)
 
     const controller = new AbortController()
-    let timedOut = false
-    const handleCallerAbort = () => controller.abort(callerSignal?.reason)
+    let terminationError: ApiError | undefined
+    /** 首次取消或超时拥有终止原因，后续事件不能覆盖它。 */
+    function terminate(error: ApiError): void {
+      if (terminationError !== undefined) return
+      terminationError = error
+      controller.abort(error)
+    }
+    const handleCallerAbort = () => terminate(cancelledError(callerSignal?.reason))
     callerSignal?.addEventListener("abort", handleCallerAbort, { once: true })
+    // 同步语言 adapter 也可能取消请求，安装监听后再次复核以闭合这一窗口。
+    if (callerSignal?.aborted) handleCallerAbort()
     const timeout = setTimeout(() => {
-      timedOut = true
-      controller.abort()
+      terminate(normalizeFailure(undefined, true, false))
     }, requestTimeoutMs)
 
+    /** 让不响应 AbortSignal 的 Fetch 或异步提取器也能及时结束当前请求。 */
+    async function awaitActive<T>(operation: () => T | Promise<T>): Promise<T> {
+      if (terminationError !== undefined) throw terminationError
+      let handleAbort: () => void = () => undefined
+      const stopped = new Promise<never>((_resolve, reject) => {
+        handleAbort = () => reject(terminationError)
+        controller.signal.addEventListener("abort", handleAbort, { once: true })
+      })
+      try {
+        const work = Promise.resolve().then(() => {
+          if (terminationError !== undefined) throw terminationError
+          return operation()
+        })
+        return await Promise.race([work, stopped])
+      } finally {
+        controller.signal.removeEventListener("abort", handleAbort)
+      }
+    }
+
     try {
-      const response = await fetchRequest(requestUrl, {
+      const response = await awaitActive(() => fetchRequest(requestUrl, {
         ...init,
         headers,
         signal: controller.signal,
         redirect: "error"
-      })
-      if (timedOut) throw normalizeFailure(undefined, true, false)
+      }))
+      if (terminationError !== undefined) throw terminationError
       if (!trustedResponse(response, requestUrl, baseUrl)) {
         throw apiError({
           kind: "invalid-response",
@@ -484,7 +515,7 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
           "invalid_continuation_header"
         )
         extractedToken = opaqueHeader(
-          await extractAuthToken(response.clone()),
+          await awaitActive(() => extractAuthToken(response.clone())),
           MAX_AUTH_TOKEN_LENGTH,
           "invalid_auth_token_header"
         )
@@ -499,7 +530,8 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
         })
       }
 
-      // 请求序号决定并发响应的客户端顺序，旧响应不能覆盖后发请求已接受的状态。
+      // 取消或超时后的迟到提取结果不得推进会话，序号仍保护并发响应顺序。
+      if (terminationError !== undefined) throw terminationError
       if (extractedContinuation !== undefined && sequence >= continuationSequence) {
         continuation = extractedContinuation
         continuationSequence = sequence
@@ -513,7 +545,11 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
       }
       return response
     } catch (cause) {
-      const error = normalizeFailure(cause, timedOut, callerSignal?.aborted === true)
+      const error = normalizeFailure(
+        cause,
+        terminationError?.kind === "timeout",
+        terminationError?.kind === "aborted"
+      )
       reportFailure(error, startedAt)
       throw error
     } finally {

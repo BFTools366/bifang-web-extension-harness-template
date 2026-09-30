@@ -4,6 +4,7 @@
 
 ## Added
 
+- React Web 生成本地化路由加载/错误界面、显式重试和统一异常日志；真实 Router 回归覆盖慢加载、loader/渲染失败、持续失败与 404 返回首页。
 - Extension Popup/Options 生成 TanStack Router 代码路由，分别使用 memory/hash history，不增加 Chrome 权限或 Web 路由生成器。
 - Web 与 Extension 生成品牌十阶色、跟随系统/亮色/暗色切换和项目隔离的外观偏好持久化。
 - 新增 Web-only `$web-implement-list-view` Skill、参考与可执行纯函数契约，覆盖 URL/session 启动恢复、响应校验、Query 分页、越界纠页、状态反馈、选择与列偏好；源 Harness 现在维护 17 个 canonical Skills，Web 终端保留 15 个，Extension 终端保留 14 个。

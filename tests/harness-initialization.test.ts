@@ -144,6 +144,24 @@ describe("single-package Harness initialization", /* 执行 当前声明 函数�
     expect(rootRoute).toContain("createRootRoute")
     expect(webRouteEntries).toEqual(["__root.tsx", "index.tsx"])
     expect(router).toContain('from "../routeTree.gen"')
+    expect(router).toContain("...routeStateDefaults")
+    const routeState = await readFile(
+      path.join(root, "src/features/route-state/RouteState.tsx"),
+      "utf8"
+    )
+    const routeStateTest = await readFile(
+      path.join(root, "src/features/route-state/RouteState.test.tsx"),
+      "utf8"
+    )
+    expect(routeState).toContain("defaultPendingComponent: RoutePendingPage")
+    expect(routeState).toContain("defaultErrorComponent: RouteErrorPage")
+    expect(routeState).toContain("router.invalidate({ sync: true })")
+    expect(routeStateTest).toContain("createMemoryHistory")
+    expect(englishLocale).toContain('routeRetry: "Retry page"')
+    expect(chineseLocale).toContain('routeRetry: "重新加载页面"')
+    expect(styles).toContain("overflow-wrap: anywhere")
+    expect(mantineUiGuidelines).toContain("### 8.2 页面标题、焦点与滚动")
+    expect(dataAccess).toContain("### 2.6 Query 重试、mutation 与缓存生命周期")
     expect(viteConfig).toContain("@tanstack/router-plugin/vite")
     expect(viteConfig.indexOf("tanstackRouter(")).toBeLessThan(viteConfig.indexOf("react()"))
     expect(viteConfig).toContain("autoCodeSplitting: true")

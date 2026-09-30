@@ -33,8 +33,10 @@ function apiResponse(
 /** 说明 deferred 的稳定结构与职责边界。 */
 function deferred<T>() {
   let resolvePromise: ((value: T) => void) | undefined
-  const promise = new Promise<T>((resolve) => {
+  let rejectPromise: ((reason: unknown) => void) | undefined
+  const promise = new Promise<T>((resolve, reject) => {
     resolvePromise = resolve
+    rejectPromise = reject
   })
   return {
     promise,
@@ -42,6 +44,11 @@ function deferred<T>() {
     resolve(value: T) {
       if (resolvePromise === undefined) throw new Error("Deferred promise is unavailable")
       resolvePromise(value)
+    },
+    /** 让测试显式触发异步提取器的迟到失败。 */
+    reject(reason: unknown) {
+      if (rejectPromise === undefined) throw new Error("Deferred promise is unavailable")
+      rejectPromise(reason)
     }
   }
 }
@@ -65,6 +72,98 @@ afterEach(() => {
 })
 
 describe("HTTP client", () => {
+  /** 验证调用后立即取消时，尚未开始的异步 adapter 不会获得执行机会。 */
+  test("does not dispatch work cancelled before the scheduled fetch", async () => {
+    const caller = new AbortController()
+    const fetchRequest = vi.fn<FetchLike>().mockResolvedValue(apiResponse(200))
+    const client = createHttpClient({
+      config: CONFIG, fetch: fetchRequest,
+      unauthorizedHandler: { handleUnauthorized: vi.fn() }
+    })
+    const pending = client.request("cancelled", { signal: caller.signal })
+    caller.abort()
+    await expect(pending).rejects.toMatchObject({ code: "request_aborted" })
+    expect(fetchRequest).not.toHaveBeenCalled()
+  })
+
+  for (const phase of ["before-request", "language-adapter"] as const) {
+    /** 验证自定义取消原因仍是不可重试取消，adapter 中取消也不会触发 Fetch。 */
+    test("normalizes cancellation during " + phase + " without dispatching", async () => {
+      const caller = new AbortController()
+      const reason = new ApiError({
+        kind: "network", code: "custom_network", message: "Custom reason", retryable: true
+      })
+      if (phase === "before-request") caller.abort(reason)
+      const fetchRequest = vi.fn<FetchLike>()
+      const client = createHttpClient({
+        config: CONFIG,
+        fetch: fetchRequest,
+        getLanguage: () => {
+          if (phase === "language-adapter") caller.abort(reason)
+          return "en"
+        },
+        unauthorizedHandler: { handleUnauthorized: vi.fn() }
+      })
+      await expect(client.request("cancelled", { signal: caller.signal })).rejects.toMatchObject({
+        code: "request_aborted", kind: "aborted", retryable: false
+      })
+      expect(fetchRequest).not.toHaveBeenCalled()
+    })
+  }
+
+  for (const termination of ["aborted", "timeout"] as const) {
+    for (const lateResult of ["resolve", "reject"] as const) {
+      /** 验证挂起提取器及时终止，迟到结果不推进会话且首个终止原因保持稳定。 */
+      test("stops pending extraction on " + termination + " before late " + lateResult, async () => {
+        vi.useFakeTimers()
+        const entered = deferred<void>()
+        const extraction = deferred<string>()
+        const extractor = vi.fn()
+          .mockImplementationOnce(() => {
+            entered.resolve()
+            return extraction.promise
+          })
+          .mockResolvedValue(undefined)
+        const fetchRequest = vi.fn<FetchLike>()
+          .mockResolvedValueOnce(apiResponse(200, {
+            headers: { [HTTP_HEADERS.continuation]: "late-continuation" }
+          }))
+          .mockResolvedValue(apiResponse(200))
+        const onUnauthorized = vi.fn()
+        const client = createHttpClient({
+          config: CONFIG,
+          fetch: fetchRequest,
+          extractAuthToken: extractor,
+          unauthorizedHandler: { handleUnauthorized: onUnauthorized }
+        })
+        const caller = new AbortController()
+        let settled = false
+        const outcome = client.request("slow-extraction", { signal: caller.signal }).then(
+          () => { settled = true; return "resolved" },
+          (error: unknown) => { settled = true; return error instanceof ApiError ? error.code : "unknown" }
+        )
+        await entered.promise
+        if (termination === "aborted") caller.abort(new ApiError({
+          kind: "network", code: "custom_network", message: "Custom reason", retryable: true
+        }))
+        await vi.advanceTimersByTimeAsync(CONFIG.requestTimeoutMs)
+        if (termination === "timeout") caller.abort()
+
+        expect(settled).toBe(true)
+        await expect(outcome).resolves.toBe(termination === "aborted" ? "request_aborted" : "request_timeout")
+        expect(vi.getTimerCount()).toBe(0)
+        if (lateResult === "resolve") extraction.resolve("late-token")
+        else extraction.reject(new Error("late extractor failure"))
+        await vi.advanceTimersByTimeAsync(0)
+        await client.request("next")
+        const nextHeaders = new Headers(fetchRequest.mock.calls[1]?.[1]?.headers)
+        expect(nextHeaders.has(HTTP_HEADERS.authToken)).toBe(false)
+        expect(nextHeaders.has(HTTP_HEADERS.continuation)).toBe(false)
+        expect(onUnauthorized).not.toHaveBeenCalled()
+      })
+    }
+  }
+
   /** 验证当前场景的核心成功或风险边界。 */
   test("sends dynamic language and carries only trusted successful response state", async () => {
     let language = "zh-CN"

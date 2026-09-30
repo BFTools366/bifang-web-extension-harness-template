@@ -72,11 +72,27 @@
 - 只在成功、非 fetching、非 placeholder 且响应通过 items/total/业务 id 一致性校验后纠正越界页：非零总页数使用 `replace` 转到末页，零结果规范为第 1 页。这是对 §2.4 通用空页回首页的 Web 路由列表特化，不改写通用 `useSessionPagination` 行为。
 - 本节仅用于 React Web，并由 `$web-implement-list-view` 编排。Extension Popup/Options 虽有各自的 Router，但不复用该启动恢复；它们按 Extension 执行上下文、类型化消息和 Storage 边界单独实现。
 
+### 2.6 Query 重试、mutation 与缓存生命周期
+
+初始化的 QueryClient 只提供统一错误日志；真实请求首次接入时，feature 必须显式确定以下策略，不把框架默认值当作产品设计：
+
+- Query 使用有界重试并尊重 `ApiError.retryable`；取消、401/403、输入校验和不可恢复的协议错误不自动重试。网络失败、超时、429 或 5xx 也只有在操作可安全重复时才能重试。client、Query、Router loader 与未来 adapter 只有一个自动重试所有者，禁止次数相乘。
+- mutation 默认不自动重试。服务端幂等协议或可证明的幂等操作出现后，才明确重试上限和业务幂等键；按钮防重、串行队列和取消请求都不能代替服务端幂等，也不证明已经撤销写入。
+- 查询 `staleTime`、`gcTime`、窗口聚焦刷新和断网恢复根据真实数据的时效及读取成本声明在 feature；初始化不设一个万能缓存寿命，也不预装持久化 Query cache 或离线写入队列。
+- mutation 成功后，根据已校验返回值更新精确 Query key，或失效受影响的详情、列表和统计；禁止无理由清空全部缓存。需要等待刷新才能完成当前动作时，返回或等待失效 Promise；服务端写入成功但后续读取失败必须分别反馈，不能诱导用户再次提交。
+- 乐观更新只在真实交互需要时开启：取消冲突查询、保存可回滚快照、受控更新、失败恢复并最终对账；并发 mutation 不能用旧快照覆盖后来已经成功的修改。
+- 认证会话或数据 scope 改变时，先取消相关请求，再移除属于旧 scope 的私有缓存；key 不包含 Token。迟到响应不能回填新 scope，新的凭据与 Query 会话隔离由真实认证 feature 共同完成。
+- Router loader 若预取远端数据，复用 feature 的 Query options 与同一 QueryClient，通过 `ensureQueryData` 等入口准备缓存；组件订阅该缓存，不在 Router/Jotai 建立第二份服务器数据。Query 的取消 signal 传到受管 client。
+
+首次真实读写功能的非空测试覆盖适用的成功、不可重试失败、重试上限、取消、提交防重、精确缓存更新/失效；启用乐观更新或认证 scope 时，额外验证回滚、并发与迟到响应。表单交互由 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §5.2 定义；这些规则不生成业务 endpoint 或占位表单。
+
 ## 3. HTTP、认证与 REST/OpenAPI
 
 ### 3.1 生成的原生 Fetch 基础
 
 两种宿主都生成 `src/api/client/` 的类型化原生 Fetch client factory 与非空测试。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
+
+取消与超时覆盖 Fetch 及异步 credential extractor 等待阶段。即使 adapter 不响应 AbortSignal 或 extractor 挂起，外层 request 也必须及时以首次终止原因拒绝，清理计时器与监听器；迟到的成功或失败均不更新 Token/continuation。它不能强制停止任意自定义提取器内部副作用，提取器仍应只负责读取并返回结果。
 
 模块职责保持明确：
 
@@ -247,3 +263,5 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 - [RxJS `share`](https://rxjs.dev/api/operators/share)
 - [TanStack Query important defaults](https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults)
 - [TanStack Query query cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation)
+- [TanStack Query bounded retries](https://tanstack.com/query/latest/docs/framework/react/guides/query-retries)
+- [TanStack Router external data loading and Query error reset](https://tanstack.com/router/latest/docs/guide/external-data-loading)

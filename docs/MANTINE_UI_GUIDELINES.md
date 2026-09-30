@@ -110,6 +110,11 @@
 - helper 描述输入要求，error 描述发生的问题和修复方式；两者不得混成同一句常驻红色文字。
 - 表单默认单列，相关短字段才并列。主要提交动作位于表单末尾且位置稳定；服务器错误在表单或相关字段附近显示，不只发瞬时通知。
 - 原生 Mantine 输入足够时不自建底层控件。只有出现真实复杂表单需求时才评估并安装 `@mantine/form`；未安装前不在文档或代码中假定其存在。
+- 使用原生 `form` 和单一 `onSubmit` 入口，提交按钮明确 `type="submit"`，其他按钮明确 `type="button"`；单行输入的 Enter 提交与点击执行同一校验和动作，多行输入保留换行语义。按字段语义声明 `name`、`autoComplete`、`inputMode`，允许粘贴与浏览器自动填写。
+- 客户端校验只改善交互，服务端校验仍是权威。首次提交失败时聚焦首个无效字段或有名称的错误摘要；输入过程不反复抢焦点。错误与字段通过可访问描述关联，只把已校验的服务端错误码映射为本地化文案。
+- 提交期间防止重复动作；失败保留输入、草稿和可恢复错误，成功后才按明确交互更新表单基准或清空。后台 Query 刷新不能覆盖用户正在编辑的值，取消请求不能被宣称为撤销服务端写入。
+- 只有存在真实未保存修改和丢失风险时才接入 Router 导航阻断，并明确站内导航、刷新/关闭的覆盖边界；不能用一个自定义弹窗声称覆盖全部浏览器离开路径。拒绝离开保留草稿，保存成功后解除阻断。
+- mutation 的重试、缓存失效和乐观回滚遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.6；真实表单测试覆盖 Enter、校验失败焦点、提交防重、服务端失败保留输入和成功反馈。
 
 ### 5.3 内容、导航与数据
 
@@ -183,6 +188,21 @@ Web 页面采用以下三类布局，不把初始化的居中 Hero 复制到所�
 - CSS Modules 和 Mantine CSS variables 承担复杂布局；不要在全局 `styles.css` 为业务页面不断追加类名和品牌常量。
 - 当前单包只保留站点入口、路由与资源，不增加第二宿主。
 
+### 8.1 路由加载、错误与恢复
+
+- 初始化在 `src/features/route-state/RouteState.tsx` 生成统一路由状态，并由 `src/app/router.tsx` 消费 `routeStateDefaults`。慢路由使用本地化 `role="status"`；沿用 Router 的加载阈值和最短展示时间，真实 feature 可以按实际结构覆盖，不为静态页面制造假请求。
+- loader、路由组件渲染和路由加载失败进入安全错误界面；原始异常只交给统一 logger。未知路径仍走独立 404，认证与权限拒绝由真实 feature 使用专用状态，不能把所有失败都显示成 404。
+- 用户显式重试调用并等待 `router.invalidate({ sync: true })`，每次配合 Query error boundary reset 恢复读取；只重置 React boundary 不能替代重新执行 loader。按钮防止重复点击，持续失败仍保留恢复入口，不自动重放 mutation 或额外清空产品草稿。路由错误可能卸载子树，组件本地状态不保证保留；真实表单按 §5.2 定义草稿保存边界。
+- route 状态与外层 `AppErrorBoundary` 分工：前者覆盖路由内的加载与渲染，后者保留为 Provider/根渲染失败的最后防线。致命启动失败不能承诺原地恢复；需要重新打开页面时，文案明确这一操作。
+- 生成测试使用真实 Router 覆盖慢 loader、首次失败后重试、持续失败、渲染异常和 404 返回首页；这些单元证据不替代真实浏览器布局或网络验收。
+
+### 8.2 页面标题、焦点与滚动
+
+- 中性单页只提供事实源派生的站点 title。首次出现真实多页面时，声明每页本地化标题与唯一的文档 title 所有者，采用“页面标题 + 项目名称”；语言变化同步更新，404 和错误状态也有可识别标题，不把敏感查询或实体数据拼进 title。
+- 不同 pathname 的导航完成后，将焦点交给新页面标题或主内容入口（可使用 `tabIndex={-1}`）；组件负责在内容可用后聚焦。相同页面的搜索、分页、刷新与 Query 完成不抢焦点，由局部状态播报结果。
+- 多页面时在当前 Router 配置中启用并验证 `scrollRestoration`，明确窗口或 AppShell 滚动容器。前进/后退恢复历史位置，普通新页面与 hash 锚点各自遵守导航语义；聚焦使用 `preventScroll` 时不得破坏历史滚动恢复。
+- 有持续导航时提供跳到主内容的键盘入口，当前项使用语义状态。异步导航、菜单关闭与弹层焦点返回不能争抢同一个目标；测试以真实导航、历史返回和键盘路径证明行为。
+
 ## 9. Extension 宿主规范
 
 Popup 与 Options 使用同一主题语义，但服务不同任务：
@@ -245,3 +265,5 @@ Popup 与 Options 使用同一主题语义，但服务不同任务：
 - [Mantine Styles API](https://mantine.dev/styles/styles-api/)
 - [Mantine responsive styles](https://mantine.dev/styles/responsive/)
 - [WCAG 2.2](https://www.w3.org/TR/WCAG22/)
+- [TanStack Router data loading and error recovery](https://tanstack.com/router/latest/docs/guide/data-loading)
+- [TanStack Router scroll restoration](https://tanstack.com/router/latest/docs/guide/scroll-restoration)
