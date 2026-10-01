@@ -75,6 +75,8 @@ void i18n.use(initReactI18next).init({
         ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.en)},
         popupReady: "Browser extension ready",
         optionsReady: "Extension settings",
+        notFoundTitle: "Page not found",
+        notFoundDescription: "The requested page does not exist.",
         action: "Test local state",
         buildVersion: "Build version: {{version}}",
         count: "Interaction count: {{count}}",
@@ -96,6 +98,8 @@ void i18n.use(initReactI18next).init({
         ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.zh)},
         popupReady: "浏览器扩展已就绪",
         optionsReady: "扩展设置",
+        notFoundTitle: "页面不存在",
+        notFoundDescription: "你访问的页面不存在。",
         action: "测试本地状态",
         buildVersion: "构建版本：{{version}}",
         count: "交互次数：{{count}}",
@@ -237,6 +241,25 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
 `
     ],
     [
+      "src/ExtensionNotFoundPage.tsx",
+      `import { Anchor, Paper, Stack, Text, Title } from "@mantine/core"
+import { Link } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
+
+/** 为当前 Extension 入口提供本地化的未知路由恢复。 */
+export function ExtensionNotFoundPage() {
+  const { t } = useTranslation()
+  return <main className="options-shell"><Paper radius="lg" p="lg" withBorder>
+    <Stack gap="md">
+      <Title order={1}>{t("notFoundTitle")}</Title>
+      <Text c="dimmed">{t("notFoundDescription")}</Text>
+      <Anchor component={Link} to="/">{t("backHome")}</Anchor>
+    </Stack>
+  </Paper></main>
+}
+`
+    ],
+    [
       "src/extension-router.tsx",
       `import {
   Outlet,
@@ -247,6 +270,7 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
   createRouter
 } from "@tanstack/react-router"
 import { ExtensionShell } from "./ExtensionShell"
+import { ExtensionNotFoundPage } from "./ExtensionNotFoundPage"
 import { ExtensionRouteErrorPage } from "./api/client/ExtensionRouteErrorPage"
 import { createLogger } from "./observability/logger"
 
@@ -257,7 +281,7 @@ type ExtensionSurface = "popup" | "options"
 
 /** 为 Popup 和 Options 分别创建单入口路由树与历史记录。 */
 export function createExtensionRouter(surface: ExtensionSurface, iconUrl: string) {
-  const rootRoute = createRootRoute({ component: Outlet })
+  const rootRoute = createRootRoute({ component: Outlet, notFoundComponent: ExtensionNotFoundPage })
   const indexRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: "/",
@@ -347,6 +371,26 @@ test("mounts the options route without a hash", async () => {
     view.unmount()
   } finally {
     window.history.replaceState(null, "", originalUrl)
+  }
+})
+
+/** 验证 Options 深链在两语言中显示未知路由并可返回当前入口首页。 */
+test.each(["en", "zh"] as const)("recovers an unknown options hash in %s", async (language) => {
+  await i18n.changeLanguage(language)
+  const originalUrl = window.location.href
+  window.history.replaceState(null, "", window.location.pathname + window.location.search + "#/missing")
+  try {
+    const user = userEvent.setup()
+    const router = createExtensionRouter("options", "data:image/png;base64,test")
+    const view = render(<Providers><RouterProvider router={router} /></Providers>)
+    expect(await screen.findByRole("heading", { name: i18n.t("notFoundTitle"), level: 1 })).toBeInTheDocument()
+    await user.click(screen.getByRole("link", { name: i18n.t("backHome") }))
+    expect(await screen.findByRole("heading", { name: BRAND.identity[language].projectName, level: 1 })).toBeInTheDocument()
+    expect(router.history.location.pathname).toBe("/")
+    view.unmount()
+  } finally {
+    window.history.replaceState(null, "", originalUrl)
+    await i18n.changeLanguage("en")
   }
 })
 

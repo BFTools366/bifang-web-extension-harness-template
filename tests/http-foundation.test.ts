@@ -150,6 +150,7 @@ for (const projectType of ["web", "extension"] as const) {
         "src/providers.tsx",
         "src/ExtensionShell.tsx",
         "src/ExtensionShell.test.tsx",
+        "src/ExtensionNotFoundPage.tsx",
         "src/extension-router.tsx",
         "src/config/environment.schema.ts",
         "src/observability/logger.ts"
