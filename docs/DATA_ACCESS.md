@@ -1,24 +1,24 @@
 # 分页、数据访问与事件流集成技术选型
 
-本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成不含业务 endpoint 的原生 Fetch client、语言偏好、分页基础与非空测试；它不安装 Ky、Axios 或其他请求库，不生成占位业务请求、登录页、列表页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
+本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成基于 Ky 的无业务 endpoint HTTP client、语言偏好、分页基础与非空测试；`ky` 是两种宿主共有的运行时依赖，不生成占位业务请求、登录页、列表页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
 
-固定生成的 HTTP/分页基础（`.harness/tooling/templates/http.ts`、`pagination.ts`）体量明显大于"不生成空壳"原则通常允许的规模，这是刻意例外而非疏漏：动态 header、乱序 revision、迟到 401 与 single-flight 是认证/并发正确性问题，一旦交给每个下游各自实现，出错代价（安全绕过、竞态覆盖新状态）远高于集中维护的成本；因此即便当前项目零业务 endpoint，也在初始化阶段一次性生成并测试，而不是等首个真实 endpoint 出现才补。这与 Ky/OpenAPI/GraphQL/SSE/RxJS 按真实消费者才安装的策略并不矛盾：后者是可替换的传输/协议适配器，前者是所有适配器共享、不可省略的正确性契约。
+固定生成的 HTTP/分页基础（`.harness/tooling/templates/http.ts`、`pagination.ts`）体量明显大于"不生成空壳"原则通常允许的规模，这是刻意例外而非疏漏：动态 header、乱序 revision、迟到 401 与 single-flight 是认证/并发正确性问题，一旦交给每个下游各自实现，出错代价（安全绕过、竞态覆盖新状态）远高于集中维护的成本；因此即便当前项目零业务 endpoint，也在初始化阶段一次性生成并测试，而不是等首个真实 endpoint 出现才补。这套正确性契约由请求上下文维护，默认使用 Ky 的 Fetch 传输；OpenAPI/GraphQL/SSE/RxJS 协议适配器仍按真实消费者加入并复用该契约。
 
 ## 1. 选型结论
 
 | 能力                           | 默认选型                                                    | 何时改选                                                                                                           |
 | ------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | 统一集合分页                   | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态 | 真实接口使用 cursor/offset 时由域 service 映射；Web 路由列表按 §2.5 改用 Router 运行时 owner，但仍复用同一内部契约 |
-| 基础 HTTP                      | 生成的类型化原生 Fetch client factory                       | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                 |
-| 无可靠 OpenAPI 契约的 REST     | 原生 Fetch 基础；真实复杂度需要时可加 `ky` adapter          | 只有真实消费者需要 Ky 的 hooks/人体工学时安装；已有必须保留的 Axios 生态或 Fetch 无法满足的能力才使用 `axios`      |
-| 有可靠 OpenAPI 契约的 REST     | `openapi-typescript` + `openapi-fetch`                      | Schema 不完整、长期漂移或无法进入生成/类型检查门禁时使用原生 Fetch 或 Ky adapter，并在运行时校验响应               |
+| 基础 HTTP                      | 生成的类型化 Ky HTTP client factory                         | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                 |
+| 无可靠 OpenAPI 契约的 REST     | 生成的 Ky HTTP 基础                                         | 统一复用请求上下文；已有必须保留的 Axios 生态或 Ky/Fetch 无法满足的能力才使用 `axios`                              |
+| 有可靠 OpenAPI 契约的 REST     | `openapi-typescript` + `openapi-fetch`                      | Schema 不完整、长期漂移或无法进入生成/类型检查门禁时使用生成的 Ky HTTP 基础，并在运行时校验响应                    |
 | 不需要规范化实体缓存的 GraphQL | `graphql-request` + `@graphql-codegen/client-preset`        | 只有明确需要跨查询实体归一化、Fragments 驱动缓存更新等能力时才选择 Apollo Client                                   |
 | 简单 SSE                       | 浏览器原生 `EventSource`                                    | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
 | Fetch 风格 SSE 备选            | `@microsoft/fetch-event-source`                             | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
 | 多来源持续事件编排             | RxJS（按需）                                                | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
 | 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | 已有等价运行时校验器时复用；`openapi-fetch` 的静态类型本身不能验证运行时响应                                       |
 
-原生 Fetch、分页和语言基础是生成项目的固定源码与测试，不是新增运行时依赖。Ky、OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
+Ky HTTP、分页和语言基础是生成项目的固定源码与测试，`ky` 声明在运行时 dependencies 中。OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
 
 ## 2. 共同边界与统一分页
 
@@ -74,7 +74,7 @@
 
 ### 2.6 Query 重试、mutation 与缓存生命周期
 
-初始化的 QueryClient 只提供统一错误日志；真实请求首次接入时，feature 必须显式确定以下策略，不把框架默认值当作产品设计：
+初始化 QueryClient 已接入安全错误反馈，读取仅对可重试 `ApiError` 最多重试两次，mutation 默认不重试。真实请求使用 `requestHttpQuery(path, { signal })`，把中间尝试交给 Query，只有最终失败进入 QueryCache/MutationCache 反馈；直接调用使用 `applicationHttp.request`。feature 仍必须确认读取可安全重复，并显式确定以下策略：
 
 - Query 使用有界重试并尊重 `ApiError.retryable`；取消、401/403、输入校验和不可恢复的协议错误不自动重试。网络失败、超时、429 或 5xx 也只有在操作可安全重复时才能重试。client、Query、Router loader 与未来 adapter 只有一个自动重试所有者，禁止次数相乘。
 - mutation 默认不自动重试。服务端幂等协议或可证明的幂等操作出现后，才明确重试上限和业务幂等键；按钮防重、串行队列和取消请求都不能代替服务端幂等，也不证明已经撤销写入。
@@ -88,17 +88,20 @@
 
 ## 3. HTTP、认证与 REST/OpenAPI
 
-### 3.1 生成的原生 Fetch 基础
+### 3.1 生成的 Ky HTTP 基础
 
-两种宿主都生成 `src/api/client/` 的类型化原生 Fetch client factory 与非空测试。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
+两种宿主都生成 `src/api/client/` 的类型化 Ky HTTP client、错误分类、本地化界面和非空测试。`applicationHttp` 是当前执行上下文的惰性会话 owner；静态页面可在 BaseURL 留空时启动，首次真实操作才校验配置。真实 feature 与 Router loader 复用该实例；测试或受控 adapter 才按需使用 factory。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
 
-取消与超时覆盖 Fetch 及异步 credential extractor 等待阶段。即使 adapter 不响应 AbortSignal 或 extractor 挂起，外层 request 也必须及时以首次终止原因拒绝，清理计时器与监听器；迟到的成功或失败均不更新 Token/continuation。它不能强制停止任意自定义提取器内部副作用，提取器仍应只负责读取并返回结果。
+取消与超时覆盖 Fetch、异步 credential extractor 及 401 handler 等待阶段。即使 adapter 不响应 AbortSignal 或 extractor 挂起，外层 request 也必须及时以首次终止原因拒绝，清理计时器与监听器；迟到的成功或失败均不更新 Token/continuation。它不能强制停止任意自定义提取器内部副作用，提取器仍应只负责读取并返回结果。
 
 模块职责保持明确：
 
-- HTTP client：受控 BaseURL、三个标准 header、timeout、取消、response interception 与错误映射。
+- 请求拦截：受控相对路径、标准 Header 编码、动态语言与当前会话；移除调用方伪造的三个标准 header。非法 header 归一为不可重试的 `invalid_request_headers`，不发送网络请求。
+- 响应拦截：校验实际响应边界，只有可信 2xx 自动提取并原子提交 continuation/Token，先校验两项再更新状态；保留原始 Response/body。
+- 错误拦截：统一 `ApiError`、401 single-flight 与安全日志；`interceptors.onError` 只同步投影客户端反馈，不接管认证、重放或异步副作用。观察器抛错/误传异步拒绝只记录 `http.error_interceptor_failed`，不延长请求或替换原错误。
 - Request context/session：语言、continuation、Token、单调 dispatch sequence 和 Token revision；不依赖 React route。
-- `UnauthorizedHandler`：由真实宿主组合层注入的异步回调；client 不导入 Router、`window.location` 或 Chrome 导航 API。
+- `UnauthorizedHandler`：运行时默认呈现认证失效；真实登录存在后，组合层通过 `configureUnauthorizedHandler` 注入受控导航。client 不导入 Router、`window.location` 或 Chrome 导航 API。
+- UI 组合层：`httpErrors` 只输出固定本地化键、分类和恢复能力，`HttpErrorView` 处理局部/路由失败，根 Provider 的 `HttpFeedback` 处理直接请求和最终 Query/mutation 失败。
 - Feature/domain service：在真实 endpoint 出现后声明路径、方法、输入/输出校验、外部分页映射和业务语义。
 
 ### 3.2 三个标准 header 与语言
@@ -113,40 +116,52 @@
 
 语言偏好以 `<project-id>:language:v1` 保存当前支持的 `en|zh`。读取顺序是：项目命名空间下可识别的 localStorage 值、规范化浏览器语言、英文 fallback。非法/未知语言、Storage 异常或浏览器拒绝访问时回退且不阻断应用；i18next 的真实语言变化同步更新该偏好，下一次请求才读取新值。不得把语言存储与认证 Token 混在同一个对象中。
 
-client 会先移除调用方伪造的三个标准 header，再根据当前受控状态写入。只有同一受控 API 边界的 2xx 响应可以推进 continuation 或 Token。每次 dispatch 分配单调 sequence，并让 Token 更新/显式登录产生新的 revision；迟到的旧响应不得覆盖较新值，迟到的旧 401 也不得清理新 revision。响应 header 按不可信有界字符串校验，不把 `Response`、body 或全量 headers 保存进状态。
+client 会先移除调用方伪造的三个标准 header，再根据当前受控状态写入。自动更新只来自同一受控 API 边界的 2xx 响应；真实认证协议确认登录成功后也可调用 `applicationHttp.setAuthToken(token)` 显式建立会话。每次 dispatch 分配单调 sequence，并让 Token 更新/显式登录产生新的 revision；迟到的旧响应不得覆盖较新值，迟到的旧 401 也不得清理新 revision。响应 header 与自定义 Token 提取结果按不可信有界字符串校验，并验证浏览器 Headers 编码；不把 `Response`、body 或全量 headers 保存进状态。
 
-### 3.3 `ApiError`、安全日志与 401
+显式 setter 要求非空、有界、无控制字符且可编码的字符串；非法输入在改变状态前拒绝，不泄漏值或原始编码异常。合法 setter 清理旧 continuation、提高 revision/sequence 门槛并重置认证失效 latch，下一请求自动携带新 Token。登录响应若在 body，先按真实 Schema 校验，再调用 setter；或由只读 `extractAuthToken(response.clone())` 返回已校验值。提取器不得消费原始 body、写 Storage、导航或自行修改会话。登出调用 `clearSession()`；真实认证 feature 同时取消旧 scope 请求并移除其私有 Query cache，不能只清 Token 而保留旧用户数据。
 
-client 把 HTTP 非成功、timeout、网络失败、取消和响应/提取校验失败转换为统一 `ApiError`。稳定契约至少区分 `http|timeout|network|aborted|invalid-response|unauthorized-handler`，并可包含 HTTP `status`、稳定业务 `code`、安全 message、`retryable` 和受控 cause；UI 不依赖第三方错误类，也不展示未经校验的服务端消息。
+### 3.3 `ApiError`、401/403 与 Router/UI
 
-401 是有界会话失效流程，不是模板内置 refresh/replay：
+HTTP、timeout、网络、取消和响应校验失败统一为 `ApiError`，保留稳定 kind、code、status、retryable；UI 不展示远端正文、Error message、stack 或 cause，也不依赖 Ky 的错误类。
 
-1. 请求记录 dispatch 时实际使用的 Token 与 revision。收到 401 时，只有该 Token 仍是当前 revision 才清理它及同一会话的 continuation；旧请求的迟到 401 不能登出或清理更新后的会话。
-2. 基线只记录稳定 scope/event、状态码和安全 code/reason/retryable；不得记录三个 header 的值、请求/响应 body、Token、continuation、完整 URL、Error stack/cause 或本机路径。真实域层只有提供不含标识符的静态 endpoint 模板后才可记录该模板。
-3. 同一会话失效周期内，共享一个 in-flight Promise 调用 `UnauthorizedHandler`；并发 401 只能触发一次 handler/导航。新的显式认证会话重置该 latch；handler 自身失败只记录稳定 `unauthorized-handler` 错误且不递归调用，原 request 仍向调用方抛出 `authentication_required` 401。
-4. Web 只有在产品已经存在真实、可访问的登录路由后，才在 app/route 组合层注入类型化 `router.navigate` adapter；登录目标与可选 return target 必须显式、同源且受控。模板不得硬编码不存在的 `/login`，也不得在 client 中使用 `window.location`。
-5. Extension Popup/Options 各自持有 TanStack Router。只有产品明确真实登录入口后，当前入口才呈现重新认证状态或由宿主 adapter 打开批准的入口；模板不虚构登录页面、background 或 Chrome 导航。跨 Popup/Options 的 single-flight 与会话共享不能依赖模块全局变量，必须另行设计 background/message/Storage 所有者并取得权限与隐私专项批准。
+| 失败                          | 会话和重试                                                                          | 用户反馈                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 401 `authentication_required` | 当前 revision 清 Token/continuation，同一失效周期只触发一次认证 handler；不普通重试 | 默认显示重新认证状态，只有真实入口存在才配置导航或认证按钮        |
+| 403 `access_forbidden`        | 保留 Token/continuation；不触发登录、refresh 或普通重试                             | 专用权限不足状态，可返回真实首页或批准的申请权限入口              |
+| 400/404、非法输入或协议       | 不自动重试，不改变认证                                                              | 固定操作失败提示；业务字段校验仍由真实 feature 负责               |
+| network/timeout/429/5xx       | 仅可安全重复的读取由 Query 有界重试，写入不自动重放                                 | 最终失败持续提示；超时/断网写入先确认服务端结果，不能诱导重复提交 |
+| aborted、过期会话 401         | 不自动重试或全局播报，不清理新会话                                                  | 取消保持安静；需要恢复的局部旧会话界面可提供当前会话的重新加载    |
 
-refresh endpoint、Cookie/credentials 策略、自动重放和非幂等幂等键都不属于初始化基线。真实产品增加这些能力时必须只有一个重试/重放所有者，防止 client 与 TanStack Query 次数相乘，并覆盖 refresh 自身 401、并发、重放上限和副作用安全。
+401 handler 共用一个 in-flight Promise。同一失效周期的后续 401 保留稳定失效 revision；即使期间取得匿名 continuation，再次 401 仍清理它。新的显式 Token 或可信 2xx Token 开始新周期；旧响应和旧 handler 结束均不能影响新会话。handler 失败或挂起在请求截止时间结束后仍向调用方保留原始 401，只记安全日志。`UnauthorizedContext.signal` 与 `isCurrentSession()` 必须在每次异步导航、清理或其他副作用前复核，停止迟到操作；框架不能强行终止任意 adapter 内部副作用。
+
+真实登录 route 已存在时，Web app/route 或 Extension 当前入口调用 `configureUnauthorizedHandler(createLoginUnauthorizedHandler({ loginUrl, navigate }))`，使用类型化 Router adapter 与同源受控目标。受保护 route 在 `beforeLoad`/loader 中复用真实认证 feature，并保留批准的 return target；不虚构 `/login`、后台入口或 Chrome 导航。Popup/Options 的内存会话与 single-flight 各自独立；跨上下文共享必须另行明确消息/Storage owner 并进入权限和隐私评审。
+
+`requestHttpQuery` 强制 `{ feedback: "owner" }`，由 Query 管中间尝试、取消和最终失败。局部或 route 拥有反馈时也用该选项；直接请求默认全局反馈，恢复成功后消费方用 `clearHttpFeedback(previousError)` 精确移除此前失败，或由用户关闭提示。不能在任意成功请求后清空别处的并发错误。根 Provider 只挂载一个持续 Mantine Alert，保留已有内容；同语义重复失败不重复播报，最新失败拥有清理权。局部 `HttpErrorView` 挂载时只清理它接管的同一错误，Jotai 仅保存固定展示投影，原对象用弱引用关联，原始异常、服务器状态与 Token 不进入 atom。
+
+Web 路由 fallback 与 Extension 两入口 Router 使用相同错误分类；401/403 没有普通重试或虚构登录按钮，回首页使用 Link 语义。允许恢复的读取以 `router.invalidate({ sync: true })` 配合 Query boundary reset，并防止重复点击；背景刷新失败保留旧内容，不用全局 `throwOnError` 卸载已成功页面。mutation 失败不自动导航或清空输入。日志只记录稳定状态、耗时、code/reason/retryable，不记录 header/body/Token/continuation 或完整 URL。
+
+refresh、Cookie/credentials、自动重放与幂等协议由真实产品另行设计，必须只有一个重试/重放 owner，并覆盖 refresh 自身 401、并发、次数上限和写入安全。
 
 ### 3.4 CORS、缓存与 Extension 权限
 
 - 跨域 Web 服务若接收三个自定义请求 header，预检必须按批准 origin/method 返回覆盖 `X-Http-Request, X-Lang, X-AUTH-TOKEN` 的 `Access-Control-Allow-Headers`；返回 continuation 或 Token 时还必须用 `Access-Control-Expose-Headers` 暴露实际需要读取的 `X-Http-Request, X-AUTH-TOKEN`。使用 credentials 时不得把 `Access-Control-Allow-Origin` 写成 `*`。
 - 动态反射 origin 的响应包含 `Vary: Origin`；按语言生成不同表示的响应包含 `Vary: X-Lang`。认证响应默认使用 `Cache-Control: private, no-store`；若真实架构明确允许缓存依赖 Token 的表示，必须单独评审缓存键，并至少按 `X-AUTH-TOKEN` 区分，不能让共享缓存混用用户响应。缓存预检响应时还必须按 `Origin, Access-Control-Request-Method, Access-Control-Request-Headers` 区分。
-- Extension 的 CORS 与 `host_permissions` 按执行上下文区分：扩展页面或 service worker 从扩展 origin 发起跨域 Fetch 时必须有精确最小 `host_permissions`；content script 代表页面 origin 发起请求，仍受同源/CORS 限制，即使扩展已经拥有该 host permission 也不能绕过。需要由特权上下文代请求时，只允许类型化消息选择受控 endpoint/参数，禁止让 content script 传任意 URL。初始化生成 client 不代表获准访问任何远端 origin；首次真实消费者必须覆盖未授权/撤销、非法 sender/message 与上下文销毁路径，并在真实 Chrome 验证。仅为共享 Token 或 continuation 增加 `storage`、background 或消息入口同样需要显式架构与权限/隐私评审。
+- Extension 的跨域访问按执行上下文和目标区分：Chrome MV3 扩展页面/service worker 使用精确最小 `host_permissions`；Firefox MV2 后台页/扩展页的 host patterns 由 Plasmo 转到 `permissions`。content script 的 Fetch 权限与执行隔离在 Chrome MV3 和 Firefox MV2 存在差异，不能把 Chrome 的页面 CORS 行为或 Firefox MV2 的特权请求能力推为通用事实；按 [Mozilla content script 规则](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Content_scripts) 与 [Chrome 网络规则](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests) 实测当前消费者。优先让类型化消息选择受控 endpoint/参数，禁止让 content script 传任意 URL。初始化 client 不自动授予任何 origin；真实消费者必须覆盖未授权/撤销、非法 sender/message 与上下文销毁，并在两个真实浏览器验证。仅为共享 Token 或 continuation 增加 Storage/background/消息同样需要架构与权限/隐私评审。
 
-### 3.5 Ky 作为未来 adapter
+### 3.5 Ky 作为默认传输
 
-Ky 基于 Fetch API，提供实例默认值、非 2xx 错误、timeout、hooks 与类型友好的响应读取。只有真实 REST 消费者需要这些能力时才安装，并按 API 域创建少量命名实例或受控 registry；不能建立可访问任意绝对 URL 的万能客户端，也不能另建一套 header、Token、revision、401 或 `ApiError` 语义。面向 TanStack Query 时关闭会与 Query 重复的自动网络/状态码重试。
+Ky 基于 Fetch API，采用 MIT 许可证，无额外运行时依赖，作为 Web、Chrome MV3 与 Firefox MV2 的默认 HTTP 传输。生成 client 的 `requestWithKy` 返回原始 `Response`，关闭 `retry`、`timeout`、`totalTimeout` 与 `throwHttpErrors`：调用方/Query 决定重试，既有请求上下文统一维护截止时间、取消、header、Token、revision、401 与 `ApiError`，并覆盖异步 Token 提取。`RequestInit` 先转换为标准 `Request`，防止额外字段成为 Ky hooks、替代 fetch 或 URL override；`options.fetch` 保留受控自定义传输注入合同。页面继续调用域 service/client，不直接使用 Ky 绕过边界。
+
+Ky 使用浏览器 Fetch，不改变 CORS、Extension 权限或后台生命周期。Chrome MV3 service worker 与 Firefox MV2 后台页沿用相同客户端接口；content script 的跨域差异按 §3.4 处理。新增 hooks、JSON helper 或域实例必须复用请求上下文，不能建立任意绝对 URL 客户端，也不能再次引入认证或重试状态机。
 
 ### 3.6 有 OpenAPI 时优先 openapi-fetch
 
 当团队拥有可信且会随实现同步的 OpenAPI 3 Schema 时，使用 `openapi-typescript` 生成 `paths` 类型，再由 `openapi-fetch` 提供类型化 method/path/params/body/response。每个独立服务或不兼容版本拥有自己的 schema 输入、生成目录和 client registry 条目。
 
 - Schema 或 operation 变化后必须重新生成并运行 `pnpm typecheck`；生成目录不手工编辑。
-- Token/continuation 获取、语言、并发 revision、401、错误归一化、取消和观测规则与原生 Fetch 基础相同，通过 `openapi-fetch` middleware 或清晰的外层 service 复用。
+- Token/continuation 获取、语言、并发 revision、401、错误归一化、取消和观测规则与生成的 HTTP 请求上下文相同，通过 `openapi-fetch` middleware 或清晰的外层 service 复用。
 - Schema 只提供静态契约，不能证明运行时响应可信；对安全关键或外部服务响应仍用 §1 表中的 `zod`（或已有的等价校验结果）执行运行时校验。
-- 不在同一端点外层叠加原生 Fetch、Ky 和 openapi-fetch 多套 retry/error 语义。
+- 不在同一端点外层叠加 Ky 和 openapi-fetch 多套 retry/error 语义；选定协议 adapter 时仍复用同一请求上下文。
 
 ### 3.7 Axios 例外
 
@@ -159,7 +174,7 @@ Axios 不是新项目默认值。只有现有业务已经依赖其 interceptors�
 在不需要规范化实体缓存时，使用 `graphql-request` 发起最小 GraphQL 请求，并使用 GraphQL Code Generator 的 `client` preset 生成 `TypedDocumentNode`/类型化文档。运行时依赖通常包括 `graphql` 与 `graphql-request`，生成期依赖包括 `@graphql-codegen/cli` 和 `@graphql-codegen/client-preset`；只有首次真实 GraphQL 功能落地时才安装。
 
 - GraphQL operation 在 feature 层交给 TanStack Query 管理查询、mutation、取消与失效；`queryFn` 将 `AbortSignal` 传到实际请求，不建立另一份全局 GraphQL 缓存。
-- 为 `graphql-request` 注入受管 custom Fetch adapter。adapter 先将其 URL/Request 输入与当前编译期 target registry 核对，映射到原生 client 接受的相对路径，再复用三个 header、超时、Token revision、401 single-flight、错误归一化与日志脱敏。直接调用未受管的全局 `fetch` 会绕开这条边界。
+- 为 `graphql-request` 注入受管 custom Fetch adapter。adapter 先将其 URL/Request 输入与当前编译期 target registry 核对，映射到生成 HTTP client 接受的相对路径，再复用三个 header、超时、Token revision、401 single-flight、错误归一化与日志脱敏。直接调用未受管的全局 `fetch` 会绕开这条边界。
 - Codegen 文档提供静态类型；GraphQL `errors`、`data`、安全关键字段与外部响应仍需按真实 schema 和信任边界做运行时校验。
 
 ### 4.2 多 GraphQL 基地址
@@ -224,7 +239,9 @@ RxJS 不是固定技术栈，也不是为了统一代码风格而建立的全局
 6. 领域事件流默认不 replay。禁止无界 `ReplaySubject` 或把 `shareReplay` 当状态仓库；确需晚订阅快照时必须限制 buffer/time、明确清理和敏感数据边界，并以测试固定锁定版本的行为。
 7. Feature effects 消费领域事件：“数据已变化”通知调用 `invalidateQueries`；只有完整、已校验且可判定更新的数据才调用 `setQueryData`；跨组件客户端状态写入 Jotai。不得把同一实体同时保存在 Query、BehaviorSubject 与 Jotai。
 
-### 6.3 Chrome MV3 边界
+### 6.3 Chrome MV3 / Firefox MV2 边界
+
+Firefox MV2 使用后台 scripts/page，Chrome MV3 使用可回收 service worker。不要让公共实现依赖后台页永不销毁；对 API 支持、callback/Promise、消息异步响应、Port 断开和重启恢复逐个适配与测试。MV2 与 MV3 的权限/CSP/资源声明由 Plasmo 转换，业务能力仍由 Agent 对照两浏览器官方文档自行保证。
 
 Observable 和 Subject 只存在于当前 JavaScript execution context。Popup、Options、content script 与 service worker 之间仍使用 `chrome.runtime`/tabs messaging 或 Port，再在每个上下文内适配为 Observable；RxJS 本身不能跨上下文，也不能让 service worker 常驻。
 
@@ -237,14 +254,16 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 1. 生成分页测试至少覆盖合法恢复、损坏/异常 Storage、版本与 scope 隔离、换页、`pageSize` 重置，以及 loading/error/placeholder/旧响应不回退、当前成功空页回第一页。
 2. 生成 HTTP/语言测试至少覆盖动态 `X-Lang`、continuation/Token 后续携带、异步 Token extractor、同源 2xx 信任边界、乱序 response、迟到旧 401、新会话 latch reset、并发 401 单次 handler、handler 失败、timeout、取消、受控 URL 和安全日志。
 3. 首次真实 endpoint 记录 target、认证方式、分页字段映射、数据所有者、取消/重试策略、真实登录入口，以及 Web CORS/CSP/cache 或 Extension 最小权限与执行上下文影响；不得把初始化配置冒充服务可达证据。
-4. 只安装真实使用的可选依赖，检查维护状态、许可证、浏览器支持和 bundle 影响并固定 lockfile。Ky/openapi-fetch/Axios adapter 必须复用三个 header、revision、401、`ApiError` 与日志契约，并测试不会形成第二套重试/认证状态机。
-5. Web 的真实跨域集成验证服务端 Allow/Expose/Vary/Cache-Control 与 credentials 配置；真实登录页存在后才测试导航。Extension 的真实网络或跨上下文认证必须覆盖权限拒绝、上下文销毁、消息 sender 校验和 service worker 重建，并把真实 Chrome 验证列为硬要求。
+4. 只安装真实使用的可选依赖，检查维护状态、许可证、浏览器支持和 bundle 影响并固定 lockfile。Ky 默认传输及 openapi-fetch/Axios adapter 必须复用三个 header、revision、401、`ApiError` 与日志契约，并测试不会形成第二套重试/认证状态机。
+5. Web 的真实跨域集成验证服务端 Allow/Expose/Vary/Cache-Control 与 credentials 配置；真实登录页存在后才测试导航。Extension 的真实网络或跨上下文认证必须覆盖权限拒绝、上下文销毁、消息 sender 校验和 service worker 重建，并把真实 Chrome/Firefox 验证列为硬要求。
 6. 多 GraphQL target 至少覆盖正确路由、动态 headers、非法 target 拒绝、各 schema 的生成类型和包含 target/语言的 Query key。
 7. SSE 至少覆盖消息校验、错误/重连决策、显式关闭，以及不会因重新挂载产生重复连接。
 8. RxJS 首次接入至少覆盖有效/无效事件映射、单来源失败隔离、重试停止与取消、监听/连接数量和最后一个订阅退出后的 teardown。
 9. 使用 `share` 或 replay 时覆盖共享底层订阅、error/complete/refCount reset、晚订阅结果、缓冲边界与清理；多来源更新还要覆盖重复、乱序和旧版本拒绝。
-10. 事件投影至少证明 Query/Jotai 各自只有一个状态所有者；Extension 还要覆盖非法 sender/message、Port 断开、页面卸载和 service worker 重启后的重建。涉及后台行为或权限时进入完整候选验收并在真实 Chrome 验证。
+10. 事件投影至少证明 Query/Jotai 各自只有一个状态所有者；Extension 还要覆盖非法 sender/message、Port 断开、页面卸载和 service worker 重启后的重建。涉及后台行为或权限时进入完整候选验收并在真实 Chrome 和 Firefox 分别验证。
 11. 日常变更运行 `pnpm env:validate`、`pnpm harness validate` 与本次受影响的相关非空测试；lint/typecheck 只在本次变化需要或用户明确要求时追加。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才取得当次 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`；候选需验证 client 只读 `APP_CONFIG`、日志符合脱敏边界，且 Release 产物不包含开发/测试 BaseURL、Token/continuation fixture 或敏感数据。真实服务、CORS、登录导航、浏览器与权限场景未执行时写为 `Unverified`。
+
+新增认证与反馈测试覆盖：显式 setter 非法输入及旧响应/旧 handler 竞态、403 保留会话、错误观察器故障、Query 中间失败后成功不残留提示、最终失败重试上限、mutation 不重放、同语义并发清理权、未知异常去重、双语言以及 Web/Extension Router 的分类与恢复。真实 endpoint、浏览器 CORS/权限和最终候选验证仍由各自事件触发。
 
 ## 8. 官方参考
 

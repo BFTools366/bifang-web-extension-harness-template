@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：定义前端产品"
   short_description: "定义 React Web 或 Plasmo MV3 Extension 的单一前端产品范围"
-  default_prompt: "使用 $web-define-product 定义纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 单一前端产品的范围与可衡量成功标准。"
+  default_prompt: "使用 $web-define-product 定义纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 单一前端产品的范围与可衡量成功标准。"

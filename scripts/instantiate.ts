@@ -19,6 +19,7 @@ const INSTANTIATE_OPTIONS = [
   "name",
   "id",
   "description",
+  "identity-i18n",
   "development-base-url",
   "test-base-url",
   "release-base-url",
@@ -49,7 +50,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension --name <name> --id <id> --policy-mode 预设|自定义 [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [custom policy flags]"
+  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension --name <name> --id <id> --policy-mode 预设|自定义 [--description <text> (required for extension)] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [custom policy flags]"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -124,6 +125,7 @@ function inputSources(
     name: source("name"),
     id: source("id"),
     description: optionNames.has("description") ? "命令行参数" : "默认使用显示名称",
+    identityI18n: optionNames.has("identity-i18n") ? "命令行参数" : "默认语言，未提供翻译",
     developmentBaseUrl: optionNames.has("development-base-url")
       ? "命令行参数"
       : "未配置（可后续补齐）",
@@ -226,6 +228,7 @@ export async function runInstantiateCli(
       name: init.name,
       id: init.id,
       description: init.description,
+      identityI18n: init.identityI18n,
       brandColor: init.brandColor,
       developmentBaseUrl: init.developmentBaseUrl,
       testBaseUrl: init.testBaseUrl,
@@ -236,6 +239,12 @@ export async function runInstantiateCli(
   })
   const output = runtime.output ?? console.log
   output(`Created ${config.projectType} project at ${targetRoot}`)
+  output(`Logo master: ${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
+  output(
+    config.projectType === "web"
+      ? "Brand assets: public/logo.png (512×512), public/favicon.png (64×64)"
+      : "Brand assets: assets/icon.png (1024×1024); Plasmo derives manifest icon sizes during build"
+  )
   output("Release artifacts were not built. Run `pnpm build` in the project when needed.")
   return config
 }

@@ -45,6 +45,6 @@ placeholder 只用于 base query 完全相同的纯 page 变化。新页 error �
 
 ## 7. 资产与验证
 
-`assets/listPageState.ts` 提供 URL/session 解析、safe integer、响应校验、页码纠正、选择裁剪和列偏好的可组合纯函数；按当前项目模块边界选取，不要复制为每页私有实现。`assets/ListPage.contracts.test.ts` 是这些纯函数的可执行起点，不是 UI 或产品测试。
+`assets/listPageState.ts`、`assets/listColumnPreferences.ts` 与 `assets/listPageStorage.ts` 提供 URL/session 解析、safe integer、响应校验、页码纠正、选择裁剪和列偏好的可组合纯函数；按当前项目模块边界选取，不要复制为每页私有实现。`assets/ListPage.contracts.test.ts` 是这些纯函数的可执行起点，不是 UI 或产品测试。
 
 组件测试还要覆盖角色/名称、真实点击与键盘、placeholder inert、状态反馈、分页标签、选择及触发的列移动。真实浏览器、服务端或 E2E 未运行时明确标记未验证。

@@ -41,7 +41,6 @@ const TEST_AGENT_POLICY = {
 } as const
 // 保存 OPTIONAL_INTEGRATION_PACKAGES 变量供当前逻辑使用。
 const OPTIONAL_INTEGRATION_PACKAGES = [
-  "ky",
   "axios",
   "openapi-fetch",
   "openapi-typescript",
@@ -117,6 +116,20 @@ async function seedTemplateRoot(): Promise<string> {
     path.join(root, "docs/AGENT_POLICY.md"),
     await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
   )
+  for (const module of [
+    "identity.ts",
+    "extension-targets.ts",
+    "files.ts",
+    "logo.ts",
+    "validate-brand.ts",
+    "validate-hosts.ts",
+    "validate-helpers.ts"
+  ]) {
+    await cp(
+      path.join(repositoryRoot, ".harness/tooling", module),
+      path.join(root, ".harness/tooling", module)
+    )
+  }
   await writeFile(
     path.join(root, ".harness/tooling/version.ts"),
     await readFile(path.join(repositoryRoot, ".harness/tooling/version.ts"), "utf8")

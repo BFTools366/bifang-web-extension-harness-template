@@ -1,4 +1,5 @@
 import path from "node:path"
+import { assertExtensionIdentity, validateIdentityI18n } from "./identity.ts"
 import { readJson } from "./files.ts"
 import { PROJECT_TYPES, type InitOptions, type ProjectConfig, type ProjectType } from "./types.ts"
 
@@ -33,6 +34,9 @@ export const HARNESS_ONLY_PATHS = [
   "tests/harness-agents-entrypoint.test.ts",
   "tests/harness-governance.test.ts",
   "tests/harness-initialization.test.ts",
+  "tests/identity-localization.test.ts",
+  "tests/http-foundation.test.ts",
+  "tests/harness-http-governance.test.ts",
   "tests/design-skill-installation.test.ts",
   "tests/harness-instantiation.test.ts",
   "tests/harness-memory.test.ts",
@@ -45,7 +49,20 @@ export const HARNESS_ONLY_PATHS = [
   "docs/TS_WEB_TEMPLATE.md",
   "docs/HARNESS_ENGINEERING.md",
   "docs/harness_engineering",
-  "Version.md"
+  "Version.md",
+  ".harness/tooling/instantiate-target.ts",
+  "tests/harness-project-validation.test.ts",
+  "tests/harness-terminal-governance.test.ts",
+  "tests/harness-initialization-web.test.ts",
+  "tests/harness-initialization-extension.test.ts",
+  "tests/harness-instantiation-fixture.ts",
+  "tests/harness-instantiation-terminal.test.ts",
+  "tests/harness-validator-fixture.ts",
+  "tests/harness-skill-validation.test.ts",
+  "tests/project-memory-compatibility.test.ts",
+  "tests/initialization-atomicity-fixture.ts",
+  "tests/initialization-source-boundary.test.ts",
+  "tests/node-tooling.test.ts"
 ] as const
 
 /** 保存只在实例化时排除、但终端后续事件可以合法创建的记忆与验证路径。 */
@@ -101,7 +118,7 @@ function requireText(value: unknown, label: string): string {
 export function createProjectConfig(
   options: Pick<
     InitOptions,
-    "projectType" | "name" | "id" | "description" | "brandColor" | "logoPath"
+    "projectType" | "name" | "id" | "description" | "identityI18n" | "brandColor" | "logoPath"
   >
 ): ProjectConfig {
   assertProjectType(options.projectType)
@@ -110,12 +127,15 @@ export function createProjectConfig(
   if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) {
     throw new Error("Project id must be a lowercase kebab-case package id")
   }
-  return {
+  const config: ProjectConfig = {
     schemaVersion: 1,
     projectType: options.projectType,
     name: requireText(options.name, "Project name"),
     id,
     description: requireText(options.description, "Project description"),
+    ...(options.identityI18n === undefined
+      ? {}
+      : { identityI18n: validateIdentityI18n(options.identityI18n) }),
     brand: {
       primaryColor: normalizeColor(options.brandColor),
       logoSource: options.logoPath === undefined ? "generated" : "uploaded",
@@ -123,6 +143,8 @@ export function createProjectConfig(
     },
     initializedAt: new Date().toISOString()
   }
+  assertExtensionIdentity(config)
+  return config
 }
 
 // 执行 validateProjectConfig 函数的处理逻辑。
@@ -143,6 +165,7 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
     name: requireText(candidate.name, "Project name"),
     id: requireText(candidate.id, "Project id"),
     description: requireText(candidate.description, "Project description"),
+    identityI18n: validateIdentityI18n(candidate.identityI18n),
     brandColor: requireText(candidate.brand.primaryColor, "Brand color"),
     logoPath: candidate.brand.logoSource === "uploaded" ? "uploaded" : undefined
   })

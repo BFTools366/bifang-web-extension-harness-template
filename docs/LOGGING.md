@@ -46,11 +46,11 @@ Release 配置即使被错误设置成更低级别，logger 也必须把有效�
 
 ## 5. 使用边界
 
-- UI、route、Query、API client、Chrome message/Port、Storage 和生命周期边界使用各自稳定 scope/event；不要用日志代替用户错误反馈。
+- UI、route、Query、API client、浏览器 message/Port、Storage 和生命周期边界使用各自稳定 scope/event；不要用日志代替用户错误反馈。
 - React Web 的 `createRoot` 明确接入 `src/observability/reactRoot.ts` 的已捕获、未捕获和可恢复错误回调，替代 React 默认的原始异常 console 输出；回调只交给统一 logger，不传递 `componentStack`。
 - 异步请求通过 correlation/request ID 串联；不要以 Token、用户标识或完整 URL 充当关联键。
-- 基础 HTTP client 使用稳定的 `http.request_failed`、`http.unauthorized` 与 `http.unauthorized_handler_failed` 事件；只记录状态、耗时、稳定 code/reason/retryable。非法响应 header 或 extractor 通过 `http.request_failed` 与稳定 code 表达；基线不记录 URL、Error、header 或 body。真实域层只有提供不含标识符的静态 endpoint 模板后才可把它作为批准字段加入。`X-Http-Request` 是服务端允许传播的 opaque continuation，不自动等同于可记录的 request ID。
-- transport 层只记录协议、网络与认证边界；TanStack Query 的全局错误日志负责最终 query/mutation 失败。接入真实 feature 时应明确单一所有者，避免同一失败在两层重复记录。
+- 基础 HTTP client 使用稳定的 `http.request_failed`、`http.unauthorized` 、`http.unauthorized_handler_failed` 与 `http.error_interceptor_failed` 事件；只记录状态、耗时、稳定 code/reason/retryable。错误观察器失败只记录固定 reason/code，不替换原失败；非法请求 header、响应 header 或 extractor 通过 `http.request_failed` 与稳定 code 表达；基线不记录 URL、Error、header 或 body。真实域层只有提供不含标识符的静态 endpoint 模板后才可把它作为批准字段加入。`X-Http-Request` 是服务端允许传播的 opaque continuation，不自动等同于可记录的 request ID。
+- transport 层只记录协议、网络与认证边界；TanStack Query 的全局错误日志负责最终 query/mutation 失败。接入真实 feature 时应明确单一所有者，区分传输尝试与最终失败，避免同一边界重复记录。UI 共同分类与精确清理去重，日志不能代替用户反馈。
 - Extension 的 popup、options、content script 与 service worker 分属不同执行上下文，日志不能提供跨上下文状态或可靠传输。
 - 测试可注入 sink 和时钟，断言级别、结构与脱敏；不得通过屏蔽 console 错误掩盖产品失败。
 - `web-extract-i18n-strings` 继续排除日志事件名和错误码；它们是工程契约，不是用户文案。
@@ -65,7 +65,7 @@ Release 候选除单元测试外必须运行真实脚本：
 pnpm release:inspect
 ```
 
-Web `pnpm build:release` 在 Vite 生产构建前自动完成环境、Harness、格式、lint、类型与全量测试门禁，注入当次上海时间 `YYMMDDHHMMSS` 页面构建版本后运行该命令；Extension `pnpm build:release` 与 `pnpm package` 对同一 Release profile 执行相同门禁，读取 `package.json.version` 的稳定 SemVer 注入页面，并分别在 Plasmo 生产构建或 zip 后运行该命令。`release:inspect` 先按 release profile 验证全部环境，再检查 Web `dist/` 或 Extension `build/chrome-mv3-prod`，并确认构建编排器注入的 `HARNESS_BUILD_VERSION` 与当前宿主的页面版本一致；Extension 还确认 MV3 manifest 与包版本一致。Extension `package` 虽先生成 zip，该检查仍针对构建目录，不会直接解包扫描 zip。任一命中都会使上层构建/打包失败。
+Web `pnpm build:release` 在 Vite 生产构建前自动完成环境、Harness、格式、lint、类型与全量测试门禁，注入当次上海时间 `YYMMDDHHMMSS` 页面构建版本后运行该命令；Extension `pnpm build:release` 与 `pnpm package` 对同一 Release profile 执行相同门禁，读取 `package.json.version` 的稳定 SemVer 注入页面，并分别在 Plasmo 生产构建或 zip 后运行该命令。`release:inspect` 先按 release profile 验证全部环境，再检查 Web `dist/` 或 Extension `build/chrome-mv3-prod` 和 `build/firefox-mv2-prod`，并确认构建编排器注入的 `HARNESS_BUILD_VERSION` 与当前宿主的页面版本一致；Extension 还确认两个目标 manifest 与包版本一致。Extension `package` 虽先生成 zip，该检查仍针对构建目录，不会直接解包扫描 zip。任一命中都会使上层构建/打包失败。
 
 自动检查包括：
 

@@ -6,9 +6,10 @@ export function webRouteStateFiles(): Map<string, string> {
   ])
 }
 
-const ROUTE_STATE_SOURCE = `import { Anchor, Button, Container, Group, Loader, Paper, Stack, Text, Title } from "@mantine/core"
+const ROUTE_STATE_SOURCE = `import { Anchor, Container, Loader, Paper, Stack, Text } from "@mantine/core"
 import { useQueryErrorResetBoundary } from "@tanstack/react-query"
-import { Link, useRouter } from "@tanstack/react-router"
+import { Link, useRouter, type ErrorComponentProps } from "@tanstack/react-router"
+import { HttpErrorView } from "../../api/client/HttpErrorView"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { createLogger } from "../../observability/logger"
@@ -31,7 +32,7 @@ export function RoutePendingPage() {
 }
 
 /** 隐藏原始异常，以显式重试恢复路由和 Query 边界，不重放 mutation。 */
-export function RouteErrorPage() {
+export function RouteErrorPage({ error }: ErrorComponentProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const { reset } = useQueryErrorResetBoundary()
@@ -64,16 +65,7 @@ export function RouteErrorPage() {
     <main className="page-shell">
       <Container size="sm">
         <Paper radius="lg" p="xl" withBorder>
-          <Stack gap="md">
-            <div role="alert">
-              <Title order={1}>{t("routeErrorTitle")}</Title>
-              <Text mt="sm">{t("routeErrorDescription")}</Text>
-            </div>
-            <Group>
-              <Button onClick={retry} loading={retrying}>{t("routeRetry")}</Button>
-              <Anchor component={Link} to="/">{t("backHome")}</Anchor>
-            </Group>
-          </Stack>
+          <HttpErrorView error={error} headingOrder={1} onRetry={retry} retrying={retrying} homeLink={<Anchor component={Link} to="/">{t("backHome")}</Anchor>} />
         </Paper>
       </Container>
     </main>

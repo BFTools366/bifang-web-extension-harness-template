@@ -1,7 +1,9 @@
+import { renderIdentityBrand } from "../identity.ts"
 import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
-import { escapeHtml, tsString } from "./helpers.ts"
+import { escapeHtml } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
+import { HTTP_ERROR_TRANSLATIONS } from "./http-errors.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
 import { themeFiles } from "./theme.ts"
@@ -36,15 +38,7 @@ export function renderWebIndex(config: ProjectConfig): string {
 
 // 执行 renderWebBrand 函数的处理逻辑。
 export function renderWebBrand(config: ProjectConfig): string {
-  return `/** 保存项目身份与 Web 品牌展示常量。 */
-export const BRAND = {
-  name: ${tsString(config.name)},
-  id: ${tsString(config.id)},
-  description: ${tsString(config.description)},
-  primaryColor: ${tsString(config.brand.primaryColor)},
-  logoPath: "/logo.png"
-} as const
-`
+  return renderIdentityBrand(config)
 }
 
 // 执行 webFiles 函数的处理逻辑。
@@ -118,7 +112,7 @@ interface ImportMeta {
       "src/api/README.md",
       `# API module boundary
 
-The endpoint-free \`client/httpClient.ts\` foundation owns the governed Fetch, header, timeout, cancellation, error, Token, and unauthorized-handler behavior. Do not bypass it with page-local fetch calls or mutable global headers.
+The endpoint-free \`client/httpClient.ts\` foundation owns governed Ky transport, request/response/error interception, safe Token writes, 401/403, timeout and cancellation. Features share the lazy \`applicationHttp\`; Query reads use \`requestHttpQuery\` so intermediate retries do not leave error banners. Local/route recovery and global feedback use the same fixed i18next classification. Do not bypass it with page-local fetch calls or mutable global headers.
 
 - \`client/\` owns transport concerns such as approved base URLs, dynamic authentication, cancellation, timeouts, and normalized API errors; it does not declare a business endpoint or login URL.
 - \`<domain>/\` owns typed endpoint functions, request and response contracts, and runtime boundary validation for one business domain.
@@ -131,7 +125,11 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
     ],
     [
       "src/i18n/locales/en.ts",
-      `export const en = {
+      `import { BRAND } from "../../brand"
+
+export const en = {
+  ...BRAND.identity.en,
+  ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.en)},
   eyebrow: "Harness project ready",
   action: "Test local state",
   count: "Interaction count: {{count}}",
@@ -158,7 +156,11 @@ Do not add placeholder requests, a second client, or a \`services/\` layer. Foll
     ],
     [
       "src/i18n/locales/zh.ts",
-      `export const zh = {
+      `import { BRAND } from "../../brand"
+
+export const zh = {
+  ...BRAND.identity.zh,
+  ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.zh)},
   eyebrow: "Harness 项目已就绪",
   action: "测试本地状态",
   count: "交互次数：{{count}}",
@@ -210,15 +212,18 @@ export default i18n
       "src/app/queryClient.ts",
       `import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
 import { createLogger } from "../observability/logger"
+import { reportHttpError } from "../api/client/httpFeedback"
+import { retryHttpQuery } from "../api/client/httpErrors"
 
 const logger = createLogger("query")
 
 export const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: retryHttpQuery }, mutations: { retry: false } },
   queryCache: new QueryCache({
-    onError: (error) => logger.error("query_failed", { component: "tanstack-query", error })
+    onError: (error) => { logger.error("query_failed", { component: "tanstack-query", error }); reportHttpError(error) }
   }),
   mutationCache: new MutationCache({
-    onError: (error) => logger.error("mutation_failed", { component: "tanstack-query", error })
+    onError: (error) => { logger.error("mutation_failed", { component: "tanstack-query", error }); reportHttpError(error) }
   })
 })
 `
@@ -249,6 +254,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import type { ReactNode } from "react"
 import { BRAND } from "../brand"
 import { queryClient } from "./queryClient"
+import { HttpFeedback } from "../api/client/HttpErrorView"
 import { theme } from "./theme"
 
 const colorSchemeManager = localStorageColorSchemeManager({
@@ -264,7 +270,7 @@ interface AppProvidersProps {
 export function AppProviders({ children }: AppProvidersProps) {
   return (
     <MantineProvider theme={theme} defaultColorScheme="auto" colorSchemeManager={colorSchemeManager}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}><HttpFeedback />{children}</QueryClientProvider>
     </MantineProvider>
   )
 }
@@ -306,16 +312,16 @@ export function WelcomePage() {
         <Paper radius="lg" p="xl" withBorder>
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start">
-              <Image src={BRAND.logoPath} alt={BRAND.name} w={88} h={88} radius="xl" />
+              <Image src={BRAND.logoPath} alt={t("projectName")} w={88} h={88} radius="xl" />
               <Stack gap="xs" align="flex-end">
                 <Badge variant="default">{t("eyebrow")}</Badge>
                 <ColorSchemeControl />
               </Stack>
             </Group>
             <div>
-              <Title order={1}>{BRAND.name}</Title>
+              <Title order={1}>{t("projectName")}</Title>
               <Text c="dimmed" mt="sm" size="lg">
-                {BRAND.description}
+                {t("projectDescription")}
               </Text>
             </div>
             <Group>
@@ -344,10 +350,12 @@ import userEvent from "@testing-library/user-event"
 import { expect, test } from "vitest"
 import { AppProviders } from "../../app/AppProviders"
 import { BRAND } from "../../brand"
+import i18n from "../../i18n"
 import { WelcomePage } from "./WelcomePage"
 
 /** 验证当前场景的核心成功或风险边界。 */
 test("renders the branded landing interaction", async () => {
+  await i18n.changeLanguage("en")
   const user = userEvent.setup()
   /** 说明当前方法的稳定职责与行为边界。 */
   render(
@@ -356,16 +364,26 @@ test("renders the branded landing interaction", async () => {
     </AppProviders>
   )
 
-  expect(screen.getByRole("heading", { name: BRAND.name, level: 1 })).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 })).toBeInTheDocument()
   expect(screen.getByText("Build version: development")).toBeInTheDocument()
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByRole("heading", { name: BRAND.name, level: 1 }))
+  await user.click(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
   await user.click(screen.getByText("Dark"))
   expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
   expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
+})
+
+/** 验证 Web 品牌名称与说明随应用语言切换。 */
+test("renders localized web identity", async () => {
+  await i18n.changeLanguage("zh")
+  const view = render(<AppProviders><WelcomePage /></AppProviders>)
+  expect(screen.getByRole("heading", { name: BRAND.identity.zh.projectName })).toBeInTheDocument()
+  expect(screen.getByText(BRAND.identity.zh.projectDescription, { selector: "p" })).toBeInTheDocument()
+  view.unmount()
+  await i18n.changeLanguage("en")
 })
 `
     ],

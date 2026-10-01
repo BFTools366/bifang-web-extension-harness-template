@@ -1,3 +1,5 @@
+import { parseIdentityI18n } from "./identity.ts"
+import { derivedLogoPaths } from "./brand.ts"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import path from "node:path"
@@ -27,6 +29,7 @@ export interface PromptDefaults {
   name?: string
   id?: string
   description?: string
+  identityI18n?: string
   brandColor?: string
   developmentBaseUrl?: string
   testBaseUrl?: string
@@ -49,6 +52,7 @@ export interface PromptedIdentity {
   name: string
   id: string
   description: string
+  identityI18n?: string
   brandColor: string
   developmentBaseUrl: string
   testBaseUrl: string
@@ -73,6 +77,7 @@ export interface InstantiationSummary {
     | "name"
     | "id"
     | "description"
+    | "identityI18n"
     | "brandColor"
     | "logoPath"
     | "developmentBaseUrl"
@@ -89,6 +94,7 @@ type BasicField =
   | "name"
   | "id"
   | "description"
+  | "identityI18n"
   | "brandColor"
   | "developmentBaseUrl"
   | "testBaseUrl"
@@ -132,7 +138,13 @@ const BASIC_FIELDS: ReadonlyArray<{
     label: "源 Harness 外的目标目录",
     constraint: "原始输入本身必须是完整绝对路径"
   },
-  { key: "description", label: "项目说明", constraint: "可省略，默认使用显示名称" },
+  { key: "description", label: "项目说明", constraint: "Extension 必填，简短说明；Web 可省略" },
+  {
+    key: "identityI18n",
+    label: "身份本地化",
+    constraint:
+      "可选 JSON 字符串：defaultLocale 为 en 或 zh_CN，translations 提供另一语言名称和说明"
+  },
   { key: "brandColor", label: "品牌颜色", constraint: "#RGB 或 #RRGGBB 十六进制颜色" },
   {
     key: "developmentBaseUrl",
@@ -160,6 +172,7 @@ const BASIC_FIELDS: ReadonlyArray<{
 /** 保存无需首轮询问、但可主动提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
   "description",
+  "identityI18n",
   "brandColor",
   "developmentBaseUrl",
   "testBaseUrl",
@@ -207,7 +220,15 @@ function normalizeBasicField(
     }
     return id
   }
-  if (field === "description") return value?.trim() ?? ""
+  if (field === "description") {
+    return allValues.projectType?.trim() === "extension" || allValues.projectType?.trim() === "2"
+      ? requiredText(value, "Extension project description")
+      : (value?.trim() ?? "")
+  }
+  if (field === "identityI18n") {
+    parseIdentityI18n(value)
+    return value?.trim() ?? ""
+  }
   if (field === "brandColor") return normalizeColor(requiredText(value, "Brand color"))
   if (field === "policyMode") {
     const policyMode = parsePolicyMode(requiredText(value, "Agent policy mode"))
@@ -299,11 +320,13 @@ async function collectBasicFields(
       inputSources[key] =
         key === "description"
           ? "默认使用显示名称"
-          : key === "confirmedBy"
-            ? "当前用户（自动记录）"
-            : key === "brandColor"
-              ? "Harness 默认值"
-              : "未配置（可后续补齐）"
+          : key === "identityI18n"
+            ? "默认语言，未提供翻译"
+            : key === "confirmedBy"
+              ? "当前用户（自动记录）"
+              : key === "brandColor"
+                ? "Harness 默认值"
+                : "未配置（可后续补齐）"
   }
   let parseError: string | undefined
   while (true) {
@@ -440,6 +463,7 @@ export async function collectPromptedIdentity(
     name: requiredText(basic.name, "Project name"),
     id: requiredText(basic.id, "Project id"),
     description: basic.description?.trim() || requiredText(basic.name, "Project name"),
+    identityI18n: basic.identityI18n || undefined,
     brandColor: normalizeColor(requiredText(basic.brandColor, "Brand color")),
     developmentBaseUrl: basic.developmentBaseUrl ?? "",
     testBaseUrl: basic.testBaseUrl ?? "",
@@ -477,6 +501,9 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 项目说明：${summary.init.description}
 - 品牌颜色：${summary.init.brandColor}
 - Logo：${summary.init.logoPath ?? "未提供（初始化器确定性生成）"}
+- 母版：.harness/brand/logo-1024.png（1024×1024 PNG）
+- 派生资产：${derivedLogoPaths({ projectType: summary.init.projectType }).join(", ")}
+- 身份本地化：${JSON.stringify(summary.init.identityI18n ?? { defaultLocale: "en", translations: {} })}
 - 开发 API 地址：${summary.init.developmentBaseUrl || "未配置，可后续补齐"}
 - 测试 API 地址：${summary.init.testBaseUrl || "未配置，可后续补齐"}
 - 正式 API 地址：${summary.init.releaseBaseUrl || "未配置，正式发布前必须补齐 HTTPS 地址"}

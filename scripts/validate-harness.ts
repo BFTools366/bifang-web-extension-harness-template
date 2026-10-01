@@ -2,6 +2,7 @@ import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { inspectProjectChineseComments } from "../.harness/tooling/comment-policy.ts"
 import type { HarnessValidationReport } from "./harness-validation/contracts.ts"
+import { validateNodeTooling } from "./harness-validation/node-tooling.ts"
 import { validateRepositoryLineLimits } from "./harness-validation/line-limits.ts"
 import { validateDailyHarnessMemory } from "./harness-validation/memory.ts"
 import { validateSourceAgentPolicy } from "./harness-validation/governance-policy.ts"
@@ -27,6 +28,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   const errors: string[] = []
   const files = await collectFiles(root)
   validateRepositoryPaths(files, errors)
+  await validateNodeTooling(root, files, errors)
   const markdownFiles = governedMarkdownFiles(files)
   const skills = await validateSkills(root, errors)
   try {

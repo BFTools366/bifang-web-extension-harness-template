@@ -1,6 +1,6 @@
 # 文档索引
 
-本目录维护 TypeScript Web/Chrome Extension Harness 当前有效的长期工程事实。
+本目录维护 TypeScript Web/Chrome MV3/Firefox MV2 Extension Harness 当前有效的长期工程事实。
 
 | 文档                                                   | 何时读取                                         |
 | ------------------------------------------------------ | ------------------------------------------------ |

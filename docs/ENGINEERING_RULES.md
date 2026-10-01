@@ -32,26 +32,29 @@
 
 ### 2.3 Extension 单包职责
 
-- Plasmo 负责 Chrome Manifest V3 开发与构建，React + TypeScript 负责 Popup、Options 和真实需要的其他扩展界面。`package.json.targets.default` 必须显式使用 browser context 并启用 `includeNodeModules`，最终浏览器 bundle 不得把 React、Mantine、Query 等运行时包保留为裸依赖映射。
+- Plasmo 负责同一 Extension 单包的 Chrome MV3 与 Firefox MV2 开发与构建，React + TypeScript 负责 Popup、Options 和真实需要的其他扩展界面。`package.json.targets.default` 必须显式使用 browser context 并启用 `includeNodeModules`，最终浏览器 bundle 不得把 React、Mantine、Query 等运行时包保留为裸依赖映射。
 - Mantine 提供 UI；TanStack Router 在 Popup 与 Options 独立入口内管理页内导航，分别使用 memory 与 hash history，并以代码声明路由；TanStack Query 管理异步数据；Jotai 管理跨组件客户端状态；i18next 管理用户可见文案。Extension 不继承 Web 的文件路由生成器。
 - `$web-implement-list-view` 只适用 React Web，Extension Popup/Options 不为复用它安装图标或 DnD 依赖，也不继承 Web 列表路由状态契约；扩展中的重复项 UI 仍按当前 surface 和执行上下文实现。
-- 初始化生成的分页与原生 Fetch 基础只属于当前执行上下文，不承诺 Popup、Options、content script 或 service worker 共享 sessionStorage、Token、continuation 或 401 single-flight。跨上下文所有者必须使用明确的消息/Storage 架构并进入权限与隐私评审。
-- 只有产品真实需要时才新增 background service worker、content script、side panel 或其他入口。入口之间通过类型化消息契约通信，不共享隐式全局状态；RxJS 只能包装单个执行上下文内的消息流，不能替代 `chrome.runtime`/Port 的跨上下文传输。
+- 初始化生成的分页与 Ky HTTP 基础只属于当前执行上下文，不承诺 Popup、Options、content script 或 service worker 共享 sessionStorage、Token、continuation 或 401 single-flight。跨上下文所有者必须使用明确的消息/Storage 架构并进入权限与隐私评审。
+- 只有产品真实需要时才新增 background（Chrome service worker / Firefox scripts/page）、content script、side panel 或其他入口。入口之间通过类型化消息契约通信，不共享隐式全局状态；RxJS 只能包装单个执行上下文内的消息流，不能替代浏览器 runtime/Port 的跨上下文传输。
 - 权限遵循最小授权：没有真实消费者就不声明 `permissions`、`host_permissions` 或可访问资源；新增权限必须解释用途并补充失败/拒绝测试。
 - 不得通过远程脚本、动态执行或宽泛 CSP 绕过 Manifest V3。外部数据在进入 UI 或持久化前必须校验。
 - 初始化必须同步 `assets/icon.png`、`package.json` 中的项目 manifest 信息以及 Popup/Options；Plasmo 从 `assets/icon.png` 生成所需尺寸，不要求维护重复的显式图标声明。
 - 不得生成 Vite 根 `index.html`、Web Landing 或 Web favicon 路径作为另一宿主。
+
+- 后续 Extension 开发由执行 Agent 自行保证 Chrome MV3 与 Firefox MV2 兼容：核对 API、异步消息、权限、后台、CSP/资源和 URL 差异，按真实功能使用能力检测、类型化 adapter 或 Plasmo 目标入口。具体合同见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §5；不得将单目标构建/运行结果推断为双目标通过。
+- 最终 manifest 由 Plasmo 动态派生，共享 override 不固定 `manifest_version`。默认构建/打包必须完成两目标及聚合检查，不能静默跳过 Firefox；浏览器证据仍由独立候选事件触发。
 
 ## 3. TypeScript 与模块规则
 
 - 启用严格 TypeScript；不得用 `any`、非空断言或未校验类型转换掩盖未知输入。确需边界转换时先验证，再收窄为业务类型。
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`api/` 承载生成的 client 基础与真实远端边界。页面或 route 文件不得直接拼任意 URL。
-- `api/client/` 是两种宿主都生成的原生 Fetch 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一 `ApiError` 与 401 `UnauthorizedHandler` 属于 client；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。初始化不生成业务请求、refresh/replay、登录页、Cookie 策略或第二套 `services/`，也不安装 Ky/Axios；未来 Ky/OpenAPI adapter 必须复用同一安全语义。
+- `api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。初始化不生成业务请求、refresh/replay、登录页、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
-- Query key、缓存、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target 与语言。服务器列表、`total`、错误和认证状态不得复制进分页 Storage 或 Jotai。
+- Query key、缓存、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target 与语言。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
 - React 组件负责呈现和交互编排；可复用的纯逻辑放在当前单包内有业务名称的模块或 hook 中。不要为假想复用建立跨包抽象。
-- 副作用集中在明确边界：网络、Storage、Chrome API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 只留在当前执行上下文内存，不得写入环境或任一 Storage。
+- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 只留在当前执行上下文内存，不得写入环境或任一 Storage。
 - 运行时配置集中在 `src/config/`，业务代码只读冻结的 `APP_CONFIG`；组件、route、feature、service 与扩展入口不得直接散落 `import.meta.env`、`process.env` 或硬编码服务 URL。字段、前缀和三环境映射见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 - 应用日志集中在 `src/observability/logger.ts`。产品代码不得直接使用 `console.*`；只允许 logger 默认 sink、测试替身或工具脚本在明确边界使用 console。事件字段、级别、Release allowlist 与脱敏规则见 [`LOGGING.md`](LOGGING.md)。
 - Promise 必须被等待、返回或显式处理；用户触发的异步操作需要加载、成功与失败反馈，取消或卸载后不得更新失效 UI。
@@ -71,9 +74,9 @@
 ## 4. 文件规模
 
 - 根 `AGENTS.md` 是所有 Agent 首先读取的轻量入口，必须是合法 UTF-8、最多 20000 bytes 且最多 120 个物理行。它只保留启动门禁、按任务渐进读取、始终生效边界、Skills/约束地图和最小闭环；初始化、三环境、构建、发布与完整验收的实现级配方只存在于本文件及对应唯一事实源和 Skills，不得复制回根入口独立演化。`pnpm validate:harness` 同时锁定预算、章节顺序、关键渐进语义和代表性重复配方负例。
-- 新生成终端项目的人工维护 TypeScript/TSX 使用 500/1000 两级治理：500 行及以内不因行数触发专项复核；501–1000 行必须复核业务高内聚、单一职责和职责相近性并记录保留理由；1001 行起必须按业务职责拆分到原功能或工具模块目录。
-- 终端项目的 `pnpm lint` 必须运行 `.harness/tooling/source-size-policy.ts`：501–1000 行输出复核提示，1001 行起失败。只精确排除 `src/routeTree.gen.ts`，以及目录段为 `.git`、`.plasmo`、`build`、`coverage`、`dist`、`generated` 或 `node_modules` 的生成/外部内容；`src/feature.gen.ts` 等普通维护源码不能因命名被隐藏。
-- 源 Harness 对所有受管人工文本使用 500/2000 边界：501–2000 行人工复核，超过 2000 行由 `pnpm validate:harness` 拒绝。验证器、初始化测试和 HTTP 模板按职责拆分在 `scripts/harness-validation/`、多个 `tests/harness-*.test.ts` 与 `.harness/tooling/templates/http-*.ts`；后续修改仍必须复核内聚性，不能新增无界大文件或用空壳转发规避门禁。
+- 源 Harness 与新生成终端项目的人工维护代码（含 TypeScript/TSX、JavaScript、样式与 HTML）使用 500/600 两级治理：500 行及以内不因行数触发专项复核；501–600 行必须复核业务高内聚、单一职责和职责相近性并记录保留理由；601 行起必须按业务职责拆分到原功能或工具模块目录。
+- 终端项目的 `pnpm lint` 必须运行 `.harness/tooling/source-size-policy.ts`：501–600 行输出复核提示，601 行起失败。只精确排除 `src/routeTree.gen.ts`，以及目录段为 `.git`、`.plasmo`、`build`、`coverage`、`dist`、`generated` 或 `node_modules` 的生成/外部内容；`src/feature.gen.ts` 等普通维护源码不能因命名被隐藏。
+- 源 Harness 的人工维护代码同样使用 500/600 边界，601 行起失败；其他受管人工文本保留 500/2000 边界：501–2000 行人工复核，超过 2000 行由 `pnpm validate:harness` 拒绝。验证器、初始化测试和 HTTP 模板按职责拆分在 `scripts/harness-validation/`、多个 `tests/harness-*.test.ts` 与 `.harness/tooling/templates/http-*.ts`；后续修改仍必须复核内聚性，不能新增无界大文件或用空壳转发规避门禁。
 - 不得通过压缩可读性、合并无关代码、删除必要注释或建立空壳转发层规避门禁。
 - 锁文件、生成物和原样隔离的第三方文件可以排除，但其生成器、模板与维护说明仍受治理。
 - 未超过 500 行不证明职责正确；单包边界、状态职责和权限规则仍需独立审查。
@@ -83,7 +86,7 @@
 - Mantine UI 的令牌、样式优先级、排版、布局、组件语义、状态、响应式、Web/Extension 差异和交付清单以 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) 为唯一详细事实；本节只保留跨工程硬边界。
 - 使用语义化 HTML、可见焦点、键盘可操作控件和可理解的标签；颜色不是唯一状态提示。
 - Popup 等紧凑界面也必须保证触控目标、文本缩放和错误反馈可用。Options 页面应适配常见桌面窗口宽度。
-- 用户可见文案通过 i18next 翻译键提供；项目名称、描述等身份值从事实源派生，不复制为可独立漂移的翻译常量。
+- 用户可见文案通过 i18next 翻译键提供；项目名称、描述及其 `identityI18n` 翻译从 `.harness/project.json` 派生为 UI 的 `projectName` / `projectDescription` 与 Extension 浏览器消息，不复制为可独立漂移的翻译常量。
 - 日期、数字、语言和时区使用明确 locale；不要把开发机默认值写死为业务事实。
 - 分页控件必须是受控且键盘可操作的 Mantine/语义化组件，页码、每页数据量、总量和禁用/加载状态具有可理解的本地化名称；没有真实分页集合时不得为了展示基础能力制造假列表。
 - React Web 重复记录视图按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §5.4 与 `$web-implement-list-view` 选择形态、状态反馈和无障碍路径；Extension 不调用该 Skill。
@@ -96,7 +99,7 @@
 - Vitest 是单元/集成测试运行器，Testing Library 从用户可观察行为测试 React UI。
 - 代码行为变化至少覆盖核心成功路径和最高风险失败路径；零个相关测试不得记为通过。“零个相关测试”是脚本可判定的机械门禁，失败路径是否真的被覆盖仍是评审时的人工判断，不是自动化门禁，评审者需实际读测试内容而非只看测试计数。
 - Web 重点覆盖路由、Query 状态、表单/交互、i18n 与错误边界。
-- Extension 重点覆盖 Popup/Options、消息契约、Storage、权限拒绝与 Chrome API 错误；Chrome API 可在单元测试中使用受控替身。
+- Extension 重点覆盖 Popup/Options、消息契约、Storage、权限拒绝与浏览器 API 错误；单元测试分别模拟 Chrome MV3 和 Firefox MV2 的真实差异、成功及最高风险失败/不支持路径，不能用同一个 Chrome mock 声称双浏览器兼容。
 - 环境配置变化必须覆盖三份文件缺失/错配、URL/级别/超时边界与宿主前缀；logger 变化必须覆盖级别阈值、嵌套/循环数据、Error、敏感键和 Release 裁剪。
 - 分页基础必须覆盖合法恢复、损坏/异常 Storage、版本与 scope 隔离、换页、`pageSize` 重置，以及 current-success-empty 与 loading/error/placeholder/旧响应的状态机分支。HTTP/语言基础必须覆盖三个动态 header、语言 fallback/持久化、continuation/Token 的同源 2xx 提取、异步 Token extractor、乱序 revision、迟到 401、single-flight handler、timeout/取消、受控 URL 和安全日志。
 - Web 列表实现或修改还必须运行适配后的纯函数契约，并以 Vitest/Testing Library 覆盖 URL 启动恢复、Query 所有权、placeholder 只读、成功越界纠页、四态与已触发的选择/列偏好条件契约；按 Skill checklist 为不适用项记录有证据的 N/A。
@@ -109,10 +112,10 @@
 - 生成项目日常开发只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或说明相称替代验证，不得自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`；纯文档、元数据或机械变化只做解析或差异完整性所需的最小检查。
 - `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖和建立 Git 根；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。用户明确要求完整验收或当前变更触发候选硬门禁时，才在两个真实下游创建成功后另行显式构建精确 Release 候选。
 - `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。同一发布流程复用已明确的 E2E `enabled|disabled` 选择并显式传参；仅在尚无选择时询问，交互式 CLI 省略参数时提供终端选择。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试；Web 按上海时区生成 `YYMMDDHHMMSS` 页面版本，Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`）并注入页面，再完成宿主生产构建和 `pnpm release:inspect`。不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip，不自动递增版本。
-- `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当前宿主的页面版本存在于候选；Extension 另须确认 MV3 manifest 与 `package.json.version` 精确一致。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
+- `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当前宿主的页面版本存在于候选；Extension 另须确认两个目标动态生成的 manifest 与 `package.json.version` 精确一致。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 和 `build/firefox-mv2-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
 - 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Web 使用对应范围的 Playwright 或可用浏览器能力打开最终构建，验证品牌、构建版本、关键路由、核心成功路径与风险失败路径。
-- 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Extension 在真实 Chrome 中加载最终 MV3 构建，按批准范围验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及真实 Chrome API 行为。
+- 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Extension 分别在隔离真实 Chrome/Firefox 中加载最终 MV3/MV2 构建，按批准范围验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及各浏览器真实 API 行为。
 - 未运行的浏览器、操作系统或渠道标记为 `Unverified`。开发服务器、Mock、占位和源码片段不能替代最终候选。
 
 ### 6.3 非代码变更
@@ -146,7 +149,9 @@
 
 ## 8. 依赖与安全
 
-- 只安装当前单包真实使用的依赖。生成的基础 client 使用浏览器原生 Fetch，不安装 Ky/Axios；这些库与 OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
+- Harness 自有工具与 Skill helper 统一使用项目本地 Node.js/TypeScript 和标准库；不引入 Python 解释器、Python 文件或执行入口。已有声明依赖按当前工程规则使用，新增第三方运行时依赖仍需说明必要性并按授权规则处理。`pnpm validate:harness` 拒绝自有 Python 文件、shebang、package 执行入口和可静态识别的 Node 子进程调用；第三方依赖与原样隔离的 vendor 不重写。
+
+- 只安装当前单包真实使用的依赖。生成的基础 client 使用 Ky 的浏览器 Fetch 传输并声明运行时依赖；Axios、OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - pnpm 12 的依赖构建许可保存在根 `pnpm-workspace.yaml` 的 `allowBuilds` 中；该文件不得声明 `packages`。不再使用 `package.json` 的 `pnpm.onlyBuiltDependencies`。TypeScript 暂固定在 6.0.3：受管 AST 工具依赖其 JavaScript API，且当前 `typescript-eslint` 的 TypeScript peer 范围不支持 7.x；升级前须先解决这两处兼容性。
 - 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 不得写入 localStorage/sessionStorage。
 - 外部 URL、HTML、消息、Storage 与网络响应均视为不可信输入；验证并编码后再使用。

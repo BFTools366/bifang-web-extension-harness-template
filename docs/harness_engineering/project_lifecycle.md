@@ -22,7 +22,7 @@ Agent 只读取当前事件相关事实，直接实施范围并运行相关非�
 
 同一发布流程复用已明确的 E2E 选择，尚无选择且无硬要求时才询问一次。Web 的唯一 `pnpm build -- --e2e=<selection>` 委托 `build:release`；Extension 在相同 Release profile 上另行 package。两者都先验证三环境、Harness、lint、类型、全量非空测试、版本注入和 `release:inspect`。
 
-当次 E2E 选择与完整验收的 `acceptance_smoke` 独立解析；E2E 或 smoke 任一为 `required`，或存在用户/产品/安全/渠道硬要求时，才在隔离真实 Chrome 中验证刚生成的精确候选。Mock、开发 preview 与旧产物不能提供验收结论。明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；新增目的地或范围外副作用才补充授权，并按 [`../RELEASE.md`](../RELEASE.md) 执行。
+当次 E2E 选择与完整验收的 `acceptance_smoke` 独立解析；E2E 或 smoke 任一为 `required`，或存在用户/产品/安全/渠道硬要求时，才Web 在隔离真实 Chrome 中、Extension 在隔离真实 Chrome 和 Firefox 中逐个验证刚生成的精确候选。Mock、开发 preview 与旧产物不能提供验收结论。明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；新增目的地或范围外副作用才补充授权，并按 [`../RELEASE.md`](../RELEASE.md) 执行。
 
 ## 5. 下游升级
 

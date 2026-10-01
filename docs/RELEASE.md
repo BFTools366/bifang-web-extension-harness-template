@@ -6,7 +6,7 @@
 
 - Harness 使用上海时区 `YYYYMMDDHHMM` 时间版本，Git 标签建议为 `vYYYYMMDDHHMM`。
 - Web 候选页面版本由构建时的上海时间生成，格式为 `YYMMDDHHMMSS`；其 `package.json.version` 仍是包元数据，不作为页面构建版本。Web 候选标签可使用 `vYYMMDDHHMMSS`。
-- Extension 以根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）作为软件、页面与 MV3 manifest 的同一版本事实；每段为 `0`–`65535`，三段不能全为零，以符合 [Chrome manifest version 规则](https://developer.chrome.com/docs/extensions/reference/manifest/version)。构建和打包只读取该值，不自动递增。Extension 标签可使用 `vX.Y.Z`。
+- Extension 以根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）作为软件、页面与两目标 manifest 的同一版本事实；每段为 `0`–`65535`，三段不能全为零，以符合 [Chrome manifest version 规则](https://developer.chrome.com/docs/extensions/reference/manifest/version)。构建和打包只读取该值，不自动递增。Extension 标签可使用 `vX.Y.Z`。
 - `.harness/project.json.projectType` 是候选宿主类型事实，发布脚本不得从目录猜测或同时构建两个宿主。
 - 版本、源码提交、锁文件、构建产物和验证证据必须指向同一候选。任何构建后修改都会产生新候选。
 - `Unreleased` 表示尚未形成对外发布承诺，不能因本地构建成功改写为已发布。
@@ -20,7 +20,7 @@
 - Harness 项目创建命令、内部初始化门禁、`projectType` 枚举或模板输出契约变化；
 - Logo 生成、身份/manifest 同步或 Extension 权限变化；
 - 新增或移除 Harness 支持的独立项目类型；
-- 创建发布候选、对外上传、Chrome Web Store 提交或用户明确要求完整验收。
+- 创建发布候选、对外上传、Chrome Web Store/Firefox AMO 提交或用户明确要求完整验收。
 
 存在用户要求的活动 Work Plan 时，当前候选相关 Todo 必须全部 `done`；没有 Work Plan 本身不阻断用户明确请求的构建或完整验收。
 
@@ -41,7 +41,7 @@ Harness 候选至少满足：
 - 两种生成项目都包含允许初始化地址留空的 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
 - 两种生成项目各自只运行唯一 `pnpm build` 形成候选；同一发布流程复用已明确的 E2E `enabled|disabled` 选择并显式传参，它固定委托 `build:release`，完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2，development/test profile 不提供产物入口；
 - 两种 Release 构建均自动执行 `pnpm release:inspect`（Extension 额外先执行 `pnpm harness validate`，`pnpm package` 同样门禁），扫描规则、检查对象与失败即禁止发布的约束以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 为唯一权威来源；
-- 未实际执行的操作系统、Chrome 版本和分发渠道明确标记 `Unverified`；
+- 未实际执行的操作系统、Chrome/Firefox 版本和分发渠道明确标记 `Unverified`；
 - 当前已知重要限制已记录在 [`TECH_DEBT.md`](TECH_DEBT.md)。
 
 模板本身没有业务产品。初始化成功只证明脚手架基线已安全创建；后续中性 Landing/Popup Release 构建成功也不代表下游业务已经验收。
@@ -64,12 +64,14 @@ Extension 候选至少要求：
 
 1. `.harness/project.json.projectType` 为 `extension`，没有 Vite Web Landing 或独立 Web 站内路由。
 2. 针对同一源码提交运行与 Web 候选相同的唯一 `pnpm build` 门禁（见 §4 第 2 项）。
-3. 最终 Chrome MV3 构建存在，manifest 名称/描述/版本、Plasmo 生成图标、Popup 与 Options 身份一致；Parcel target 是显式 browser context，production JS 不含任何运行时依赖 self-map。
+3. 最终 Chrome MV3 和 Firefox MV2 构建均存在，manifest 本地化名称/描述引用、显式 default_locale、实际 `_locales/*/messages.json` 与项目身份事实以及版本、Plasmo 生成图标、Popup 与 Options 身份一致；Parcel target 是显式 browser context，production JS 不含任何运行时依赖 self-map。
 4. 权限、host permissions、content scripts 和 Web accessible resources 与产品真实用途精确匹配，没有模板遗留高权限。
-5. `pnpm package` 从同一 Release 配置生成 Chrome MV3 zip，并在打包后自动运行 `pnpm harness validate` 与 `pnpm release:inspect`；目录或 zip 重新生成后必须重新记录哈希和验收。
-6. 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，在真实 Chrome 中加载最终构建，按批准范围验证 Popup、Options、页面构建版本、必要消息/Storage/权限行为和 Release 日志脱敏；未实际加载时标记 `Unverified`。
+5. `pnpm package` 从同一 Release 配置生成 Chrome MV3 和 Firefox MV2 各自的 zip，并在打包后自动运行 `pnpm harness validate` 与 `pnpm release:inspect`；目录或 zip 重新生成后必须重新记录哈希和验收。
+6. 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，分别在隔离真实 Chrome 和 Firefox 中加载对应最终构建，按批准范围验证 Popup、Options、页面构建版本、必要消息/Storage/权限行为和 Release 日志脱敏；未实际加载时标记 `Unverified`。
 
-明确要求通过既有 Chrome Web Store 渠道发布时，沿用该请求执行必要上传与发布步骤；新增渠道、账号或范围外副作用才补充授权。构建成功不等于商店审核通过或可公开分发。
+最终 manifest 由 Plasmo 根据目标动态产生：共享 override 不固定 manifest_version，MV3 action/service worker 与 MV2 browser_action/background scripts/page 分别检查；两目录的版本、身份、i18n 和图标必须一致且属于同一源码候选。Firefox 临时加载验证不等于签名安装或 AMO 审核。首次真实 AMO 发布按 [Mozilla 官方 manifest 规则](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/browser_specific_settings) 确认稳定 Gecko ID、签名与实际数据收集声明，不在中性初始化伪造这些事实。
+
+明确要求通过既有 Chrome Web Store 或 Firefox AMO 渠道发布时，沿用该请求执行必要上传与发布步骤；新增渠道、账号或范围外副作用才补充授权。构建成功不等于商店审核通过或可公开分发。
 
 ## 6. 验收与发布顺序
 

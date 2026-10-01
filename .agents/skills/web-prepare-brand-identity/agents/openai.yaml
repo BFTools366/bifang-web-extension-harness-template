@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：准备前端品牌身份"
   short_description: "同步 React Web 或 Plasmo MV3 Extension 的 Logo 与品牌元数据"
-  default_prompt: "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目创建 Logo 并同步品牌元数据。"
+  default_prompt: "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目创建 Logo 并同步品牌元数据。"

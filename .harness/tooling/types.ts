@@ -1,3 +1,5 @@
+import type { IdentityI18n } from "./identity.ts"
+
 // 保存 PROJECT_TYPES 变量供当前逻辑使用。
 export const PROJECT_TYPES = ["web", "extension"] as const
 
@@ -50,6 +52,8 @@ export interface ProjectConfig {
   id: string
   // 描述 description 接口成员的结构契约。
   description: string
+  // 保存默认语言及显式提供的身份翻译。
+  identityI18n?: IdentityI18n
   // 描述 brand 接口成员的结构契约。
   brand: BrandConfig
   // 描述 initializedAt 接口成员的结构契约。
@@ -78,6 +82,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   id: string
   // 描述 description 接口成员的结构契约。
   description: string
+  // 保存默认语言及显式提供的身份翻译。
+  identityI18n?: IdentityI18n
   // 描述 brandColor 接口成员的结构契约。
   brandColor: string
   // 描述 logoPath 接口成员的结构契约。

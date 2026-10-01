@@ -17,19 +17,17 @@ function terminalBuildSource(config: ProjectConfig): string {
   // 保存 hostCommand 变量供当前宿主命令生成使用。
   const hostCommand =
     config.projectType === "web"
-      ? `return {
+      ? `return [{
     command: "pnpm",
     args: ["exec", "vite", "build", "--mode", "production"],
     env: { VITE_BUILD_VERSION: buildVersion }
-  }`
-      : `const args = ["exec", "plasmo", "build"]
-  if (target === "package") args.push("--zip")
-  args.push("--env=.env.production")
-  return {
-    command: "pnpm",
-    args,
-    env: { PLASMO_PUBLIC_BUILD_VERSION: buildVersion }
-  }`
+  }]`
+      : `return EXTENSION_TARGETS.map((browser) => {
+    const args = ["exec", "plasmo", "build"]
+    if (target === "package") args.push("--zip")
+    args.push("--target=" + browser.target, "--tag=prod", "--build-path=build", "--src-path=src", "--env=.env.production")
+    return { command: "pnpm", args, env: { PLASMO_PUBLIC_BUILD_VERSION: buildVersion } }
+  })`
   // 保存 versionImport 变量供当前宿主版本校验依赖生成使用。
   const versionImport =
     config.projectType === "web"
@@ -88,6 +86,7 @@ import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
+${config.projectType === "extension" ? 'import { EXTENSION_TARGETS } from "./extension-targets.ts"' : ""}
 import type { E2eSelection } from "./types.ts"
 ${versionImport}
 
@@ -130,8 +129,8 @@ export function parseBuildArguments(argv: readonly string[]): BuildArguments {
   return { e2e, target }
 }
 
-/** 说明 createHostCommand 的稳定结构与职责边界。 */
-function createHostCommand(target: BuildTarget, buildVersion: string): BuildCommand {
+/** 说明 createHostCommands 的稳定结构与职责边界。 */
+function createHostCommands(target: BuildTarget, buildVersion: string): BuildCommand[] {
   ${hostCommand}
 }
 
@@ -150,7 +149,7 @@ export function createBuildCommandPlan(
     { command: "pnpm", args: ["lint"] },
     { command: "pnpm", args: ["typecheck"] },
     { command: "pnpm", args: ["test"] },
-    createHostCommand(target, buildVersion),
+    ...createHostCommands(target, buildVersion),
     {
       command: "pnpm",
       args: ["release:inspect"],
@@ -256,15 +255,14 @@ function terminalBuildTest(config: ProjectConfig): string {
     args: ["exec", "vite", "build", "--mode", "production"],
     env: { VITE_BUILD_VERSION: "${buildVersion}" }
   })`
-      : `expect(commands[6]).toMatchObject({
-    args: ["exec", "plasmo", "build", "--env=.env.production"],
-    env: { PLASMO_PUBLIC_BUILD_VERSION: "${buildVersion}" }
-  })
-  const packaged = createBuildCommandPlan("package", "${buildVersion}")
-  expect(packaged[6]).toMatchObject({
-    args: ["exec", "plasmo", "build", "--zip", "--env=.env.production"],
-    env: { PLASMO_PUBLIC_BUILD_VERSION: "${buildVersion}" }
-  })`
+      : `for (const [index, browser] of ["chrome-mv3", "firefox-mv2"].entries()) {
+    expect(commands[index + 6]).toMatchObject({
+      args: ["exec", "plasmo", "build", "--target=" + browser, "--tag=prod", "--build-path=build", "--src-path=src", "--env=.env.production"],
+      env: { PLASMO_PUBLIC_BUILD_VERSION: "${buildVersion}" }
+    })
+    const packaged = createBuildCommandPlan("package", "${buildVersion}")
+    expect(packaged[index + 6]?.args).toEqual(["exec", "plasmo", "build", "--zip", "--target=" + browser, "--tag=prod", "--build-path=build", "--src-path=src", "--env=.env.production"])
+  }`
   // 保存 versionTest 变量供当前宿主版本来源与格式回归使用。
   const versionTest =
     config.projectType === "web"
@@ -332,12 +330,12 @@ describe("release build orchestration", () => {
       ${
         config.projectType === "web"
           ? '"pnpm exec vite build --mode production"'
-          : '"pnpm exec plasmo build --env=.env.production"'
+          : '"pnpm exec plasmo build --target=chrome-mv3 --tag=prod --build-path=build --src-path=src --env=.env.production",\n      "pnpm exec plasmo build --target=firefox-mv2 --tag=prod --build-path=build --src-path=src --env=.env.production"'
       },
       "pnpm release:inspect"
     ])
     ${hostAssertions}
-    expect(commands[7]?.env).toEqual({ HARNESS_BUILD_VERSION: "${buildVersion}" })
+    expect(commands[${config.projectType === "web" ? 7 : 8}]?.env).toEqual({ HARNESS_BUILD_VERSION: "${buildVersion}" })
   })
 })
 `

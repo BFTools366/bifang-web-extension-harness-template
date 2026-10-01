@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
+import { cp, readFile, chmod, mkdtemp, mkdir, rm, writeFile } from "node:fs/promises"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, test } from "vitest"
@@ -113,8 +113,48 @@ async function createFixture(
   const pagePath = path.join(artifactRoot, projectType === "web" ? "index.html" : "popup.html")
   await writeFile(pagePath, contents)
   if (projectType === "extension") {
-    await writeFile(path.join(root, "package.json"), JSON.stringify({ version: "1.2.3" }))
-    await writeFile(path.join(artifactRoot, "manifest.json"), JSON.stringify({ version: "1.2.3" }))
+    await writeFile(
+      path.join(root, "package.json"),
+      JSON.stringify({ version: "1.2.3", dependencies: { react: "19.2.0" } })
+    )
+    await writeFile(
+      path.join(artifactRoot, "manifest.json"),
+      JSON.stringify({
+        version: "1.2.3",
+        manifest_version: 3,
+        name: "__MSG_projectName__",
+        description: "__MSG_projectDescription__",
+        default_locale: "en",
+        action: { default_popup: "popup.html" },
+        options_ui: { page: "options.html" }
+      })
+    )
+    for (const locale of ["en", "zh_CN"]) {
+      const directory = path.join(artifactRoot, "_locales", locale)
+      await mkdir(directory, { recursive: true })
+      await writeFile(
+        path.join(directory, "messages.json"),
+        JSON.stringify({
+          projectName: { message: "Release inspection fixture" },
+          projectDescription: { message: "Exercises release URL scanning." }
+        })
+      )
+    }
+  }
+  if (projectType === "extension") {
+    await writeFile(path.join(artifactRoot, "options.html"), "<!doctype html><p>Options</p>")
+    const firefoxRoot = path.join(root, "build/firefox-mv2-prod")
+    await cp(artifactRoot, firefoxRoot, { recursive: true })
+    const manifest = JSON.parse(await readFile(path.join(artifactRoot, "manifest.json"), "utf8"))
+    delete manifest.action
+    await writeFile(
+      path.join(firefoxRoot, "manifest.json"),
+      JSON.stringify({
+        ...manifest,
+        manifest_version: 2,
+        browser_action: { default_popup: "popup.html" }
+      })
+    )
   }
   if (process.platform !== "win32") {
     await chmod(pagePath, 0o644)
@@ -153,6 +193,45 @@ afterEach(
 )
 
 describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  /** 验证不能接受只有 Chrome 的候选或仅 Firefox 中出现的版本/入口/泄漏错误。 */
+  test("rejects missing or incompatible Firefox release artifacts", async () => {
+    const { root } = await createFixture(
+      { development: "", test: "", release: "https://api.example.com" },
+      "<p>Release 1.2.3</p>",
+      { projectType: "extension" }
+    )
+    const firefoxRoot = path.join(root, "build/firefox-mv2-prod")
+    const manifestPath = path.join(firefoxRoot, "manifest.json")
+    const manifest = JSON.parse(await readFile(manifestPath, "utf8"))
+    for (const [patch, expected] of [
+      [{ manifest_version: 3 }, /firefox-mv2.*manifest_version must equal 2/],
+      [{ version: "1.2.4" }, /version does not match/],
+      [{ browser_action: { default_popup: "wrong.html" } }, /missing popup entry/],
+      [{ background: { service_worker: "worker.js" } }, /MV2 background/],
+      [{ host_permissions: ["https://example.com/*"] }, /permissions for host access/]
+    ] as const) {
+      await writeFile(manifestPath, JSON.stringify({ ...manifest, ...patch }))
+      await expect(inspectReleaseArtifact(root)).rejects.toThrow(expected)
+    }
+    await writeFile(manifestPath, JSON.stringify(manifest))
+    await writeFile(path.join(firefoxRoot, "_locales/zh_CN/messages.json"), "{}")
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/Identity locale.*stale/)
+    await cp(
+      path.join(root, "build/chrome-mv3-prod/_locales"),
+      path.join(firefoxRoot, "_locales"),
+      { recursive: true }
+    )
+    await writeFile(path.join(firefoxRoot, "popup.html"), "<p>1.2.3 debug_sentinel</p>")
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/debug_sentinel/)
+    await writeFile(path.join(firefoxRoot, "popup.html"), "<p>1.2.3</p>")
+    await writeFile(path.join(firefoxRoot, "popup.js"), '{"react/jsx-runtime":"react/jsx-runtime"}')
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/unresolved browser dependency/)
+    await rm(firefoxRoot, { recursive: true })
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(
+      /Missing release artifact: build\/firefox-mv2-prod/
+    )
+  })
+
   /** 验证正式扫描允许开发和测试地址留空，但不会放过缺失或不安全的正式地址。 */
   test.each(["web", "extension"] as const)(
     "requires a configured HTTPS release API for %s",
@@ -163,7 +242,7 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
         { projectType }
       )
       await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({
-        files: projectType === "web" ? 1 : 2
+        files: projectType === "web" ? 1 : 10
       })
       for (const release of ["", "http://api.example.com"]) {
         await writeFile(
@@ -284,7 +363,18 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     )
     await writeFile(path.join(artifactRoot, "manifest.json"), JSON.stringify({ version: "1.2.4" }))
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/manifest version does not match/)
-    await writeFile(path.join(artifactRoot, "manifest.json"), JSON.stringify({ version: "1.2.3" }))
+    await writeFile(
+      path.join(artifactRoot, "manifest.json"),
+      JSON.stringify({
+        version: "1.2.3",
+        manifest_version: 3,
+        name: "__MSG_projectName__",
+        description: "__MSG_projectDescription__",
+        default_locale: "en",
+        action: { default_popup: "popup.html" },
+        options_ui: { page: "options.html" }
+      })
+    )
     await writeFile(path.join(artifactRoot, "popup.html"), "<main>Release</main>\n")
     await writeFile(path.join(artifactRoot, "metadata.json"), JSON.stringify({ note: "1.2.3" }))
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/does not contain build version/)

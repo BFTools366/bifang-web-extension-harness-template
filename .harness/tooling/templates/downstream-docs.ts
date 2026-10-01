@@ -4,21 +4,21 @@ import type { ProjectConfig } from "../types.ts"
 function stackName(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "Vite + React/TypeScript、Mantine、TanStack Router、TanStack Query、Jotai 与 i18next"
-    : "Plasmo + Chrome MV3 + React/TypeScript、Mantine、TanStack Router、TanStack Query、Jotai 与 i18next"
+    : "Plasmo + Chrome MV3 + Firefox MV2 + React/TypeScript、Mantine、TanStack Router、TanStack Query、Jotai 与 i18next"
 }
 
 // 执行 brandAssets 函数的处理逻辑。
 function brandAssets(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "`public/logo.png`、`public/favicon.png`、`index.html` 与 Landing 页面"
-    : "`assets/icon.png`、Chrome manifest、Popup 与 Options"
+    : "`assets/icon.png`、Plasmo 按浏览器目标动态生成的 manifest、Popup 与 Options"
 }
 
 // 执行 artifact 函数的处理逻辑。
 function artifact(config: ProjectConfig): string {
   return config.projectType === "web"
     ? "Vite 生成的 `dist/` 目录"
-    : "Plasmo 生成的 Chrome MV3 构建与受验收 zip"
+    : "Plasmo 生成的 Chrome MV3 / Firefox MV2 两套构建与受验收 zip"
 }
 
 // 返回当前宿主独立的页面构建版本来源。
@@ -34,7 +34,7 @@ function engineeringRules(config: ProjectConfig): string {
   const hostRules =
     config.projectType === "web"
       ? `- Web 按 \`app → routes → features → api\` 组织；\`api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
-      : `- Popup 与 Options 是独立 Plasmo 入口，各自挂载 TanStack Router；Popup 使用 memory history，Options 使用 hash history。 \`src/extension-router.tsx\` 用代码声明路由，不使用 Web 文件路由生成器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Service worker 可能随时回收，不能依赖进程内长期状态；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化 Chrome 消息或 Port。`
+      : `- Extension 固定维护 Chrome MV3 与 Firefox MV2，仍是一个单包。执行 Agent 在每次开发中自行核对并保证两目标的 API、callback/Promise、消息、权限、后台、CSP/资源及 URL 差异；按真实消费者使用能力检测、类型化 adapter 或 Plasmo 目标入口，补充受影响目标的成功/失败测试，一个目标通过不能推断另一个。\n- 最终 manifest 由 Plasmo 动态生成，共享 package.json.manifest 不固定 manifest_version；专有 override 按 manifest.overrides.chrome/firefox 浅合并，值使用目标最终协议，不能期待自动转换任意手写后台/action；pnpm dev 默认 Chrome，pnpm dev:firefox 使用 Firefox，build/package 默认完成两目标与统一检查。\n- Popup 与 Options 是独立 Plasmo 入口，各自挂载 TanStack Router；Popup 使用 memory history，Options 使用 hash history。 \`src/extension-router.tsx\` 用代码声明路由，不使用 Web 文件路由生成器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Chrome MV3 使用可回收 service worker，Firefox MV2 使用后台 scripts/page；监听器及时注册，状态可恢复，不把后台页持久运行当作共同前提；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化浏览器消息或 Port。`
   // 保存 routeTreeExclusion 变量供当前逻辑使用。
   const routeTreeExclusion = config.projectType === "web" ? " src/routeTree.gen.ts、" : " "
 
@@ -54,8 +54,8 @@ function engineeringRules(config: ProjectConfig): string {
 
 - 启用严格类型检查；跨模块输入、外部响应、浏览器消息和环境变量在边界校验，不用无约束 \`any\` 隐藏不确定性。
 - React 组件负责渲染与局部交互；TanStack Query 管理远端或异步服务状态；Jotai 只管理确需跨组件共享的纯客户端状态，不镜像 Query 数据。
-- \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/api/client/\` 的三个 header、Token、错误和 401 handler 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
-- Ky/OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
+- \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
+- Ky 为默认 HTTP 传输；OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
 - Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。
 - 用户可见文案进入 i18next，至少保留英文回退和项目声明的实际语言资源。
@@ -63,7 +63,7 @@ function engineeringRules(config: ProjectConfig): string {
 - 产品日志只通过 \`src/observability/logger.ts\`，边界覆盖、敏感字段和 Release 裁剪遵循 \`docs/LOGGING.md\`。
 - 严格中文注释门禁覆盖人工维护与 Harness 生成的 .ts/.tsx 中的稳定结构声明：interface、type alias、enum、class、具名函数、方法/访问器/constructor、直接或后置命名/默认导出的箭头函数组件与 hook，以及测试文件或显式 Vitest 导入中的 test/it 场景，都必须紧邻一条包含汉字的注释。显而易见的字段、局部变量、循环绑定和普通匿名/极短内联 callback 由所属结构或函数注释覆盖；非直观约束仍在最近职责边界说明。
 - 只精确排除第三方或构建生成物${routeTreeExclusion}.plasmo/**、build/**、dist/**、coverage/**、node_modules/** 与 .git/**；不得用 *.gen.ts 等宽泛模式隐藏维护源码。注释应说明声明职责，不能用字符串、英文注释、尾随前一语句或隔空文件头冒充；pnpm lint 会自动运行 pnpm comments:check。
-- 人工维护代码不超过 500 行为默认目标；501–1000 行必须复核业务高内聚与单一职责并记录保留理由，1001 行起必须按业务逻辑拆分。拆分文件留在原功能或工具模块目录，不建立跨模块 \`utils\`/\`common\` 兜底层，也不得压缩格式规避；生成文件与人工维护文件保持清晰边界。源码体积门禁额外排除 GraphQL codegen 等 \`generated/**\` 输出目录，因为该类文件不受业务内聚拆分约束。
+- 人工维护代码不超过 500 行为默认目标；501–600 行必须复核业务高内聚与单一职责并记录保留理由，601 行起必须按业务逻辑拆分。拆分文件留在原功能或工具模块目录，不建立跨模块 \`utils\`/\`common\` 兜底层，也不得压缩格式规避；生成文件与人工维护文件保持清晰边界。源码体积门禁额外排除 GraphQL codegen 等 \`generated/**\` 输出目录，因为该类文件不受业务内聚拆分约束。
 
 ## 当前宿主规则
 
@@ -72,7 +72,7 @@ ${hostRules}
 ## 品牌与身份
 
 1. 先更新 \`.harness/project.json\` 或提供新的 Logo 源。
-2. 运行 \`pnpm harness brand refresh\`，只生成当前宿主资产。
+2. 运行 \`pnpm harness brand refresh\`，只生成当前宿主资产与身份翻译；根 name/description 是默认语言，identityI18n 只记录另一语言翻译。
 3. 运行 \`pnpm harness validate\`，不得手工修补派生文件来掩盖事实源漂移。
 
 ## 测试与交付
@@ -92,7 +92,7 @@ function releaseRules(config: ProjectConfig): string {
   const artifactChecks =
     config.projectType === "web"
       ? "检查 `dist/index.html`、静态资源、Logo/favicon、路由回退与部署配置。"
-      : "先由 `pnpm harness validate` 检查 browser target 和运行时依赖自包含，再检查 MV3 manifest、Popup、Options、图标、版本及 permissions/host_permissions；还必须对同一 Release 源码运行 `pnpm package`，确认其自动执行 `pnpm harness validate` 与 `pnpm release:inspect` 并生成受验收 zip。"
+      : "先由 `pnpm harness validate` 检查 browser target 和运行时依赖自包含，构建后由 `release:inspect` 分别检查 Chrome MV3 / Firefox MV2 动态 manifest 的身份消息引用、default_locale 与实际 `_locales` 内容，再检查 Popup、Options、图标、版本及 permissions/host_permissions；两个 production 目录均必需，任一目标缺失或失败都拒绝候选；还必须对同一 Release 源码运行 `pnpm package`，确认其自动执行 `pnpm harness validate` 与 `pnpm release:inspect` 并分别生成 build/chrome-mv3-prod.zip 与 build/firefox-mv2-prod.zip，两者独立绑定哈希与验收。"
 
   return `# 版本与发布
 
@@ -100,7 +100,7 @@ function releaseRules(config: ProjectConfig): string {
 
 ## 版本事实
 
-- ${config.projectType === "web" ? "页面候选版本由构建时的上海时间 `YYMMDDHHMMSS` 生成；`package.json.version` 仅是包元数据。" : "根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）是软件、页面与 MV3 manifest 的同一版本事实；每段不超过 65535，三段不能全为零，构建和打包不自动递增。"}\`pnpm-lock.yaml\` 固定依赖解析。
+- ${config.projectType === "web" ? "页面候选版本由构建时的上海时间 `YYMMDDHHMMSS` 生成；`package.json.version` 仅是包元数据。" : "根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）是软件、页面与两目标 manifest 的同一版本事实；每段不超过 65535，三段不能全为零，构建和打包不自动递增。"}\`pnpm-lock.yaml\` 固定依赖解析。
 - 版本、源码提交、锁文件、构建产物和验证证据必须指向同一候选；构建后的行为或品牌修改会产生新候选。
 - 当前唯一发布产物是${artifact(config)}，不得用另一宿主或开发预览替代。
 
@@ -109,7 +109,7 @@ function releaseRules(config: ProjectConfig): string {
 1. \`.harness/project.json.projectType\` 必须仍为 \`${config.projectType}\`，仓库保持单包且没有另一宿主入口。
 2. 解析或复用本次发布的 E2E \`enabled|disabled\` 选择，再对同一源码实际运行 \`pnpm build -- --e2e=<selection>\`；该唯一 Release 构建入口必须自动完成 \`pnpm harness validate\`、格式、lint、typecheck 与非空全量单元测试，不在外层重复执行同一批门禁。
 3. \`pnpm build\` 必须校验三份受管环境配置和活动 Release profile，${config.projectType === "web" ? "生成" : "读取"}并展示${buildVersionSource(config)}构建版本，并在生产构建后自动通过包含版本命中的 \`pnpm release:inspect\`；${artifactChecks}development/test profile 不得生成候选产物。
-4. 当次 E2E 选择 \`enabled\` 或产品、安全、渠道硬要求浏览器验证时，只对上述精确 Release 候选运行；选择 \`disabled\` 时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
+4. 当次 E2E 选择 \`enabled\` 或产品、安全、渠道硬要求浏览器验证时，只对上述精确 Release 候选运行${config.projectType === "extension" ? "，分别在隔离真实 Chrome/Firefox 记录各目标证据；临时加载不证明 AMO 签名/分发，首次真实发布按产品事实确认 Gecko ID 与数据收集声明" : ""}；选择 \`disabled\` 时记录 \`Not run\` 与 \`Unverified\` 范围，不把开发预览或 Mock 冒充候选证据。
 5. 在当前任务交付说明中报告源码提交、版本、最终文件清单、适用时的 SHA-256、实际环境、已运行检查、未验证范围与已知问题；构建操作本身不写入 ADR、Changelog、Verification 或其他持久项目记忆。
 6. 必需检查失败、取消、超时或未执行时结论为 \`Not ready\`；不能用历史结果或部分成功替代。
 
@@ -144,7 +144,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 浏览器公开前缀中的值会进入产物，绝不保存 Token、Cookie、密码、API key 或服务端秘密。业务代码只读 \`src/config/environment.ts\` 导出的冻结 \`APP_CONFIG\`，不得散落读取宿主环境变量或拼接任意 BaseURL。
 
-构建编排器只向宿主生产构建子进程注入只读的 \`${prefix}BUILD_VERSION\`，值为${buildVersionSource(config)}；它不属于四个可配置 profile 键，不得写入 \`.env*\` 或 \`APP_CONFIG\`。页面通过 \`src/buildVersion.ts\` 展示该值，\`release:inspect\` 使用同一私有期望值确认候选命中。${config.projectType === "extension" ? "MV3 manifest 版本还必须与 `package.json.version` 一致。" : ""}
+构建编排器只向宿主生产构建子进程注入只读的 \`${prefix}BUILD_VERSION\`，值为${buildVersionSource(config)}；它不属于四个可配置 profile 键，不得写入 \`.env*\` 或 \`APP_CONFIG\`。页面通过 \`src/buildVersion.ts\` 展示该值，\`release:inspect\` 使用同一私有期望值确认候选命中。${config.projectType === "extension" ? "两目标 manifest 版本还必须与 `package.json.version` 一致。" : ""}
 
 语言偏好、分页 session、\`X-Http-Request\` continuation 与 \`X-AUTH-TOKEN\` 都是运行时状态，不进入任何公开环境键；其存储、并发和清理规则见 \`docs/DATA_ACCESS.md\`。
 
@@ -156,9 +156,9 @@ function runtimeConfiguration(config: ProjectConfig): string {
 - \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖；Release profile 要求正式地址非空且 HTTPS。
 - \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；复用本次发布已明确的 E2E 选择，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
 
-Node.js、pnpm 与 Chrome 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。
+Node.js、pnpm 与按需使用的${config.projectType === "web" ? " Chrome" : " Chrome/Firefox"} 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。
 
-Extension 的 BaseURL 不会自动授予 \`host_permissions\`；真实网络消费者仍按 \`docs/DATA_ACCESS.md\` 审批最小权限。
+${config.projectType === "extension" ? "Extension 的 BaseURL 不授予权限；Chrome MV3 host_permissions / Firefox MV2 permissions 中的 host patterns 按 docs/DATA_ACCESS.md 审批最小集合。" : ""}
 `
 }
 
@@ -170,7 +170,7 @@ function loggingRules(config: ProjectConfig): string {
 
 ## 结构与覆盖
 
-每条记录包含 ISO 时间、\`debug|info|warn|error\`、稳定小写 \`scope\`/\`event\`、环境和可选有界 context。初始化基线覆盖启动、浏览器全局错误、未处理 Promise、React render boundary 以及 TanStack Query/Mutation 错误；未来新增 route、API、Chrome message、content script 或 service worker 入口时，应在各自执行上下文接入 logger。
+每条记录包含 ISO 时间、\`debug|info|warn|error\`、稳定小写 \`scope\`/\`event\`、环境和可选有界 context。初始化基线覆盖启动、浏览器全局错误、未处理 Promise、React render boundary 以及 TanStack Query/Mutation 错误；未来新增 route、API、浏览器 message、content script 或 service worker 入口时，应在各自执行上下文接入 logger。
 
 默认 sink 只写本地浏览器 console，不持久化、不上传。远端遥测会改变隐私边界，必须另行审批。
 
@@ -178,7 +178,7 @@ function loggingRules(config: ProjectConfig): string {
 
 - 所有环境按键名脱敏 Authorization、Token、Cookie、password、secret 与 API key。
 - HTTP client 的 continuation、语言和认证 header 值、request/response body 以及未经校验的服务端消息从不进入日志；\`X-Http-Request\` 不自动作为 requestId 记录。
-- HTTP 基线只使用稳定事件 \`http.request_failed\`、\`http.unauthorized\` 与 \`http.unauthorized_handler_failed\`；401 handler 失败只记录最后一项，原请求仍向调用方抛出 \`authentication_required\` 401。
+- HTTP 基线使用稳定事件 \`http.request_failed\`、\`http.unauthorized\` 、\`http.unauthorized_handler_failed\` 与 \`http.error_interceptor_failed\`；401 handler 失败只记录 \`http.unauthorized_handler_failed\` 并保留原 401；观察器失败只记录 \`http.error_interceptor_failed\` 并保留原始协议或传输错误。
 - Release 有效最低级别固定为 \`warn\`，抑制 debug/info，只保留批准字段。
 - URL 删除凭据、query 和 fragment；Error 删除 stack/cause；用户绝对路径替换为 \`[LOCAL_PATH]\`。
 - body、headers、GraphQL variables、Storage、页面内容、完整标签页 URL 与任意对象快照禁止记录。
@@ -188,7 +188,7 @@ function loggingRules(config: ProjectConfig): string {
     config.projectType === "extension"
       ? "Extension 还会先运行 `pnpm harness validate`，拒绝错误 browser target 或运行时依赖 Parcel self-map。"
       : ""
-  }文件名层对所有候选文件拒绝 \`.env*\` 与 \`.map\`；内容扫描只读取 \`.css\`、\`.html\`、\`.js\`、\`.json\`、\`.mjs\`、\`.txt\` 与 \`.xml\`，并拒绝开发/测试 BaseURL、固定哨兵 \`debug_sentinel\`、\`info_sentinel\`、\`application_started\`、\`surface_started\`、\`do-not-ship\`、原始 \`console.debug\`/\`console.info\`、本机绝对路径与 \`sourceMappingURL\`。Extension 检查 \`build/chrome-mv3-prod\`，不会直接解包扫描 zip。该固定规则集不是通用秘密扫描器，也不能代替 logger 单元测试或被硬要求的真实 Chrome 候选验证。
+  }文件名层对所有候选文件拒绝 \`.env*\` 与 \`.map\`；内容扫描只读取 \`.css\`、\`.html\`、\`.js\`、\`.json\`、\`.mjs\`、\`.txt\` 与 \`.xml\`，并拒绝开发/测试 BaseURL、固定哨兵 \`debug_sentinel\`、\`info_sentinel\`、\`application_started\`、\`surface_started\`、\`do-not-ship\`、原始 \`console.debug\`/\`console.info\`、本机绝对路径与 \`sourceMappingURL\`。${config.projectType === "extension" ? "Extension 分别检查 `build/chrome-mv3-prod` 与 `build/firefox-mv2-prod`，不会直接解包扫描 zip。" : ""}该固定规则集不是通用秘密扫描器，也不能代替 logger 单元测试或被硬要求的${config.projectType === "web" ? "真实 Chrome" : "逐目标真实 Chrome/Firefox"} 候选验证。
 `
 }
 
@@ -212,6 +212,7 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
   const sectionMarker = "## 1. 选型结论"
   // 保存 webListMarker 与 httpMarker 变量供 Extension 裁掉 Web-only 列表数据契约使用。
   const webListMarker = "### 2.5 React Web 路由列表契约"
+  const queryMarker = "### 2.6 Query 重试、mutation 与缓存生命周期"
   const httpMarker = "## 3. HTTP、认证与 REST/OpenAPI"
   // 保存 deliveryMarker 变量供当前逻辑使用。
   const deliveryMarker = "## 7. 落地与测试门禁"
@@ -222,8 +223,9 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
   const allCanonicalSections = canonical.slice(sectionStart).trim()
   // 保存 webListStart 与 httpStart 变量供验证 Web-only 章节边界使用。
   const webListStart = allCanonicalSections.indexOf(webListMarker)
+  const queryStart = allCanonicalSections.indexOf(queryMarker)
   const httpStart = allCanonicalSections.indexOf(httpMarker)
-  if (webListStart < 0 || httpStart <= webListStart) {
+  if (webListStart < 0 || queryStart <= webListStart || httpStart <= queryStart) {
     throw new Error("Canonical DATA_ACCESS.md has invalid Web list section markers")
   }
   // 保存 canonicalSections 变量；Extension 删除只适用于 React Web 的列表正向契约。
@@ -231,7 +233,7 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
     config.projectType === "web"
       ? allCanonicalSections
       : `${allCanonicalSections.slice(0, webListStart).trimEnd()}\n\n${allCanonicalSections
-          .slice(httpStart)
+          .slice(queryStart)
           .trimStart()}`
   // 保存 deliveryStart 变量供当前逻辑使用。
   const deliveryStart = canonicalSections.indexOf(deliveryMarker)
@@ -246,7 +248,7 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
 - 页面、路由或 target 改变时关闭旧 SSE 连接，避免隐藏页面和重复挂载产生重复订阅。`
       : `## 当前 Extension 宿主补充
 
-- 每个跨域 REST、GraphQL 或 SSE origin 只在真实功能落地时申请最小 **host_permissions**；本知识文档不授予或预置权限。
+- 每个跨域 REST、GraphQL 或 SSE origin 只在真实功能落地时申请最小 **host_permissions**（Chrome MV3）/ **permissions** host patterns（Firefox MV2）；本知识文档不授予或预置权限。
 - 类型化 endpoint registry 必须与已批准的 manifest origin 一致，并覆盖权限未授予或被撤销的失败路径。
 - Popup/Options 关闭时清理连接；MV3 service worker 可能被回收，不能承诺把持久 SSE 长连接托管在 service worker。`
 
@@ -259,7 +261,7 @@ ${canonicalSections.slice(deliveryStart)}`
 
   return `# 数据访问与事件流集成技术选型
 
-本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的分页、HTTP/认证、数据访问、SSE 与可选 RxJS 工程事实。项目包含无业务 endpoint 的原生 Fetch 与分页基础，不预装 Ky/Axios/RxJS、不生成占位网络/事件总线代码，也不预置 endpoint 或 Extension 权限。
+本文档是 **${config.name}** 当前 \`${config.projectType}\` 单包的分页、HTTP/认证、数据访问、SSE 与可选 RxJS 工程事实。项目包含无业务 endpoint 的 Ky HTTP 与分页基础，Ky 为运行时依赖，不预装 Axios/RxJS、不生成占位网络/事件总线代码，也不预置 endpoint 或 Extension 权限。
 
 ${derivedSections}
 `

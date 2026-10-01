@@ -6,6 +6,7 @@ import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
+import { EXTENSION_TARGETS } from "./extension-targets.ts"
 import type { E2eSelection, ProjectType } from "./types.ts"
 import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
 
@@ -146,15 +147,22 @@ export function createBuildCommandPlan(
       env: { VITE_BUILD_VERSION: buildVersion }
     })
   } else {
-    // 保存 plasmoArgs 变量供 Extension 构建或打包使用。
-    const plasmoArgs = ["exec", "plasmo", "build"]
-    if (target === "package") plasmoArgs.push("--zip")
-    plasmoArgs.push("--env=.env.production")
-    commands.push({
-      command: "pnpm",
-      args: plasmoArgs,
-      env: { PLASMO_PUBLIC_BUILD_VERSION: buildVersion }
-    })
+    for (const browser of EXTENSION_TARGETS) {
+      const plasmoArgs = ["exec", "plasmo", "build"]
+      if (target === "package") plasmoArgs.push("--zip")
+      plasmoArgs.push(
+        `--target=${browser.target}`,
+        "--tag=prod",
+        "--build-path=build",
+        "--src-path=src",
+        "--env=.env.production"
+      )
+      commands.push({
+        command: "pnpm",
+        args: plasmoArgs,
+        env: { PLASMO_PUBLIC_BUILD_VERSION: buildVersion }
+      })
+    }
   }
   commands.push({
     command: "pnpm",

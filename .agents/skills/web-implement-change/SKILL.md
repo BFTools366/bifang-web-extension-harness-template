@@ -1,6 +1,6 @@
 ---
 name: web-implement-change
-description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游中直接实施范围清楚的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。
+description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中直接实施范围清楚的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。
 ---
 
 # Web Harness：实施前端变更
@@ -28,21 +28,21 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
 3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。
-5. Extension 使用 Plasmo Chrome MV3 约定。popup/options/content/background 各自拥有宿主生命周期；消息与 storage 契约显式类型化，监听器可清理，权限保持最小。新增或扩大 permissions/host_permissions 必须取得明确批准，并执行权限、安全及真实 Chrome 专项门禁。
+5. Extension 使用同一 Plasmo 单包的 Chrome MV3 / Firefox MV2 约定；每次开发由执行 Agent 自行核对并保证两目标 API、callback/Promise、消息响应、权限、后台生命周期、CSP/资源和 URL 的差异与兼容。按真实消费者选择能力检测、类型化 adapter 或 Plasmo 目标入口，消息/storage 显式校验，监听器可清理，状态可恢复。最终 manifest 由 Plasmo 动态派生，共享 override 不固定 manifest_version。新增或扩大权限必须取得明确批准，并执行权限、安全及两个真实浏览器专项门禁。
 6. 面向用户的新文案通过既有 `i18next`/`react-i18next` 资源，不引入第二套 i18n 机制。
 7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止 `.env`/`.env*.local` 隐式覆盖及未知公开键，不得把浏览器公开变量当秘密。
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
-9. 集合分页与 HTTP client 变化读取 `DATA_ACCESS.md`：复用 `src/pagination/` 的 1-based page/pageSize 契约和 `src/api/client/` 的 header/Token/401 边界；普通集合使用生成的 session 状态机，Web 路由列表则按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复。真实 endpoint 负责把外部分页字段映射为内部结构，不能复制一套页面私有标准；业务行与 `total` 只属于 Query/feature。
+9. 集合分页与 HTTP client 变化读取 `DATA_ACCESS.md`：复用 `src/pagination/` 的 1-based page/pageSize 契约和 `src/api/client/` 的 header/Token 写入与 401/403/其他错误拦截边界；Query 使用 `requestHttpQuery` 交由最终状态反馈，直接请求、真实认证 adapter 与 Router/UI 按该事实源接线；普通集合使用生成的 session 状态机，Web 路由列表则按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复。真实 endpoint 负责把外部分页字段映射为内部结构，不能复制一套页面私有标准；业务行与 `total` 只属于 Query/feature。
 10. 不留下 mock、stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力。
 
 ## 测试与验证
 
-1. 行为变化新增或更新非空测试：成功路径、最高风险失败和缺陷回归。组件交互用 Testing Library；纯函数/服务用 Vitest；Extension 消息、storage 和权限拒绝覆盖相应契约。
+1. 行为变化新增或更新非空测试：成功路径、最高风险失败和缺陷回归。组件交互用 Testing Library；纯函数/服务用 Vitest；Extension 对受影响目标分别覆盖消息、storage、权限拒绝和不支持/异步差异，单一 Chrome mock 不能证明 Firefox 兼容。
 2. 日常实现只运行第 1 项新增或更新的相关非空测试；通常使用 `pnpm test:related <changed-source...>`，相关图返回零测试时改跑所属测试文件或记录相称最小替代检查，不得把空批次声明为通过。用户可见 Task 真实进入这些测试、review 或 checkpoint 前把标题进度更新为 `检查中`；检查失败并返回同范围修复时更新为 `运行中`，再次检查再进入 `检查中`。每次真实转换至多尝试一次，并按真实 `threadId` 用 `list_threads` 有界复读。内部 Subagent 不适用用户可见 Task 标题合同。纯文档、元数据、格式或不可合理单测的机械变化不制造空洞测试，只运行证明解析或差异完整所必需的最小检查。
 3. 日常开发不得自动追加格式化、lint、typecheck、集成/契约、全仓测试、构建、文件行数、中文声明注释、冒烟或 E2E。只有本次变化确实需要、用户明确请求，或正式候选/产品/安全/权限/渠道硬要求时才运行对应门禁；任一已经运行的检查失败仍在当前授权范围内修复并重跑。行为保持重构按 `$web-refactor-code` 运行全量测试。
 4. 只有用户明确请求最终产物/完整验收、当前任务正在形成发布候选，或产品、安全、权限、渠道存在真实候选硬要求时才运行唯一 `pnpm build`。同一发布流程复用已明确的 E2E 选择并传入 `--e2e=enabled|disabled`；尚无选择且无硬要求时才询问一次，有硬要求时执行 `enabled`。重建或打包后仍重新验收新候选。构建固定委托 `build:release`，并拥有环境、Harness、格式、lint、类型、全量测试、Web 上海时间 `YYMMDDHHMMSS` 或 Extension `package.json.version` 稳定 SemVer 的版本注入、生产构建和 `release:inspect` 门禁。模板输出契约需要完整验收时，还要在隔离目录生成并验证 Web 与 Extension，但每个下游只生成自身 Release 候选，不生成 development/test 产物。
-5. 本次变化确实涉及职责或体积时，检查人工维护文件：终端下游 501–1000 行复核业务高内聚与单一职责，1001 行起必须按业务职责拆分到同一功能或工具模块目录；源 Harness 按其 `docs/ENGINEERING_RULES.md` 的 500/2000 受管文本边界执行。不得压缩格式或建立跨模块兜底目录规避。
-6. 修复范围内失败并重跑。涉及 Release 构建时确认 `build:release`（及 Extension `package`）在宿主命令后自动通过 `pnpm release:inspect`，并验证页面包含当次构建版本；需要复核既有产物时直接运行该脚本。本 Skill 不直接运行冒烟或 E2E；当次选择 `enabled` 时把精确候选交给 `$web-verify-delivery` 执行批准的 E2E，选择 `disabled` 时记录 `Not run`，不把开发服务器或单元测试声明为真实产物验收。
+5. 本次变化确实涉及职责或体积时，检查人工维护文件：终端下游 501–600 行复核业务高内聚与单一职责，601 行起必须按业务职责拆分到同一功能或工具模块目录；源 Harness 代码同样使用 500/600，其他受管文本按 `docs/ENGINEERING_RULES.md` 的 500/2000 边界执行。不得压缩格式或建立跨模块兜底目录规避。
+6. 修复范围内失败并重跑。涉及 Release 构建时确认 `build:release`（及 Extension `package`）在宿主命令后自动通过 `pnpm release:inspect`，并验证两目标页面包含当次构建版本，两个目标构建或检查任何一个失败都必须修复；需要复核既有产物时直接运行该脚本。本 Skill 不直接运行冒烟或 E2E；当次选择 `enabled` 时把精确候选交给 `$web-verify-delivery` 执行批准的 E2E，选择 `disabled` 时记录 `Not run`，不把开发服务器或单元测试声明为真实产物验收。
 7. 发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求时交给 `$web-verify-delivery`；存在活动 Work Plan 时先要求相关 Todo 全部 `done`。没有这些独立事件的日常实现，在本次必要测试或最小替代检查通过后直接报告。
 
 ## 项目记忆

@@ -152,7 +152,9 @@
 | 权限/认证  | 缺少什么条件、如何恢复             | 专用说明与安全入口；不把权限问题伪装成普通网络错误              |
 | 系统错误   | 当前操作无法继续、用户数据是否安全 | Error boundary/fallback；技术细节进入脱敏日志，不直接暴露 stack |
 
-如果引入全局通知，必须先安装并验证 `@mantine/notifications`，在每个 React 根只挂载一个 Notifications 容器，并保留关键反馈的持久、就近表达。Toast 不能承载字段错误、长说明或唯一的完成证据。
+HTTP 基础已生成 `HttpErrorView` 和每个 React 根唯一的 `HttpFeedback`，使用既有 Mantine Alert 与 i18next。全局提示持续保留原内容，关闭只清提示；局部/路由接管同一错误后精确清理全局反馈，同语义重复只播报一次，最新失败拥有清理权。401/403 使用专用本地化状态，只有真实入口存在时才提供认证或权限申请动作；写入失败不能提供未经业务确认的重放按钮。
+
+如果另外引入全局通知，必须先安装并验证 `@mantine/notifications`，在每个 React 根只挂载一个 Notifications 容器，并保留关键反馈的持久、就近表达。Toast 不能承载字段错误、长说明或唯一的完成证据。
 
 ## 7. 无障碍、国际化与内容
 
@@ -197,8 +199,8 @@ Web 页面采用以下三类布局，不把初始化的居中 Hero 复制到所�
 ### 8.1 路由加载、错误与恢复
 
 - 初始化在 `src/features/route-state/RouteState.tsx` 生成统一路由状态，并由 `src/app/router.tsx` 消费 `routeStateDefaults`。慢路由使用本地化 `role="status"`；沿用 Router 的加载阈值和最短展示时间，真实 feature 可以按实际结构覆盖，不为静态页面制造假请求。
-- loader、路由组件渲染和路由加载失败进入安全错误界面；原始异常只交给统一 logger。未知路径仍走独立 404，认证与权限拒绝由真实 feature 使用专用状态，不能把所有失败都显示成 404。
-- 用户显式重试调用并等待 `router.invalidate({ sync: true })`，每次配合 Query error boundary reset 恢复读取；只重置 React boundary 不能替代重新执行 loader。按钮防止重复点击，持续失败仍保留恢复入口，不自动重放 mutation 或额外清空产品草稿。路由错误可能卸载子树，组件本地状态不保证保留；真实表单按 §5.2 定义草稿保存边界。
+- loader、路由组件渲染和路由加载失败进入安全错误界面；原始异常只交给统一 logger。未知路径仍走独立 404；已有 `HttpErrorView` 区分认证、权限、网络、超时、频率与服务错误，真实 feature 复用分类，不能把所有失败都显示成 404。
+- 只有允许恢复的读取显示普通重试，401/403 无普通重试或虚构登录按钮，回首页使用 Link；用户显式重试调用并等待 `router.invalidate({ sync: true })`，每次配合 Query error boundary reset 恢复读取；只重置 React boundary 不能替代重新执行 loader。按钮防止重复点击，持续失败仍保留恢复入口，不自动重放 mutation 或额外清空产品草稿。路由错误可能卸载子树，组件本地状态不保证保留；真实表单按 §5.2 定义草稿保存边界。
 - route 状态与外层 `AppErrorBoundary` 分工：前者覆盖路由内的加载与渲染，后者保留为 Provider/根渲染失败的最后防线。致命启动失败不能承诺原地恢复；需要重新打开页面时，文案明确这一操作。
 - 生成测试使用真实 Router 覆盖慢 loader、首次失败后重试、持续失败、渲染异常和 404 返回首页；这些单元证据不替代真实浏览器布局或网络验收。
 
@@ -223,8 +225,9 @@ Popup 与 Options 使用同一主题语义，但服务不同任务：
 - Popup 使用 compact but operable 密度：可以采用 `sm` gap/控件，但可点击目标、可见焦点、错误和文本缩放不得牺牲。核心 CTA 不应依赖滚动才能发现。
 - Options 不复用 Popup 的固定宽度和紧凑密度，也不引入与设置任务无关的站点式导航。只有设置量真实增长后才增加目录/侧栏。
 - theme 与根 `MantineProvider` 保持在 `src/providers.tsx`；只有出现真实跨入口复用需求时才提取单独 theme 模块。
+- Popup/Options 的实际 Router 各自装配 `ExtensionRouteErrorPage`，复用 HTTP 分类、Query reset 和读取恢复；两入口各挂载一个 `HttpFeedback`，不跨上下文共享反馈或认证 latch。
 - Popup/Options 各自挂载 Provider 时使用同一包内 theme 定义；外观偏好通过项目命名空间的 `localStorage` 保存，不跨执行上下文假定弹层、通知或焦点状态自动共享。
-- 避免远程字体与远程样式依赖，保持 MV3/CSP 自包含。Overlay、Select、Menu 和 Tooltip 必须在扩展 surface 的实际视口内验证位置、裁切和关闭行为。
+- 避免远程字体与远程样式依赖，保持 Chrome MV3 / Firefox MV2 的 CSP 与资源自包含。Overlay、Select、Menu 和 Tooltip 必须在扩展 surface 的实际视口内验证位置、裁切和关闭行为。
 - 当前单包只保留扩展入口、资源和已批准的最小权限，不增加第二宿主或站点路由。
 
 ## 10. 交付检查

@@ -1,6 +1,6 @@
 ---
 name: web-configure-git-commits
-description: 仅在用户明确要求配置 Git，或下一步将实际创建提交时，为 Web Harness、React Web 或 Plasmo Chrome MV3 Extension 独立仓库即时检查并补齐仓库本地身份、安装并检查受管提交模板；不得因打开、检查或编辑仓库而提前配置，不修改全局配置，也不自动提交。
+description: 仅在用户明确要求配置 Git，或下一步将实际创建提交时，为 Web Harness、React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 独立仓库即时检查并补齐仓库本地身份、安装并检查受管提交模板；不得因打开、检查或编辑仓库而提前配置，不修改全局配置，也不自动提交。
 ---
 
 # Web Harness：配置 Git 提交

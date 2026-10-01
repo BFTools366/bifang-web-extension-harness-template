@@ -1,3 +1,4 @@
+import { extensionIdentityManifest } from "./identity.ts"
 import type { ProjectConfig } from "./types.ts"
 
 /** 描述需要安全改写的 package.json 松散结构。 */
@@ -11,6 +12,7 @@ const runtimeVersions = {
   query: "5.104.0",
   router: "1.170.40",
   jotai: "3.0.1",
+  ky: "2.1.0",
   i18next: "26.4.2",
   reactI18next: "17.0.15"
 } as const
@@ -54,6 +56,7 @@ function commonDependencies(): Record<string, string> {
     "@tanstack/react-query": runtimeVersions.query,
     i18next: runtimeVersions.i18next,
     jotai: runtimeVersions.jotai,
+    ky: runtimeVersions.ky,
     react: runtimeVersions.react,
     "react-dom": runtimeVersions.reactDom,
     "react-i18next": runtimeVersions.reactI18next
@@ -86,7 +89,7 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
     "@tanstack/react-router": runtimeVersions.router
   }
   // 保存 devDependencies 变量供当前逻辑使用。
-  const devDependencies = {
+  const devDependencies: Record<string, string> = {
     ...asRecord(existing.devDependencies),
     "@testing-library/jest-dom": testingVersions.jestDom,
     "@testing-library/react": testingVersions.testingLibrary,
@@ -103,6 +106,8 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
         }
       : { "@types/chrome": toolingVersions.typesChrome, plasmo: toolingVersions.plasmo })
   }
+  // 源 Harness 的框架依赖用于真实模板回归，终端项目统一只保留运行时声明。
+  for (const dependency of Object.keys(dependencies)) delete devDependencies[dependency]
   // 保存 scripts 变量供当前逻辑使用。
   const scripts = {
     ...commonScripts(),
@@ -116,7 +121,8 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
           typecheck: "pnpm routes:generate && tsc --noEmit"
         }
       : {
-          dev: "plasmo dev --env=.env.development",
+          dev: "plasmo dev --target=chrome-mv3 --env=.env.development",
+          "dev:firefox": "plasmo dev --target=firefox-mv2 --env=.env.development",
           build: "pnpm build:release",
           "build:release": "tsx .harness/tooling/build.ts build",
           package: "tsx .harness/tooling/build.ts package"
@@ -150,9 +156,7 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
     }
     manifest.displayName = config.name
     manifest.manifest = {
-      manifest_version: 3,
-      name: config.name,
-      description: config.description
+      ...extensionIdentityManifest(config)
     }
   } else {
     delete manifest.targets
@@ -175,13 +179,13 @@ export function updateManifestIdentity(existing: PackageJson, config: ProjectCon
     // 保存 currentManifest 变量供当前逻辑使用。
     const currentManifest =
       existing.manifest !== null && typeof existing.manifest === "object"
-        ? (existing.manifest as Record<string, unknown>)
+        ? { ...(existing.manifest as Record<string, unknown>) }
         : {}
+    // 共享 override 不锁 manifest_version，防止覆盖 Firefox MV2 工厂。
+    delete currentManifest.manifest_version
     updated.manifest = {
       ...currentManifest,
-      manifest_version: 3,
-      name: config.name,
-      description: config.description
+      ...extensionIdentityManifest(config)
     }
   }
   return updated

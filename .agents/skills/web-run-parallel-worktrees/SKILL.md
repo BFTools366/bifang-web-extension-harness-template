@@ -1,6 +1,6 @@
 ---
 name: web-run-parallel-worktrees
-description: 在用户当前明确要求且项目策略允许时，把一个 Web Harness、React Web 或 Plasmo Chrome MV3 Extension Task 拆为写入所有权不重叠的内部 Subagent Git Worktree，并用可执行登记、guard、postflight 和保守清理阻止越界。
+description: 在用户当前明确要求且项目策略允许时，把一个 Web Harness、React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension Task 拆为写入所有权不重叠的内部 Subagent Git Worktree，并用可执行登记、guard、postflight 和保守清理阻止越界。
 ---
 
 # Web Harness：运行前端并行工作树

@@ -134,7 +134,7 @@ Task 绑定：
 
 ## 初始化与持久化
 
-- `$web-instantiate-project` 首轮一次收集尚未明确的项目类型、名称、id、目标路径和策略模式；策略以中文“预设”（推荐）或“自定义”提示。项目类型不得有默认值；推荐预设必须显式确认。说明默认使用显示名称，三环境 BaseURL 可留空，开发地址可主动提供或后续配置，测试/正式地址不在首轮询问；正式发布前必须补齐 HTTPS 正式地址。品牌输入可选，确认来源不作为用户必填项。
+- `$web-instantiate-project` 首轮一次收集尚未明确的项目类型、名称、id、目标路径和策略模式；策略以中文“预设”（推荐）或“自定义”提示。项目类型不得有默认值；推荐预设必须显式确认。Web 说明默认使用显示名称；Extension 说明必须非空且询问缺失值。身份默认语言与翻译可通过初始化本地化输入提供，品牌生成/导入及预览按 `$web-prepare-brand-identity` 执行。三环境 BaseURL 可留空，开发地址可主动提供或后续配置，测试/正式地址不在首轮询问；正式发布前必须补齐 HTTPS 正式地址。品牌输入可选，确认来源不作为用户必填项。
 - 选择自定义后，`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint` 每轮只询问一个当前缺失字段；用户一次主动提供多个合法字段时全部复用。`user_owned_tasks` 的推荐/default 值都是 `disabled`。
 - 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: disabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。默认关闭的内部并行只限制当前 Task 的 `codex/unit-*` 写入单元，不影响用户明确创建的左侧 Git Task；预设只是输入捷径，不新增持久字段，也不得在用户未确认时静默采用其他值。
 - 五项值全部解析后才以 `schema_version: 3` 一次原子写入本文件；`confirmed_by` 自动记录为“当前用户”，已明确提供合法来源时复用，`confirmed_at` 记录最终收齐日期。内部初始化链只验证并复用，不重复询问。

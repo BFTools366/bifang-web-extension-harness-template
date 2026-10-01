@@ -1,6 +1,6 @@
 ---
 name: web-verify-delivery
-description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；由发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求触发。
+description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 / Firefox MV2 构建/zip；由发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求触发。
 ---
 
 # Web Harness：验证前端交付
@@ -17,20 +17,20 @@ description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web
 
 ## 构建与静态证据
 
-1. 不为最终构建预先调用环境检查；直接运行真实构建命令。只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时，才调用 `$web-check-development-environment` 诊断相关组件并在修复后重试。已批准的浏览器步骤直接交给 E2E Skill，Chrome 无法发现或启动后再进入环境诊断。
-2. 发现 `package.json` 中真实脚本。下游只运行唯一 `pnpm build -- --e2e=enabled|disabled`，确认它固定委托 `build:release`，在生成候选前自动完成三环境、Harness、格式、lint、类型与非空全量测试；Web 按上海时区生成 `YYMMDDHHMMSS` 页面版本，Extension 读取 `package.json.version` 的稳定 SemVer 并注入页面、匹配 MV3 manifest，在宿主生产构建后自动通过含版本命中检查的 `pnpm release:inspect`。不得在外层重复执行这些全量门禁。Extension 候选另以当次选择运行 `pnpm package -- --e2e=enabled|disabled` 并确认其生成同一 Release profile 的受验收 zip。源 Harness 运行 `pnpm validate:harness` 和根级适用门禁，再通过不含 E2E 选择的 `pnpm instantiate -- <absolute-target-outside-harness> ...` 以精简必填参数在源外两个隔离目标分别生成 Web/Extension，验证未配地址留空且仍可初始化；确认初始化期不产生 Release 产物，每个下游只提供后续 Release 产物入口、sibling staging 是内部步骤、源内目标零写入，且两个成功下游均无创建入口。随后在两个下游补齐 HTTPS 正式地址，再按本次候选选择分别显式构建。开发/测试地址保持可选；空或 HTTP 正式地址必须阻断 Release。不得编造缺失脚本或在源根误用下游校验命令。
+1. 不为最终构建预先调用环境检查；直接运行真实构建命令。只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时，才调用 `$web-check-development-environment` 诊断相关组件并在修复后重试。已批准的浏览器步骤直接交给 E2E Skill，对应浏览器无法发现或启动后再进入环境诊断。
+2. 发现 `package.json` 中真实脚本。下游只运行唯一 `pnpm build -- --e2e=enabled|disabled`，确认它固定委托 `build:release`，在生成候选前自动完成三环境、Harness、格式、lint、类型与非空全量测试；Web 按上海时区生成 `YYMMDDHHMMSS` 页面版本，Extension 读取 `package.json.version` 的稳定 SemVer 并注入页面、匹配两目标 manifest，在宿主生产构建后自动通过含版本命中检查的 `pnpm release:inspect`。不得在外层重复执行这些全量门禁。Extension 候选另以当次选择运行 `pnpm package -- --e2e=enabled|disabled` 并确认其生成同一 Release profile 的受验收 zip。源 Harness 运行 `pnpm validate:harness` 和根级适用门禁，再通过不含 E2E 选择的 `pnpm instantiate -- <absolute-target-outside-harness> ...` 以精简必填参数在源外两个隔离目标分别生成 Web/Extension，验证未配地址留空且仍可初始化；确认初始化期不产生 Release 产物，每个下游只提供后续 Release 产物入口、sibling staging 是内部步骤、源内目标零写入，且两个成功下游均无创建入口。随后在两个下游补齐 HTTPS 正式地址，再按本次候选选择分别显式构建。开发/测试地址保持可选；空或 HTTP 正式地址必须阻断 Release。不得编造缺失脚本或在源根误用下游校验命令。
 3. 检查构建内的名称、说明、Logo、i18n、版本和唯一 `projectType`：
    - `Harness`：两个独立下游各自只有一个类型；两者都验证三环境、宿主前缀、`APP_CONFIG`、分页/sessionStorage、语言持久化、HTTP header/Token/401 基础、logger、非空测试和唯一 Release 构建，不能生成 development/test 候选或把二者合成同仓产物。
    - `web`：只接受本次生产构建生成的 Vite `dist/`，检查入口、静态资源、路由 fallback 与无开发源引用。
-   - `extension`：要求本次 Plasmo production 生成的 Chrome MV3 目录及其经 `pnpm package` 生成的对应 zip；运行时可从精确目录加载，但候选证据必须同时绑定两者，检查 manifest_version=3、入口、资源、消息声明、permissions/host_permissions 与批准范围。
+   - `extension`：要求本次 Plasmo production 生成的 Chrome MV3 与 Firefox MV2 两个目录及其经 `pnpm package` 生成的对应 zip；运行时可从精确目录加载，但候选证据必须同时绑定两者，逐个检查动态 manifest_version=3/2、action/browser_action、后台协议、入口、资源、i18n/图标、消息及最小权限与批准范围；共享 override 不固定 manifest_version，一个目标缺失或失败即不满足候选合同。
 4. 对每个批准行为复核“用户入口 → 实现模块 → 非空测试”。保存 `pnpm release:inspect` 的实际通过证据；需要独立复核既有目录时重跑该命令。检查 TypeScript 功能边界、日志脱敏、无障碍和用户可见文案，不要求或引入共享工程层。
 
 ## 真实运行时验收
 
 1. 明确关键成功路径、最高风险失败路径、真实输入/输出、外部前置项、清理和超时。
-2. 当次 E2E 选择为 `disabled` 且 smoke 也为 `not-required` 时记录 `Not run` 与 `Unverified` 范围，不启动 Chrome。关闭浏览器流程不跳过三环境、全量单测、版本注入、Release 构建、日志/敏感信息扫描或其他固定门禁。
-3. 只有 smoke 为 `required` 时才对真实候选运行有边界的 Chrome 冒烟：Web 从 `dist/` 启动本地静态服务；Extension 从精确 MV3 候选加载到隔离 Chrome profile。不得用 Vite/Plasmo 开发服务器代替。
-4. 只有 E2E 为 `required` 时调用 `$web-test-final-artifact-e2e`，传入精确候选路径/hash、`projectType`、Release profile、已批准场景、超时、外部授权边界和清理要求；子 Skill 只返回场景证据，不重新解析策略、重开 Todo 或决定候选验收结论。记录实际 Chrome/OS，不推断其他浏览器或平台。
+2. 当次 E2E 选择为 `disabled` 且 smoke 也为 `not-required` 时记录 `Not run` 与 `Unverified` 范围，不启动浏览器。关闭浏览器流程不跳过三环境、全量单测、版本注入、Release 构建、日志/敏感信息扫描或其他固定门禁。
+3. 只有 smoke 为 `required` 时才对真实候选运行有边界的逐目标浏览器冒烟：Web 从 `dist/` 启动本地静态服务；Extension 分别从精确 MV3/MV2 候选加载到隔离 Chrome/Firefox profile。不得用 Vite/Plasmo 开发服务器代替。
+4. 只有 E2E 为 `required` 时调用 `$web-test-final-artifact-e2e`，传入精确候选路径/hash、`projectType`、Release profile、已批准场景、超时、外部授权边界和清理要求；子 Skill 只返回场景证据，不重新解析策略、重开 Todo 或决定候选验收结论。记录各实际 Chrome/Firefox/OS，分别绑定目标路径/hash及场景，一个浏览器通过不能推断另一个或其他平台。
 5. 保存候选路径、SHA-256、提交/版本、环境 profile、命令/场景、预期与观察、Release console/扫描、截图（适用时）、清理、跳过项和未验证范围。敏感信息与个人路径最小化。
 6. 后续重新构建、重新打包或任何改变候选字节的操作都会产生新候选，必须重新验证。
 
@@ -44,4 +44,4 @@ description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web
 
 ## 完成输出
 
-报告结论、精确候选与哈希、提交/版本、仓库种类与项目类型、三环境/Release profile、运行命令、测试、日志/敏感信息扫描、Chrome 场景、策略解析、失败回流、未验证范围和剩余风险。明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；仅要求验收不触发外部发布，新增目的地或范围外副作用才补充授权。
+报告结论、精确候选与哈希、提交/版本、仓库种类与项目类型、三环境/Release profile、运行命令、测试、日志/敏感信息扫描、Chrome/Firefox 逐目标场景、策略解析、失败回流、未验证范围和剩余风险。明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；仅要求验收不触发外部发布，新增目的地或范围外副作用才补充授权。

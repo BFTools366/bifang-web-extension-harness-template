@@ -271,6 +271,7 @@ export async function initializeProject(
     ...Object.values(ENVIRONMENT_FILES),
     ...FORBIDDEN_ENVIRONMENT_FILES,
     ...generatedRoots(config.projectType),
+    ...(config.projectType === "extension" ? ["locales"] : []),
     ...derivedLogoPaths(config)
   ]
   await assertAbsent(root, collisions)

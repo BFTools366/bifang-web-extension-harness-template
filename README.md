@@ -1,6 +1,6 @@
 # Bifang Web Harness Template
 
-让 AI Agent 为你创建独立的 **React Web 项目**或 **Chrome MV3 扩展项目**。模板提供 TypeScript、UI、路由、状态管理、国际化和工程规范，创建后即可在新项目中继续开发。
+让 AI Agent 为你创建独立的 **React Web 项目**或 **Chrome MV3 / Firefox MV2 扩展项目**。模板提供 TypeScript、UI、路由、状态管理、国际化和工程规范，创建后即可在新项目中继续开发。
 
 ## 让 Agent 创建项目
 
@@ -13,21 +13,21 @@
 已经提供的信息无需重复询问。
 ```
 
-将 `{GitHub 链接}` 替换为[本仓库的 GitHub 地址](https://github.com/BFTools366/bifang-web-extension-harness-template)。也可以在第一句直接指定“React Web 项目”或“Chrome MV3 扩展项目”。
+将 `{GitHub 链接}` 替换为[本仓库的 GitHub 地址](https://github.com/BFTools366/bifang-web-extension-harness-template)。也可以在第一句直接指定“React Web 项目”或“Chrome MV3 / Firefox MV2 扩展项目”。
 
 ### 需要提供的信息
 
 你可以随提示词一起提供以下信息；缺少的基础信息由 Agent 一次收集：
 
-| 信息       | 如何填写                                                                       |
-| ---------- | ------------------------------------------------------------------------------ |
-| 项目类型   | `web`（React Web）或 `extension`（Chrome MV3 扩展），每个项目只选一种          |
-| 项目名称   | 页面或扩展中显示的名称                                                         |
-| 项目标识   | 以小写字母开头，使用小写字母与数字，单个连字符分隔非空片段，例如 `example-web` |
-| 目标目录   | 模板目录之外的绝对路径；目录不存在或为空，目录名与项目标识一致                 |
-| Agent 策略 | 选择“预设”（推荐）或“自定义”                                                   |
+| 信息       | 如何填写                                                                            |
+| ---------- | ----------------------------------------------------------------------------------- |
+| 项目类型   | `web`（React Web）或 `extension`（Chrome MV3 / Firefox MV2 扩展），每个项目只选一种 |
+| 项目名称   | 页面或扩展中显示的名称                                                              |
+| 项目标识   | 以小写字母开头，使用小写字母与数字，单个连字符分隔非空片段，例如 `example-web`      |
+| 目标目录   | 模板目录之外的绝对路径；目录不存在或为空，目录名与项目标识一致                      |
+| Agent 策略 | 选择“预设”（推荐）或“自定义”                                                        |
 
-开发 API 地址可选，可在创建时提供或后续配置；测试和正式 API 地址无需在初始化时填写。三份配置仍会生成，未提供的地址留空，正式发布前必须补齐 HTTPS 正式地址。已提供的地址必须是无凭据、查询参数或片段的绝对 HTTP(S) URL。说明默认使用显示名称，不询问确认来源。Logo 和品牌色可以同时提供，也可以使用默认品牌资产。
+开发 API 地址可选，可在创建时提供或后续配置；测试和正式 API 地址无需在初始化时填写。三份配置仍会生成，未提供的地址留空，正式发布前必须补齐 HTTPS 正式地址。已提供的地址必须是无凭据、查询参数或片段的绝对 HTTP(S) URL。Web 说明可默认使用显示名称；Extension 必须提供非空简短说明（`--description`），交互时只询问缺失值。不询问确认来源。Logo 和品牌色可以同时提供；Agent 创建流程先完成 Logo 生成/导入与预览，CLI 未提供 `--logo` 时使用离线确定性生成器。创建汇总和结果均列出母版及当前宿主的派生图标。名称与说明的本地化输入见 [初始化契约](docs/TS_WEB_TEMPLATE.md#34-extension-品牌同步)。
 
 Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md)汇总创建参数，并在确认后执行创建。本地需要 Git、Node.js `>=26.10.0` 和 pnpm `12.8.1`；Agent 会检查创建环境，工具缺失或需要升级时再指导你准备。
 
@@ -43,6 +43,8 @@ Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/we
 创建完成后，在新项目目录中打开 Agent，再描述具体功能、页面和交互需求。模板源只负责创建工程基线；业务开发在生成的新项目中进行。
 
 每个项目只包含 Web 或 Extension 中的一种。需要两种时分别创建两个独立项目。初始化成功仅表示工程基线创建完成；正式产物需要后续构建和验收。
+
+Extension 默认同时构建 Chrome MV3 与 Firefox MV2；`pnpm dev` 开发 Chrome，`pnpm dev:firefox` 开发 Firefox。最终 manifest 由 Plasmo 动态生成，后续开发按 [工程基础](docs/harness_engineering/foundations.md) 自行处理两浏览器差异与兼容。
 
 ## 在新项目中使用
 
@@ -62,11 +64,11 @@ Web 使用 Vite；Extension 使用 Plasmo。扩展的本地加载和开发方式
 
 ## 技术与目录
 
-| 项目类型        | 技术基线                                                      |
-| --------------- | ------------------------------------------------------------- |
-| React Web       | React + TypeScript、Vite、Mantine、TanStack Router 文件路由   |
-| Chrome MV3 扩展 | React + TypeScript、Plasmo、Mantine、TanStack Router 代码路由 |
-| 共同基础        | TanStack Query、Jotai、i18next、Vitest、Testing Library       |
+| 项目类型                      | 技术基线                                                      |
+| ----------------------------- | ------------------------------------------------------------- |
+| React Web                     | React + TypeScript、Vite、Mantine、TanStack Router 文件路由   |
+| Chrome MV3 / Firefox MV2 扩展 | React + TypeScript、Plasmo、Mantine、TanStack Router 代码路由 |
+| 共同基础                      | TanStack Query、Jotai、i18next、Vitest、Testing Library       |
 
 生成项目中的主要入口：
 

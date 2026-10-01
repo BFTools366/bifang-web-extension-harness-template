@@ -1,21 +1,15 @@
+import { renderIdentityBrand, extensionIdentityFiles } from "../identity.ts"
 import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
-import { tsString } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
+import { HTTP_ERROR_TRANSLATIONS } from "./http-errors.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
 import { themeFiles } from "./theme.ts"
 
 // 执行 renderExtensionBrand 函数的处理逻辑。
 export function renderExtensionBrand(config: ProjectConfig): string {
-  return `/** 保存项目身份与 Extension 品牌展示常量。 */
-export const BRAND = {
-  name: ${tsString(config.name)},
-  id: ${tsString(config.id)},
-  description: ${tsString(config.description)},
-  primaryColor: ${tsString(config.brand.primaryColor)}
-} as const
-`
+  return renderIdentityBrand(config)
 }
 
 // 保存 entryStyles 变量供当前逻辑使用。
@@ -31,6 +25,7 @@ export function extensionFiles(
 ): Map<string, string> {
   return new Map<string, string>([
     ...environmentFiles(config, baseUrls),
+    ...extensionIdentityFiles(config),
     ...httpFiles(config),
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
@@ -67,6 +62,7 @@ declare namespace NodeJS {
       `import i18n from "i18next"
 import { initReactI18next } from "react-i18next"
 import { initialApplicationLanguage, initializeLanguage } from "./i18n/language"
+import { BRAND } from "./brand"
 
 void i18n.use(initReactI18next).init({
   fallbackLng: "en",
@@ -75,7 +71,9 @@ void i18n.use(initReactI18next).init({
   resources: {
     en: {
       translation: {
-        popupReady: "Chrome extension ready",
+        ...BRAND.identity.en,
+        ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.en)},
+        popupReady: "Browser extension ready",
         optionsReady: "Extension settings",
         action: "Test local state",
         buildVersion: "Build version: {{version}}",
@@ -94,7 +92,9 @@ void i18n.use(initReactI18next).init({
     },
     zh: {
       translation: {
-        popupReady: "Chrome 扩展已就绪",
+        ...BRAND.identity.zh,
+        ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.zh)},
+        popupReady: "浏览器扩展已就绪",
         optionsReady: "扩展设置",
         action: "测试本地状态",
         buildVersion: "构建版本：{{version}}",
@@ -126,6 +126,9 @@ import { MantineProvider, createTheme, localStorageColorSchemeManager } from "@m
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BRAND } from "./brand"
 import { createLogger } from "./observability/logger"
+import { HttpFeedback } from "./api/client/HttpErrorView"
+import { reportHttpError } from "./api/client/httpFeedback"
+import { retryHttpQuery } from "./api/client/httpErrors"
 import { BRAND_TEXT_LUMINANCE_THRESHOLD, createBrandScale } from "./theme/brandScale"
 
 const theme = createTheme({
@@ -144,11 +147,12 @@ const colorSchemeManager = localStorageColorSchemeManager({
 })
 const logger = createLogger("query")
 const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: retryHttpQuery }, mutations: { retry: false } },
   queryCache: new QueryCache({
-    onError: (error) => logger.error("query_failed", { component: "tanstack-query", error })
+    onError: (error) => { logger.error("query_failed", { component: "tanstack-query", error }); reportHttpError(error) }
   }),
   mutationCache: new MutationCache({
-    onError: (error) => logger.error("mutation_failed", { component: "tanstack-query", error })
+    onError: (error) => { logger.error("mutation_failed", { component: "tanstack-query", error }); reportHttpError(error) }
   })
 })
 
@@ -156,7 +160,7 @@ const queryClient = new QueryClient({
 export function Providers({ children }: PropsWithChildren) {
   return (
     <MantineProvider theme={theme} defaultColorScheme="auto" colorSchemeManager={colorSchemeManager}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}><HttpFeedback />{children}</QueryClientProvider>
     </MantineProvider>
   )
 }
@@ -167,7 +171,6 @@ export function Providers({ children }: PropsWithChildren) {
       `import { Badge, Button, Group, Image, Paper, Stack, Text, Title } from "@mantine/core"
 import { useTranslation } from "react-i18next"
 import { useEffect, useState } from "react"
-import { BRAND } from "./brand"
 import { BUILD_VERSION } from "./buildVersion"
 import { createLogger } from "./observability/logger"
 import { ColorSchemeControl } from "./theme/ColorSchemeControl"
@@ -207,7 +210,7 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
       <Paper radius="lg" p="lg" withBorder>
         <Stack gap="md">
           <Group justify="space-between" align="flex-start">
-            <Image src={iconUrl} alt={BRAND.name} w={64} h={64} radius="lg" />
+            <Image src={iconUrl} alt={t("projectName")} w={64} h={64} radius="lg" />
             <Stack gap="xs" align="flex-end" miw={0} maw="100%">
               {surface === "popup" ? (
                 <Text c="dimmed" size="xs" fw={600}>{t("popupReady")}</Text>
@@ -218,8 +221,8 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
             </Stack>
           </Group>
           <div>
-            <Title order={1}>{BRAND.name}</Title>
-            <Text c="dimmed" mt="xs">{BRAND.description}</Text>
+            <Title order={1}>{t("projectName")}</Title>
+            <Text c="dimmed" mt="xs">{t("projectDescription")}</Text>
           </div>
           <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
           <Text size="sm" fw={600} role="status" aria-live="polite" aria-atomic="true">
@@ -244,6 +247,10 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
   createRouter
 } from "@tanstack/react-router"
 import { ExtensionShell } from "./ExtensionShell"
+import { ExtensionRouteErrorPage } from "./api/client/ExtensionRouteErrorPage"
+import { createLogger } from "./observability/logger"
+
+const routerLogger = createLogger("router")
 
 /** 约束 Extension 路由所属的独立入口。 */
 type ExtensionSurface = "popup" | "options"
@@ -257,6 +264,8 @@ export function createExtensionRouter(surface: ExtensionSurface, iconUrl: string
     component: () => <ExtensionShell iconUrl={iconUrl} surface={surface} />
   })
   return createRouter({
+    defaultErrorComponent: ExtensionRouteErrorPage,
+    defaultOnCatch: (error) => routerLogger.error("route_failed", { surface, error }),
     routeTree: rootRoute.addChildren([indexRoute]),
     history: surface === "popup"
       ? createMemoryHistory({ initialEntries: ["/"] })
@@ -281,22 +290,24 @@ import { RouterProvider } from "@tanstack/react-router"
 import userEvent from "@testing-library/user-event"
 import { expect, test } from "vitest"
 import { BRAND } from "./brand"
+import i18n from "./i18n"
 import { ExtensionShell } from "./ExtensionShell"
 import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
 
 /** 验证当前场景的核心成功或风险边界。 */
 test("renders the branded popup interaction", async () => {
+  await i18n.changeLanguage("en")
   const user = userEvent.setup()
   /** 说明当前方法的稳定职责与行为边界。 */
   render(
     <Providers><ExtensionShell iconUrl="data:image/png;base64,test" surface="popup" /></Providers>
   )
 
-  expect(screen.getByRole("heading", { name: BRAND.name, level: 1 })).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 })).toBeInTheDocument()
   expect(screen.getByText("Build version: development")).toBeInTheDocument()
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByRole("heading", { name: BRAND.name, level: 1 }))
+  await user.click(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
   await user.click(screen.getByRole("button", { name: "Test local state" }))
   expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
@@ -305,15 +316,27 @@ test("renders the branded popup interaction", async () => {
   expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
 })
 
+/** 验证名称与说明遵循用户应用语言而非固定根身份。 */
+test("renders localized extension identity", async () => {
+  await i18n.changeLanguage("zh")
+  const view = render(<Providers><ExtensionShell iconUrl="data:image/png;base64,test" surface="popup" /></Providers>)
+  expect(screen.getByRole("heading", { name: BRAND.identity.zh.projectName })).toBeInTheDocument()
+  expect(screen.getByText(BRAND.identity.zh.projectDescription, { selector: "p" })).toBeInTheDocument()
+  view.unmount()
+  await i18n.changeLanguage("en")
+})
+
 /** 验证 Popup 与 Options 各自的代码路由可以挂载页面。 */
 test("mounts the popup route", async () => {
+  await i18n.changeLanguage("en")
   const router = createExtensionRouter("popup", "data:image/png;base64,test")
   render(<Providers><RouterProvider router={router} /></Providers>)
-  expect(await screen.findByText("Chrome extension ready")).toBeInTheDocument()
+  expect(await screen.findByText("Browser extension ready")).toBeInTheDocument()
 })
 
 /** 验证 Options 首次打开没有 hash 时仍进入根路由。 */
 test("mounts the options route without a hash", async () => {
+  await i18n.changeLanguage("en")
   const originalUrl = window.location.href
   window.history.replaceState(null, "", window.location.pathname + window.location.search)
   try {

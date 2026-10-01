@@ -7,7 +7,7 @@
 本仓库是 Agent-first 的纯 TypeScript Web Harness。它从源根唯一公开入口生成两种互斥终端下游之一：
 
 - 单 package 的 Vite + React/TypeScript Web 应用；
-- 单 package 的 Plasmo + React/TypeScript Chrome MV3 Extension。
+- 单 package 的 Plasmo + React/TypeScript Chrome MV3 / Firefox MV2 Extension。
 
 一个下游只有一个 `projectType`，不生成 monorepo、共享 core、多宿主或宿主切换入口。AI Agent 是工程规则的第一消费者，人类负责产品方向、外部副作用和最终发布授权。
 
@@ -21,12 +21,12 @@
 ## 固定范围
 
 - Web 使用 Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai 与 i18next。
-- Extension 使用 Plasmo、Chrome MV3、Mantine、TanStack Router 代码路由、TanStack Query、Jotai 与 i18next；Popup 与 Options 分别持有 Router。
+- Extension 使用 Plasmo、Chrome MV3 / Firefox MV2、Mantine、TanStack Router 代码路由、TanStack Query、Jotai 与 i18next；Popup 与 Options 分别持有 Router。
 - 源 Harness 保留 Web-only `$web-implement-list-view`；Web 终端保留该 Skill 用于列表页、数据表格、后台列表与搜索结果，Extension 终端必须裁掉它且不复用 Web 列表路由恢复契约。
 - 两类项目共享工程契约但不在同一仓库共享业务源码。
 - `.harness/project.json` 是名称、标识、说明、唯一 `projectType` 和品牌事实源；Logo 母版固定为 `.harness/brand/logo-1024.png`。
 - development、test、release 三环境完整存在；浏览器端只读取当前宿主四个已声明公开变量，逻辑 release 映射 production。
-- 初始化器生成原生 Fetch、1-based 分页、语言/认证 header、超时、401 handler、安全 logger 与 Release 检查基线，不生成业务 endpoint、伪远端 Query、占位事件总线或为展示而设的全局状态。
+- 初始化器生成 Ky HTTP、1-based 分页、语言/认证 header、超时、401 handler、安全 logger 与 Release 检查基线，不生成业务 endpoint、伪远端 Query、占位事件总线或为展示而设的全局状态。
 - 用户可见文案进入 i18next；可分享导航状态由 Router search 管理，会话态进入 `sessionStorage`，远端状态由 Query 管理，必要的跨组件客户端状态才由 Jotai 管理，组件局部交互留在 React；同一状态不得双重归属。Web 路由列表是封闭启动恢复例外：Router 始终是已应用列表状态的运行时 owner，仅在原始 URL 完全没有 owned key 时按 `listId` 读取一次 sessionStorage 快照；业务行和 `total` 只属于 Query。
 - 列表形态按真实信息结构选择 Table、卡片或搜索结果，不强制 Table、选择、列偏好或 DnD。中性初始化不生成业务列表、假 endpoint 或可选列表依赖。
 - 生成的中性界面使用 Mantine theme 和语义令牌，品牌色形成十阶色阶，默认跟随系统并允许显式亮色/暗色切换；顶层标题层级正确，动态状态可被辅助技术感知，父容器不代理子控件动作。
@@ -48,7 +48,7 @@
 ## 质量与安全边界
 
 - 受管 TypeScript/TSX 的稳定声明使用紧邻中文注释；不在运行时自动注入无意义注释。
-- 人工维护前端代码 501–1000 行提示职责复核，1001 行起失败；其他受管文本 501–2000 行提示，2001 行起失败。
+- 人工维护前端代码 501–600 行提示职责复核，601 行起失败；其他受管文本 501–2000 行提示，2001 行起失败。
 - 行为变化必须覆盖核心成功路径和最高风险失败路径；零相关测试不构成通过。
 - 源 validator 必须跨 LF/CRLF 和 POSIX/Windows 风格相对路径稳定，并直接校验 `Version.md` 结构与升级 ownership manifest 的生产解析器合同。
 - 源 validator 必须校验 Web 列表 Skill 的 canonical id、路由、必需 references/资产、可执行契约与宿主裁剪，防止只保留空目录或把 Web-only 能力泄漏到 Extension。
@@ -70,5 +70,5 @@
 - Web 与 Extension 均能从源外独立实例化，生成仓库只有其单一宿主所需文件、不保留派生入口，并各自拥有恰好一个中性本地基线提交且无远端。
 - Web 生成结果保留 `$web-implement-list-view` 及完整参考资产，Extension 结果不含该 Skill；两者的中性 UI 都没有业务列表或未被真实消费的图标/DnD 依赖。
 - 两类中性界面用行为测试证明局部交互、语言同步、标题层级、live region 与子控件边界；不以伪 Query 或不必要的 Jotai 冒充架构示例。
-- 两类下游在形成 Release 候选时通过各自格式、lint、类型、非空测试、构建、敏感信息扫描，以及当次 E2E 和完整候选 smoke 决议要求的真实 Chrome 验收。
+- 两类下游在形成 Release 候选时通过各自格式、lint、类型、非空测试、构建、敏感信息扫描，以及当次 E2E 和完整候选 smoke 决议要求的真实 Chrome/Firefox 验收。
 - 源发布提交与 `Version.md`、远端默认分支可回读一致；未实际执行的候选、E2E、发布和外部渠道操作保持 `Not run` 或 `Unverified`。

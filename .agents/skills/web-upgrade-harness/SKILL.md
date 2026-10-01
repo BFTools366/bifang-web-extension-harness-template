@@ -1,6 +1,6 @@
 ---
 name: web-upgrade-harness
-description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。
+description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。
 ---
 
 # Web Harness：升级前端工程基线
@@ -61,7 +61,7 @@ pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts appl
 
 helper 会重新绑定 source、候选、目标、Git 状态、目标仓库内的清单和 lock；任何漂移或任一 `blocked` 项都会在写入前停止。它从已绑定的候选或目标根开始，逐级拒绝符号链接并绑定真实目录身份，只在最终稳定目录中原子替换这个已存在普通文件；替换前复验目标，并 fsync 新文件与父目录。不新增、不删除、不合并 mixed，也不提交。
 
-每次写入后必须创建新的 plan 文件。`managed-self` 只有普通 managed 更新全部完成后才应用，多个自更新按路径稳定顺序逐个执行，`scripts/harness-upgrade.ts` 最后。经用户逐路径批准的 `add`、`delete`、`manual_merge` 和 bootstrap 收敛使用 `apply_patch` 手工完成；保留产品值与本地决定，随后重规划。不得整文件覆盖 mixed/protected 内容。
+每次写入后必须创建新的 plan 文件。`managed-self` 只有普通 managed 更新全部完成后才应用，新增的 `managed-self add` helper 必须先经逐路径批准手工补齐并重规划，否则自更新被阻断，保证下一轮目标 CLI 可启动；不能提前删除仍被旧入口引用的 helper。多个自更新按路径稳定顺序逐个执行，`scripts/harness-upgrade.ts` 最后。经用户逐路径批准的 `add`、`delete`、`manual_merge` 和 bootstrap 收敛使用 `apply_patch` 手工完成；保留产品值与本地决定，随后重规划。不得整文件覆盖 mixed/protected 内容。
 
 ## 验证与记录
 

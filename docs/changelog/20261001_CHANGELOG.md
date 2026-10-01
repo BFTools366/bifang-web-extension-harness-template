@@ -1,8 +1,15 @@
 # 2026-10-01 变更记录
 
-本记录保留前次当前记录的变化，并补充 2026-10-01 的初始化输入合同调整。
+本记录保留前次当前记录的变化，并补充 2026-10-01 的初始化输入、品牌与身份本地化合同调整。
 
 ## Added
+
+- HTTP 增加请求/响应/错误拦截、经校验的显式 Token 写入、403 权限分类和失效周期并发保护；两宿主 Router/Providers 接入本地化错误界面与持续反馈。Query 读取有界重试且仅最终失败播报，mutation 不自动重放；新增实际执行生成客户端及 UI/Router/Query 的回归。
+
+- Extension 单包默认支持 Chrome MV3 与 Firefox MV2：增加 Firefox 开发入口，两目标构建/打包和逐产物检查；最终 manifest 由 Plasmo 动态生成，移除共享 manifest_version 固定值。Harness 工程与派生规则明确后续 Agent 自行保证浏览器差异和兼容，候选证据按目标独立记录。
+
+- 名称与说明支持 `identityI18n` 默认语言及英文/简体中文完整翻译；Web/Extension UI 消费既有 i18next，Extension manifest 使用显式 `default_locale` 和浏览器消息引用，Plasmo locales 从同一项目事实派生。品牌刷新保留翻译和其他产品消息；候选构建后的扫描检查实际消息内容。
+- Agent 实例化显式调用品牌 Skill 生成/导入并展示 Logo 候选；汇总和完成输出列出 1024 PNG 母版及 Web Logo/Favicon 或 Extension icon，CLI 保留离线确定性生成路径。
 
 - Web 与 Extension 创建默认在项目内检查 `design-taste-frontend`；缺失时从固定上游快照自动补装原文、MIT 许可证、commit/SHA-256 来源与发现元数据，不额外问询、不全局安装。有效已有版本原样保留，升级视为 `protected`，旧下游未安装时仍可通过维护门禁；设计建议以 Mantine、宿主与工程规范为实施边界。
 - React Web 生成本地化路由加载/错误界面、显式重试和统一异常日志；真实 Router 回归覆盖慢加载、loader/渲染失败、持续失败与 404 返回首页。
@@ -16,9 +23,14 @@
 
 ## Changed
 
-- 初始化只必填项目类型、显示名称、项目标识、目标绝对路径和 Agent 策略；说明默认使用显示名称，确认来源自动记录“当前用户”，策略提示支持中文“预设/自定义”。三环境 API 地址均可留空并后续配置，正式构建、扫描和运行时仍要求 HTTPS 正式地址，未配置地址的 HTTP client 在 Fetch 前失败。
+- 自有 Harness/Skill 工具统一使用本地 Node.js/TypeScript，并新增拒绝 Python 文件与执行入口的门禁；清点未发现需迁移的自有 Python 工具，第三方附带文件保持原样。
+- 人工维护代码硬上限统一为 600 行，601 行起按功能与模块拆分；HTTP、实例化事务、列表、验证器、并行/升级工具及回归测试完成职责拆分，生成代码与新文件分发采用同一约束。
+- 升级器自更新前要求新增 helper 已手工收敛并重规划，防止替换 core 后目标 CLI 缺模块而无法启动。
+
+- Web 与 Extension 默认 HTTP 传输采用 Ky，生成项目声明运行时依赖并复用既有受控 BaseURL、认证 revision、401、取消和 ApiError；关闭 Ky 重试、超时与 HTTP 抛错，避免多层策略叠加。新增实际执行生成请求测试的源回归入口。
+- 初始化首轮必填项目类型、显示名称、项目标识、目标绝对路径和 Agent 策略；Extension 另需非空简短说明，缺失时条件问询，Web 说明默认使用显示名称，确认来源自动记录“当前用户”，策略提示支持中文“预设/自定义”。三环境 API 地址均可留空并后续配置，正式构建、扫描和运行时仍要求 HTTPS 正式地址，未配置地址的 HTTP client 在 Fetch 前失败。
 - 同一发布流程复用已明确的 E2E 选择，重建和打包继续验收新字节；明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认。
-- Web 候选页面版本改为上海时间 `YYMMDDHHMMSS`；Extension 构建与打包改为读取 `package.json.version` 的稳定 SemVer，并检查页面、包与 MV3 manifest 版本一致。
+- Web 候选页面版本改为上海时间 `YYMMDDHHMMSS`；Extension 构建与打包改为读取 `package.json.version` 的稳定 SemVer，并检查页面、包与两目标 manifest 版本一致。
 - 推荐 Agent policy 默认关闭内部 Worktree Subagent 并行，但不影响用户明确创建的左侧 Git Task；任何初始化后的永久策略变更都必须由用户明确确认并写入当日 ADR，同值为幂等 no-op，临时 Task 限制不得持久化。
 - 用户可见 Task 统一采用 `Task {序号} | {当前进度} | {单一结果}`；实现 Skill 和生成下游入口补齐真实 `threadId`、Git common dir、登记 Worktree、起始 OID、非 Git cwd、本地提交与 clean 闭环。
 - 完整候选验收现在确定性消费 `acceptance_smoke`：硬要求优先，`enabled` 为 `required`，`disabled` 与无硬要求的源 `pending` 为 `not-required`；smoke 与本次发布的 E2E 选择保持独立。
@@ -34,7 +46,12 @@
 - Web 列表的粘滞表头 `th` 使用随主题变化的不透明 `var(--mantine-color-body)` 背景，避免滚动行从表头透出。
 - 源验证器独立锚定下游升级所有权下限；即使运行时规则与清单同时弱化，也会拒绝候选。Windows 缺少符号链接权限时只跳过相应测试用例，POSIX 权限位断言仅在适用平台执行。
 
+## Security
+
+- 浏览器身份消息中的美元使用 JSON Unicode 转义，避免 Plasmo 在解析前将字面 `$变量` 展开为构建环境值；刷新同样保留安全编码。
+- Extension build/package 显式固定 Chrome MV3 与 Firefox MV2 target、production tag 和受管输入/输出目录，防止外部变量改变实际产物后扫描旧目录；任一目标缺失或失败阻断整体检查。
+
 ## Scope
 
-- 保持 Vite React Web、Plasmo Chrome MV3 Extension、三环境、原生 Fetch、构建与发布协议；Extension 增加已在 Web 基线使用的 TanStack Router，GraphQL 等可选协议依赖仍按需引入。
+- 保持 Vite React Web、Plasmo Chrome MV3 / Firefox MV2 Extension、三环境、Ky HTTP、构建与发布协议；Extension 增加已在 Web 基线使用的 TanStack Router，GraphQL 等可选协议依赖仍按需引入。
 - 桌面客户端、Rust/Tauri 构建和发布链不进入当前双宿主 Web Harness；源仓库的 `.gitattributes` 不作为下游升级候选，避免旧 ownership manifest 将新顶层文件误判为受保护路径。

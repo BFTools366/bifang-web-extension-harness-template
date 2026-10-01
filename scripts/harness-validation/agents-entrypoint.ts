@@ -50,7 +50,7 @@ export const AGENTS_FORBIDDEN_DETAIL_FRAGMENTS = [
   "必须生成 `.env.development`、`.env.test`、`.env.production`",
   "Web 仅公开 `VITE_` 四键",
   "Extension 仅公开 `PLASMO_PUBLIC_` 四键",
-  "初始化器生成原生 Fetch、1-based 分页",
+  "初始化器生成 Ky HTTP、1-based 分页",
   "只在 staging 内定向格式化、验证、执行一次",
   "成功目标无远端且不含 `dist/`、`build/` 或 zip",
   "`build:release` 和 Extension `package` 自动运行 `release:inspect`"

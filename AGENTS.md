@@ -2,7 +2,7 @@
 
 ## 项目使命
 
-本仓库是 Agent-first 的纯 TypeScript Web Harness，只生成两类互斥终端下游之一：单 package React Web，或单 package Plasmo Chrome MV3 Extension。源模板只维护跨项目复用的规则、Skills、中性资产和交付工程，不实现任何具体产品。
+本仓库是 Agent-first 的纯 TypeScript Web Harness，只生成两类互斥终端下游之一：单 package React Web，或单 package Plasmo Chrome MV3 / Firefox MV2 Extension。源模板只维护跨项目复用的规则、Skills、中性资产和交付工程，不实现任何具体产品。
 
 ## 启动门禁
 
@@ -40,7 +40,7 @@
 - 下游始终平铺单包且只有一个 `projectType`；不得叠加或切换宿主、建立 monorepo/共享 core，或保留创建另一项目的入口。Web 与 Extension 的框架、路由、状态、国际化、权限和宿主边界只在相关任务中读取 `docs/TS_WEB_TEMPLATE.md` 与专题事实源。
 - 安全、隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容契约、最终候选和正式发布进入对应专用门禁。同一发布流程复用已明确的 E2E 选择；明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认。新增目的地或范围外副作用才补充授权。
 - 对“完成”“可用”或“已验证”的声明必须来自真实可观察证据；Mock、stub、源码片段、中性脚手架或开发预览不能替代最终候选验收，人工批准也不能把失败或未执行改判为通过。
-- 产品文案使用既有 i18n；Query 管远端状态，Jotai 只管必要客户端状态；UI 使用 Mantine theme 与语义令牌。运行时配置、数据访问、日志脱敏和浏览器边界以各自事实源为准，不在入口重复。
+- Extension 开发由执行 Agent 自行保证 Chrome MV3 / Firefox MV2 差异与兼容，遵循宿主事实源；产品文案使用既有 i18n；Query 管远端状态，Jotai 只管必要客户端状态；UI 使用 Mantine theme 与语义令牌。运行时配置、数据访问、日志脱敏和浏览器边界以各自事实源为准，不在入口重复。
 - 本仓库只使用项目声明的 Node.js、pnpm 与 TypeScript 依赖，不依赖全局第三方包。工具链只在首次实例化主动检查，或真实命令失败且诊断指向环境时检查；安装或升级仍需授权。
 - 受管 TypeScript 稳定声明需要紧邻中文注释；前端源码和其他人工维护文本的职责、提示与硬上限以 `docs/ENGINEERING_RULES.md` 为唯一详细来源。根入口保持轻量，不复制初始化、构建、发布或验证实现链。
 - Product Spec、ADR、Changelog、Product Status、Work Plan 与 Verification 只由各自独立事件触发。构建和候选事实按发布规则留在候选证据与当前回复；普通维护不写占位，范围外问题进入 `docs/TECH_DEBT.md`。

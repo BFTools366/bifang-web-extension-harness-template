@@ -49,7 +49,7 @@ description: 为单 package React Web 下游创建、修改、重构或审查重
 
 1. 完整读取 [offset-list-pattern.md](references/offset-list-pattern.md) 与 [checklist.md](references/checklist.md)；使用 Mantine Table/Pagination 时再读 [mantine-api.md](references/mantine-api.md)。
 2. 确认下游实际为 React Web，并满足 React 19.2+、`@mantine/core >=9.6.1 <10`、`@tanstack/react-query >=5.102.8 <6`。版本不满足时先按项目依赖规则升级，或实现并测试等价 fallback。
-3. 需要 URL/session 恢复、响应校验、选择裁剪或列迁移时，从 `assets/listPageState.ts` 选取并适配到一个项目级共享列表模块；运行 `assets/ListPage.contracts.test.ts` 作为纯函数起点。资产不是必须整份复制的 UI 模板，也不替代产品测试。
+3. 需要 URL/session 恢复、响应校验、选择裁剪或列迁移时，从 `assets/listPageState.ts`、`assets/listColumnPreferences.ts` 与 `assets/listPageStorage.ts` 选取并适配到一个项目级共享列表模块；运行 `assets/ListPage.contracts.test.ts` 作为纯函数起点；适配时将相互依赖的三个文件放在同一列表模块目录并保持具名导出。资产不是必须整份复制的 UI 模板，也不替代产品测试。
 4. 先接类型化 Router adapter 与服务端稳定排序，再接 Query/四态/分页，最后只按真实需求接选择和列偏好；不留下假按钮、占位 endpoint 或不可达分支。
 5. 更新相关非空 Vitest/Testing Library 测试；同时运行适配后的可执行契约。普通实现不因此自动构建、E2E 或完整验收。
 

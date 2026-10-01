@@ -1,4 +1,5 @@
 import path from "node:path"
+import { synchronizeIdentityLocales } from "./identity.ts"
 import { createLogo, deriveLogoAssets, readLogo } from "./logo.ts"
 import {
   MASTER_LOGO_PATH,
@@ -21,7 +22,7 @@ export interface BrandRefreshOptions {
 }
 
 // 执行 derivedLogoPaths 函数的处理逻辑。
-export function derivedLogoPaths(config: ProjectConfig): string[] {
+export function derivedLogoPaths(config: Pick<ProjectConfig, "projectType">): string[] {
   return config.projectType === "web"
     ? ["public/logo.png", "public/favicon.png"]
     : ["assets/icon.png"]
@@ -54,6 +55,7 @@ async function synchronizeMetadata(root: string, config: ProjectConfig): Promise
     await writeAtomic(path.join(root, "src/brand.ts"), renderWebBrand(config))
   } else {
     await writeAtomic(path.join(root, "src/brand.ts"), renderExtensionBrand(config))
+    await synchronizeIdentityLocales(root, config)
   }
 }
 

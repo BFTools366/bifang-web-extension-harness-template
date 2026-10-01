@@ -99,13 +99,31 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
     const build = createBuildCommandPlan("extension", "build", "1.2.3")
     // 保存 packaged 变量供 zip 构建断言使用。
     const packaged = createBuildCommandPlan("extension", "package", "1.2.3")
-    expect(build[6]).toMatchObject({
-      args: ["exec", "plasmo", "build", "--env=.env.production"],
-      env: { PLASMO_PUBLIC_BUILD_VERSION: "1.2.3" }
-    })
-    expect(packaged[6]).toMatchObject({
-      args: ["exec", "plasmo", "build", "--zip", "--env=.env.production"],
-      env: { PLASMO_PUBLIC_BUILD_VERSION: "1.2.3" }
+    for (const [index, browser] of ["chrome-mv3", "firefox-mv2"].entries()) {
+      const args = [
+        "exec",
+        "plasmo",
+        "build",
+        `--target=${browser}`,
+        "--tag=prod",
+        "--build-path=build",
+        "--src-path=src",
+        "--env=.env.production"
+      ]
+      expect(build[index + 6]).toMatchObject({
+        args,
+        env: { PLASMO_PUBLIC_BUILD_VERSION: "1.2.3" }
+      })
+      expect(packaged[index + 6]).toMatchObject({
+        args: [...args.slice(0, 3), "--zip", ...args.slice(3)],
+        env: { PLASMO_PUBLIC_BUILD_VERSION: "1.2.3" }
+      })
+    }
+    expect(build).toHaveLength(9)
+    expect(build.filter((command) => command.args[0] === "test")).toHaveLength(1)
+    expect(build[8]).toMatchObject({
+      args: ["release:inspect"],
+      env: { HARNESS_BUILD_VERSION: "1.2.3" }
     })
     expect(
       /* 执行非法 Web 打包计划的构造。 */ () =>

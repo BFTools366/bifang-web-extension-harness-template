@@ -1,7 +1,14 @@
 import { lstat, readFile } from "node:fs/promises"
 import path from "node:path"
+import { extensionIdentityManifest, validateIdentityLocales } from "./identity.ts"
 import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
+import {
+  EXTENSION_TARGETS,
+  validateBuiltExtensionManifest,
+  findExternalizedRuntimeDependencies,
+  type ExtensionTarget
+} from "./extension-targets.ts"
 import { validateEnvironmentFiles } from "./environment.ts"
 import { pathExists, walkFiles } from "./files.ts"
 import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
@@ -29,6 +36,8 @@ const RELEASE_POLICY_PATH = ".harness/release-policy.json"
 export interface ReleaseInspection {
   // 描述 artifactRoot 接口成员的结构契约。
   artifactRoot: string
+  // 描述双浏览器候选各自的检查结果；Web 保持单产物。
+  artifacts?: ReleaseInspection[]
   // 描述 files 接口成员的结构契约。
   files: number
   // 描述 buildVersion 接口成员的已验证构建版本。
@@ -102,10 +111,30 @@ function collectHttpUrls(contents: string): Set<string> {
   return urls
 }
 
-// 执行 inspectReleaseArtifact 函数的处理逻辑。
+/** 默认检查完整双浏览器候选，任一目标缺失或失败就拒绝整个 Extension。 */
 export async function inspectReleaseArtifact(
   rootInput: string,
   options: ReleaseInspectionOptions = {}
+): Promise<ReleaseInspection> {
+  const project = await loadProjectConfig(path.resolve(rootInput))
+  if (project.projectType === "web") return inspectArtifact(rootInput, options)
+  const artifacts: ReleaseInspection[] = []
+  for (const target of EXTENSION_TARGETS) {
+    artifacts.push(await inspectArtifact(rootInput, options, target))
+  }
+  return {
+    artifactRoot: artifacts.map((artifact) => artifact.artifactRoot).join(", "),
+    artifacts,
+    buildVersion: artifacts[0]?.buildVersion,
+    files: artifacts.reduce((count, artifact) => count + artifact.files, 0)
+  }
+}
+
+/** 对单个目标目录执行精确版本、身份、协议和 Release 内容检查。 */
+async function inspectArtifact(
+  rootInput: string,
+  options: ReleaseInspectionOptions,
+  target?: ExtensionTarget
 ): Promise<ReleaseInspection> {
   // 保存 root 变量供当前逻辑使用。
   const root = path.resolve(rootInput)
@@ -116,7 +145,8 @@ export async function inspectReleaseArtifact(
   // 保存 environments 变量供当前逻辑使用。
   const environments = await validateEnvironmentFiles(root, "release")
   // 保存 relativeArtifactRoot 变量供当前逻辑使用。
-  const relativeArtifactRoot = project.projectType === "web" ? "dist" : "build/chrome-mv3-prod"
+  const relativeArtifactRoot =
+    project.projectType === "web" ? "dist" : `build/${target?.target}-prod`
   // 保存 artifactRoot 变量供当前逻辑使用。
   const artifactRoot = path.join(root, relativeArtifactRoot)
   if (!(await pathExists(artifactRoot))) {
@@ -128,6 +158,7 @@ export async function inspectReleaseArtifact(
   if (files.length === 0) throw new Error(`Release artifact is empty: ${relativeArtifactRoot}`)
   // 保存 expectedBuildVersion 变量供候选内容校验使用。
   let expectedBuildVersion = options.expectedBuildVersion
+  let runtimeDependencies: string[] = []
   if (project.projectType === "web") {
     if (
       expectedBuildVersion !== undefined &&
@@ -140,6 +171,8 @@ export async function inspectReleaseArtifact(
     const packageManifest: unknown = JSON.parse(
       await readFile(path.join(root, "package.json"), "utf8")
     )
+    if (isRecord(packageManifest) && isRecord(packageManifest.dependencies))
+      runtimeDependencies = Object.keys(packageManifest.dependencies)
     const packageVersion =
       packageManifest !== null &&
       typeof packageManifest === "object" &&
@@ -217,6 +250,17 @@ export async function inspectReleaseArtifact(
         if (/\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+/.test(withoutUrls)) {
           fileErrors.push(`${relative} contains a local absolute path`)
         }
+        if (
+          project.projectType === "extension" &&
+          [".js", ".mjs"].includes(path.extname(absolute))
+        ) {
+          for (const dependency of findExternalizedRuntimeDependencies(
+            contents,
+            runtimeDependencies
+          )) {
+            fileErrors.push(`${relative} leaves ${dependency} as an unresolved browser dependency`)
+          }
+        }
         if (/sourceMappingURL\s*=/.test(contents)) {
           fileErrors.push(`${relative} references a source map`)
         }
@@ -245,9 +289,25 @@ export async function inspectReleaseArtifact(
         builtManifest !== null && typeof builtManifest === "object" && "version" in builtManifest
           ? builtManifest.version
           : undefined
+      const metadata = builtManifest as Record<string, unknown> | null
+      if (metadata === null || typeof metadata !== "object" || Array.isArray(metadata)) {
+        errors.push("Extension release manifest is invalid")
+      } else {
+        if (target !== undefined) validateBuiltExtensionManifest(metadata, target, errors)
+        for (const [field, expected] of Object.entries(extensionIdentityManifest(project))) {
+          if (metadata[field] !== expected) errors.push(`Extension build ${field} is stale`)
+        }
+      }
       if (builtVersion !== expectedBuildVersion) {
         errors.push("Extension manifest version does not match package.json.version")
       }
+    }
+  }
+  if (project.projectType === "extension") {
+    await validateIdentityLocales(artifactRoot, project, "_locales", errors)
+    for (const entry of ["popup.html", "options.html"]) {
+      if (!(await pathExists(path.join(artifactRoot, entry))))
+        errors.push(`Extension release artifact is missing ${entry}`)
     }
   }
   if (
@@ -260,7 +320,9 @@ export async function inspectReleaseArtifact(
   }
 
   if (errors.length > 0) {
-    throw new Error(`Release artifact inspection failed:\n- ${errors.join("\n- ")}`)
+    throw new Error(
+      `Release artifact inspection failed (${relativeArtifactRoot}):\n- ${errors.join("\n- ")}`
+    )
   }
   return {
     artifactRoot: relativeArtifactRoot,

@@ -5,7 +5,7 @@
 ## 专题
 
 - [Agent-first 设计](harness_engineering/agent_first_design.md)：事实来源、事件驱动执行、统一标题、项目绑定、Subagent 和人类授权边界。
-- [工程基础](harness_engineering/foundations.md)：单宿主单包、身份/品牌派生、环境、数据、日志、UI 与依赖原则。
+- [工程基础](harness_engineering/foundations.md)：单宿主单包、身份/品牌派生、Extension Chrome MV3 / Firefox MV2 兼容责任、环境、数据、日志、UI 与依赖原则。
 - [项目生命周期](harness_engineering/project_lifecycle.md)：source 冻结、实例化、日常开发、候选验收、发布与下游升级。
 
 ## 规范入口

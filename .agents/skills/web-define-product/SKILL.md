@@ -1,6 +1,6 @@
 ---
 name: web-define-product
-description: 定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端产品的用户、问题、范围、约束和可衡量成功标准。用于新前端产品、需求含糊，或产品目标、公开边界、隐私/权限约束和成功标准真实变化；范围清楚的日常实现不调用。
+description: 定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端产品的用户、问题、范围、约束和可衡量成功标准。用于新前端产品、需求含糊，或产品目标、公开边界、隐私/权限约束和成功标准真实变化；范围清楚的日常实现不调用。
 ---
 
 # Web Harness：定义前端产品
@@ -18,7 +18,7 @@ description: 定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3
 3. 确认固定 `projectType`，不得切换或增加第二类型。若需要另一项目，回到源 Harness 只完成固定初始化表单；新下游建立后由用户在该项目根重新提出产品需求，不能把本轮产品内容带回模板源。
 4. 提取目标用户、主要场景、输入、输出、痛点、数据边界和成功结果：
    - Web 明确路由/页面范围、访问方式、浏览器支持、development/test/release 远端服务与隐私边界。
-   - Extension 明确 popup/options/content/background 场景、三环境远端服务、站点匹配、Chrome MV3 权限、数据存储和宿主限制。
+   - Extension 明确 popup/options/content/background 场景、三环境远端服务、站点匹配、Chrome MV3 / Firefox MV2 的权限、API/消息/后台差异、数据存储和宿主限制，既定两目标兼容由执行 Agent 自行保证。
    - 两种类型都确认单一 BaseURL 是否足够或需要多个受控远端基地址，并明确哪些日志元数据可在 Release 保留；浏览器公开配置不能被定义为秘密存储。
 5. 写出聚焦结果的目标，并列出 `包含`、`不包含`、假设、约束、可靠性/无障碍要求和可观察成功标准。只有缺失会破坏最小完整闭环或安全性时才扩大当前范围。
 6. 只询问答案会实质改变产品边界的缺失信息；非阻断未知项标为待确定，不虚构权限、数据来源、后端、账号或发布渠道。

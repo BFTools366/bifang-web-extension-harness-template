@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：实例化前端项目"
   short_description: "从源 Web Harness 创建独立的 React Web 或 Plasmo MV3 前端项目"
-  default_prompt: "使用 $web-instantiate-project 从源 Web Harness 创建独立、单一类型的纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目。"
+  default_prompt: "使用 $web-instantiate-project 从源 Web Harness 创建独立、单一类型的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目。"

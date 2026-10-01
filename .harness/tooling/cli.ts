@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url"
 import path from "node:path"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
+import { parseIdentityI18n } from "./identity.ts"
 import { refreshBrand } from "./brand.ts"
 import { assertProjectType } from "./config.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
@@ -21,6 +22,7 @@ const INIT_OPTIONS = [
   "name",
   "id",
   "description",
+  "identity-i18n",
   "development-base-url",
   "test-base-url",
   "release-base-url",
@@ -43,7 +45,7 @@ Project creation (the target must be outside this Harness repository):
   pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
-    [--description <description>] \\
+    [--description <description> (required for extension)] [--identity-i18n <json>] \\
     [--superpowers enabled|disabled] [--user-owned-tasks enabled|disabled] \\
     [--parallel-worktree-subagents enabled|disabled] \\
     [--acceptance-smoke enabled|disabled] [--e2e-hint enabled|disabled] \\
@@ -150,6 +152,7 @@ export async function resolveInitOptions(
     name: readStringOption(args, "name"),
     id: readStringOption(args, "id"),
     description: readStringOption(args, "description", true),
+    identityI18n: readStringOption(args, "identity-i18n", true),
     brandColor: suppliedBrandColor ?? (interactive ? undefined : "#4C6EF5"),
     developmentBaseUrl: readStringOption(args, "development-base-url", true),
     testBaseUrl: readStringOption(args, "test-base-url", true),
@@ -196,12 +199,16 @@ export async function resolveInitOptions(
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
   assertProjectType(identity.projectType)
+  if (identity.projectType === "extension" && !identity.description?.trim()) {
+    throw new Error("Extension project description is required (--description)")
+  }
   return {
     root: identity.targetRoot ?? root,
     projectType: identity.projectType,
     name: identity.name ?? "",
     id: identity.id ?? "",
     description: identity.description?.trim() || identity.name?.trim() || "",
+    identityI18n: parseIdentityI18n(identity.identityI18n),
     brandColor: identity.brandColor ?? "",
     developmentBaseUrl: identity.developmentBaseUrl ?? "",
     testBaseUrl: identity.testBaseUrl ?? "",

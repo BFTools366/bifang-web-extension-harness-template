@@ -7,10 +7,16 @@ Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、
 ```text
 pnpm instantiate -- <absolute-target-outside-harness> ...
 ├── --type web       → 独立 Vite React 单包
-└── --type extension → 独立 Plasmo Chrome MV3 单包
+└── --type extension → 独立 Plasmo Chrome MV3 / Firefox MV2 单包
 ```
 
 需要两个宿主时建立两个仓库。相同技术选型不等于共享业务源码；下游不保留添加/删除宿主、workspace、`apps/`、`packages/` 或共享 core。
+
+## Extension 双浏览器兼容
+
+Extension 仍是一个单包、一个 `projectType`，其固定目标是 Chrome MV3 与 Firefox MV2。Plasmo 按目标动态生成 manifest、入口和图标，Harness 检查两个实际产物；不手写平行清单，不增加第二宿主或共享 core。
+
+未来开发由执行 Agent 自行保证差异与兼容性：浏览器 API、消息异步语义、权限、后台生命周期和资源协议逐项核对、适配并验证。公共 UI/身份复用不意味着宿主行为一致，单目标通过不能证明双目标通过。技术合同见 [`../TS_WEB_TEMPLATE.md`](../TS_WEB_TEMPLATE.md) §5，日常测试与候选门禁见 [`../ENGINEERING_RULES.md`](../ENGINEERING_RULES.md) §2.3/§6；本专题只记录工程取舍。
 
 ## 身份与品牌
 
@@ -19,7 +25,7 @@ pnpm instantiate -- <absolute-target-outside-harness> ...
 ## 技术职责
 
 - Web：Vite、React/TypeScript、Mantine、TanStack Router 文件路由、Query、Jotai、i18next。
-- Extension：Plasmo、Chrome MV3、React/TypeScript、Mantine、TanStack Router 代码路由、Query、Jotai、i18next；Popup 与 Options 分别持有路由历史。
+- Extension：Plasmo、Chrome MV3 / Firefox MV2、React/TypeScript、Mantine、TanStack Router 代码路由、Query、Jotai、i18next；Popup 与 Options 分别持有路由历史。
 - Query 管远端/异步服务器状态；Jotai 只管必要跨组件客户端状态；简单局部状态留在组件。
 - UI 只使用 Mantine theme、语义令牌与受控样式；Extension 权限保持真实最小集合。
 
@@ -27,7 +33,7 @@ pnpm instantiate -- <absolute-target-outside-harness> ...
 
 development、test、release 三环境始终齐全；release 只映射 `.env.production`。当前宿主仅公开四个已声明键，业务只读冻结 `APP_CONFIG`；`.env`、`.env*.local`、未知公开键与浏览器秘密失败关闭。
 
-初始化器只生成通用原生 Fetch、1-based 分页、语言/认证 header、超时、401 handler 与安全 logger，不生成业务 endpoint。Ky/OpenAPI、GraphQL、SSE、RxJS 只随真实需求加入；RxJS 不替代 Query/Jotai、持久事件日志或 Chrome 跨上下文消息。
+初始化器只生成通用 Ky HTTP、1-based 分页、语言/认证 header、超时、401 handler 与安全 logger，不生成业务 endpoint。Ky 为默认 Fetch 传输，请求上下文统一维护认证、错误、超时与取消；OpenAPI、GraphQL、SSE、RxJS 只随真实需求加入；RxJS 不替代 Query/Jotai、持久事件日志或 Chrome 跨上下文消息。
 
 产品代码不散落 `console.*`。Release logger 强制最低级别、字段白名单以及敏感键、URL query/fragment、Error stack/cause、本机路径脱敏；构建和 Extension package 自动运行敏感信息检查。
 
@@ -35,4 +41,4 @@ development、test、release 三环境始终齐全；release 只映射 `.env.pro
 
 优先标准库和已声明依赖，不假定全局第三方包。新增依赖要有真实能力理由、兼容与安全证据，并保持项目本地声明。Node.js/pnpm 使用稳定 SemVer 下界；新下游首次初始化检查一次，普通开发或构建不预探测，真实失败指向环境后才诊断。
 
-稳定 TypeScript 声明使用紧邻中文注释；前端源码 501–1000 行提示、1001 行起失败，其他受管文本 501–2000 行提示、2001 行起失败。阈值推动职责拆分，不鼓励自动注释或机械压行。
+稳定 TypeScript 声明使用紧邻中文注释；前端源码 501–600 行提示、601 行起失败，其他受管文本 501–2000 行提示、2001 行起失败。阈值推动职责拆分，不鼓励自动注释或机械压行。

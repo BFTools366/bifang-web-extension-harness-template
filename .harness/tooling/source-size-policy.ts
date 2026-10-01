@@ -6,7 +6,7 @@ import { walkFiles } from "./files.ts"
 /** 保存需要复核职责的建议行数上限。 */
 export const SOURCE_SIZE_REVIEW_LIMIT = 500
 /** 保存必须拆分的强制行数上限。 */
-export const SOURCE_SIZE_HARD_LIMIT = 1000
+export const SOURCE_SIZE_HARD_LIMIT = 600
 
 /** 描述单个源码文件的体积检查结果。 */
 export interface SourceSizeFinding {
@@ -63,7 +63,27 @@ export function inspectSourceSize(file: string, source: string): SourceSizeFindi
   return undefined
 }
 
-/** 扫描项目内全部人工维护的 TypeScript 与 TSX 源码。 */
+/** 保存受同一体积门禁管理的前端和 Node 工具代码扩展名。 */
+const SOURCE_CODE_SUFFIXES = new Set([
+  ".astro",
+  ".cjs",
+  ".css",
+  ".cts",
+  ".html",
+  ".js",
+  ".jsx",
+  ".less",
+  ".mjs",
+  ".mts",
+  ".sass",
+  ".scss",
+  ".svelte",
+  ".ts",
+  ".tsx",
+  ".vue"
+])
+
+/** 扫描项目内全部人工维护的前端和 Node 工具代码。 */
 export async function inspectProjectSourceSizes(rootInput: string): Promise<SourceSizeFinding[]> {
   // 保存 root 变量供当前逻辑使用。
   const root = path.resolve(rootInput)
@@ -72,7 +92,7 @@ export async function inspectProjectSourceSizes(rootInput: string): Promise<Sour
     // 执行 当前声明 函数的处理逻辑。
     exclude: (name) => EXCLUDED_DIRECTORIES.has(name),
     // 执行 当前声明 函数的处理逻辑。
-    filter: (name) => name.endsWith(".ts") || name.endsWith(".tsx")
+    filter: (name) => SOURCE_CODE_SUFFIXES.has(path.extname(name).toLowerCase())
   })
   // 保存 findings 变量供当前逻辑使用。
   const findings = await Promise.all(

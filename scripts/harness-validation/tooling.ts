@@ -347,9 +347,14 @@ export async function validateToolingContract(root: string, errors: string[]): P
   )
   // 保存 validateProject 变量供当前逻辑使用。
   const validateProject = findFunctionDeclaration(downstreamValidatorSourceFile, "validateProject")
+  /** 保存按职责拆分后的共享构建脚本验证源。 */
+  const helperSourceFile = parseTypeScriptSource(
+    await readFile(path.join(root, ".harness/tooling/validate-helpers.ts"), "utf8"),
+    ".harness/tooling/validate-helpers.ts"
+  )
   // 保存 assertReleaseOnlyBuildScripts 变量供当前逻辑使用。
   const assertReleaseOnlyBuildScripts = findFunctionDeclaration(
-    downstreamValidatorSourceFile,
+    helperSourceFile,
     "assertReleaseOnlyBuildScripts"
   )
   if (
@@ -416,6 +421,11 @@ export async function validateToolingContract(root: string, errors: string[]): P
   }
   if (
     assertReleaseOnlyBuildScripts === undefined ||
+    !hasNamedImport(
+      downstreamValidatorSourceFile,
+      "./validate-helpers.ts",
+      "assertReleaseOnlyBuildScripts"
+    ) ||
     validateProject === undefined ||
     identifierCallPositions(
       validateProject,

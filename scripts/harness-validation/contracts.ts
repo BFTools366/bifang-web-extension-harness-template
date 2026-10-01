@@ -37,16 +37,16 @@ export interface SkillContract {
 export const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
-      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome 环境。只用于新下游首次初始化，或命令已经失败且错误指向工具链/浏览器环境时的诊断；普通开发与构建前不预探测。",
+      "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome/Firefox 环境。只用于新下游首次初始化，或命令已经失败且错误指向工具链/浏览器环境时的诊断；普通开发与构建前不预探测。",
     title: "# Web Harness：检查前端开发环境",
     displayName: "Web Harness：检查前端开发环境",
     shortDescription: "仅在初始化或环境报错后检查 React Web/Plasmo 工具链",
     defaultPrompt:
-      "使用 $web-check-development-environment 仅在新下游首次初始化，或命令已报出疑似环境错误时检查纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 所需的 Node.js、pnpm 与按需使用的 Google Chrome。"
+      "使用 $web-check-development-environment 仅在新下游首次初始化，或命令已报出疑似环境错误时检查纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 所需的 Node.js、pnpm 与按需使用的 Google Chrome/Firefox。"
   },
   "web-configure-git-commits": {
     description:
-      "仅在用户明确要求配置 Git，或下一步将实际创建提交时，为 Web Harness、React Web 或 Plasmo Chrome MV3 Extension 独立仓库即时检查并补齐仓库本地身份、安装并检查受管提交模板；不得因打开、检查或编辑仓库而提前配置，不修改全局配置，也不自动提交。",
+      "仅在用户明确要求配置 Git，或下一步将实际创建提交时，为 Web Harness、React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 独立仓库即时检查并补齐仓库本地身份、安装并检查受管提交模板；不得因打开、检查或编辑仓库而提前配置，不修改全局配置，也不自动提交。",
     title: "# Web Harness：配置 Git 提交",
     displayName: "Web Harness：配置 Git 提交",
     shortDescription: "检查并安全配置仓库本地 Git 身份与受管提交模板约定",
@@ -64,30 +64,30 @@ export const SKILL_CONTRACTS = {
   },
   "web-define-product": {
     description:
-      "定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端产品的用户、问题、范围、约束和可衡量成功标准。用于新前端产品、需求含糊，或产品目标、公开边界、隐私/权限约束和成功标准真实变化；范围清楚的日常实现不调用。",
+      "定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端产品的用户、问题、范围、约束和可衡量成功标准。用于新前端产品、需求含糊，或产品目标、公开边界、隐私/权限约束和成功标准真实变化；范围清楚的日常实现不调用。",
     title: "# Web Harness：定义前端产品",
     displayName: "Web Harness：定义前端产品",
     shortDescription: "定义 React Web 或 Plasmo MV3 Extension 的单一前端产品范围",
     defaultPrompt:
-      "使用 $web-define-product 定义纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 单一前端产品的范围与可衡量成功标准。"
+      "使用 $web-define-product 定义纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 单一前端产品的范围与可衡量成功标准。"
   },
   "web-extract-i18n-strings": {
     description:
-      "扫描当前纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端的 TSX 用户可见文案，将硬编码字符串迁移到既有 i18next/react-i18next 资源，同时保持默认语言行为。用于已有 React i18n 基线的前端文案整理；不处理 manifest、本地化之外的品牌元数据或非 React 机制。",
+      "扫描当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端的 TSX 用户可见文案，将硬编码字符串迁移到既有 i18next/react-i18next 资源，同时保持默认语言行为。用于已有 React i18n 基线的前端文案整理；不处理 manifest、本地化之外的品牌元数据或非 React 机制。",
     title: "# Web Harness：提取前端国际化文案",
     displayName: "Web Harness：提取前端国际化文案",
     shortDescription: "将 React Web 或 Plasmo MV3 Extension 可见文案迁移至 i18next",
     defaultPrompt:
-      "使用 $web-extract-i18n-strings 将纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端界面中的用户可见文案迁移至 i18next 资源。"
+      "使用 $web-extract-i18n-strings 将纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端界面中的用户可见文案迁移至 i18next 资源。"
   },
   "web-implement-change": {
     description:
-      "在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游中直接实施范围清楚的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。",
+      "在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中直接实施范围清楚的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。",
     title: "# Web Harness：实施前端变更",
     displayName: "Web Harness：实施前端变更",
     shortDescription: "实施 Web Harness 或其 React Web、Plasmo MV3 前端下游变更",
     defaultPrompt:
-      "使用 $web-implement-change 在 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游中实施并验证当前范围内的前端变更。"
+      "使用 $web-implement-change 在 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游中实施并验证当前范围内的前端变更。"
   },
   "web-implement-list-view": {
     description:
@@ -100,52 +100,52 @@ export const SKILL_CONTRACTS = {
   },
   "web-instantiate-project": {
     description:
-      "通过源 Web Harness 唯一公开入口向源外空目录创建全新的纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端下游，安全重置模板身份并建立独立 Git 根。用于创建单一类型前端项目；不得用于原地初始化或修改已初始化项目。",
+      "通过源 Web Harness 唯一公开入口向源外空目录创建全新的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游，安全重置模板身份并建立独立 Git 根。用于创建单一类型前端项目；不得用于原地初始化或修改已初始化项目。",
     title: "# Web Harness：实例化前端项目",
     displayName: "Web Harness：实例化前端项目",
     shortDescription: "从源 Web Harness 创建独立的 React Web 或 Plasmo MV3 前端项目",
     defaultPrompt:
-      "使用 $web-instantiate-project 从源 Web Harness 创建独立、单一类型的纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目。"
+      "使用 $web-instantiate-project 从源 Web Harness 创建独立、单一类型的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目。"
   },
   "web-plan-change": {
     description:
-      "为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游创建可直接实施的精简 Todo。只在用户明确要求持久计划、跨会话交接，或发布与高风险工作确需协调时使用；普通日常任务直接实施。",
+      "为 Web Harness 或纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游创建可直接实施的精简 Todo。只在用户明确要求持久计划、跨会话交接，或发布与高风险工作确需协调时使用；普通日常任务直接实施。",
     title: "# Web Harness：规划前端变更",
     displayName: "Web Harness：规划前端变更",
     shortDescription: "规划 Web Harness 或其 React Web、Plasmo MV3 前端下游变更",
     defaultPrompt:
-      "使用 $web-plan-change 为 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游制定可执行的变更计划。"
+      "使用 $web-plan-change 为 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游制定可执行的变更计划。"
   },
   "web-prepare-brand-identity": {
     description:
-      "为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目创建或更新正式 Logo，并从 .harness/project.json 同步当前宿主的品牌元数据。用于首次实例化、品牌改名、Logo 或用户可见前端产品元数据变化。",
+      "为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目创建或更新正式 Logo，并从 .harness/project.json 同步当前宿主的品牌元数据。用于首次实例化、品牌改名、Logo 或用户可见前端产品元数据变化。",
     title: "# Web Harness：准备前端品牌身份",
     displayName: "Web Harness：准备前端品牌身份",
     shortDescription: "同步 React Web 或 Plasmo MV3 Extension 的 Logo 与品牌元数据",
     defaultPrompt:
-      "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端项目创建 Logo 并同步品牌元数据。"
+      "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目创建 Logo 并同步品牌元数据。"
   },
   "web-prepare-release": {
     description:
-      "为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。",
+      "为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 / Firefox MV2 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。",
     title: "# Web Harness：准备前端发布",
     displayName: "Web Harness：准备前端发布",
-    shortDescription: "准备 Web Harness 源码、Vite dist 或 Chrome MV3 zip 前端候选",
+    shortDescription: "准备 Web Harness 源码、Vite dist 或 Chrome MV3 / Firefox MV2 zip 前端候选",
     defaultPrompt:
-      "使用 $web-prepare-release 评估并整理 Web Harness 源码候选、React Web Vite dist 或 Plasmo Chrome MV3 zip 前端发布候选。"
+      "使用 $web-prepare-release 评估并整理 Web Harness 源码候选、React Web Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 zip 前端发布候选。"
   },
   "web-refactor-code": {
     description:
-      "对 Web Harness 受管前端模板或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游的 TypeScript/TSX 做行为保持重构，处理职责、命名、重复、状态归属、性能和浏览器生命周期风险；不改变公开行为、权限或项目类型。",
+      "对 Web Harness 受管前端模板或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游的 TypeScript/TSX 做行为保持重构，处理职责、命名、重复、状态归属、性能和浏览器生命周期风险；不改变公开行为、权限或项目类型。",
     title: "# Web Harness：重构前端代码",
     displayName: "Web Harness：重构前端代码",
     shortDescription: "保持行为不变地重构 Harness 模板或前端下游 TypeScript 代码",
     defaultPrompt:
-      "使用 $web-refactor-code 在保持可观察行为不变的前提下重构 Web Harness 受管前端模板或其 React Web、Plasmo Chrome MV3 Extension 下游代码。"
+      "使用 $web-refactor-code 在保持可观察行为不变的前提下重构 Web Harness 受管前端模板或其 React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游代码。"
   },
   "web-run-parallel-worktrees": {
     description:
-      "在用户当前明确要求且项目策略允许时，把一个 Web Harness、React Web 或 Plasmo Chrome MV3 Extension Task 拆为写入所有权不重叠的内部 Subagent Git Worktree，并用可执行登记、guard、postflight 和保守清理阻止越界。",
+      "在用户当前明确要求且项目策略允许时，把一个 Web Harness、React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension Task 拆为写入所有权不重叠的内部 Subagent Git Worktree，并用可执行登记、guard、postflight 和保守清理阻止越界。",
     title: "# Web Harness：运行前端并行工作树",
     displayName: "Web Harness：运行前端并行工作树",
     shortDescription: "用登记、所有权与 postflight 安全协调内部前端单元",
@@ -163,30 +163,30 @@ export const SKILL_CONTRACTS = {
   },
   "web-test-final-artifact-e2e": {
     description:
-      "按 $web-verify-delivery 已批准的执行契约，在隔离的真实 Google Chrome 中对精确 React Web Vite dist 或 Plasmo Chrome MV3 Extension 前端候选执行端到端场景并返回证据。不得自行决定策略、候选准入、Todo 回流或候选验收结论，也不得用于开发预览、规划、普通编码或单元测试替代。",
+      "按 $web-verify-delivery 已批准的执行契约，在隔离的真实浏览器中（Web 使用 Google Chrome，Extension 使用 Chrome 和 Firefox）对精确 React Web Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端候选执行端到端场景并返回证据。不得自行决定策略、候选准入、Todo 回流或候选验收结论，也不得用于开发预览、规划、普通编码或单元测试替代。",
     title: "# Web Harness：测试前端最终产物 E2E",
     displayName: "Web Harness：测试前端最终产物",
-    shortDescription: "在真实 Chrome 中测试 Vite dist 或 Plasmo Chrome MV3 前端候选",
+    shortDescription: "逐浏览器测试 Web dist 与 Chrome MV3 / Firefox MV2 扩展候选",
     defaultPrompt:
-      "使用 $web-test-final-artifact-e2e 在隔离的真实 Google Chrome 中测试精确的 React Web Vite dist 或 Plasmo Chrome MV3 前端候选。"
+      "使用 $web-test-final-artifact-e2e 在隔离的真实浏览器中（Web 使用 Google Chrome，Extension 使用 Chrome 和 Firefox）测试精确的 React Web Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 前端候选。"
   },
   "web-upgrade-harness": {
     description:
-      "在已实例化的单一类型纯 TypeScript React Web 或 Plasmo Chrome MV3 Extension 前端下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。",
+      "在已实例化的单一类型纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。",
     title: "# Web Harness：升级前端工程基线",
     displayName: "Web Harness：升级前端工程基线",
     shortDescription: "将较新 Web Harness 工程层安全同步到单一 React 或 Plasmo MV3 前端下游",
     defaultPrompt:
-      "使用 $web-upgrade-harness 先执行只读预演，再将较新 Web Harness 前端工程层安全同步到单一 React Web 或 Plasmo Chrome MV3 Extension 下游。"
+      "使用 $web-upgrade-harness 先执行只读预演，再将较新 Web Harness 前端工程层安全同步到单一 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游。"
   },
   "web-verify-delivery": {
     description:
-      "对 Web Harness 源码候选或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 构建/zip；由发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求触发。",
+      "对 Web Harness 源码候选或单一类型纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游发布候选执行完整真实产物验收：Harness 验证两种独立生成结果，Web 验证 Vite dist，Extension 验证 Chrome MV3 / Firefox MV2 构建/zip；由发布候选、用户明确要求完整验收、当前构建启用 E2E 或浏览器硬要求触发。",
     title: "# Web Harness：验证前端交付",
     displayName: "Web Harness：验证前端交付",
-    shortDescription: "验收 Web Harness、Vite dist 或 Plasmo Chrome MV3 前端候选",
+    shortDescription: "验收 Web Harness、Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 前端候选",
     defaultPrompt:
-      "使用 $web-verify-delivery 验收 Web Harness 源码候选、React Web Vite dist 或 Plasmo Chrome MV3 前端候选。"
+      "使用 $web-verify-delivery 验收 Web Harness 源码候选、React Web Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 前端候选。"
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
 
@@ -283,6 +283,8 @@ export const REQUIRED_FILES = [
   ".harness/tooling/project-memory.ts",
   ".harness/tooling/pnpm-policy.ts",
   ".harness/tooling/brand.ts",
+  ".harness/tooling/identity.ts",
+  ".harness/tooling/extension-targets.ts",
   ".harness/tooling/environment.ts",
   ".harness/tooling/release.ts",
   ".harness/tooling/skill-validation.ts",
@@ -291,6 +293,10 @@ export const REQUIRED_FILES = [
   ".harness/tooling/templates/downstream-docs.ts",
   ".harness/tooling/templates/http-client.ts",
   ".harness/tooling/templates/http-client-test.ts",
+  ".harness/tooling/templates/http-auth-test.ts",
+  ".harness/tooling/templates/http-errors.ts",
+  ".harness/tooling/templates/http-ui.ts",
+  ".harness/tooling/templates/http-ui-test.ts",
   ".harness/tooling/templates/http-language.ts",
   ".harness/tooling/templates/http.ts",
   ".harness/tooling/templates/logging.ts",
@@ -330,7 +336,43 @@ export const REQUIRED_FILES = [
   "tests/harness-upgrade.test.ts",
   "tests/initialization-atomicity.test.ts",
   "tests/parallel-worktrees.test.ts",
-  "tests/source-size-policy.test.ts"
+  "tests/source-size-policy.test.ts",
+  ".harness/tooling/instantiate-target.ts",
+  "tests/harness-project-validation.test.ts",
+  "tests/harness-terminal-governance.test.ts",
+  "tests/harness-initialization-web.test.ts",
+  "tests/harness-initialization-extension.test.ts",
+  "tests/harness-instantiation-fixture.ts",
+  "tests/harness-instantiation-terminal.test.ts",
+  "tests/harness-validator-fixture.ts",
+  "tests/harness-skill-validation.test.ts",
+  "tests/project-memory-compatibility.test.ts",
+  "tests/initialization-atomicity-fixture.ts",
+  "tests/initialization-source-boundary.test.ts",
+  "tests/node-tooling.test.ts",
+  ".harness/tooling/validate-helpers.ts",
+  ".harness/tooling/validate-brand.ts",
+  ".harness/tooling/validate-hosts.ts",
+  "tests/harness-upgrade-fixture.ts",
+  "tests/harness-upgrade-ownership.test.ts",
+  "tests/harness-upgrade-cli.test.ts",
+  "tests/parallel-worktree-fixture.ts",
+  "tests/parallel-worktree-recovery.test.ts",
+  ".agents/skills/web-run-parallel-worktrees/scripts/parallel-types.ts",
+  ".agents/skills/web-run-parallel-worktrees/scripts/parallel-registry.ts",
+  ".agents/skills/web-run-parallel-worktrees/scripts/parallel-git.ts",
+  ".agents/skills/web-upgrade-harness/scripts/upgrade-snapshot.ts",
+  ".agents/skills/web-upgrade-harness/scripts/upgrade-planning.ts",
+  ".agents/skills/web-upgrade-harness/scripts/upgrade-glob.ts",
+  ".agents/skills/web-implement-list-view/assets/listPageStorage.ts",
+  ".agents/skills/web-implement-list-view/assets/listColumnPreferences.ts",
+  ".harness/tooling/validate-http.ts",
+  ".harness/tooling/validate.ts",
+  "scripts/harness-validation/node-tooling.ts",
+  ".harness/tooling/templates/http-contracts.ts",
+  ".harness/tooling/templates/http-protocol.ts",
+  ".harness/tooling/templates/http-test-fixtures.ts",
+  ".harness/tooling/templates/http-transport-test.ts"
 ] as const
 
 // 保存 GOVERNED_MARKDOWN_ROOTS 变量供当前逻辑使用。

@@ -71,6 +71,7 @@ if (executed === import.meta.url) {
 
 // 保存 TERMINAL_BRAND 变量供当前逻辑使用。
 const TERMINAL_BRAND = `import path from "node:path"
+import { extensionIdentityManifest, renderIdentityBrand, synchronizeIdentityLocales } from "./identity.ts"
 import { createLogo, deriveLogoAssets, readLogo } from "./logo.ts"
 import { loadProjectConfig, MASTER_LOGO_PATH, normalizeColor, PROJECT_CONFIG_PATH } from "./config.ts"
 import { readJson, writeAtomic, writeJsonAtomic } from "./files.ts"
@@ -93,8 +94,7 @@ function html(value: string): string {
 
 /** 说明 brandModule 的稳定结构与职责边界。 */
 function brandModule(config: ProjectConfig): string {
-  const logo = config.projectType === "web" ? ',\\n  logoPath: "/logo.png"' : ""
-  return \`export const BRAND = {\\n  name: \${JSON.stringify(config.name)},\\n  id: \${JSON.stringify(config.id)},\\n  description: \${JSON.stringify(config.description)},\\n  primaryColor: \${JSON.stringify(config.brand.primaryColor)}\${logo}\\n} as const\\n\`
+  return renderIdentityBrand(config)
 }
 
 /** 说明 webIndex 的稳定结构与职责边界。 */
@@ -125,8 +125,10 @@ async function syncMetadata(root: string, config: ProjectConfig): Promise<void> 
   if (config.projectType === "extension") {
     updated.displayName = config.name
     const current = manifest.manifest !== null && typeof manifest.manifest === "object"
-      ? manifest.manifest as Record<string, unknown> : {}
-    updated.manifest = { ...current, manifest_version: 3, name: config.name, description: config.description }
+      ? { ...(manifest.manifest as Record<string, unknown>) } : {}
+    delete current.manifest_version
+    updated.manifest = { ...current, ...extensionIdentityManifest(config) }
+    await synchronizeIdentityLocales(root, config)
   }
   await writeJsonAtomic(packagePath, updated)
   await writeAtomic(path.join(root, "src/brand.ts"), brandModule(config))
@@ -156,7 +158,9 @@ export async function refreshBrand(root: string, options: BrandRefreshOptions = 
 `
 
 // 保存 TERMINAL_TYPES 变量供当前逻辑使用。
-const TERMINAL_TYPES = `/** 说明 ProjectType 的唯一前端宿主类型。 */
+const TERMINAL_TYPES = `import type { IdentityI18n } from "./identity.ts"
+
+/** 说明 ProjectType 的唯一前端宿主类型。 */
 export type ProjectType = "web" | "extension"
 /** 说明 E2eSelection 的稳定结构与职责边界。 */
 export type E2eSelection = "enabled" | "disabled"
@@ -188,6 +192,7 @@ export interface ProjectConfig {
   name: string
   id: string
   description: string
+  identityI18n?: IdentityI18n
   brand: BrandConfig
   initializedAt: string
 }
@@ -208,6 +213,7 @@ export interface ParsedArgs {
 
 // 保存 TERMINAL_CONFIG 变量供当前逻辑使用。
 const TERMINAL_CONFIG = `import path from "node:path"
+import { assertExtensionIdentity, validateIdentityI18n } from "./identity.ts"
 import { readJson } from "./files.ts"
 import type { ProjectConfig, ProjectType } from "./types.ts"
 
@@ -250,12 +256,13 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
   if (config.brand.logoSource !== "generated" && config.brand.logoSource !== "uploaded") throw new Error("Invalid logoSource")
   const id = text(config.id, "id")
   if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) throw new Error("Invalid project id")
-  return {
+  const parsed: ProjectConfig = {
     schemaVersion: 1,
     projectType: config.projectType,
     name: text(config.name, "name"),
     id,
     description: text(config.description, "description"),
+    ...(config.identityI18n === undefined ? {} : { identityI18n: validateIdentityI18n(config.identityI18n) }),
     brand: {
       primaryColor: normalizeColor(text(config.brand.primaryColor, "brand color")),
       logoSource: config.brand.logoSource,
@@ -263,6 +270,8 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
     },
     initializedAt: text(config.initializedAt, "initializedAt")
   }
+  assertExtensionIdentity(parsed)
+  return parsed
 }
 
 /** 说明 loadProjectConfig 的稳定结构与职责边界。 */
@@ -277,7 +286,7 @@ function downstreamReadme(config: ProjectConfig): string {
   const stack =
     config.projectType === "web"
       ? "React, Vite, Mantine, TanStack Router file routing, TanStack Query, Jotai, and i18next"
-      : "Plasmo (Chrome MV3), React, Mantine, TanStack Router code routing, TanStack Query, Jotai, and i18next"
+      : "Plasmo (Chrome MV3 / Firefox MV2), React, Mantine, TanStack Router code routing, TanStack Query, Jotai, and i18next"
   // 保存 routeCommand 变量供当前逻辑使用。
   const routeCommand =
     config.projectType === "web"
@@ -298,7 +307,7 @@ This is a terminal, flat, single-package **${config.projectType}** project.
 
 ${stack}.
 
-The generated native Fetch and pagination foundations standardize request headers, authentication handoff, 401 handling, language persistence, and per-list session state without inventing a business endpoint. Optional Ky/OpenAPI, GraphQL, SSE, and RxJS integrations remain on demand; their rules live in \`docs/DATA_ACCESS.md\`.
+The generated Ky HTTP and pagination foundations standardize request headers, validated Token writes, 401/403 handling, localized Router/UI feedback, bounded Query reads, language persistence, and per-list session state without inventing a business endpoint. Ky is the default Fetch transport; optional OpenAPI, GraphQL, SSE, and RxJS integrations remain on demand; their rules live in \`docs/DATA_ACCESS.md\`.
 
 Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`. The generated appearance control follows the system setting by default and lets users choose light or dark mode.
 
@@ -308,12 +317,15 @@ Project-local \`.agents/skills/design-taste-frontend/\` provides optional visual
 
 - \`.harness/project.json\` is the identity and brand source of truth.
 - \`.harness/brand/logo-1024.png\` is the canonical logo.
-- Run \`pnpm harness brand refresh\` after changing the project name, id, description, color, or logo source.
+- Run \`pnpm harness brand refresh\` after changing the project name, id, description, identityI18n, color, or logo source.
+- Optional identityI18n selects defaultLocale (en or zh_CN) and translations of the other language. Root name/description remain the default identity; missing translations fall back to them.
+${config.projectType === "extension" ? "- Browser identity uses manifest __MSG_projectName__/__MSG_projectDescription__, explicit default_locale, and root locales/{en,zh_CN}/messages.json. Plasmo outputs _locales. Both Chrome MV3 and Firefox MV2 are required build/package targets. Plasmo dynamically generates each manifest; shared overrides do not pin manifest_version. Future development must handle browser API, permissions, messaging and background lifecycle differences; see docs/ENGINEERING_RULES.md.\n" : ""}
 - \`.env.development\`, \`.env.test\`, and \`.env.production\` are the complete governed public runtime profiles; see \`docs/RUNTIME_CONFIGURATION.md\`.
 
 ## Commands
 
 - \`pnpm dev\` — start development.
+${config.projectType === "extension" ? "- `pnpm dev:firefox` — develop Firefox MV2; build/package produce both browser targets.\n" : ""}
 ${routeCommand}- \`pnpm env:validate\` — validate all three runtime profiles.
 - \`pnpm build\` / \`pnpm build:release\` — the single Release artifact entry point; the build reuses the E2E selection already confirmed for this release, runs environment, Harness, format, lint, type, and full test gates, injects ${versionDescription} into the UI, and inspects the artifact. Non-interactive runs pass \`--e2e=enabled|disabled\`. Development and test profiles never produce a final artifact.
 - \`pnpm release:inspect\` — rescan the existing Release artifact for configuration or source leakage.
@@ -378,7 +390,7 @@ Create a requested Task once with \`Task {序号} | 已分配 | {单一结果}\`
 - \`package.json\` and \`pnpm-lock.yaml\`: scripts and dependency versions.
 - Product source and tests: executable behavior.
 ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state and empty-page reconciliation contract.
-- \`src/api/client/\`: the endpoint-free native Fetch, request-context, language, token, error, and unauthorized-handler foundation.
+- \`src/api/client/\`: the endpoint-free Ky HTTP, request-context, language, token, error, and unauthorized-handler foundation.
 - \`docs/DATA_ACCESS.md\`: pagination, request headers, authentication, data access, SSE, optional RxJS, and state ownership boundaries.
 - \`docs/MANTINE_UI_GUIDELINES.md\`: Mantine theme, tokens, layout, component semantics, interaction states, responsive behavior, accessibility, and current-host UI rules.
 - \`docs/RUNTIME_CONFIGURATION.md\`: the three profiles, public configuration schema, and build mapping.
@@ -388,9 +400,9 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 
 ## Web Harness 前端 Skill 地图
 
-- \`$web-check-development-environment\`：只在首次初始化或命令已报出环境错误时检查 Node.js、pnpm 与按需使用的 Google Chrome。
+- \`$web-check-development-environment\`：只在首次初始化或命令已报出环境错误时检查 Node.js、pnpm 与按需使用的 Google Chrome/Firefox。
 - \`$web-configure-git-commits\`：只在用户明确要求，或下一步将实际创建提交时，检查并配置仓库本地 Git 身份与受管提交模板。
-- \`$web-define-product\`：定义单一 React Web 或 Plasmo Chrome MV3 Extension 前端产品范围。
+- \`$web-define-product\`：定义单一 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端产品范围。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-implement-change\`：实施并验证已批准的 Web Harness 前端变更。
@@ -398,8 +410,8 @@ ${hostSkills}- \`$web-refactor-code\`：在保持行为不变时整理 TypeScrip
 - \`$web-prepare-brand-identity\`：同步当前前端宿主的 Logo 与品牌元数据。
 - \`$web-run-parallel-worktrees\`：仅在用户当前明确要求且策略启用时，隔离并协调写入范围互不重叠的前端并行工作。
 - \`$web-summarize-development-history\`：只读追溯项目记忆与 Git 历史，区分已决定、已实现、已验证与推测。
-- \`$web-test-final-artifact-e2e\`：在真实 Chrome 中测试精确前端候选产物。
-- \`$web-prepare-release\`：整理 Web Harness、Vite dist 或 Chrome MV3 zip 发布候选。
+- \`$web-test-final-artifact-e2e\`：逐个在当前目标的真实 Chrome/Firefox 中测试精确前端候选产物。
+- \`$web-prepare-release\`：整理 Web Harness、Vite dist 或 Chrome MV3 / Firefox MV2 zip 发布候选。
 - \`$web-upgrade-harness\`：保留产品所有权并同步较新的 Web Harness 前端工程层。
 - \`$web-verify-delivery\`：运行并报告 Web Harness 前端交付门禁。
 
@@ -411,7 +423,7 @@ ${hostSkills}- \`$web-refactor-code\`：在保持行为不变时整理 TypeScrip
 
 Use \`pnpm harness brand refresh\` after intentional identity changes. Daily work runs only the related non-empty tests or smallest substitute checks required by the change, usually through \`pnpm test:related <changed-source...>\`; a zero-test batch is not evidence, so run the owning test file when dependency discovery finds none. Do not automatically add format, lint, typecheck, repository-wide checks, or builds. Run the full unit suite only through \`pnpm build\`/Release or an explicit behavior-preserving refactor. Reuse the confirmed E2E selection for the current release and pass \`--e2e=enabled|disabled\`. Every artifact-producing build is \`pnpm build\` → \`build:release\`; it owns environment validation, Harness/format/lint/type/full-test gates, ${versionDescription} UI version injection${
     config.projectType === "extension" ? ", browser-bundle self-containment validation," : ""
-  } and \`pnpm release:inspect\`. Build commands, UI versions, E2E choices, and test/inspection results stay in command output and the current task report; they do not create or update Work Plans, ADRs, Status, Changelogs, Verifications, or other persistent project memory. Development and test profiles never produce final artifacts. Manually maintained code is reviewed from 501 through 1000 lines and must be split from 1001 lines. Report skipped or blocked checks explicitly; do not claim success from partial evidence.
+  } and \`pnpm release:inspect\`. Build commands, UI versions, E2E choices, and test/inspection results stay in command output and the current task report; they do not create or update Work Plans, ADRs, Status, Changelogs, Verifications, or other persistent project memory. Development and test profiles never produce final artifacts. Manually maintained code is reviewed from 501 through 600 lines and must be split from 601 lines. Report skipped or blocked checks explicitly; do not claim success from partial evidence.
 `
 }
 

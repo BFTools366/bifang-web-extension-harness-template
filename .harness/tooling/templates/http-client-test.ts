@@ -1,74 +1,11 @@
-// 保存 HTTP_CLIENT_TEST 变量供当前逻辑使用。
+/** 生成请求上下文、取消和会话并发回归，传输另有独立场景。 */
 export const HTTP_CLIENT_TEST = `import { afterEach, describe, expect, test, vi } from "vitest"
-import {
-  ApiError,
-  HTTP_HEADERS,
-  createHttpClient,
-  createLoginUnauthorizedHandler,
-  /** 说明 FetchLike 的稳定结构与职责边界。 */
-  type FetchLike
-} from "./httpClient"
-
-const CONFIG = {
-  apiBaseUrl: "https://api.example.com/v1",
-  requestTimeoutMs: 1000
-} as const
-
-/** 说明 apiResponse 的稳定结构与职责边界。 */
-function apiResponse(
-  status: number,
-  options: { body?: string; headers?: HeadersInit; url?: string; redirected?: boolean } = {}
-): Response {
-  const response = new Response(options.body, { status, headers: options.headers })
-  Object.defineProperty(response, "url", {
-    configurable: true,
-    value: options.url ?? "https://api.example.com/v1/items"
-  })
-  if (options.redirected === true) {
-    Object.defineProperty(response, "redirected", { configurable: true, value: true })
-  }
-  return response
-}
-
-/** 说明 deferred 的稳定结构与职责边界。 */
-function deferred<T>() {
-  let resolvePromise: ((value: T) => void) | undefined
-  let rejectPromise: ((reason: unknown) => void) | undefined
-  const promise = new Promise<T>((resolve, reject) => {
-    resolvePromise = resolve
-    rejectPromise = reject
-  })
-  return {
-    promise,
-    /** 说明当前方法的稳定职责与行为边界。 */
-    resolve(value: T) {
-      if (resolvePromise === undefined) throw new Error("Deferred promise is unavailable")
-      resolvePromise(value)
-    },
-    /** 让测试显式触发异步提取器的迟到失败。 */
-    reject(reason: unknown) {
-      if (rejectPromise === undefined) throw new Error("Deferred promise is unavailable")
-      rejectPromise(reason)
-    }
-  }
-}
-
-/** 说明 memoryLogger 的稳定结构与职责边界。 */
-function memoryLogger() {
-  const entries: Array<{ level: "warn" | "error"; event: string; context?: Record<string, unknown> }> = []
-  return {
-    entries,
-    logger: {
-      warn: (event: string, context?: Record<string, unknown>) =>
-        entries.push({ level: "warn", event, context }),
-      error: (event: string, context?: Record<string, unknown>) =>
-        entries.push({ level: "error", event, context })
-    }
-  }
-}
+import { ApiError, HTTP_HEADERS, createHttpClient, createLoginUnauthorizedHandler, type FetchLike } from "./httpClient"
+import { CONFIG, apiResponse, deferred, memoryLogger } from "./httpTestFixtures"
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.restoreAllMocks()
 })
 
 describe("HTTP client", () => {
@@ -519,5 +456,4 @@ describe("HTTP client", () => {
     await vi.advanceTimersByTimeAsync(1000)
     await timeoutExpectation
   })
-})
-`
+})`

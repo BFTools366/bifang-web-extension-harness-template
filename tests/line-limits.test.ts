@@ -31,17 +31,17 @@ describe("repository line-limit profiles", () => {
 
   /** 验证前端源码和其他文本使用不同硬上限。 */
   test("classifies frontend and maintained text separately", () => {
-    expect(lineLimitProfile("src/app.ts").hardLimit).toBe(1000)
+    expect(lineLimitProfile("src/app.ts").hardLimit).toBe(600)
     expect(lineLimitProfile("docs/guide.md").hardLimit).toBe(2000)
   })
 
-  /** 验证软候选不阻断、1001 行前端和 2001 行文档才阻断。 */
+  /** 验证软候选不阻断、601 行前端和 2001 行文档才阻断。 */
   test("reports review candidates and hard violations at exact boundaries", async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), "line-limits-"))
     temporaryRoots.push(root)
     await writeFile(path.join(root, "review.ts"), textWithLines(501))
-    await writeFile(path.join(root, "allowed.ts"), textWithLines(1000))
-    await writeFile(path.join(root, "blocked.ts"), textWithLines(1001))
+    await writeFile(path.join(root, "allowed.ts"), textWithLines(600))
+    await writeFile(path.join(root, "blocked.ts"), textWithLines(601))
     await writeFile(path.join(root, "allowed.md"), textWithLines(2000))
     await writeFile(path.join(root, "blocked.md"), textWithLines(2001))
     await writeFile(path.join(root, "pnpm-lock.yaml"), textWithLines(3000))

@@ -53,7 +53,7 @@ export interface LineLimitReport {
 
 /** 锁定前端与其他人工维护文本的软硬阈值。 */
 export const LINE_LIMIT_PROFILES: Record<LineLimitProfileName, LineLimitProfile> = {
-  frontend: { name: "frontend", reviewThreshold: 500, hardLimit: 1000 },
+  frontend: { name: "frontend", reviewThreshold: 500, hardLimit: 600 },
   maintained_text: { name: "maintained_text", reviewThreshold: 500, hardLimit: 2000 }
 }
 

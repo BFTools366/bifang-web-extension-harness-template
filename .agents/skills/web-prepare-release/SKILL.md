@@ -1,6 +1,6 @@
 ---
 name: web-prepare-release
-description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。
+description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 / Firefox MV2 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。
 ---
 
 # Web Harness：准备前端发布
@@ -12,7 +12,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 1. 识别仓库：下游读取 `.harness/project.json`；源 Harness 读取 `Version.md` 且确认不存在该项目文件。再读取 `package.json`、锁文件、发布规则、最新相关 Product Spec、Changelog 和 Verification。
 2. 确认用户要求准备发布，并要求 `$web-verify-delivery` 对精确候选给出 `Milestone accepted`。开发检查、构建成功、历史证据或等待人工复核均不充分。
 3. 要求独立 Git 顶层目录，`HEAD` 等于已验收源码提交，候选可绑定到项目版本、提交、构建环境和 SHA-256。存在影响候选的脏修改时声明 `Not ready`。
-4. Harness 当前版本与发布状态只来自 `Version.md`；Web 候选页面版本来自当次构建的上海时间 `YYMMDDHHMMSS`，`package.json.version` 仅是包元数据；Extension 的软件、页面和 MV3 manifest 版本来自根 `package.json.version` 的稳定 SemVer。人为修改 Extension SemVer 前须由用户确认，并同步锁文件；构建和打包不得自行升级。Node/pnpm/依赖按稳定 SemVer 最低版本准入不改变候选版本、提交、lock/hash、Schema/协议或 manifest 的精确匹配。
+4. Harness 当前版本与发布状态只来自 `Version.md`；Web 候选页面版本来自当次构建的上海时间 `YYMMDDHHMMSS`，`package.json.version` 仅是包元数据；Extension 的软件、页面和两目标 manifest 版本来自根 `package.json.version` 的稳定 SemVer。人为修改 Extension SemVer 前须由用户确认，并同步锁文件；构建和打包不得自行升级。Node/pnpm/依赖按稳定 SemVer 最低版本准入不改变候选版本、提交、lock/hash、Schema/协议或 manifest 的精确匹配。
 5. 若版本变化会改变源码或产物，先更新版本、重新生产构建，再返回 `$web-verify-delivery` 验收新字节；旧结论不得复用。
 
 ## 唯一产物
@@ -29,17 +29,19 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 2. 检查 HTML 入口、静态资源、版本、Logo/favicon、source map 策略和部署所需路由 fallback 说明。
 3. 记录目录内发布文件清单与 SHA-256；目录存在本身不代表当前或完整。
 
-### Chrome Extension
+### Chrome / Firefox Extension
 
-1. 只接受本次 `pnpm package` 以逻辑 Release 与 `.env.production` 生成、并自动通过 `pnpm release:inspect` 的已验收 Chrome MV3 zip；拒绝 Firefox、MV2、unpacked 开发目录和其他商店格式作为发布产物。
-2. 检查 zip 可安全列出/解压，根 manifest 为 MV3，名称、说明、版本、图标、permissions/host_permissions、入口和资源与批准范围一致。
-3. 记录 zip 的 SHA-256、内容清单和真实 Chrome E2E/冒烟结果；重新打包即为新候选，必须重新验收。
+1. 只接受本次 `pnpm package` 以逻辑 Release 与 `.env.production` 生成、并自动通过 `pnpm release:inspect` 的已验收 Chrome MV3 和 Firefox MV2 两个 zip；两者都绑定同一源码、版本及 Release profile，拒绝 unpacked 开发目录冒充发布 zip。
+2. 检查 zip 可安全列出/解压，根 manifest 分别为 MV3/MV2，且由 Plasmo 按目标动态生成，名称、说明、版本、图标、permissions/host_permissions、入口和资源与批准范围一致。
+3. 逐个记录 zip 的 SHA-256、内容清单和适用的真实 Chrome/Firefox E2E/冒烟结果；重新打包即为新候选，必须重新验收。
+
+Firefox 临时加载通过不代表签名分发、安装权限提示或商店审核通过。首次 AMO 发布确认稳定 Gecko ID、签名和实际数据收集声明，不自动编造 ID 或数据处理范围；遵循 `docs/RELEASE.md`。
 
 ## 发布元数据与门禁
 
 1. 只在候选包含符合仓库规则的用户可见新增、变化、移除、安全事项或重要已知问题，且用户明确要求持久记录时更新当天 Changelog；构建命令、时间版本、E2E 选择和测试/扫描结果本身不触发 Changelog、ADR、Verification 或其他项目记忆。
 2. 用面向用户的语言汇总变化和已知限制，不用原始提交列表代替说明。
-3. 对精确候选复核：版本/提交、文件与哈希、三环境校验、由唯一构建入口完成的类型/全量测试与页面构建版本、Release profile、`pnpm release:inspect` 实际结果、`Milestone accepted`、当次 E2E 与独立解析的 smoke、真实 Chrome/OS、未验证范围、Changelog 和项目状态。
+3. 对精确候选复核：版本/提交、文件与哈希、三环境校验、由唯一构建入口完成的类型/全量测试与页面构建版本、Release profile、`pnpm release:inspect` 实际结果、`Milestone accepted`、当次 E2E 与独立解析的 smoke、真实 Chrome/Firefox/OS、未验证范围、Changelog 和项目状态。
 4. 本 Skill 不运行冒烟/E2E，不补签验证结论；证据缺失时回到 `$web-verify-delivery`。
 5. 全部门禁通过才声明 `Ready`；否则声明 `Not ready` 并列出精确阻断项。不得用 `Partially ready` 隐藏必需失败。
 
@@ -47,7 +49,7 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 
 - 不覆盖已发布版本，不编造版本、日期、提交、哈希、产物、测试或人工批准。
 - 明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；仅要求准备候选不触发外部发布，新增远端、渠道或范围外副作用才补充授权。
-- 不处理签名、公证、桌面安装包、移动包、服务器容器、Firefox 包或另一项目类型的产物。
+- 不处理桌面公证、桌面安装包、移动包、服务器容器或另一项目类型的产物；Firefox AMO 上传/签名只在用户明确授权的发布渠道内按当前规则执行。
 - 不因 `release/`、`dist/` 或 zip 存在就推断其属于当前提交。
 
 ## 完成输出
