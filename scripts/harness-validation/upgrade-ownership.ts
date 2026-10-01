@@ -167,7 +167,7 @@ export const REQUIRED_UPGRADE_REQUIRED_PATTERNS = new Set([
 ])
 
 /** 校验生产升级器以外的所有权下限与前置遮蔽。 */
-export function validateIndependentOwnershipBoundary(manifest: OwnershipManifest): void {
+function validateIndependentOwnershipBoundary(manifest: OwnershipManifest): void {
   const observed = new Map(manifest.rules.map((rule) => [rule.pattern, rule]))
   for (const rule of manifest.rules) {
     if (!(rule.pattern in REQUIRED_UPGRADE_RULES)) {

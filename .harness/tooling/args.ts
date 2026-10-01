@@ -73,13 +73,3 @@ export function readStringOption(
   }
   return value.trim()
 }
-
-// 执行 readBooleanOption 函数的处理逻辑。
-export function readBooleanOption(args: ParsedArgs, key: string): boolean {
-  // 保存 value 变量供当前逻辑使用。
-  const value = args.options.get(key)
-  if (value === undefined) return false
-  if (value === true || value === "true") return true
-  if (value === "false") return false
-  throw new Error(`--${key} must be a boolean flag`)
-}

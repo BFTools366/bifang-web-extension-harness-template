@@ -49,7 +49,7 @@ export async function captureDirectorySnapshot(
 }
 
 /** 复核真实目录仍由同一设备、inode 与模式表示。 */
-export async function assertDirectorySnapshotUnchanged(
+async function assertDirectorySnapshotUnchanged(
   directory: string,
   snapshot: DirectorySnapshot,
   label: string
@@ -145,7 +145,7 @@ export async function releaseInitializationLease(
 }
 
 // 执行 assertEmptyDirectory 函数的处理逻辑。
-export async function assertEmptyDirectory(targetRoot: string, targetStat: Stats): Promise<void> {
+async function assertEmptyDirectory(targetRoot: string, targetStat: Stats): Promise<void> {
   if (targetStat.isSymbolicLink())
     throw new Error(`Target must not be a symbolic link: ${targetRoot}`)
   if (!targetStat.isDirectory()) throw new Error(`Target is not a directory: ${targetRoot}`)
@@ -192,7 +192,7 @@ export async function canonicalizeTarget(targetRoot: string): Promise<string> {
 }
 
 // 执行 assertTargetUnchanged 函数的处理逻辑。
-export async function assertTargetUnchanged(
+async function assertTargetUnchanged(
   targetRoot: string,
   targetSnapshot: TargetSnapshot
 ): Promise<void> {
@@ -220,7 +220,7 @@ export async function assertTargetUnchanged(
 }
 
 /** 在 rename 提交点后给身份异常提供明确的已发布语义。 */
-export async function verifyPublishedProject(
+async function verifyPublishedProject(
   targetParent: string,
   targetRoot: string,
   targetParentSnapshot: DirectorySnapshot,

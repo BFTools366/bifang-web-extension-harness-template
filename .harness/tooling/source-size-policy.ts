@@ -116,7 +116,7 @@ export async function inspectProjectSourceSizes(rootInput: string): Promise<Sour
 }
 
 /** 执行源码体积门禁并输出建议项。 */
-export async function assertProjectSourceSizes(rootInput: string): Promise<void> {
+async function assertProjectSourceSizes(rootInput: string): Promise<void> {
   // 保存 findings 变量供当前逻辑使用。
   const findings = await inspectProjectSourceSizes(rootInput)
   // 保存 reviews 变量供当前逻辑使用。

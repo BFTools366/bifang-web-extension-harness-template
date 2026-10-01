@@ -3,17 +3,17 @@ import path from "node:path"
 import type { ParallelWorktreeRegistry } from "./parallel-types.ts"
 
 /** 保存允许的技术 slug 格式。 */
-export const SLUG_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u
+const SLUG_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u
 /** 保存 Git 对象标识的合法格式。 */
-export const OBJECT_ID_PATTERN = /^[0-9a-f]{40,64}$/u
+const OBJECT_ID_PATTERN = /^[0-9a-f]{40,64}$/u
 
 /** 返回 helper 在 Git common-dir 中的私有登记路径。 */
-export function registryPath(commonDir: string): string {
+function registryPath(commonDir: string): string {
   return path.join(commonDir, "harness/parallel-worktrees.json")
 }
 
 /** 返回并发修改登记时使用的失败关闭锁目录。 */
-export function registryLockPath(commonDir: string): string {
+function registryLockPath(commonDir: string): string {
   return path.join(commonDir, "harness/parallel-worktrees.lock")
 }
 
@@ -53,7 +53,7 @@ export async function normalizeWriteTarget(root: string, value: string): Promise
 }
 
 /** 判断两个所有权路径是否相同或具有祖先关系。 */
-export function pathsOverlap(left: string, right: string): boolean {
+function pathsOverlap(left: string, right: string): boolean {
   return left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`)
 }
 
@@ -79,7 +79,7 @@ export function assertNonOverlappingTargets(
 }
 
 /** 校验 registry JSON 的完整 schema 与 common-dir 绑定。 */
-export function validateRegistry(value: unknown, commonDir: string): ParallelWorktreeRegistry {
+function validateRegistry(value: unknown, commonDir: string): ParallelWorktreeRegistry {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Parallel Worktree registry must be an object")
   }

@@ -28,20 +28,6 @@ export function derivedLogoPaths(config: Pick<ProjectConfig, "projectType">): st
     : ["assets/icon.png"]
 }
 
-// 执行 writeInitialBrandAssets 函数的处理逻辑。
-export async function writeInitialBrandAssets(
-  root: string,
-  config: ProjectConfig,
-  logo: Buffer,
-  writeNew: (filePath: string, contents: Uint8Array) => Promise<void>
-): Promise<void> {
-  await writeNew(path.join(root, MASTER_LOGO_PATH), logo)
-  // 保存 [relativePath, contents] 变量供当前逻辑使用。
-  for (const [relativePath, contents] of await deriveLogoAssets(config.projectType, logo)) {
-    await writeNew(path.join(root, relativePath), contents)
-  }
-}
-
 // 执行 synchronizeMetadata 函数的处理逻辑。
 async function synchronizeMetadata(root: string, config: ProjectConfig): Promise<void> {
   // 保存 packagePath 变量供当前逻辑使用。

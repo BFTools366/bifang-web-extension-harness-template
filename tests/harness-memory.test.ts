@@ -19,6 +19,19 @@ async function copyMemory(): Promise<string> {
   return root
 }
 
+/** 在隔离根写入一份最小活动 Work Plan，并让索引链接它。 */
+async function seedWorkPlan(root: string): Promise<string> {
+  const planPath = path.join(root, "docs/work_plan/20260909_work_plan.md")
+  await writeFile(
+    planPath,
+    "# 测试计划\n\n## Todo\n\n| ID | 状态 | 可观察结果 |\n| --- | ---- | ---------- |\n| T-01 | done | 完成一项 |\n| T-02 | done | 完成另一项 |\n"
+  )
+  const indexPath = path.join(root, "docs/work_plan/README.md")
+  const index = await readFile(indexPath, "utf8")
+  await writeFile(indexPath, `${index}\n- [测试计划](20260909_work_plan.md)\n`)
+  return planPath
+}
+
 /** 返回一次记忆校验的全部稳定错误。 */
 async function memoryErrors(root: string): Promise<string[]> {
   const errors: string[] = []
@@ -73,6 +86,18 @@ describe("daily Harness memory", () => {
     await expect(memoryErrors(repositoryRoot)).resolves.toEqual([])
   })
 
+  /** 验证没有活动计划时 Work Plan 目录合法，出现两份计划则被拒绝。 */
+  test("allows no active Work Plan but rejects more than one", async () => {
+    const root = await copyMemory()
+    await expect(memoryErrors(root)).resolves.toEqual([])
+
+    await seedWorkPlan(root)
+    await writeFile(path.join(root, "docs/work_plan/20260910_work_plan.md"), "# 另一份\n")
+    await expect(memoryErrors(root)).resolves.toContainEqual(
+      expect.stringContaining("Work Plan must retain at most one")
+    )
+  })
+
   /** 验证同类多份日期快照和非法名称都会被拒绝。 */
   test("rejects duplicate or invalid dated snapshots", async () => {
     const root = await copyMemory()
@@ -115,7 +140,7 @@ describe("daily Harness memory", () => {
   /** 验证未完成 Todo 与 accepted 候选验收结论不能并存。 */
   test("rejects acceptance verdicts while a Work Plan Todo is unfinished", async () => {
     const root = await copyMemory()
-    const planPath = path.join(root, "docs/work_plan/20260909_work_plan.md")
+    const planPath = await seedWorkPlan(root)
     const plan = await readFile(planPath, "utf8")
     await writeFile(planPath, `${withUnfinishedTodo(plan)}\n验收状态：Milestone accepted。\n`)
 
@@ -127,7 +152,7 @@ describe("daily Harness memory", () => {
   /** 验证中文发布就绪结论属于同一未完成计划矛盾。 */
   test("rejects equivalent readiness verdicts while a Work Plan Todo is unfinished", async () => {
     const root = await copyMemory()
-    const planPath = path.join(root, "docs/work_plan/20260909_work_plan.md")
+    const planPath = await seedWorkPlan(root)
     const plan = await readFile(planPath, "utf8")
     await writeFile(planPath, `${withUnfinishedTodo(plan)}\n发布就绪：可发布。\n`)
 
@@ -139,7 +164,7 @@ describe("daily Harness memory", () => {
   /** 验证 Todo 全部完成时不把未来验收门禁误判为状态矛盾。 */
   test("allows an acceptance verdict after every Work Plan Todo is done", async () => {
     const root = await copyMemory()
-    const planPath = path.join(root, "docs/work_plan/20260909_work_plan.md")
+    const planPath = await seedWorkPlan(root)
     const plan = await readFile(planPath, "utf8")
     await writeFile(
       planPath,

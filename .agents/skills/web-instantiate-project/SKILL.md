@@ -17,7 +17,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 1. 调用 `$web-prepare-brand-identity` 的首次实例化分支：只使用已收集的名称、id、说明、品牌色和用户提供源图。已有图像先查看；没有源图时优先使用可用图像生成能力生成项目 Logo 候选并展示，复用用户选择或当前明确生成授权。源 Harness 只处理固定品牌输入，不收集或推导产品业务。
 2. 候选放在源/目标之外的临时目录，作为 `--logo <absolute-path>` 导入；不向源、目标或 staging 提前写入。没有图像生成能力时明确使用离线确定性生成器，不能把通用几何图形称为已完成定制设计。创建成功后查看规范母版并展示其路径，以及 Web Logo/Favicon 或 Extension icon；不以文件存在替代视觉检查。
-3. 名称和说明使用根字段作为默认语言，可通过 `--identity-i18n` JSON 提供 `defaultLocale` 和另一语言的完整 `translations`。当前与既有 UI 对齐支持 `en` 和 `zh_CN`；不猜测翻译。精确配置见 `docs/TS_WEB_TEMPLATE.md` §3.4。
+3. 名称和说明使用根字段作为默认语言，可通过 `--identity-i18n` JSON 提供 `defaultLocale` 和另一语言的完整 `translations`。当前与既有 UI 对齐支持 `en` 和 `zh_CN`；不猜测翻译。精确配置见 `docs/TS_WEB_TEMPLATE.md` §3.1。
 
 ## 安全复制
 

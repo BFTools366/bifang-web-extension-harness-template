@@ -138,7 +138,7 @@ export function canonicalSkillFrontmatter(skill: string, contract: SkillContract
 }
 
 /** 生成当前 canonical Skill 唯一合法的 openai.yaml 文本。 */
-export function canonicalOpenAiMetadata(contract: SkillContract): string {
+function canonicalOpenAiMetadata(contract: SkillContract): string {
   return [
     "interface:",
     `  display_name: ${JSON.stringify(contract.displayName)}`,
@@ -149,7 +149,7 @@ export function canonicalOpenAiMetadata(contract: SkillContract): string {
 }
 
 /** 收集 SKILL.md 中所有一级标题，用于拒绝标题漂移或重复身份。 */
-export function collectLevelOneHeadings(contents: string): string[] {
+function collectLevelOneHeadings(contents: string): string[] {
   // 保存 headings 变量供当前逻辑使用。
   const headings: string[] = []
   // 遍历每个 Markdown 一级标题并保留完整文本。
@@ -258,7 +258,7 @@ export async function validateEventDrivenWorkflow(root: string, errors: string[]
 }
 
 /** 校验单个源 Skill 的目录、frontmatter、H1 和中文发现元数据。 */
-export async function validateSkill(
+async function validateSkill(
   skillsRoot: string,
   skill: (typeof EXPECTED_SKILLS)[number],
   contract: SkillContract

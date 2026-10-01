@@ -12,6 +12,7 @@
 | [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物        |
 | [`DATA_ACCESS.md`](DATA_ACCESS.md)                     | 分页、HTTP/认证、数据访问或事件流变化            |
 | [`RELEASE.md`](RELEASE.md)                             | 准备版本、候选或发布                             |
+| [`VERIFICATION.md`](VERIFICATION.md)                   | 完整验收或候选证据                               |
 | [`TECH_DEBT.md`](TECH_DEBT.md)                         | 记录当前范围外的已知限制                         |
 | [`HARNESS_ENGINEERING.md`](HARNESS_ENGINEERING.md)     | 需要理解模板方法、生命周期和扩展边界             |
 

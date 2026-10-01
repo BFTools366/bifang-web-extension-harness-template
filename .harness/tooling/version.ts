@@ -1,5 +1,5 @@
 // 定义 SemanticVersion 接口的结构契约。
-export interface SemanticVersion {
+interface SemanticVersion {
   // 描述 major 接口成员的结构契约。
   major: number
   // 描述 minor 接口成员的结构契约。
@@ -42,7 +42,7 @@ export function parseExactVersion(value: unknown): SemanticVersion | undefined {
 }
 
 // 执行 compareVersions 函数的处理逻辑。
-export function compareVersions(left: SemanticVersion, right: SemanticVersion): number {
+function compareVersions(left: SemanticVersion, right: SemanticVersion): number {
   // 保存 key 变量供当前逻辑使用。
   for (const key of ["major", "minor", "patch"] as const) {
     if (left[key] !== right[key]) return left[key] - right[key]
@@ -51,7 +51,7 @@ export function compareVersions(left: SemanticVersion, right: SemanticVersion): 
 }
 
 // 执行 isVersionAtLeast 函数的处理逻辑。
-export function isVersionAtLeast(candidate: unknown, minimum: string): boolean {
+function isVersionAtLeast(candidate: unknown, minimum: string): boolean {
   // 保存 parsedCandidate 变量供当前逻辑使用。
   const parsedCandidate = parseExactVersion(candidate)
   // 保存 parsedMinimum 变量供当前逻辑使用。
@@ -64,7 +64,7 @@ export function isVersionAtLeast(candidate: unknown, minimum: string): boolean {
 }
 
 // 执行 minimumVersionFromRange 函数的处理逻辑。
-export function minimumVersionFromRange(value: unknown): SemanticVersion | undefined {
+function minimumVersionFromRange(value: unknown): SemanticVersion | undefined {
   if (typeof value !== "string") return undefined
   // 保存 match 变量供当前逻辑使用。
   const match = /^>=\s*(.+)$/.exec(value.trim())

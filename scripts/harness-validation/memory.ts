@@ -77,10 +77,7 @@ function hasAcceptanceOrReadinessVerdict(source: string): boolean {
 }
 
 /** 校验活动 Work Plan 的稳定 Todo 状态与候选结论不会互相矛盾。 */
-export async function validateWorkPlanTodoSemantics(
-  planPath: string,
-  errors: string[]
-): Promise<void> {
+async function validateWorkPlanTodoSemantics(planPath: string, errors: string[]): Promise<void> {
   const source = await readFile(planPath, "utf8")
   if (!source.includes("## Todo")) {
     errors.push(`active Work Plan has no Todo section: ${planPath}`)
@@ -237,9 +234,11 @@ export async function validateDailyHarnessMemory(root: string, errors: string[])
       }
     }
     dated.sort()
-    if (dated.length !== 1) {
+    // Work Plan 只在存在活动计划时保留一份，其余记忆类型固定保留一份当前快照。
+    const minimum = contract.directory === "work_plan" ? 0 : 1
+    if (dated.length < minimum || dated.length > 1) {
       errors.push(
-        `daily ${contract.label} must retain exactly one current snapshot: docs/${contract.directory}`
+        `daily ${contract.label} must retain ${minimum === 0 ? "at most" : "exactly"} one current snapshot: docs/${contract.directory}`
       )
     }
     if (indexEntry !== undefined) {

@@ -541,7 +541,7 @@ export async function inspectProjectChineseComments(
 }
 
 /** 断言项目目录内不存在路径、语法或中文结构声明违规。 */
-export async function assertProjectChineseComments(rootInput: string): Promise<void> {
+async function assertProjectChineseComments(rootInput: string): Promise<void> {
   const report = await inspectProjectChineseComments(rootInput)
   if (report.ok) return
   throw new Error(

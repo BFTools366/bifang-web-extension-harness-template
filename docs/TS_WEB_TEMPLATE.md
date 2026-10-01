@@ -36,7 +36,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 - `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
 - `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`。自定义模式必须逐项显式提供五个 `enabled|disabled` 选择；预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
-- `--identity-i18n` 接受 §3.4 的 JSON 字符串；默认语言与名称/说明翻译保存在 `.harness/project.json`，UI 和 manifest 都消费同一事实。
+- `--identity-i18n` 接受 §3.1 的 JSON 字符串；默认语言与名称/说明翻译保存在 `.harness/project.json`，UI 和 manifest 都消费同一事实。
 - `--development-base-url` 可选，可后续配置。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS；正式发布前及活动 Release 校验必须补齐正式地址。
 - 确认来源不作为表单字段；`confirmed_by` 自动记录“当前用户”，可选 `--confirmed-by` 只用于复用已明确来源。`confirmed_at` 记录最终收齐时间。
 - `--logo` 可选，指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
@@ -61,6 +61,14 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 | `extension` | Plasmo/Chrome MV3 + Firefox MV2 manifest、Popup、Options 与 `assets/icon.png` | Vite Web Landing、Web favicon 与独立 Web 站内路由 |
 
 手工编辑 `.harness/project.json` 可能造成派生内容漂移。身份或品牌变更应通过受管流程完成，并在同一事务中更新母版、当前宿主派生文件和验证结果。
+
+名称与说明的默认语言及翻译使用如下初始化参数（Web 与 Extension 共用）：
+
+```text
+--identity-i18n '{"defaultLocale":"en","translations":{"zh_CN":{"name":"示例项目","description":"简短项目说明。"}}}'
+```
+
+根 `name` / `description` 表示默认语言，`translations` 只包含另一语言；当前支持英文 `en` 与简体中文 `zh_CN`，后者映射至现有 UI 的 `zh`。不提供该参数时默认 `en`，缺失翻译回退根身份。UI 通过 `projectName` / `projectDescription` 翻译键消费派生 `BRAND.identity`；不以浏览器语言覆盖用户的应用语言选择。品牌刷新保留 `identityI18n` 和消息文件中其他键；静态及现有产物校验拒绝消息缺失/漂移。
 
 ### 3.2 Logo 母版
 
@@ -92,14 +100,6 @@ Extension 初始化必须同步：
 - 根 `locales/en/messages.json` 与 `locales/zh_CN/messages.json`：由身份事实派生，Plasmo 输出为 `_locales/`；不要写入 `src/locales/`；
 - `src/popup.tsx`：Popup 中的 Logo、名称、描述、当次构建版本和主交互入口；
 - `src/options.tsx`：Options 中的 Logo、名称、描述、当次构建版本和设置入口。
-
-名称与说明的默认语言及翻译使用如下初始化参数（Web UI 同样消费它）：
-
-```text
---identity-i18n '{"defaultLocale":"en","translations":{"zh_CN":{"name":"示例扩展","description":"简短扩展说明。"}}}'
-```
-
-根 `name` / `description` 表示默认语言，`translations` 只包含另一语言；当前支持英文 `en` 与简体中文 `zh_CN`，后者映射至现有 UI 的 `zh`。不提供该参数时默认 `en`，缺失翻译回退根身份。UI 通过 `projectName` / `projectDescription` 翻译键消费派生 `BRAND.identity`；不以浏览器语言覆盖用户的应用语言选择。品牌刷新保留 `identityI18n` 和消息文件中其他键；静态及现有产物校验拒绝消息缺失/漂移。
 
 Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默认维护 Chrome MV3 与 Firefox MV2；Firefox MV3 仍是框架实验能力，不属于当前交付目标。`pnpm dev` 使用 Chrome，`pnpm dev:firefox` 使用 Firefox；`pnpm build` 和 `pnpm package` 在公共门禁通过后分别以 `--target=chrome-mv3`、`--target=firefox-mv2` 构建两套 production 产物，固定 `--tag=prod --build-path=build --src-path=src --env=.env.production`，随后统一检查两个目录。
 
@@ -143,7 +143,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 - Web 与 Extension 初始化默认检查项目内 `.agents/skills/design-taste-frontend/SKILL.md`；有效已有版本连同辅助文件原样保留，缺失时自动安装，无额外用户问询，不读取或写入全局 Skills。
 - 安装使用 `.harness/vendor/design-taste-frontend/` 中固定的 [Taste Skill](https://github.com/leonxlnx/taste-skill) 快照；原文、MIT 许可证及 `UPSTREAM.json` 记录的 commit/SHA-256 一并复制。源门禁和补装计划独立验证原文及许可证哈希；不执行上游安装器、`npx`、网络请求或依赖安装。
 - 检查与补装属于既有 sibling staging 事务；非法已有目录、损坏快照或来源不匹配使创建失败，目标保持零写入。源快照和安装器在终端化时移除，仅保留项目级支持 Skill 与必要验证模块。
-- 设计支持独立于 17 个源、15 个 Web 和 14 个 Extension canonical `web-*` Skills；新下游总数分别为 16/15。升级将设计 Skill 视为 `protected`，不覆盖用户版本，也不向旧下游补写；终端维护门禁允许旧下游缺失该支持 Skill，存在时必须有效，新下游创建门禁仍保证默认安装。
+- 设计支持独立于 `AGENTS.md` Skills 地图中的 canonical `web-*` Skills 计数；新下游在该计数上各多一个。升级将设计 Skill 视为 `protected`，不覆盖用户版本，也不向旧下游补写；终端维护门禁允许旧下游缺失该支持 Skill，存在时必须有效，新下游创建门禁仍保证默认安装。
 - 适用页面、工程规范优先级和外部动作边界以 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §1.1 为准。
 
 ## 4. Web 技术基线
@@ -414,7 +414,7 @@ pnpm harness validate
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
-12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。源 Harness 共 17 个 canonical Skills，Web 终端保留 15 个并含 `$web-implement-list-view`，Extension 终端保留 14 个且不含该 Skill；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
+12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，Web 含 `$web-implement-list-view`，Extension 不含；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力

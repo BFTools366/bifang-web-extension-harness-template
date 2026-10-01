@@ -234,6 +234,8 @@ export const queryClient = new QueryClient({
 import { BRAND } from "../brand"
 import { BRAND_TEXT_LUMINANCE_THRESHOLD, createBrandScale } from "../theme/brandScale"
 
+const SYSTEM_SANS = "ui-sans-serif, system-ui, -apple-system, sans-serif"
+
 export const theme = createTheme({
   colors: { brand: createBrandScale(BRAND.primaryColor) },
   primaryColor: "brand",
@@ -242,8 +244,15 @@ export const theme = createTheme({
   luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD,
   focusRing: "auto",
   respectReducedMotion: true,
-  fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-  headings: { fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }
+  black: "#16181d",
+  defaultRadius: "md",
+  shadows: {
+    xs: "0 1px 2px rgba(22, 24, 29, 0.06)",
+    sm: "0 2px 8px rgba(22, 24, 29, 0.08)",
+    md: "0 8px 24px rgba(22, 24, 29, 0.1)"
+  },
+  fontFamily: SYSTEM_SANS,
+  headings: { fontFamily: SYSTEM_SANS }
 })
 `
     ],
@@ -312,7 +321,7 @@ export function WelcomePage() {
         <Paper radius="lg" p="xl" withBorder>
           <Stack gap="lg">
             <Group justify="space-between" align="flex-start">
-              <Image src={BRAND.logoPath} alt={t("projectName")} w={88} h={88} radius="xl" />
+              <Image src={BRAND.logoPath} alt={t("projectName")} w={88} h={88} radius="lg" />
               <Stack gap="xs" align="flex-end">
                 <Badge variant="default">{t("eyebrow")}</Badge>
                 <ColorSchemeControl />

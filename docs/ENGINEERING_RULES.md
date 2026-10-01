@@ -97,7 +97,7 @@
 ### 6.1 日常测试
 
 - Vitest 是单元/集成测试运行器，Testing Library 从用户可观察行为测试 React UI。
-- 代码行为变化至少覆盖核心成功路径和最高风险失败路径；零个相关测试不得记为通过。“零个相关测试”是脚本可判定的机械门禁，失败路径是否真的被覆盖仍是评审时的人工判断，不是自动化门禁，评审者需实际读测试内容而非只看测试计数。
+- 代码行为变化至少覆盖核心成功路径和最高风险失败路径；零个相关测试不得记为通过，该判定依赖 `vitest related` 的退出码，Harness 不另设校验；失败路径是否真的被覆盖是评审时的人工判断，评审者需实际读测试内容而非只看测试计数。
 - Web 重点覆盖路由、Query 状态、表单/交互、i18n 与错误边界。
 - Extension 重点覆盖 Popup/Options、消息契约、Storage、权限拒绝与浏览器 API 错误；单元测试分别模拟 Chrome MV3 和 Firefox MV2 的真实差异、成功及最高风险失败/不支持路径，不能用同一个 Chrome mock 声称双浏览器兼容。
 - 环境配置变化必须覆盖三份文件缺失/错配、URL/级别/超时边界与宿主前缀；logger 变化必须覆盖级别阈值、嵌套/循环数据、Error、敏感键和 Release 裁剪。
@@ -125,7 +125,7 @@
 ## 7. 文档与单一事实来源
 
 - 文档中的命令、路径、依赖和能力必须来自真实仓库。计划中的能力标记为“计划”，未执行检查写“未执行”。
-- 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 对当前表格格式及兼容标题格式执行该矛盾检查。
+- 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 只拒绝形如 `候选状态：已验收`、`发布就绪：ready`、`Candidate status: accepted` 的行首结论，其他措辞靠评审。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`；Harness 源版本采用上海时间 `YYYYMMDDHHMM`，Web 候选页面版本采用上海时间 `YYMMDDHHMMSS`，Extension 候选使用 `package.json.version` 的稳定 SemVer。
@@ -149,7 +149,7 @@
 
 ## 8. 依赖与安全
 
-- Harness 自有工具与 Skill helper 统一使用项目本地 Node.js/TypeScript 和标准库；不引入 Python 解释器、Python 文件或执行入口。已有声明依赖按当前工程规则使用，新增第三方运行时依赖仍需说明必要性并按授权规则处理。`pnpm validate:harness` 拒绝自有 Python 文件、shebang、package 执行入口和可静态识别的 Node 子进程调用；第三方依赖与原样隔离的 vendor 不重写。
+- Harness 自有工具与 Skill helper 统一使用项目本地 Node.js/TypeScript 和标准库；不引入 Python 解释器、Python 文件或执行入口。已有声明依赖按当前工程规则使用，新增第三方运行时依赖仍需说明必要性并按授权规则处理。`pnpm validate:harness` 拒绝自有 Python 文件、shebang、指向 Python 的 package 脚本/bin，以及可静态识别的启动 Python 解释器的 child_process 调用，其他子进程不在该门禁范围；第三方依赖与原样隔离的 vendor 不重写。
 
 - 只安装当前单包真实使用的依赖。生成的基础 client 使用 Ky 的浏览器 Fetch 传输并声明运行时依赖；Axios、OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - pnpm 12 的依赖构建许可保存在根 `pnpm-workspace.yaml` 的 `allowBuilds` 中；该文件不得声明 `packages`。不再使用 `package.json` 的 `pnpm.onlyBuiltDependencies`。TypeScript 暂固定在 6.0.3：受管 AST 工具依赖其 JavaScript API，且当前 `typescript-eslint` 的 TypeScript peer 范围不支持 7.x；升级前须先解决这两处兼容性。

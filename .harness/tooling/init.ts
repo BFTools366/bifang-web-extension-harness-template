@@ -81,7 +81,7 @@ function fallbackGitUsername(): string {
 }
 
 // 执行 initializeBaselineRepository 函数，建立唯一、干净且无远端的本地基线提交。
-export async function initializeBaselineRepository(
+async function initializeBaselineRepository(
   root: string,
   commandRunner: InitializationCommandRunner = runCommand
 ): Promise<void> {

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 
 // 保存 PNPM_POLICY_PATH 常量，定位单包项目的 pnpm 构建策略。
-export const PNPM_POLICY_PATH = "pnpm-workspace.yaml"
+const PNPM_POLICY_PATH = "pnpm-workspace.yaml"
 
 // 保存 REQUIRED_BUILD_ALLOWLIST 常量，锁定实际需要安装脚本的依赖。
 const REQUIRED_BUILD_ALLOWLIST = ["@parcel/watcher", "esbuild", "sharp"] as const

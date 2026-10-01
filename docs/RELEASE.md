@@ -29,7 +29,7 @@
 Harness 候选至少满足：
 
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
-- 源 Harness 的 17 个项目 Skills、Web 下游保留的 15 个维护 Skills、Extension 下游保留的 14 个维护 Skills，以及创建/源记忆治理 Skill 和 Extension 中 Web-only `$web-implement-list-view` 的删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
+- 源 Harness、Web 下游与 Extension 下游保留的 Skills 数量，以及创建/源记忆治理 Skill 和 Extension 中 Web-only `$web-implement-list-view` 的删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <absolute-target-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
@@ -40,7 +40,7 @@ Harness 候选至少满足：
 - Extension 结果的 `assets/icon.png`、manifest 身份、Popup 与 Options 一致，Plasmo 能从来源图标生成构建所需尺寸；`targets.default` 明确使用 browser context 与 `includeNodeModules: true`；
 - 两种生成项目都包含允许初始化地址留空的 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
 - 两种生成项目各自只运行唯一 `pnpm build` 形成候选；同一发布流程复用已明确的 E2E `enabled|disabled` 选择并显式传参，它固定委托 `build:release`，完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2，development/test profile 不提供产物入口；
-- 两种 Release 构建均自动执行 `pnpm release:inspect`（Extension 额外先执行 `pnpm harness validate`，`pnpm package` 同样门禁），扫描规则、检查对象与失败即禁止发布的约束以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 为唯一权威来源；
+- 两种 Release 构建均自动执行 `pnpm release:inspect`（构建前均先执行 `pnpm harness validate`，`pnpm package` 同样门禁），扫描规则、检查对象与失败即禁止发布的约束以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 为唯一权威来源；
 - 未实际执行的操作系统、Chrome/Firefox 版本和分发渠道明确标记 `Unverified`；
 - 当前已知重要限制已记录在 [`TECH_DEBT.md`](TECH_DEBT.md)。
 

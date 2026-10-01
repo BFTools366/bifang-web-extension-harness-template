@@ -8,7 +8,7 @@ export const AGENTS_MAX_UTF8_BYTES = 20_000
 export const AGENTS_MAX_LINES = 120
 
 /** 锁定轻量入口必须按顺序保留的稳定路由章节。 */
-export const AGENTS_REQUIRED_HEADINGS = [
+const AGENTS_REQUIRED_HEADINGS = [
   "## 项目使命",
   "## 启动门禁",
   "## 按任务渐进读取",
@@ -53,7 +53,10 @@ export const AGENTS_FORBIDDEN_DETAIL_FRAGMENTS = [
   "初始化器生成 Ky HTTP、1-based 分页",
   "只在 staging 内定向格式化、验证、执行一次",
   "成功目标无远端且不含 `dist/`、`build/` 或 zip",
-  "`build:release` 和 Extension `package` 自动运行 `release:inspect`"
+  "`build:release` 和 Extension `package` 自动运行 `release:inspect`",
+  "`list_threads`",
+  "Task0 只能协调",
+  "恰好一个受管中性本地基线提交"
 ] as const
 
 /** 统计文本物理行数且不把末尾换行计作额外空行。 */

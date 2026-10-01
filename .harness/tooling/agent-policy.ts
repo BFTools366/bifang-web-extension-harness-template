@@ -1,6 +1,3 @@
-import path from "node:path"
-import { readFile } from "node:fs/promises"
-import { writeAtomic } from "./files.ts"
 import type { AgentPolicyChoice, AgentPolicySelection } from "./types.ts"
 
 /** 保存用户可见 Task 进度标题模板。 */
@@ -375,15 +372,4 @@ acceptance_smoke: ${selection.acceptanceSmoke}
 e2e_hint: ${selection.e2eHint}
 ---
 ${body}`
-}
-
-/** 将已完全解析的 Agent policy 一次原子写入下游文档。 */
-export async function writeResolvedAgentPolicy(
-  root: string,
-  selection: AgentPolicySelection
-): Promise<void> {
-  const normalized = normalizeAgentPolicy(selection)
-  const policyPath = path.join(root, "docs/AGENT_POLICY.md")
-  const source = await readFile(policyPath, "utf8")
-  await writeAtomic(policyPath, renderAgentPolicy(source, normalized))
 }

@@ -34,13 +34,13 @@
 ## 始终生效的边界
 
 - `superpowers: disabled` 时不得调用或遵循任何 `superpowers:*` Skill；其他能力开关只表示允许，不能替代当前任务的触发条件或授权。日常工作直接实施，只运行本次变化需要的相关非空测试或最小替代检查；不得因复杂、多模块、用户可见或 Agent 偏好自动增加持久计划、全仓检查、构建、浏览器或完整验收。
-- 除非用户明确说当前 Task 内部步骤、plan 或 Subagent，Task 一律指 Codex 左侧 user-owned Task。用户可见 Task 使用 `Task {序号} | {当前进度} | {单一结果}`；同一 `hostId` 与精确 `projectId` 先用 `list_threads` 和同宿主归档清点有效标题，再从最大有效序号递增，空历史才用 1、缺号不回填。进度只取 `已分配`、`运行中`、`检查中`、`已完成`。内部 plan、Subagent、Worktree 不占用该序号、不使用该标题合同。每次真实转换至多更新一次并用真实 `threadId` 有界复读；失败报告但不阻断已完成结果，也不得虚写 `已完成`。
-- `user_owned_tasks: disabled` 时不得自动创建或拆分左侧 Task，但仍响应用户明确创建请求；`enabled` 时结果边界变化前自动创建。一个 Task 固定一个可验收结果；交付物类型、生命周期阶段、外部副作用、禁止范围或验收责任变化都必须拆新 Task，证明同一结果的测试/review 和同范围修复不拆。每项目同一时间只允许一个写入型 active Task，Task0 只能协调。
-- 新下游只能从源根通过唯一公开实例化入口在源外空目录创建。初始化先冻结并复核源与目标事实，只在同级暂存区写入；成功结果是单一宿主、独立 Git 根、恰好一个受管中性本地基线提交且无远端，不产生最终候选。详细字段、依赖、环境、身份、裁剪和原子发布规则只在创建任务中读取对应事实源与 Skill。
+- 除非用户明确说当前 Task 内部步骤、plan 或 Subagent，Task 一律指 Codex 左侧 user-owned Task，标题使用 `Task {序号} | {当前进度} | {单一结果}`，进度只取 `已分配`、`运行中`、`检查中`、`已完成`；序号分配、转换更新与复读只按 `docs/AGENT_POLICY.md`。内部 plan、Subagent、Worktree 不使用该标题合同，也不得虚写 `已完成`。
+- `user_owned_tasks: disabled` 时不得自动创建或拆分左侧 Task，但仍响应用户明确创建请求；`enabled` 时结果边界变化前自动创建。拆分条件与写入型 active Task 约束见 `docs/AGENT_POLICY.md`。
+- 新下游只能经唯一公开实例化入口在源外空目录创建，成功结果不产生最终候选；创建规则只在创建任务中读取 `docs/TS_WEB_TEMPLATE.md` 与实例化 Skill。
 - 下游始终平铺单包且只有一个 `projectType`；不得叠加或切换宿主、建立 monorepo/共享 core，或保留创建另一项目的入口。Web 与 Extension 的框架、路由、状态、国际化、权限和宿主边界只在相关任务中读取 `docs/TS_WEB_TEMPLATE.md` 与专题事实源。
-- 安全、隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容契约、最终候选和正式发布进入对应专用门禁。同一发布流程复用已明确的 E2E 选择；明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认。新增目的地或范围外副作用才补充授权。
+- 安全、隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容契约、最终候选和正式发布进入对应专用门禁；发布授权与 E2E 复用规则见 `docs/AGENT_POLICY.md` 与 `docs/RELEASE.md`。
 - 对“完成”“可用”或“已验证”的声明必须来自真实可观察证据；Mock、stub、源码片段、中性脚手架或开发预览不能替代最终候选验收，人工批准也不能把失败或未执行改判为通过。
-- Extension 开发由执行 Agent 自行保证 Chrome MV3 / Firefox MV2 差异与兼容，遵循宿主事实源；产品文案使用既有 i18n；Query 管远端状态，Jotai 只管必要客户端状态；UI 使用 Mantine theme 与语义令牌。运行时配置、数据访问、日志脱敏和浏览器边界以各自事实源为准，不在入口重复。
+- Extension 的 Chrome MV3 / Firefox MV2 兼容由执行 Agent 负责，约束见 `docs/TS_WEB_TEMPLATE.md` 与 `docs/ENGINEERING_RULES.md`；产品文案使用既有 i18n。
 - 本仓库只使用项目声明的 Node.js、pnpm 与 TypeScript 依赖，不依赖全局第三方包。工具链只在首次实例化主动检查，或真实命令失败且诊断指向环境时检查；安装或升级仍需授权。
 - 受管 TypeScript 稳定声明需要紧邻中文注释；前端源码和其他人工维护文本的职责、提示与硬上限以 `docs/ENGINEERING_RULES.md` 为唯一详细来源。根入口保持轻量，不复制初始化、构建、发布或验证实现链。
 - Product Spec、ADR、Changelog、Product Status、Work Plan 与 Verification 只由各自独立事件触发。构建和候选事实按发布规则留在候选证据与当前回复；普通维护不写占位，范围外问题进入 `docs/TECH_DEBT.md`。
@@ -54,7 +54,7 @@
 - 开发与治理：`$web-define-product`、`$web-implement-change`、`$web-implement-list-view`（仅 Web）、`$web-refactor-code`、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-run-parallel-worktrees`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。
 
-源 Harness 共保留 17 个 canonical `web-*` Skills；Web 终端下游删除实例化与源记忆整理能力，保留 15 个维护 Skills；Extension 再删除仅适用 Web 的 `$web-implement-list-view`，保留 14 个。两类下游另在项目内默认补装缺失的 `design-taste-frontend`，有效已有版本保留，不额外问询、不全局安装；适用范围与规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
+源 Harness 共保留 17 个 canonical `web-*` Skills；Web 终端下游删除实例化与源记忆整理能力，保留 15 个维护 Skills；Extension 再删除仅适用 Web 的 `$web-implement-list-view`，保留 14 个（两者均不含下条补装的设计 Skill）。两类下游另在项目内默认补装缺失的 `design-taste-frontend`，有效已有版本保留，不额外问询、不全局安装；适用范围与规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
 
 ## 约束地图
 

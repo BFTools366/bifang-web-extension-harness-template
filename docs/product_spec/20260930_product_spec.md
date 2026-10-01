@@ -43,7 +43,7 @@
 - 初始化先完成首轮项目字段收集，再按条件确认 Agent policy；非交互调用必须显式给出全部必需决议。所有写入前冻结 source 文件、模式、Version 与可用 Git 身份，发布 staging 前再次逐字节复核；脚手架验证和裁剪完成后在 staging 建立独立 Git 根、受管 repo-local 身份/模板与恰好一个 `chore: initialize project` 中性基线提交。
 - Git 提交 helper 只补齐缺失的生效身份，复用合法 Unicode/global 配置；模板与配置只写仓库 local/common-dir，失败回滚，不自动提交。
 - 下游升级使用受保护双基线、不可弱化所有权、只读三方 plan、路径级批准、每次写后重规划与收敛后 record。
-- 源 Harness 维护 17 个 canonical `web-*` Skills；Web 终端保留 15 个维护 Skills，Extension 终端保留 14 个。Skill 与参考资产是治理契约，不是已生成的产品功能。
+- 源 Harness 与各终端保留的 canonical `web-*` Skills 数量以 `AGENTS.md` Skills 地图为准。Skill 与参考资产是治理契约，不是已生成的产品功能。
 
 ## 质量与安全边界
 
