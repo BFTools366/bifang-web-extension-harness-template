@@ -1,8 +1,11 @@
 import { symlink } from "node:fs/promises"
 import "@testing-library/jest-dom/vitest"
-import { vi, type TestContext } from "vitest"
+import { cleanup } from "@testing-library/react"
+import { afterEach, vi, type TestContext } from "vitest"
 
 if (typeof window !== "undefined") {
+  /** Vitest 无全局 hook 时仍逐测试清理 DOM，避免旧页面污染后续断言。 */
+  afterEach(() => cleanup())
   // 为 Node 与 jsdom 的不同 localStorage 实现提供一致的偏好持久化测试边界。
   const storedValues = new Map<string, string>()
   const testStorage: Storage = {

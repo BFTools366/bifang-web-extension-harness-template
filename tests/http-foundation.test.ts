@@ -145,8 +145,11 @@ for (const projectType of ["web", "extension"] as const) {
         "src/features/not-found/NotFoundPage.tsx",
         "src/features/route-state/RouteState.tsx",
         "src/features/route-state/RouteState.test.tsx",
+        "src/features/welcome/WelcomePage.tsx",
+        "src/features/welcome/WelcomePage.test.tsx",
         "src/providers.tsx",
         "src/ExtensionShell.tsx",
+        "src/ExtensionShell.test.tsx",
         "src/extension-router.tsx",
         "src/config/environment.schema.ts",
         "src/observability/logger.ts"
@@ -162,7 +165,7 @@ for (const projectType of ["web", "extension"] as const) {
       }
       await writeFile(
         path.join(root, "src/config/environment.ts"),
-        'export const APP_CONFIG = { environment: "test", apiBaseUrl: "https://api.example.com/v1", requestTimeoutMs: 1000, logLevel: "error" } as const\n'
+        'export const APP_CONFIG = { environment: "test", apiBaseUrl: "", requestTimeoutMs: 1000, logLevel: "error" } as const\n'
       )
       await writeFile(path.join(root, "package.json"), '{"private":true,"type":"module"}\n')
       await writeFile(
@@ -188,10 +191,14 @@ for (const projectType of ["web", "extension"] as const) {
           JSON.stringify({
             test: {
               environment: "jsdom",
-              include: [
-                "src/api/client/httpUi.test.tsx",
-                "src/features/route-state/RouteState.test.tsx"
-              ],
+              include:
+                projectType === "web"
+                  ? [
+                      "src/api/client/httpUi.test.tsx",
+                      "src/features/route-state/RouteState.test.tsx",
+                      "src/features/welcome/WelcomePage.test.tsx"
+                    ]
+                  : ["src/api/client/httpUi.test.tsx", "src/ExtensionShell.test.tsx"],
               setupFiles: [path.resolve(import.meta.dirname, "setup.ts")]
             }
           })

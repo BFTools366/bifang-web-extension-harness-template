@@ -25,6 +25,9 @@ import { clearHttpFeedback, httpFeedbackAtom, reportHttpError } from "./httpFeed
 import { applicationHttp, configureUnauthorizedHandler, requestHttpQuery } from "./httpRuntime"
 ${imports}
 
+/** 网络集成测试使用独立公开配置，不要求新项目先填测试 API 地址。 */
+vi.mock("../../config/environment", () => ({ APP_CONFIG: { environment: "test", apiBaseUrl: "https://api.example.com/v1", requestTimeoutMs: 1000, logLevel: "error" } }))
+
 let queryClient: QueryClient | undefined
 
 /** 使用实际 QueryClient，场景结束时精确回收测试数据。 */
