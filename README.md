@@ -42,6 +42,8 @@ Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/we
 
 创建完成后，在新项目目录中打开 Agent，再描述具体功能、页面和交互需求。模板源只负责创建工程基线；业务开发在生成的新项目中进行。
 
+下游的新产品、新页面或显著交互改版遵循“需求澄清 → Product Spec（PRD）记录并确认 → 2–3 个可交互 HTML 原型 → 用户选定具体版本 → 开发”。对应 `$web-define-product`、[`$web-design-prototype`](.agents/skills/web-design-prototype/SKILL.md) 和 `$web-implement-change` 随初始化安装到下游 `.agents/skills/`，不污染全局。初始化不执行这套业务流程；日常小修复不强制重走。原型选择绑定 PRD 与候选内容，内容变化后需重新选择。
+
 每个项目只包含 Web 或 Extension 中的一种。需要两种时分别创建两个独立项目。初始化成功仅表示工程基线创建完成；正式产物需要后续构建和验收。
 
 Extension 默认同时构建 Chrome MV3 与 Firefox MV2；`pnpm dev` 开发 Chrome，`pnpm dev:firefox` 开发 Firefox。最终 manifest 由 Plasmo 动态生成，后续开发按 [工程基础](docs/harness_engineering/foundations.md) 自行处理两浏览器差异与兼容。

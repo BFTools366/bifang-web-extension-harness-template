@@ -1,9 +1,10 @@
-/** 保存源 Harness 唯一允许的 17 个 Web Skill canonical id。 */
+/** 保存源 Harness 唯一允许的 18 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
   "web-check-development-environment",
   "web-configure-git-commits",
   "web-curate-harness-memory",
   "web-define-product",
+  "web-design-prototype",
   "web-extract-i18n-strings",
   "web-implement-change",
   "web-implement-list-view",
@@ -33,7 +34,7 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 17 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 18 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
   "web-check-development-environment": {
     description:
@@ -64,12 +65,21 @@ export const SKILL_CONTRACTS = {
   },
   "web-define-product": {
     description:
-      "定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端产品的用户、问题、范围、约束和可衡量成功标准。用于新前端产品、需求含糊，或产品目标、公开边界、隐私/权限约束和成功标准真实变化；范围清楚的日常实现不调用。",
+      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游澄清需求，将用户、问题、范围、约束和验收标准记录为 Product Spec（PRD），确认后交给原型选择或范围明确的实现。用于新产品、模糊需求或产品边界变化；不参与上游初始化，也不为日常小修复强制编写 PRD。",
     title: "# Web Harness：定义前端产品",
     displayName: "Web Harness：定义前端产品",
-    shortDescription: "定义 React Web 或 Plasmo MV3 Extension 的单一前端产品范围",
+    shortDescription: "在下游澄清产品需求并保存唯一 PRD，确认范围后进入原型选择",
     defaultPrompt:
-      "使用 $web-define-product 定义纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 单一前端产品的范围与可衡量成功标准。"
+      "使用 $web-define-product 在当前已初始化下游澄清需求并记录 Product Spec（PRD），确认范围后进入原型选择流程。"
+  },
+  "web-design-prototype": {
+    description:
+      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游，将已澄清的 PRD 转为可交互 HTML 原型方案，记录用户选定的具体版本后交接开发。用于新产品、新页面、显著交互改版或用户要求原型；不参与上游创建下游，也不为日常小修复强制重做原型。",
+    title: "# Web Harness：设计并选择产品原型",
+    displayName: "Web Harness：设计并选择产品原型",
+    shortDescription: "在下游生成交互原型方案并记录用户选择，确认具体版本后交接开发",
+    defaultPrompt:
+      "使用 $web-design-prototype 在当前已初始化下游根据 PRD 生成 2–3 个可交互 HTML 方案，展示比较并等待我选择具体版本后进入开发。"
   },
   "web-extract-i18n-strings": {
     description:
@@ -208,6 +218,13 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入",
     "git status --porcelain=v1 --untracked-files=all"
   ],
+  "web-design-prototype": [
+    "仅在已初始化下游运行",
+    "初始化仅分发 Skills",
+    "必须等待用户明确选定",
+    "prototype-review.ts check",
+    "旧选择失效"
+  ],
   "web-implement-list-view": [
     "仅用于 projectType=web",
     "完全无 owned key",
@@ -239,6 +256,8 @@ export const MAX_SHORT_DESCRIPTION_LENGTH = 64
 
 // 保存 REQUIRED_FILES 变量供当前逻辑使用。
 export const REQUIRED_FILES = [
+  ".agents/skills/web-design-prototype/references/prd-outline.md",
+  ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
   ".harness/tooling/design-skill.ts",
   ".harness/tooling/install-design-skill.ts",
   ".harness/vendor/design-taste-frontend/SKILL.md",

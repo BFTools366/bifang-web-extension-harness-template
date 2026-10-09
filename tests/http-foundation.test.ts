@@ -135,6 +135,7 @@ for (const projectType of ["web", "extension"] as const) {
         projectType === "web" ? webFiles(config, baseUrls) : extensionFiles(config, baseUrls)
       const selected = new Set([
         "src/brand.ts",
+        "src/vite-env.d.ts",
         "src/i18n.ts",
         "src/buildVersion.ts",
         "src/plasmo.d.ts",
@@ -162,7 +163,12 @@ for (const projectType of ["web", "extension"] as const) {
         )
           continue
         await mkdir(path.dirname(path.join(root, name)), { recursive: true })
-        await writeFile(path.join(root, name), source)
+        // HTTP fixture 复用生成项目自己的 ImportMeta 类型，不依赖源 Harness 未声明的 Vite。
+        const fixtureSource =
+          name === "src/vite-env.d.ts"
+            ? source.replace(/^\/\/\/ <reference types="vite\/client" \/>\r?\n/u, "")
+            : source
+        await writeFile(path.join(root, name), fixtureSource)
       }
       await writeFile(
         path.join(root, "src/config/environment.ts"),
@@ -181,7 +187,7 @@ for (const projectType of ["web", "extension"] as const) {
             strict: true,
             noEmit: true,
             skipLibCheck: true,
-            types: ["node", "vitest/globals", "vite/client", "@testing-library/jest-dom/vitest"]
+            types: ["node", "vitest/globals", "@testing-library/jest-dom/vitest"]
           },
           include: ["src/**/*.ts", "src/**/*.tsx"]
         })

@@ -271,8 +271,9 @@ describe("terminal dual-browser Extension initialization", () => {
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()
-    expect(extensionSkills).toHaveLength(15)
+    expect(extensionSkills).toHaveLength(16)
     expect(extensionSkills).toContain("design-taste-frontend")
+    expect(extensionSkills).toContain("web-design-prototype")
     expect(extensionSkills).not.toContain("web-implement-list-view")
     await expect(
       readFile(path.join(root, ".agents/skills/web-implement-list-view/SKILL.md"), "utf8")

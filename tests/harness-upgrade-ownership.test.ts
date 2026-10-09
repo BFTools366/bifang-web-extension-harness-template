@@ -2,40 +2,113 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
-import { createUpgradePlan } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-core.ts"
+import {
+  applyUpgradePath,
+  createUpgradePlan,
+  recordUpgradeBaseline
+} from "../.agents/skills/web-upgrade-harness/scripts/upgrade-core.ts"
 import { MINIMUM_OWNERSHIP_RULES } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-policy.ts"
-import { ownershipPath, git, upgradeFixture, planFor } from "./harness-upgrade-fixture.ts"
+import {
+  ownershipPath,
+  git,
+  upgradeFixture,
+  planFor,
+  persistPlan
+} from "./harness-upgrade-fixture.ts"
 
 /** 验证 upgrade ownership protection 的完整回归场景。 */
 describe("upgrade ownership protection", () => {
-  /** 验证关键 managed source helper 在候选中缺失或陈旧时均失败关闭。 */
-  test("blocks missing or stale required managed source propagation", async () => {
+  /** 验证关键 helper 及原型 Skill 的每个文件在两宿主候选中缺失或陈旧时均失败关闭。 */
+  test.each(
+    (["web", "extension"] as const).flatMap((projectType) =>
+      [
+        ".harness/tooling/project-memory.ts",
+        ".agents/skills/web-design-prototype/SKILL.md",
+        ".agents/skills/web-design-prototype/agents/openai.yaml",
+        ".agents/skills/web-design-prototype/references/prd-outline.md",
+        ".agents/skills/web-design-prototype/scripts/prototype-review.ts"
+      ].map((requiredPath) => ({ projectType, requiredPath }))
+    )
+  )(
+    "blocks missing or stale $projectType source file $requiredPath",
+    async ({ projectType, requiredPath }) => {
+      const fixture = await upgradeFixture()
+      await writeFile(
+        path.join(fixture.target, ".harness/project.json"),
+        JSON.stringify({ projectType })
+      )
+      await git(fixture.target, ["add", ".harness/project.json"])
+      await git(fixture.target, ["commit", "--allow-empty", "-m", "test: set target host"])
+      await mkdir(path.dirname(path.join(fixture.source, requiredPath)), { recursive: true })
+      await writeFile(path.join(fixture.source, requiredPath), "source contract\n")
+      await git(fixture.source, ["add", requiredPath])
+      await git(fixture.source, ["commit", "-m", "test: add required managed source"])
+      fixture.sourceCommit = await git(fixture.source, ["rev-parse", "HEAD"])
+
+      const missingPlan = await planFor(fixture)
+      expect(missingPlan.entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            path: requiredPath,
+            classification: "blocked",
+            reason: "candidate does not exactly propagate required source file"
+          })
+        ])
+      )
+
+      await mkdir(path.dirname(path.join(fixture.candidate, requiredPath)), { recursive: true })
+      await writeFile(path.join(fixture.candidate, requiredPath), "stale candidate\n")
+      const stalePlan = await planFor(fixture)
+      expect(stalePlan.entries).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: requiredPath, classification: "blocked" })
+        ])
+      )
+
+      await writeFile(path.join(fixture.candidate, requiredPath), "source contract\n")
+      const completePlan = await planFor(fixture)
+      expect(completePlan.entries.find((entry) => entry.path === requiredPath)).toMatchObject({
+        classification: "add",
+        ownership: "managed"
+      })
+    }
+  )
+
+  /** 验证漏分发原型 Skill 时，其他 managed 文件不能先更新，基线也不能被记录。 */
+  test("blocks managed writes and baseline recording when the prototype helper is omitted", async () => {
     const fixture = await upgradeFixture()
-    const requiredPath = ".harness/tooling/project-memory.ts"
+    const bootstrap = await persistPlan(fixture, "bootstrap")
+    await recordUpgradeBaseline({
+      planPath: bootstrap,
+      sourceVersion: "202609090101",
+      sourceCommit: fixture.sourceCommit,
+      bootstrap: true,
+      approval: "bootstrap-verified-baseline",
+      resolvedManual: []
+    })
+    const requiredPath = ".agents/skills/web-design-prototype/scripts/prototype-review.ts"
     await mkdir(path.dirname(path.join(fixture.source, requiredPath)), { recursive: true })
-    await writeFile(path.join(fixture.source, requiredPath), "source contract\n")
+    await writeFile(path.join(fixture.source, requiredPath), "new prototype helper\n")
     await git(fixture.source, ["add", requiredPath])
-    await git(fixture.source, ["commit", "-m", "test: add required managed source"])
+    await git(fixture.source, ["commit", "-m", "test: add prototype helper"])
     fixture.sourceCommit = await git(fixture.source, ["rev-parse", "HEAD"])
-
-    const missingPlan = await planFor(fixture)
-    expect(missingPlan.entries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          path: requiredPath,
-          classification: "blocked",
-          reason: "candidate does not exactly propagate required source file"
-        })
-      ])
-    )
-
-    await writeFile(path.join(fixture.candidate, requiredPath), "stale candidate\n")
-    const stalePlan = await planFor(fixture)
-    expect(stalePlan.entries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ path: requiredPath, classification: "blocked" })
-      ])
-    )
+    const managedPath = ".harness/tooling/comment-policy.ts"
+    await writeFile(path.join(fixture.candidate, managedPath), "upstream update\n")
+    const planPath = await persistPlan(fixture, "missing-prototype")
+    await expect(
+      applyUpgradePath({ planPath, path: managedPath, approval: "apply-managed-changes" })
+    ).rejects.toThrow(/blocked by/)
+    await expect(
+      recordUpgradeBaseline({
+        planPath,
+        sourceVersion: "202609090101",
+        sourceCommit: fixture.sourceCommit,
+        bootstrap: false,
+        approval: "record-verified-baseline",
+        resolvedManual: []
+      })
+    ).rejects.toThrow(/not converged/)
+    expect(await readFile(path.join(fixture.target, managedPath), "utf8")).toBe("baseline\n")
   })
 
   /** 验证未命中显式规则的候选路径按 defaultMode 失败关闭。 */

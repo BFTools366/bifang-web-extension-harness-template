@@ -1,8 +1,10 @@
-# 2026-10-01 变更记录
+# 2026-10-09 变更记录
 
-本记录保留前次当前记录的变化，并补充 2026-10-01 的初始化输入、品牌与身份本地化合同调整。
+本记录保留前次当前记录的变化，并补充仅在下游实际开发运行的 PRD、原型选择与开发交接流程。
 
 ## Added
+
+- 下游新增原创 web-design-prototype：默认产出 2–3 个交互 HTML 方案，记录用户选择的具体版本；复用 web-define-product 维护唯一 PRD，选定后交 web-implement-change。Node 标准库 helper 绑定 PRD/候选摘要并阻断未选择或漂移；两类初始化只分发项目级能力，不新增业务问题、PRD、原型或全局安装。源/Web/Extension canonical Skills 分别为 18/16/15；业务原型和选择受升级保护。
 
 - HTTP 增加请求/响应/错误拦截、经校验的显式 Token 写入、403 权限分类和失效周期并发保护；两宿主 Router/Providers 接入本地化错误界面与持续反馈。Query 读取有界重试且仅最终失败播报，mutation 不自动重放；新增实际执行生成客户端及 UI/Router/Query 的回归。
 
@@ -15,7 +17,7 @@
 - React Web 生成本地化路由加载/错误界面、显式重试和统一异常日志；真实 Router 回归覆盖慢加载、loader/渲染失败、持续失败与 404 返回首页。
 - Extension Popup/Options 生成 TanStack Router 代码路由，分别使用 memory/hash history，不增加 Chrome 权限或 Web 路由生成器。
 - Web 与 Extension 生成品牌十阶色、跟随系统/亮色/暗色切换和项目隔离的外观偏好持久化。
-- 新增 Web-only `$web-implement-list-view` Skill、参考与可执行纯函数契约，覆盖 URL/session 启动恢复、响应校验、Query 分页、越界纠页、状态反馈、选择与列偏好；源 Harness 现在维护 17 个 canonical Skills，Web 终端保留 15 个，Extension 终端保留 14 个。
+- 新增 Web-only `$web-implement-list-view` Skill、参考与可执行纯函数契约，覆盖 URL/session 启动恢复、响应校验、Query 分页、越界纠页、状态反馈、选择与列偏好；该能力引入时，源 Harness 增至 17 个 canonical Skills，Web 终端为 15 个，Extension 终端为 14 个；当前数量见根 AGENTS.md。
 - 新增只读 `$web-summarize-development-history` Skill，依据当前记忆索引和 Git 事实汇总历史，并区分已决定、已实现、已验证、计划与推测。
 - `pnpm validate:harness` 新增 `Version.md` 自然日分钟、时区、格式和发布状态校验，并直接复用生产升级器校验 ownership manifest。
 - 源 validator 新增 CRLF、Windows 风格相对路径、策略必需片段、终端 Skill 漂移和所有权/版本变异回归。
@@ -23,6 +25,7 @@
 
 ## Changed
 
+- 未配置对应环境/服务 BaseURL 时，所有需要该服务的数据由 API 层提供完整 Mock；用户要求真实联网后复用已有配置、询问缺失的各环境和实际服务地址，并替换对应 Mock 实现。UI/Query 不内嵌 Mock，真实请求失败不回落 Mock；源规则、实施 Skill、两宿主生成文档与 Web API 边界说明同步，HTTP 和正式 Release 配置门禁继续有效。
 - 自有 Harness/Skill 工具统一使用本地 Node.js/TypeScript，并新增拒绝 Python 文件与执行入口的门禁；清点未发现需迁移的自有 Python 工具，第三方附带文件保持原样。
 - 人工维护代码硬上限统一为 600 行，601 行起按功能与模块拆分；HTTP、实例化事务、列表、验证器、并行/升级工具及回归测试完成职责拆分，生成代码与新文件分发采用同一约束。
 - 升级器自更新前要求新增 helper 已手工收敛并重规划，防止替换 core 后目标 CLI 缺模块而无法启动。

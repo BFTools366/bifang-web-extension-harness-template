@@ -55,6 +55,7 @@ function engineeringRules(config: ProjectConfig): string {
 - 启用严格类型检查；跨模块输入、外部响应、浏览器消息和环境变量在边界校验，不用无约束 \`any\` 隐藏不确定性。
 - React 组件负责渲染与局部交互；TanStack Query 管理远端或异步服务状态；Jotai 只管理确需跨组件共享的纯客户端状态，不镜像 Query 数据。
 - \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
+- 未配置对应 BaseURL 时，服务数据统一由 \`src/api/<domain>/\` 的类型化异步 Mock API 提供，UI、route、hook 和 Query 不内嵌业务 Mock。用户要求真实联网后收集缺失地址并替换对应实现，真实请求失败不回落 Mock；完整流程以 \`docs/DATA_ACCESS.md\` §3.1 为准。
 - Ky 为默认 HTTP 传输；OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
 - Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。
@@ -140,13 +141,19 @@ function runtimeConfiguration(config: ProjectConfig): string {
 - \`${prefix}LOG_LEVEL\`：只接受 \`debug|info|warn|error\`，Release 只接受 \`warn|error\`。
 - \`${prefix}REQUEST_TIMEOUT_MS\`：\`1000\`–\`120000\` 的正整数。
 
-开发/测试运行时允许地址为空；HTTP client 在未配置地址时于 Fetch 前报错，不猜测 endpoint 或发送相对请求。Release 运行时拒绝空地址。
+开发/测试运行时允许地址为空；未配置服务的数据由 API 层 Mock 提供，不调用 HTTP client 或 Fetch。真实 HTTP client 在未配置地址时于 Fetch 前报错，不猜测 endpoint 或发送相对请求。Release 运行时拒绝空地址。
 
 浏览器公开前缀中的值会进入产物，绝不保存 Token、Cookie、密码、API key 或服务端秘密。业务代码只读 \`src/config/environment.ts\` 导出的冻结 \`APP_CONFIG\`，不得散落读取宿主环境变量或拼接任意 BaseURL。
 
 构建编排器只向宿主生产构建子进程注入只读的 \`${prefix}BUILD_VERSION\`，值为${buildVersionSource(config)}；它不属于四个可配置 profile 键，不得写入 \`.env*\` 或 \`APP_CONFIG\`。页面通过 \`src/buildVersion.ts\` 展示该值，\`release:inspect\` 使用同一私有期望值确认候选命中。${config.projectType === "extension" ? "两目标 manifest 版本还必须与 `package.json.version` 一致。" : ""}
 
 语言偏好、分页 session、\`X-Http-Request\` continuation 与 \`X-AUTH-TOKEN\` 都是运行时状态，不进入任何公开环境键；其存储、并发和清理规则见 \`docs/DATA_ACCESS.md\`。
+
+## 用户要求真实联网时
+
+先读取三份受管配置并复用有效值，再汇总询问缺失的 development、test、release BaseURL 及当前功能实际使用的服务 target。用户已提供的值不重复询问；暂不使用的环境或服务可留空，正式发布仍须补齐 HTTPS 正式地址。初始化与普通 Mock 开发不提前收集这些地址。
+
+使用当前宿主的 \`${prefix}\` 前缀更新对应受管环境文件并校验；多服务仅在确有消费者时扩展类型化只读 target registry、schema 与公开键白名单。配置通过后按 \`docs/DATA_ACCESS.md\` §3.1 将对应 API Mock 替换为真实 HTTP 实现，保持 UI/Query 领域契约并清理旧 Mock 缓存。真实请求失败不回落 Mock；仅填写地址不代表服务已接通。Web CORS、认证和 Extension 网络权限按真实消费者单独处理。
 
 \`.env\`、\`.env.local\` 与三种 \`.env.*.local\` 会造成构建器静默覆盖，项目门禁明确拒绝其存在。选定 profile 只允许当前进程覆盖上述四个已声明键；未知 \`${prefix}*\` 键拒绝。development/test 只服务运行与测试，不允许生成最终候选；所有本机、CI 或其他平台的产物构建都固定使用逻辑 \`release\` 和 \`.env.production\`。
 

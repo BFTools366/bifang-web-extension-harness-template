@@ -9,6 +9,7 @@ const EXPECTED_COMMON_TERMINAL_SKILLS = [
   "web-check-development-environment",
   "web-configure-git-commits",
   "web-define-product",
+  "web-design-prototype",
   "web-extract-i18n-strings",
   "web-implement-change",
   "web-plan-change",

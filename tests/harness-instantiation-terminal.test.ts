@@ -60,7 +60,7 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(16)
+    expect(skills).toHaveLength(17)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
@@ -68,6 +68,7 @@ describe("terminal source projection", () => {
         "web-check-development-environment",
         "web-configure-git-commits",
         "web-define-product",
+        "web-design-prototype",
         "web-extract-i18n-strings",
         "web-implement-change",
         "web-implement-list-view",

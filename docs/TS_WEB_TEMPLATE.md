@@ -140,6 +140,9 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ### 3.9 项目级设计支持基线
 
+- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和选择 helper。初始化只复制能力，不执行需求澄清/PRD/原型选择、不增加业务表单、不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
+- 下游实际开发才运行“澄清 → 唯一 Product Spec（PRD）→ 默认 2–3 个交互 HTML 方案 → 用户选择具体版本 → 开发”；详细合同在 [`web-design-prototype`](../.agents/skills/web-design-prototype/SKILL.md)。选择记录绑定 PRD 和候选 SHA-256，漂移需重新选择；日常小修复不自动重走流程。
+
 - Web 与 Extension 初始化默认检查项目内 `.agents/skills/design-taste-frontend/SKILL.md`；有效已有版本连同辅助文件原样保留，缺失时自动安装，无额外用户问询，不读取或写入全局 Skills。
 - 安装使用 `.harness/vendor/design-taste-frontend/` 中固定的 [Taste Skill](https://github.com/leonxlnx/taste-skill) 快照；原文、MIT 许可证及 `UPSTREAM.json` 记录的 commit/SHA-256 一并复制。源门禁和补装计划独立验证原文及许可证哈希；不执行上游安装器、`npx`、网络请求或依赖安装。
 - 检查与补装属于既有 sibling staging 事务；非法已有目录、损坏快照或来源不匹配使创建失败，目标保持零写入。源快照和安装器在终端化时移除，仅保留项目级支持 Skill 与必要验证模块。

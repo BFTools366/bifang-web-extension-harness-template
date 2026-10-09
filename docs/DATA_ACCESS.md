@@ -92,6 +92,19 @@ Ky HTTP、分页和语言基础是生成项目的固定源码与测试，`ky` �
 
 两种宿主都生成 `src/api/client/` 的类型化 Ky HTTP client、错误分类、本地化界面和非空测试。`applicationHttp` 是当前执行上下文的惰性会话 owner；静态页面可在 BaseURL 留空时启动，首次真实操作才校验配置。真实 feature 与 Router loader 复用该实例；测试或受控 adapter 才按需使用 factory。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
 
+#### 未配置 BaseURL 的 API Mock
+
+当前环境的对应服务 BaseURL 未配置时，所有需要该服务的数据均由 `src/api/<domain>/` 中的类型化异步 API 函数以 Mock 形式提供。Mock 数据、读取、写入及必要的筛选、排序和分页语义集中在 API 层；React 组件、route、feature hook 和 Query 只消费这些函数，不内嵌业务样例数据或各自建立 Mock 分支。Query 继续拥有异步服务结果与缓存，Jotai、Storage 和 UI 不成为第二份服务数据源。
+
+Mock 应覆盖当前功能的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不伪造 Token、continuation 或网络成功证据。初始化仍只生成中性 HTTP 基础；没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
+
+#### 用户要求真实联网后的迁移
+
+1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 收集缺失的各环境、各实际服务 BaseURL；初始化或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
+2. 确认当前功能需要的 endpoint 路径、方法、输入/响应与认证契约；缺失时询问，不从 BaseURL 猜测接口。校验配置后，把对应 API 函数的 Mock 实现替换为真实 HTTP 请求，复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误与认证边界。UI 和 Query 保持相同的领域契约，外部响应与分页字段在 API 层校验、映射。
+3. 按环境和服务逐项完成迁移；尚未配置的服务继续通过其 API Mock 提供数据，明确报告剩余范围。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。
+4. 配置变更按冻结 `APP_CONFIG` 的加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，避免样例数据残留或迟到响应覆盖真实结果。测试至少证明 Mock 路径零网络调用、真实请求成功及最高风险失败不回落 Mock；真实服务、CORS、权限或浏览器未验证时如实报告，不把 Mock 测试写成联网通过。
+
 取消与超时覆盖 Fetch、异步 credential extractor 及 401 handler 等待阶段。即使 adapter 不响应 AbortSignal 或 extractor 挂起，外层 request 也必须及时以首次终止原因拒绝，清理计时器与监听器；迟到的成功或失败均不更新 Token/continuation。它不能强制停止任意自定义提取器内部副作用，提取器仍应只负责读取并返回结果。
 
 模块职责保持明确：
@@ -102,7 +115,7 @@ Ky HTTP、分页和语言基础是生成项目的固定源码与测试，`ky` �
 - Request context/session：语言、continuation、Token、单调 dispatch sequence 和 Token revision；不依赖 React route。
 - `UnauthorizedHandler`：运行时默认呈现认证失效；真实登录存在后，组合层通过 `configureUnauthorizedHandler` 注入受控导航。client 不导入 Router、`window.location` 或 Chrome 导航 API。
 - UI 组合层：`httpErrors` 只输出固定本地化键、分类和恢复能力，`HttpErrorView` 处理局部/路由失败，根 Provider 的 `HttpFeedback` 处理直接请求和最终 Query/mutation 失败。
-- Feature/domain service：在真实 endpoint 出现后声明路径、方法、输入/输出校验、外部分页映射和业务语义。
+- API domain：拥有类型化数据函数、未配置 BaseURL 时的 Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。
 
 ### 3.2 三个标准 header 与语言
 

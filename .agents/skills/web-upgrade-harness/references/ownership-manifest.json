@@ -35,6 +35,10 @@
       "mode": "managed"
     },
     {
+      "pattern": ".agents/skills/web-design-prototype/**",
+      "mode": "managed"
+    },
+    {
       "pattern": ".agents/skills/web-extract-i18n-strings/**",
       "mode": "managed"
     },
@@ -350,6 +354,10 @@
       "mode": "protected"
     },
     {
+      "pattern": "docs/prototypes/**",
+      "mode": "protected"
+    },
+    {
       "pattern": "docs/project_status/**",
       "mode": "protected"
     },
@@ -596,6 +604,10 @@
     {
       "pattern": "tests/parallel-worktree-recovery.test.ts",
       "mode": "managed"
+    },
+    {
+      "pattern": "tests/prototype-workflow.test.ts",
+      "mode": "tombstone"
     }
   ]
 }

@@ -17,7 +17,8 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 3. 确认 Git 顶层目录等于项目根，并保留所有用户修改。先检查 diff；重叠修改无法安全整合时停止，不重置、覆盖或顺手格式化无关文件。若当前说明来自左侧 user-owned Task，首次编辑前必须核对描述中的 Task 编号、单一结果、范围、禁止范围、完成条件、保存项目完整路径、`projectId`、repository identity、环境和起始提交；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入。Git Task 必须位于独立 Codex Worktree：分别在保存项目和当前 Task 顶层运行 `git rev-parse --path-format=absolute --git-common-dir`，确认 common dir 相同，用 `git worktree list --porcelain` 确认当前顶层已登记，并复核当前 HEAD 等于记录的起始提交；非 Git Local Task 必须确认 cwd 等于保存项目完整路径且与同项目其他写入 Task 串行。任一绑定不符都停止，不退化到 plan、Subagent、Local Git checkout 或普通 Worktree。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
-6. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
+6. 下游的新产品、新页面、显著交互改版或用户要求原型时，先由 `$web-define-product` 澄清并记录唯一 PRD，再由 `$web-design-prototype` 展示方案并等待用户选择。业务实现前读取本轮 `docs/prototypes/<scope>/review.json` 并运行 `pnpm exec tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts check <scope>`；PRD、原型漂移或尚未选择时不能进入该范围开发。已有明确选择且检查通过就复用，不重复询问；用户要求暂缓开发时仍暂缓。范围清楚的日常小修复、无界面变更及 Harness 自身维护不强制重做 PRD/原型，但不能绕过正在等待选择的同一设计范围。
+7. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 
 ## 实现边界
 
@@ -30,10 +31,10 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。
 5. Extension 使用同一 Plasmo 单包的 Chrome MV3 / Firefox MV2 约定；每次开发由执行 Agent 自行核对并保证两目标 API、callback/Promise、消息响应、权限、后台生命周期、CSP/资源和 URL 的差异与兼容。按真实消费者选择能力检测、类型化 adapter 或 Plasmo 目标入口，消息/storage 显式校验，监听器可清理，状态可恢复。最终 manifest 由 Plasmo 动态派生，共享 override 不固定 manifest_version。新增或扩大权限必须取得明确批准，并执行权限、安全及两个真实浏览器专项门禁。
 6. 面向用户的新文案通过既有 `i18next`/`react-i18next` 资源，不引入第二套 i18n 机制。
-7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止 `.env`/`.env*.local` 隐式覆盖及未知公开键，不得把浏览器公开变量当秘密。
+7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止 `.env`/`.env*.local` 隐式覆盖及未知公开键，不得把浏览器公开变量当秘密。用户明确要求真实联网时，先复用有效配置，再汇总询问缺失的各环境和实际服务 BaseURL；配置通过后按 `DATA_ACCESS.md` §3.1 替换对应 API Mock，不能只填地址而保留假联网实现。
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
 9. 集合分页与 HTTP client 变化读取 `DATA_ACCESS.md`：复用 `src/pagination/` 的 1-based page/pageSize 契约和 `src/api/client/` 的 header/Token 写入与 401/403/其他错误拦截边界；Query 使用 `requestHttpQuery` 交由最终状态反馈，直接请求、真实认证 adapter 与 Router/UI 按该事实源接线；普通集合使用生成的 session 状态机，Web 路由列表则按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复。真实 endpoint 负责把外部分页字段映射为内部结构，不能复制一套页面私有标准；业务行与 `total` 只属于 Query/feature。
-10. 不留下 mock、stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力。
+10. 未配置对应 BaseURL 时，按 `DATA_ACCESS.md` §3.1 将所有需要该服务的数据放在 `src/api/<domain>/` 的类型化异步 Mock API；UI、route、hook 和 Query 只消费 API 函数。Mock 是当前功能的完整实现，不是 stub 或占位；已接入真实 HTTP 的服务移除运行路径中的 Mock，失败不回落 Mock。不得留下 stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力，也不得把 Mock 结果声明为真实联网通过。
 
 ## 测试与验证
 

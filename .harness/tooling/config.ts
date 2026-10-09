@@ -62,12 +62,14 @@ export const HARNESS_ONLY_PATHS = [
   "tests/project-memory-compatibility.test.ts",
   "tests/initialization-atomicity-fixture.ts",
   "tests/initialization-source-boundary.test.ts",
-  "tests/node-tooling.test.ts"
+  "tests/node-tooling.test.ts",
+  "tests/prototype-workflow.test.ts"
 ] as const
 
 /** 保存只在实例化时排除、但终端后续事件可以合法创建的记忆与验证路径。 */
 export const INSTANTIATION_ONLY_EXCLUDED_PATHS = [
   "docs/product_spec",
+  "docs/prototypes",
   "docs/project_status",
   "docs/work_plan",
   "docs/adr",

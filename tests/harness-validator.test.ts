@@ -17,7 +17,7 @@ describe("Harness template validator", () => {
   test("accepts the complete clean template contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 report 变量供当前逻辑使用。
     const report = await validateHarness(repositoryRoot)
-    expect(report.skills).toHaveLength(17)
+    expect(report.skills).toHaveLength(18)
     expect(report.skills).toContain("web-implement-list-view")
     // 保存 verifyDelivery 变量供当前逻辑使用。
     const verifyDelivery = await readFile(

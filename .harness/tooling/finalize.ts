@@ -311,7 +311,7 @@ The generated Ky HTTP and pagination foundations standardize request headers, va
 
 Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`. The generated appearance control follows the system setting by default and lets users choose light or dark mode.
 
-Project-local \`.agents/skills/design-taste-frontend/\` provides optional visual guidance for landing pages, portfolios, and redesigns. It is installed automatically when missing; valid existing files are preserved. Read the applicability rules in \`docs/MANTINE_UI_GUIDELINES.md\` before using it.
+Project-local \`.agents/skills/design-taste-frontend/\` provides optional visual guidance for landing pages, portfolios, and redesigns. It is installed automatically when missing; valid existing files are preserved. Read the applicability rules in \`docs/MANTINE_UI_GUIDELINES.md\` before using it. For product work, use \`$web-define-product\` to clarify and record the PRD in \`docs/product_spec/\`, then \`$web-design-prototype\` to present 2–3 interactive HTML alternatives. Select a specific revision before \`$web-implement-change\` starts development. Initialization only distributes these project-local Skills; it does not run this workflow or create business records.
 
 ## Identity and brand
 
@@ -373,7 +373,7 @@ Always inspect the workspace and protect existing changes. Read this file and \`
 
 ${hostMinimumReading}## Event-driven execution
 
-Implement clear daily requests directly and run only the affected checks and related non-empty tests. Multi-step, multi-module, medium-risk, or user-visible work does not by itself create a Work Plan, full-repository check, build, smoke test, or E2E run. Create a persistent plan only when the user explicitly requests one, work must cross sessions, or release/high-risk coordination genuinely needs it. Behavior-preserving refactors run the full unit suite.
+For new products, new pages, significant interaction redesigns, or requested prototypes, use \`$web-define-product\` to clarify and record the unique Product Spec (PRD), then \`$web-design-prototype\` to present 2–3 interactive HTML alternatives. Wait for explicit user selection of a specific revision; verify \`docs/prototypes/<scope>/review.json\` with the Skill's \`prototype-review.ts check <scope>\` before business implementation. PRD approval, recommendations, silence, or an ambiguous “continue” cannot replace selection. Reuse a valid selection without asking again; PRD/prototype changes invalidate it. Initialization only distributes project-local Skills, never business PRDs, prototypes, or choices. Implement clear daily fixes and non-UI changes directly and run only the affected checks and related non-empty tests; they cannot bypass a pending selection for the same scope. Multi-step, multi-module, medium-risk, or user-visible work does not by itself create a Work Plan, full-repository check, build, smoke test, or E2E run. Create a persistent plan only when the user explicitly requests one, work must cross sessions, or release/high-risk coordination genuinely needs it. Behavior-preserving refactors run the full unit suite.
 
 Security/privacy, Extension permissions, irreversible data, production/paid/credential side effects, public compatibility contracts, complete candidate validation, and release each enter the dedicated gate required by that event. Parallel write Worktrees require both the user's current explicit request and \`parallel_worktree_subagents: enabled\`. Reuse the confirmed E2E selection across builds, packaging, and fixes in the same release; ask only when neither a selection nor a hard requirement exists. Validate every new artifact again. An explicit release request covers necessary commits, push, and release steps within the existing destination and scope without repeated confirmation; ask only for new destinations or side effects outside that scope.
 
@@ -402,7 +402,8 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 
 - \`$web-check-development-environment\`：只在首次初始化或命令已报出环境错误时检查 Node.js、pnpm 与按需使用的 Google Chrome/Firefox。
 - \`$web-configure-git-commits\`：只在用户明确要求，或下一步将实际创建提交时，检查并配置仓库本地 Git 身份与受管提交模板。
-- \`$web-define-product\`：定义单一 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端产品范围。
+- \`$web-define-product\`：在下游澄清需求，将范围和验收标准记录为唯一 Product Spec（PRD）。
+- \`$web-design-prototype\`：在下游产出 2–3 个可交互 HTML 原型，等待用户选定具体版本后交接开发。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-implement-change\`：实施并验证已批准的 Web Harness 前端变更。

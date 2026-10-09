@@ -113,6 +113,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   await requirePaths(
     root,
     [
+      ".agents/skills/web-design-prototype/references/prd-outline.md",
+      ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
       ".harness/tooling/cli.ts",
       ".harness/tooling/validate-helpers.ts",
       ".harness/tooling/validate-brand.ts",

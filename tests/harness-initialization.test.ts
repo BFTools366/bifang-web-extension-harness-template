@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process"
+import { execFileSync, spawnSync } from "node:child_process"
 import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
 import { describe, test } from "vitest"
 import {
@@ -12,6 +12,7 @@ import {
   validateEnvironmentFiles,
   path,
   readFile,
+  readdir,
   seedTemplateRoot,
   sharp,
   validateProject,
@@ -144,6 +145,49 @@ describe("single-package Harness initialization", () => {
       )
       await initializeProject({ ...resolved, skipInstall: true, skipGit: true })
       await expect(validateProject(root)).resolves.toContain(projectType)
+      // 验证初始化仅完整分发下游工作流，业务记录与原型不在创建时产生。
+      for (const relative of [
+        "SKILL.md",
+        "agents/openai.yaml",
+        "references/prd-outline.md",
+        "scripts/prototype-review.ts"
+      ]) {
+        const skillPath = ".agents/skills/web-design-prototype/" + relative
+        expect(await readFile(path.join(root, skillPath), "utf8")).toBe(
+          await readFile(path.join(repositoryRoot, skillPath), "utf8")
+        )
+      }
+      for (const directory of ["docs/product_spec", "docs/prototypes"]) {
+        await expect(readdir(path.join(root, directory))).rejects.toThrow()
+      }
+      const reviewCli = spawnSync(
+        process.execPath,
+        [
+          path.join(root, ".agents/skills/web-design-prototype/scripts/prototype-review.ts"),
+          "check",
+          "settings"
+        ],
+        { cwd: root, encoding: "utf8" }
+      )
+      expect(reviewCli.status).toBe(1)
+      expect(reviewCli.stderr).toContain("No prototype review")
+      expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(
+        "Wait for explicit user selection"
+      )
+      // 核对两宿主真实生成结果保留 API Mock 边界和按需联网迁移，避免源规范被裁剪或覆盖。
+      const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
+      const runtimeRules = await readFile(path.join(root, "docs/RUNTIME_CONFIGURATION.md"), "utf8")
+      const implementationSkill = await readFile(
+        path.join(root, ".agents/skills/web-implement-change/SKILL.md"),
+        "utf8"
+      )
+      expect(dataAccess).toContain("#### 未配置 BaseURL 的 API Mock")
+      expect(dataAccess).toContain("Mock API 不调用 HTTP client、不触发 Fetch")
+      expect(dataAccess).toContain("禁止失败后自动回落 Mock")
+      expect(runtimeRules).toContain("未配置服务的数据由 API 层 Mock 提供")
+      expect(runtimeRules).toContain("缺失的 development、test、release BaseURL")
+      expect(implementationSkill).toContain("用户明确要求真实联网时")
+      expect(implementationSkill).toContain("Mock 是当前功能的完整实现")
       for (const profile of [undefined, "development", "test"] as const) {
         const configs = await validateEnvironmentFiles(root, profile)
         expect(configs.development.apiBaseUrl).toBe("")

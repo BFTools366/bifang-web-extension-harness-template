@@ -30,7 +30,7 @@
 ## 3. 字段与校验
 
 - `APP_ENV` 必须与文件代表的逻辑环境完全一致，只接受 `development`、`test`、`release`。
-- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、query 或 fragment；末尾 `/` 在解析时规范化。已填 `release` 地址始终必须使用 `https`，正式发布前及活动 Release 校验必须非空。
+- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置；需要该服务的数据由 API 层 Mock 提供，详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、query 或 fragment；末尾 `/` 在解析时规范化。已填 `release` 地址始终必须使用 `https`，正式发布前及活动 Release 校验必须非空。
 - `LOG_LEVEL` 只接受 `debug`、`info`、`warn`、`error`；`release` 只接受 `warn` 或 `error`。
 - `REQUEST_TIMEOUT_MS` 必须是 `1000`–`120000` 的正整数；初始化默认写入 `10000`。
 
@@ -49,6 +49,12 @@ pnpm instantiate -- /absolute/path/example-web --type web \
 
 初始化器为当前唯一宿主生成并直接校验三份配置、类型化 schema、运行时 adapter、非空测试与统一 logger。它还生成只读取 `APP_CONFIG` 的Ky HTTP 基础 client，但不生成真实 endpoint 或请求调用，Ky 声明为运行时依赖，其他传输或协议依赖按需加入。语言、分页、continuation 与认证 Token 是运行时状态，不得加入公开环境文件；其存储和安全边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md)。创建期不执行最终构建；后续 `pnpm build` 仍在其他门禁之前重新验证三份文件与活动 Release profile。
 
+### 4.1 用户要求真实联网时的 BaseURL 收集
+
+只有用户明确提出需要真实联网时，才在已初始化下游收集相关地址：先读取三份受管配置并复用有效值，再一次汇总询问缺失的 development、test、release BaseURL 及当前功能实际使用的服务 target。用户已明确提供的值不重复询问；暂不使用的环境或服务可继续留空，不编造默认值，正式发布仍须补齐 HTTPS 正式地址。
+
+按当前唯一宿主前缀写入对应 `.env.development`、`.env.test`、`.env.production` 并校验。多个服务只在确有消费者时扩展类型化只读 target registry、对应 schema 与环境键白名单，不临时绕过未知公开键门禁。业务代码继续只读 `APP_CONFIG`。地址配置通过后，按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 将对应 API Mock 替换为真实 HTTP 实现；仅填写地址不代表已经迁移或验证服务可达。Web CORS、认证以及 Extension 最小网络权限继续按实际集成处理。
+
 ## 5. 验证与命令
 
 ```bash
@@ -60,7 +66,7 @@ pnpm env:validate --profile release
 
 不带 `--profile` 时只读取并校验全部三份受管文件，允许地址留空，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`；页面通过 `src/buildVersion.ts` 读取并展示该值，`release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
 
-`--profile release` 在应用合法进程覆盖后要求正式地址非空且 HTTPS；最终构建和 `release:inspect` 均消费此门禁。生成的运行时 schema 允许 development/test 地址为空，Release 运行时拒绝空地址；HTTP client 在地址未配置时于 Fetch 前报错，禁止相对请求或猜测地址。所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
+`--profile release` 在应用合法进程覆盖后要求正式地址非空且 HTTPS；最终构建和 `release:inspect` 均消费此门禁。生成的运行时 schema 允许 development/test 地址为空，Release 运行时拒绝空地址；未配置服务的数据走 API Mock，不进入 HTTP client。真实 HTTP client 在地址未配置时于 Fetch 前报错，禁止相对请求或猜测地址。所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
 
 - `pnpm dev` 固定使用 `.env.development`，但普通开发不为预探测重复执行独立环境命令；出现配置错误时按故障诊断处理。
 - `pnpm test` 与 `pnpm test:related` 固定使用 `.env.test` 提供的测试运行时值。

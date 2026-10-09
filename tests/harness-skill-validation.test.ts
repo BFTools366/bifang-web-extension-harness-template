@@ -1,4 +1,4 @@
-import { readFile, rename, writeFile } from "node:fs/promises"
+import { readFile, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { validateHarness } from "../scripts/validate-harness.ts"
@@ -6,6 +6,19 @@ import { copyRepository } from "./harness-validator-fixture.ts"
 
 /** 验证 Harness Skill and Agent policy validation 的完整回归场景。 */
 describe("Harness Skill and Agent policy validation", () => {
+  // 验证新工作流不能缺失选择门禁、参考或可执行工具而仍被声明完整。
+  test("requires prototype selection guidance and complete project-local resources", async () => {
+    const targetRoot = await copyRepository()
+    const skillPath = path.join(targetRoot, ".agents/skills/web-design-prototype/SKILL.md")
+    const skillSource = await readFile(skillPath, "utf8")
+    await writeFile(skillPath, skillSource.replace("必须等待用户明确选定", "自动采用推荐方案"))
+    await expect(validateHarness(targetRoot)).rejects.toThrow(/missing required workflow/)
+    for (const relative of ["references/prd-outline.md", "scripts/prototype-review.ts"]) {
+      const resourceRoot = await copyRepository()
+      await rm(path.join(resourceRoot, ".agents/skills/web-design-prototype", relative))
+      await expect(validateHarness(resourceRoot)).rejects.toThrow(/Missing required file/)
+    }
+  })
   /** 验证 rejects a restored pre-namespace Skill directory 场景。 */
   test("rejects a restored pre-namespace Skill directory", /* 执行当前旧目录负例测试。 */ async () => {
     // 保存 targetRoot 变量供当前逻辑使用。
@@ -54,7 +67,10 @@ describe("Harness Skill and Agent policy validation", () => {
     const descriptionPath = path.join(descriptionRoot, ".agents/skills/web-define-product/SKILL.md")
     // 保存 descriptionSource 变量供当前逻辑使用。
     const descriptionSource = await readFile(descriptionPath, "utf8")
-    await writeFile(descriptionPath, descriptionSource.replace("定义或修订单一", "规划或修订单一"))
+    await writeFile(
+      descriptionPath,
+      descriptionSource.replace(/^description: .+$/mu, "description: 改写后的描述")
+    )
     await expect(validateHarness(descriptionRoot)).rejects.toThrow(
       /frontmatter description must exactly match its contract/
     )
@@ -95,8 +111,8 @@ describe("Harness Skill and Agent policy validation", () => {
     await writeFile(
       englishPath,
       englishSource.replace(
-        "定义 React Web 或 Plasmo MV3 Extension 的单一前端产品范围",
-        "Define one React Web or Plasmo MV3 Extension product scope"
+        /^ {2}short_description: .+$/mu,
+        '  short_description: "Define one React Web or Plasmo MV3 Extension product scope"'
       )
     )
     await expect(validateHarness(englishRoot)).rejects.toThrow(
@@ -109,7 +125,7 @@ describe("Harness Skill and Agent policy validation", () => {
     const driftPath = path.join(driftRoot, ".agents/skills/web-define-product/agents/openai.yaml")
     // 保存 driftSource 变量供当前逻辑使用。
     const driftSource = await readFile(driftPath, "utf8")
-    await writeFile(driftPath, driftSource.replace("的单一前端产品范围", "的明确单一前端产品范围"))
+    await writeFile(driftPath, driftSource.replace("澄清产品需求", "明确产品需求"))
     await expect(validateHarness(driftRoot)).rejects.toThrow(
       /metadata must exactly match its contract/
     )
@@ -139,7 +155,7 @@ describe("Harness Skill and Agent policy validation", () => {
     const sentenceSource = await readFile(sentencePath, "utf8")
     await writeFile(
       sentencePath,
-      sentenceSource.replace('可衡量成功标准。"', '可衡量成功标准。不要扩大范围。"')
+      sentenceSource.replace('原型选择流程。"', '原型选择流程。不要扩大范围。"')
     )
     await expect(validateHarness(sentenceRoot)).rejects.toThrow(
       /default_prompt must be one Chinese sentence/

@@ -1,4 +1,4 @@
-# 2026-09-30 产品规格
+# 2026-10-09 产品规格
 
 状态：Approved
 
@@ -19,6 +19,9 @@
 - 维护者需要从当前记忆索引和 Git 事实中只读汇总历史，并明确区分已决定、已实现、已验证、计划与推测。
 
 ## 固定范围
+
+- 下游产品开发支持需求澄清 → 唯一 Product Spec（PRD）记录与确认 → 默认 2–3 个可交互 HTML 方案 → 用户明确选定具体版本 → 实施。两类下游初始化仅安装完整项目级 Skills，不运行产品流程、不生成业务 PRD/原型/选择记录、不写全局 Skills。
+- 原型选择按稳定 scope 与修订记录项目身份、当前 PRD 和候选 SHA-256；尚未选择或内容漂移不能开发该设计范围，已有有效选择复用。日常小修复和无界面变更不强制重走流程。详细合同由 web-define-product、web-design-prototype 和 web-implement-change 串联维护。
 
 - Web 使用 Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai 与 i18next。
 - Extension 使用 Plasmo、Chrome MV3 / Firefox MV2、Mantine、TanStack Router 代码路由、TanStack Query、Jotai 与 i18next；Popup 与 Options 分别持有 Router。
@@ -65,6 +68,8 @@
 - 全局依赖安装、自动升级 Node.js/pnpm/Chrome、自动创建 PR/tag/发布或静默改写 Git 全局配置。
 
 ## 成功标准
+
+- Web 和 Extension 都完整保留原型 Skill、发现元数据、PRD 参考及 Node 标准库选择 helper；初始化表单不新增业务问题，初始化输出没有业务 PRD、原型或选择。选择记录能阻断尚未选择、PRD/原型漂移、过期规格及无效文件输入。用户真实授权仍由 Agent 对照会话确认，脚本只证明记录与文件绑定。
 
 - 源 Harness 验证器可确定性证明 Skills、治理文档、模板、初始化、环境、注释、行数、版本、升级所有权和安全边界一致。
 - Web 与 Extension 均能从源外独立实例化，生成仓库只有其单一宿主所需文件、不保留派生入口，并各自拥有恰好一个中性本地基线提交且无远端。

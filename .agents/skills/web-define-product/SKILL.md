@@ -1,6 +1,6 @@
 ---
 name: web-define-product
-description: 定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端产品的用户、问题、范围、约束和可衡量成功标准。用于新前端产品、需求含糊，或产品目标、公开边界、隐私/权限约束和成功标准真实变化；范围清楚的日常实现不调用。
+description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游澄清需求，将用户、问题、范围、约束和验收标准记录为 Product Spec（PRD），确认后交给原型选择或范围明确的实现。用于新产品、模糊需求或产品边界变化；不参与上游初始化，也不为日常小修复强制编写 PRD。
 ---
 
 # Web Harness：定义前端产品
@@ -9,7 +9,7 @@ description: 定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3
 
 ## Harness 源门禁
 
-先解析当前规范根。若根同时包含 Harness 专用 `Version.md` 和活动 `.agents/skills/web-instantiate-project/SKILL.md`，当前就是模板源，不是终端产品：必须在读取、整理、复述或写入任何下游产品需求前停止。不得在源根接收、分析、记录或实施产品目的、用户场景、业务规则、成功标准、产品专属 UI/文案/数据、远程凭据、构建或发布需求，也不得生成产品交接摘要。只告知用户先用 `$web-instantiate-project` 提交当前初始化表单允许的固定字段，或切换到已存在下游的唯一项目根；下游建立后由用户重新提出产品需求。Harness 自身规则、Skills、中性模板、验证器和交付工程维护不受此门禁阻止。
+先解析当前规范根。若根同时包含 Harness 专用 `Version.md` 和活动 `.agents/skills/web-instantiate-project/SKILL.md`，当前就是模板源，不是终端产品：必须在读取、整理、复述或写入任何下游产品需求前停止产品定义。不得在源根接收、分析、记录或实施产品目的、用户场景、业务规则、成功标准、产品专属 UI/文案/数据、远程凭据、构建或发布需求，也不得生成产品交接摘要。混合请求继续已授权的初始化部分，复用允许字段并转 `$web-instantiate-project`，不吞掉创建动作；只有产品部分要求切换到已存在下游或创建完成后重新提出。Harness 自身规则、Skills、中性模板、验证器和交付工程维护不受此门禁阻止。
 
 ## 工作流程
 
@@ -20,13 +20,14 @@ description: 定义或修订单一纯 TypeScript React Web 或 Plasmo Chrome MV3
    - Web 明确路由/页面范围、访问方式、浏览器支持、development/test/release 远端服务与隐私边界。
    - Extension 明确 popup/options/content/background 场景、三环境远端服务、站点匹配、Chrome MV3 / Firefox MV2 的权限、API/消息/后台差异、数据存储和宿主限制，既定两目标兼容由执行 Agent 自行保证。
    - 两种类型都确认单一 BaseURL 是否足够或需要多个受控远端基地址，并明确哪些日志元数据可在 Release 保留；浏览器公开配置不能被定义为秘密存储。
-5. 写出聚焦结果的目标，并列出 `包含`、`不包含`、假设、约束、可靠性/无障碍要求和可观察成功标准。只有缺失会破坏最小完整闭环或安全性时才扩大当前范围。
+5. 按 [下游 PRD 结构](../web-design-prototype/references/prd-outline.md) 将聚焦结果的目标、`包含`、`不包含`、假设、约束、可靠性/无障碍要求和可观察成功标准记录到唯一 Product Spec（PRD）。给本轮范围和需求稳定 ID；按真实复杂度补数据模型、主线、状态及异常恢复，不为简单需求强制套全部框架。只有缺失会破坏最小完整闭环或安全性时才扩大当前范围。
 6. 只询问答案会实质改变产品边界的缺失信息；非阻断未知项标为待确定，不虚构权限、数据来源、后端、账号或发布渠道。
-7. 在首次确认或产品目标、边界、约束、权限/隐私模型、成功标准变化时，按仓库规则创建或更新当天 Product Spec；长期决定写当天 ADR。未经用户确认不得标记为 Approved。
+7. 澄清过程中将真实需求记录为当天 Draft；首次需求工作若索引不存在则创建，并遵循完整快照、一天一份及只保留最新正文的规则，不继承上游批准事实。汇总阻断问题，给用户可审阅 PRD 后等待范围确认；已有真实确认直接复用。未经用户确认不得标记为 Approved。长期决定单独触发 ADR；PRD 的 Approved 不表示原型已经选定或允许跳过选择。
 8. 只有在真实发布完成、重要阻断、跨会话交接或用户要求时更新 Status；不要因产品定义自动创建 Work Plan、Verification 或 Changelog。
 9. 选择下一行动：
    - 当前没有已初始化下游时停止产品定义；源 Harness 只运行 `$web-instantiate-project` 的固定创建门禁，终端下游不得恢复创建 Skill。
-   - 已有下游的范围清楚请求直接交给 `$web-implement-change`，不因多步骤、多文件或用户可见自动创建计划。
+   - 新产品、新页面、显著交互改版或用户要求原型时，已确认 PRD 交给 `$web-design-prototype` 产出默认 2–3 个可交互 HTML 方案；等待用户明确选定具体版本后才进入开发。初始化只安装所需项目级 Skills，不运行本流程。
+   - 已有有效原型选择且范围未变，或范围清楚的日常小修复、无界面变更，交给 `$web-implement-change`；不得为绕过尚未完成的原型选择把新 UI 伪装成小修复。不因多步骤、多文件或用户可见自动创建计划。
    - 只有用户明确要求持久计划、跨会话交接，或发布/高风险工作确需协调时才交给 `$web-plan-change`。
    - 构建、完整验收、E2E、安全、权限、不可逆副作用和发布由明确请求或各自硬要求单独触发，不由产品定义或计划存在自动触发。
 

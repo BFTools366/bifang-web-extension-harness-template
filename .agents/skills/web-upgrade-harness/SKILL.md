@@ -15,6 +15,12 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 4. 固定目标 `.harness/project.json.projectType`。候选只渲染该单一宿主的工程层，不增加另一类型、workspace、初始化入口或类型切换能力。
 5. 渲染候选必须保留目标名称、标识、说明、三环境公开配置结构及已决策略，但传给 plan 的候选投影只包含生产清单允许的 `managed`、`managed-self`、`merge-sections` 与 `conditional` 路径。`.agents/skills/web-implement-list-view/**` 只在目标 `projectType=web` 时进入候选；Extension 不增加该 Skill，它的缺席也不构成 required 缺失。产品源码、品牌、项目身份、记忆、策略值、许可证和 tombstone 不进入候选投影。项目级 `.agents/skills/design-taste-frontend/**` 是 `protected` 设计支持，也不进入候选投影，保留目标已有版本；创建时默认补装不授权升级时覆盖或更新它。
 
+### 旧下游的原型工作流迁移
+
+旧目标的本地清单可能尚未登记新增 Skill，旧 helper 也不能发现被投影排除的新路径。必须在渲染候选前展示目标本地清单的精确增量，并取得本次用户对该策略迁移的授权：仅补齐 `.agents/skills/web-design-prototype/**: managed`、`docs/prototypes/**: protected` 和 `tests/prototype-workflow.test.ts: tombstone` 三项缺失规则。保留 `defaultMode: protected`、已有保护与本地规则；冲突或遮蔽先阻断，不整文件覆盖目标清单，也不借用 source 清单替目标授权。清单变化后重新冻结目标状态并渲染候选。
+
+两种宿主的候选必须逐文件包含与 source 字节一致的 `web-design-prototype/SKILL.md`、`agents/openai.yaml`、`references/prd-outline.md`、`scripts/prototype-review.ts`（均位于 `.agents/skills/` 下该 Skill 目录）。旧 helper 尚无必需路径门禁时，执行 Agent 必须在任何普通 managed 更新前完成此核对；缺失或陈旧均停止。经用户批准按 `add` 手工补齐目标中的四个新文件并重规划，已有本地内容按冲突处理。业务 PRD、原型和选择记录不得进入候选或被覆盖。之后继续既定升级顺序，普通 managed 在前，升级器自身在后；不得提前替换旧 CLI 或弱化保护规则。新 helper 对上述四个 source 文件执行必需传播校验，遗漏或陈旧会阻断 apply/record。
+
 ## 所有权
 
 - `managed`：Harness 独占文件；只有目标仍匹配已记录基线时才允许 helper 原子更新一个现有文件。
