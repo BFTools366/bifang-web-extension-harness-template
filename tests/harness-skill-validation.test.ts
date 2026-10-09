@@ -31,7 +31,7 @@ describe("Harness Skill and Agent policy validation", () => {
     )
 
     await expect(validateHarness(targetRoot)).rejects.toThrow(
-      /Skill directories must exactly match: web-check-development-environment/
+      /Skill directories must exactly match:/
     )
   })
 

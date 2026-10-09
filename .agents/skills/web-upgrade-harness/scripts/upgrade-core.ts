@@ -111,6 +111,19 @@ export async function applyUpgradePath(options: ApplyUpgradeOptions): Promise<Up
         `managed-self additions must converge before self updates: ${missingHelpers.map((candidate) => candidate.path).join(", ")}`
       )
     }
+    /** 新叶子 Skill 必须先安装，避免父流程自更新后委托尚不存在的能力。 */
+    const missingSkills = plan.entries.filter(
+      (candidate) =>
+        candidate.ownership === "managed" &&
+        candidate.classification === "add" &&
+        candidate.path.startsWith(".agents/skills/")
+    )
+    if (missingSkills.length > 0) {
+      throw new Error(
+        "managed Skill additions must converge before self updates: " +
+          missingSkills.map((candidate) => candidate.path).join(", ")
+      )
+    }
     // 保存普通 managed 路径供强制先完成非自更新操作。
     const ordinary = plan.entries.filter(
       (candidate) => candidate.classification === "update" && candidate.ownership === "managed"

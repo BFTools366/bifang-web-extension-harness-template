@@ -60,13 +60,15 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(17)
+    expect(skills).toHaveLength(20)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
         "design-taste-frontend",
+        "web-audit-worktrees",
         "web-check-development-environment",
         "web-configure-git-commits",
+        "web-connect-http-service",
         "web-define-product",
         "web-design-prototype",
         "web-extract-i18n-strings",
@@ -75,6 +77,7 @@ describe("terminal source projection", () => {
         "web-plan-change",
         "web-prepare-brand-identity",
         "web-prepare-release",
+        "web-preview-harness-upgrade",
         "web-refactor-code",
         "web-run-parallel-worktrees",
         "web-summarize-development-history",
@@ -87,6 +90,7 @@ describe("terminal source projection", () => {
     expect(skills).not.toContain("instantiate-project")
     expect(skills).not.toContain("web-instantiate-project")
     expect(skills).not.toContain("web-curate-harness-memory")
+    expect(skills).not.toContain("web-review-extension-compatibility")
     expect(skills).not.toContain("manage-project-surfaces")
 
     // 保存 listViewSkillRoot 变量供 Web-only Skill 完整资产回归使用。

@@ -133,6 +133,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ### 3.8 Web-only 列表治理基线
 
+- 源 Harness 保留 Extension-only `$web-review-extension-compatibility`，只分发到 Extension 下游；真实 HTTP 接入使用两宿主通用 `$web-connect-http-service`。两宿主均分发 `$web-audit-worktrees` 与 `$web-preview-harness-upgrade`，分别复用并行登记检查和升级 plan，不授予创建、清理或应用权限。初始化只分发能力，不执行产品接入或专项审查。
 - 源 Harness 保留 `$web-implement-list-view` 的 Skill、references 与中性资产；`projectType=web` 终端保留该 Skill，`projectType=extension` 终端必须裁掉它。
 - 该能力只在 Web 下游真实出现列表页、数据表格、后台列表或搜索结果时调用；不把 Extension Popup/Options 视为可共享宿主。
 - 初始化不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
@@ -417,7 +418,7 @@ pnpm harness validate
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 sibling staging 内容到目标，且必须保持原目标不存在或为空。
-12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，Web 含 `$web-implement-list-view`，Extension 不含；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
+12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，Web 含 `$web-implement-list-view` 且不含 `$web-review-extension-compatibility`，Extension 相反；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力

@@ -42,7 +42,7 @@
 - 初始化必须同步 `assets/icon.png`、`package.json` 中的项目 manifest 信息以及 Popup/Options；Plasmo 从 `assets/icon.png` 生成所需尺寸，不要求维护重复的显式图标声明。
 - 不得生成 Vite 根 `index.html`、Web Landing 或 Web favicon 路径作为另一宿主。
 
-- 后续 Extension 开发由执行 Agent 自行保证 Chrome MV3 与 Firefox MV2 兼容：核对 API、异步消息、权限、后台、CSP/资源和 URL 差异，按真实功能使用能力检测、类型化 adapter 或 Plasmo 目标入口。具体合同见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §5；不得将单目标构建/运行结果推断为双目标通过。
+- 已初始化 Extension 的宿主边界变更或重构调用 `$web-review-extension-compatibility` 做只读审查；修复、测试和候选门禁由调用方负责。后续 Extension 开发由执行 Agent 自行保证 Chrome MV3 与 Firefox MV2 兼容：核对 API、异步消息、权限、后台、CSP/资源和 URL 差异，按真实功能使用能力检测、类型化 adapter 或 Plasmo 目标入口。具体合同见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §5；不得将单目标构建/运行结果推断为双目标通过。
 - 最终 manifest 由 Plasmo 动态派生，共享 override 不固定 `manifest_version`。默认构建/打包必须完成两目标及聚合检查，不能静默跳过 Firefox；浏览器证据仍由独立候选事件触发。
 
 ## 3. TypeScript 与模块规则

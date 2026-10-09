@@ -68,7 +68,13 @@ async function expectMockBoundaryDocs(root: string): Promise<void> {
   expect(dataAccess).toContain("禁止失败后自动回落 Mock")
   expect(runtimeRules).toContain("DATA_ACCESS.md")
   expect(runtimeRules).toContain("缺失的 development、test、release BaseURL")
-  expect(implementationSkill).toContain("用户明确要求真实联网时")
+  expect(implementationSkill).toContain("$web-connect-http-service")
+  const connectionSkill = await readFile(
+    path.join(root, ".agents/skills/web-connect-http-service/SKILL.md"),
+    "utf8"
+  )
+  expect(connectionSkill).toContain("只汇总询问必要缺项")
+  expect(connectionSkill).toContain("真实请求失败不得回落 Mock")
   expect(implementationSkill).toContain("Mock 是当前功能的完整实现")
 }
 

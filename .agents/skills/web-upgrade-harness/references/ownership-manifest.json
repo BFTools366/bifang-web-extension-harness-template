@@ -31,6 +31,22 @@
       "mode": "managed"
     },
     {
+      "pattern": ".agents/skills/web-audit-worktrees/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-preview-harness-upgrade/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-connect-http-service/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-review-extension-compatibility/**",
+      "mode": "conditional"
+    },
+    {
       "pattern": ".agents/skills/web-define-product/**",
       "mode": "managed"
     },

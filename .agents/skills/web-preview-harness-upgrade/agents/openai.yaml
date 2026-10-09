@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：预演工程基线升级"
+  short_description: "只读比较工程候选与目标基线，输出逐路径冲突和升级影响计划"
+  default_prompt: "使用 $web-preview-harness-upgrade 冻结 source、候选与目标事实，只读输出工程升级计划和需人工处理的路径。"

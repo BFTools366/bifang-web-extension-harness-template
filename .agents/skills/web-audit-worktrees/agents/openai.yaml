@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：审计工作树"
+  short_description: "只读核对 primary 工作树、并行单元登记及孤立和陈旧记录"
+  default_prompt: "使用 $web-audit-worktrees 只读检查当前项目的工作树与并行登记，并报告恢复证据和待处理问题。"

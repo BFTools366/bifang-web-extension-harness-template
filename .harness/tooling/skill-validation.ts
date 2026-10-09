@@ -6,8 +6,10 @@ import { DESIGN_SKILL_NAME, validateDesignSkill } from "./design-skill.ts"
 
 /** 保存两类终端项目必须精确保留的通用 Web Harness 前端维护 Skill。 */
 const EXPECTED_COMMON_TERMINAL_SKILLS = [
+  "web-audit-worktrees",
   "web-check-development-environment",
   "web-configure-git-commits",
+  "web-connect-http-service",
   "web-define-product",
   "web-design-prototype",
   "web-extract-i18n-strings",
@@ -15,6 +17,7 @@ const EXPECTED_COMMON_TERMINAL_SKILLS = [
   "web-plan-change",
   "web-prepare-brand-identity",
   "web-prepare-release",
+  "web-preview-harness-upgrade",
   "web-refactor-code",
   "web-run-parallel-worktrees",
   "web-summarize-development-history",
@@ -25,6 +28,9 @@ const EXPECTED_COMMON_TERMINAL_SKILLS = [
 
 /** 保存仅 React Web 终端项目保留的宿主专用 Skill。 */
 const EXPECTED_WEB_ONLY_TERMINAL_SKILLS = ["web-implement-list-view"] as const
+
+/** 保存仅 Extension 终端项目保留的双目标审查 Skill。 */
+const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = ["web-review-extension-compatibility"] as const
 
 /** 锁定终端候选验收 Skill 必须消费的 smoke 策略矩阵。 */
 const VERIFY_DELIVERY_REQUIRED_FRAGMENTS = [
@@ -66,7 +72,9 @@ export async function validateTerminalSkills(
   // 保存 expectedSkills 变量供当前逻辑使用。
   const expectedSkills = [
     ...EXPECTED_COMMON_TERMINAL_SKILLS,
-    ...(config.projectType === "web" ? EXPECTED_WEB_ONLY_TERMINAL_SKILLS : [])
+    ...(config.projectType === "web"
+      ? EXPECTED_WEB_ONLY_TERMINAL_SKILLS
+      : EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS)
   ].sort()
   // 旧下游升级不补写受保护设计文件；仅在实际存在时将支持 Skill 纳入维护门禁。
   const designSkillPresent = actualSkills.includes(DESIGN_SKILL_NAME)

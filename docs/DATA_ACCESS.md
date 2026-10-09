@@ -100,6 +100,8 @@ Mock 应覆盖当前功能的完整可观察行为，不能用恒定成功、空
 
 #### 用户要求真实联网后的迁移
 
+已初始化下游通过 `$web-connect-http-service` 执行本节工作流；实施与列表 Skill 按真实接入事件委托，数据契约仍以本文件为唯一来源。
+
 1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 收集缺失的各环境、各实际服务 BaseURL；初始化或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
 2. 确认当前功能需要的 endpoint 路径、方法、输入/响应与认证契约；缺失时询问，不从 BaseURL 猜测接口。校验配置后，把对应 API 函数的 Mock 实现替换为真实 HTTP 请求，复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误与认证边界。UI 和 Query 保持相同的领域契约，外部响应与分页字段在 API 层校验、映射。
 3. 按环境和服务逐项完成迁移；尚未配置的服务继续通过其 API Mock 提供数据，明确报告剩余范围。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。

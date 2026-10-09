@@ -1,4 +1,4 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
@@ -22,7 +22,15 @@ import {
 } from "./harness-upgrade-fixture.ts"
 
 const REQUIRED_SOURCE_FILES = [
+  ".agents/skills/web-audit-worktrees/SKILL.md",
+  ".agents/skills/web-audit-worktrees/agents/openai.yaml",
+  ".agents/skills/web-audit-worktrees/references/inspection-contract.md",
+  ".agents/skills/web-preview-harness-upgrade/SKILL.md",
+  ".agents/skills/web-preview-harness-upgrade/agents/openai.yaml",
+  ".agents/skills/web-preview-harness-upgrade/references/preview-contract.md",
   ".harness/tooling/project-memory.ts",
+  ".agents/skills/web-connect-http-service/SKILL.md",
+  ".agents/skills/web-connect-http-service/agents/openai.yaml",
   ".agents/skills/web-design-prototype/SKILL.md",
   ".agents/skills/web-design-prototype/agents/openai.yaml",
   ".agents/skills/web-design-prototype/references/prd-outline.md",
@@ -31,6 +39,112 @@ const REQUIRED_SOURCE_FILES = [
 
 /** 验证 upgrade ownership protection 的完整回归场景。 */
 describe("upgrade ownership protection", () => {
+  /** 验证两宿主的候选注入和目标独有残留（含空目录、符号链接）都阻断升级写入。 */
+  test.each(["web", "extension"] as const)(
+    "blocks wrong-host skill residue for %s",
+    async (projectType) => {
+      const fixture = await upgradeFixture()
+      await writeFile(
+        path.join(fixture.target, ".harness/project.json"),
+        JSON.stringify({ projectType })
+      )
+      const forbidden =
+        projectType === "web" ? "web-review-extension-compatibility" : "web-implement-list-view"
+      const relativeRoot = `.agents/skills/${forbidden}`
+      for (const root of [fixture.candidate, fixture.target]) {
+        const skillRoot = path.join(root, relativeRoot)
+        await mkdir(skillRoot, { recursive: true })
+        let plan = await planFor(fixture)
+        expect(plan.entries).toContainEqual(
+          expect.objectContaining({ path: relativeRoot, classification: "blocked" })
+        )
+        await writeFile(path.join(skillRoot, "SKILL.md"), "wrong host\n")
+        plan = await planFor(fixture)
+        expect(plan.entries).toContainEqual(
+          expect.objectContaining({ path: `${relativeRoot}/SKILL.md`, classification: "blocked" })
+        )
+        const planPath = await persistPlan(
+          fixture,
+          `${projectType}-${root === fixture.target ? "target" : "candidate"}`
+        )
+        await expect(
+          applyUpgradePath({
+            planPath,
+            path: ".harness/tooling/comment-policy.ts",
+            approval: "apply-managed-changes"
+          })
+        ).rejects.toThrow(/blocked by/)
+        await expect(
+          recordUpgradeBaseline({
+            planPath,
+            sourceVersion: "202609090101",
+            sourceCommit: fixture.sourceCommit,
+            bootstrap: true,
+            approval: "bootstrap-verified-baseline",
+            resolvedManual: []
+          })
+        ).rejects.toThrow(/not converged/)
+        await rm(skillRoot, { recursive: true })
+        await symlink(
+          fixture.evidence,
+          skillRoot,
+          process.platform === "win32" ? "junction" : "dir"
+        )
+        expect((await planFor(fixture)).entries).toContainEqual(
+          expect.objectContaining({ path: relativeRoot, classification: "blocked" })
+        )
+        await rm(skillRoot)
+      }
+      expect(
+        (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
+      ).toEqual([])
+    }
+  )
+
+  /** 验证 Extension 关键审查文件缺失或陈旧阻断，Web 合法缺席不阻断。 */
+  test("propagates compatibility review only to Extension candidates", async () => {
+    const fixture = await upgradeFixture()
+    const files = ["SKILL.md", "agents/openai.yaml"].map(
+      (file) => `.agents/skills/web-review-extension-compatibility/${file}`
+    )
+    for (const file of files) {
+      await mkdir(path.dirname(path.join(fixture.source, file)), { recursive: true })
+      await writeFile(path.join(fixture.source, file), "current review contract\n")
+    }
+    await git(fixture.source, ["add", "."])
+    await git(fixture.source, ["commit", "-m", "test: add compatibility review"])
+    fixture.sourceCommit = await git(fixture.source, ["rev-parse", "HEAD"])
+    expect(
+      (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
+    ).toEqual([])
+    await writeFile(
+      path.join(fixture.target, ".harness/project.json"),
+      '{"projectType":"extension"}\n'
+    )
+    for (const file of files) {
+      expect((await planFor(fixture)).entries).toContainEqual(
+        expect.objectContaining({ path: file, classification: "blocked", ownership: "conditional" })
+      )
+      await mkdir(path.dirname(path.join(fixture.candidate, file)), { recursive: true })
+      await writeFile(path.join(fixture.candidate, file), "stale\n")
+      expect((await planFor(fixture)).entries).toContainEqual(
+        expect.objectContaining({ path: file, classification: "blocked" })
+      )
+      await writeFile(path.join(fixture.candidate, file), "current review contract\n")
+    }
+    expect(
+      (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
+    ).toEqual([])
+    const planPath = await persistPlan(fixture, "identity-bound")
+    await writeFile(path.join(fixture.target, ".harness/project.json"), '{"projectType":"web"}\n')
+    await expect(
+      applyUpgradePath({
+        planPath,
+        path: ".harness/tooling/comment-policy.ts",
+        approval: "apply-managed-changes"
+      })
+    ).rejects.toThrow(/drifted/)
+  })
   /** 验证关键 helper 及原型 Skill 的每个文件在两宿主候选中缺失或陈旧时均失败关闭。 */
   test.each(["web", "extension"] as const)(
     "blocks missing or stale %s source files",
@@ -116,6 +230,10 @@ describe("upgrade ownership protection", () => {
     const absent = new Set([
       ".agents/skills/web-design-prototype/**",
       "docs/prototypes/**",
+      ".agents/skills/web-connect-http-service/**",
+      ".agents/skills/web-audit-worktrees/**",
+      ".agents/skills/web-preview-harness-upgrade/**",
+      ".agents/skills/web-review-extension-compatibility/**",
       "tests/prototype-workflow.test.ts"
     ])
     const old = { ...original, rules: original.rules.filter((rule) => !absent.has(rule.pattern)) }

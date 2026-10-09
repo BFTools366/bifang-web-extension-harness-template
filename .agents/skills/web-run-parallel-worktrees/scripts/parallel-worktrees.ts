@@ -118,7 +118,12 @@ export async function inspectParallelWorktrees(projectRoot: string, executionRoo
       record.branch?.startsWith("refs/heads/codex/unit-") === true
   )
   const [status, headValue, branchValue] = await Promise.all([
-    git(identity.topLevel, ["status", "--porcelain=v1", "--untracked-files=all"]),
+    git(identity.topLevel, [
+      "--no-optional-locks",
+      "status",
+      "--porcelain=v1",
+      "--untracked-files=all"
+    ]),
     git(identity.topLevel, ["rev-parse", "--verify", "HEAD"], [0, 128]),
     git(identity.topLevel, ["symbolic-ref", "--quiet", "--short", "HEAD"], [0, 1])
   ])

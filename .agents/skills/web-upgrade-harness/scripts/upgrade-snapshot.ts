@@ -118,7 +118,7 @@ export async function gitIdentity(
         throw error
       }
     ),
-    git(root, ["status", "--porcelain=v1", "--untracked-files=all"])
+    git(root, ["--no-optional-locks", "status", "--porcelain=v1", "--untracked-files=all"])
   ])
   if (requireClean && status !== "")
     throw new Error(`Source Harness Git Worktree must be clean: ${root}`)
@@ -398,6 +398,11 @@ export async function loadLock(
 
 /** 复验计划绑定的所有权清单与可选 upstream lock 快照。 */
 export async function assertControlSnapshots(plan: HarnessUpgradePlan): Promise<void> {
+  const projectSnapshot = plan.entries.find(
+    (entry) => entry.path === ".harness/project.json"
+  )?.target
+  if (projectSnapshot === undefined) throw new Error("Upgrade plan lacks target project identity")
+  await readBoundFileStable(plan.targetRoot, ".harness/project.json", projectSnapshot)
   const ownershipPath = await exactControlPath(
     plan.targetRoot,
     plan.ownershipPath,

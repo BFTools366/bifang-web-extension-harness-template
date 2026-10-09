@@ -1,7 +1,9 @@
-/** 保存源 Harness 唯一允许的 18 个 Web Skill canonical id。 */
+/** 保存源 Harness 唯一允许的 22 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
+  "web-audit-worktrees",
   "web-check-development-environment",
   "web-configure-git-commits",
+  "web-connect-http-service",
   "web-curate-harness-memory",
   "web-define-product",
   "web-design-prototype",
@@ -12,7 +14,9 @@ export const EXPECTED_SKILLS = [
   "web-plan-change",
   "web-prepare-brand-identity",
   "web-prepare-release",
+  "web-preview-harness-upgrade",
   "web-refactor-code",
+  "web-review-extension-compatibility",
   "web-run-parallel-worktrees",
   "web-summarize-development-history",
   "web-test-final-artifact-e2e",
@@ -34,8 +38,26 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 18 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 22 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
+  "web-preview-harness-upgrade": {
+    description:
+      "在已初始化 React Web 或 Plasmo Extension 下游中，只读比较已验证 source Harness、当前宿主候选投影和目标基线，冻结所有权与 Git 状态并输出逐路径升级计划。不修改目标工程，可选创建外部计划报告；不应用、记录基线或迁移所有权授权。",
+    title: "# Web Harness：预演工程基线升级",
+    displayName: "Web Harness：预演工程基线升级",
+    shortDescription: "只读比较工程候选与目标基线，输出逐路径冲突和升级影响计划",
+    defaultPrompt:
+      "使用 $web-preview-harness-upgrade 冻结 source、候选与目标事实，只读输出工程升级计划和需人工处理的路径。"
+  },
+  "web-audit-worktrees": {
+    description:
+      "在 Web Harness、React Web 或 Plasmo Extension 仓库中，从 primary checkout 只读审计 Git Worktree、并行单元登记、孤立候选和陈旧记录。用于检查现状、恢复证据或清理前核对；不创建、验证、整合、删除或修复 Worktree，不要求并行创建开关启用。",
+    title: "# Web Harness：审计工作树",
+    displayName: "Web Harness：审计工作树",
+    shortDescription: "只读核对 primary 工作树、并行单元登记及孤立和陈旧记录",
+    defaultPrompt:
+      "使用 $web-audit-worktrees 只读检查当前项目的工作树与并行登记，并报告恢复证据和待处理问题。"
+  },
   "web-check-development-environment": {
     description:
       "检查 Web Harness、纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目所需的 Node.js、pnpm 和 Google Chrome/Firefox 环境。只用于新下游首次初始化，或命令已经失败且错误指向工具链/浏览器环境时的诊断；普通开发与构建前不预探测。",
@@ -53,6 +75,15 @@ export const SKILL_CONTRACTS = {
     shortDescription: "检查并安全配置仓库本地 Git 身份与受管提交模板约定",
     defaultPrompt:
       "使用 $web-configure-git-commits；仅当我明确要求配置 Git，或下一步将实际创建提交时，才检查有效身份、只为缺失字段写仓库本地回退，并安装检查受管提交模板。"
+  },
+  "web-connect-http-service": {
+    description:
+      "在已初始化 React Web 或 Plasmo Extension 下游中，把已授权服务的类型化 API Mock 迁移到真实 HTTP，或接入已批准的真实 endpoint，处理配置、域契约、响应映射、缓存切换及相关验证；不从 BaseURL 猜接口，不扩张凭据、生产或权限授权。",
+    title: "# Web Harness：接入真实 HTTP 服务",
+    displayName: "Web Harness：接入真实 HTTP 服务",
+    shortDescription: "将已批准的下游 API Mock 接入真实 HTTP 并验证迁移边界",
+    defaultPrompt:
+      "使用 $web-connect-http-service 接入已批准的真实 HTTP 服务并验证 Mock 迁移、域契约和缓存切换。"
   },
   "web-curate-harness-memory": {
     description:
@@ -153,6 +184,15 @@ export const SKILL_CONTRACTS = {
     defaultPrompt:
       "使用 $web-refactor-code 在保持可观察行为不变的前提下重构 Web Harness 受管前端模板或其 React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游代码。"
   },
+  "web-review-extension-compatibility": {
+    description:
+      "只读审查已初始化 Plasmo Extension 下游中受影响功能的 Chrome MV3 / Firefox MV2 兼容性，检查真实消费者、执行上下文、API、消息、权限和生命周期证据；用于专项审查或实施、重构中的宿主边界审查，不自动修改权限、构建或启动浏览器。",
+    title: "# Web Harness：审查 Extension 双目标兼容",
+    displayName: "Web Harness：审查 Extension 双目标兼容",
+    shortDescription: "只读核对扩展真实消费者在 Chrome MV3 与 Firefox MV2 的兼容证据",
+    defaultPrompt:
+      "使用 $web-review-extension-compatibility 只读审查当前 Extension 变更的双目标兼容证据与必要后续门禁。"
+  },
   "web-run-parallel-worktrees": {
     description:
       "在用户当前明确要求且项目策略允许时，把一个 Web Harness、React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension Task 拆为写入所有权不重叠的内部 Subagent Git Worktree，并用可执行登记、guard、postflight 和保守清理阻止越界。",
@@ -204,6 +244,18 @@ export const SKILL_CONTRACTS = {
 export const SKILL_BODY_REQUIREMENTS: Partial<
   Record<(typeof EXPECTED_SKILLS)[number], readonly string[]>
 > = {
+  "web-audit-worktrees": [
+    "只运行既有 helper 的 `inspect`",
+    "从 primary checkout 的精确 cwd",
+    "不创建目录、登记、分支、Worktree 或报告文件",
+    "orphan/stale 只表示需要调查的证据，不是删除授权"
+  ],
+  "web-preview-harness-upgrade": [
+    "不修改目标工程，可选创建外部计划报告",
+    "目标允许已有本地修改",
+    "CLI 没有 render 子命令",
+    "不调用 `apply`、`record` 或带批准的 `migrate-ownership`"
+  ],
   "web-check-development-environment": [
     "新下游首次初始化只检查一次 Node.js/pnpm",
     "最终 Release 构建、新会话、Agent 切换、宿主或版本约束变化都不触发预探测",
@@ -217,6 +269,18 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "git worktree list --porcelain",
     "只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入",
     "git status --porcelain=v1 --untracked-files=all"
+  ],
+  "web-connect-http-service": [
+    "仅用于已初始化且 `projectType=web|extension`",
+    "真实请求失败不得回落 Mock",
+    "取消相关旧请求并清理对应 Mock Query 缓存",
+    "不扩张生产、付费、凭据或不可逆写入授权"
+  ],
+  "web-review-extension-compatibility": [
+    "仅用于已初始化且 `projectType=extension`",
+    "不修改代码、测试、manifest、权限或依赖",
+    "不自行构建、加载浏览器或创建候选",
+    "消费者 × Chrome MV3 / Firefox MV2"
   ],
   "web-design-prototype": [
     "仅在已初始化下游运行",
@@ -256,6 +320,9 @@ export const MAX_SHORT_DESCRIPTION_LENGTH = 64
 
 // 保存 REQUIRED_FILES 变量供当前逻辑使用。
 export const REQUIRED_FILES = [
+  ".agents/skills/web-audit-worktrees/references/inspection-contract.md",
+  ".agents/skills/web-preview-harness-upgrade/references/preview-contract.md",
+  ".harness/tooling/templates/downstream-agents.ts",
   ".agents/skills/web-design-prototype/references/prd-outline.md",
   ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
   ".harness/tooling/design-skill.ts",

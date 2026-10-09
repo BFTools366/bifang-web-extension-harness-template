@@ -10,7 +10,7 @@ description: 在用户当前明确要求且项目策略允许时，把一个 Web
 ## 适用与授权
 
 1. 创建模式必须同时满足：用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、source Worktree 干净且 HEAD 是已记录的精确提交 OID、至少两个写入单元的所有权互不重叠。任一不满足就使用单 Agent；持久启用不能自行触发并行，当前请求也不能覆盖 `disabled`。
-2. `inspect` 是只读审计，`remove` 是既有登记的保守清理；二者不要求创建开关仍启用，但不能放宽身份、干净状态、祖先或所有权门禁。
+2. 既有状态审计委托 `$web-audit-worktrees`；`remove` 是既有登记的保守清理。二者不要求创建开关仍启用，但不能放宽各自身份以及清理所需的干净状态、祖先或所有权门禁。
 3. 用户对并行的授权不扩展为提交范围外修改、整合、删除、推送、发布、凭据或外部副作用。
 
 ## 身份与准备
@@ -46,12 +46,7 @@ pnpm exec tsx <project-root>/.agents/skills/web-run-parallel-worktrees/scripts/p
 
 ## 审计与保守清理
 
-从 primary checkout 的精确 cwd 运行只读 `inspect`；linked Worktree 或其他 cwd 即使指向同一仓库也不能代替 primary。结果同时返回 primary 的 clean/branch/head、Git porcelain 中的全部 Worktree、helper registry 单元、未登记的受管候选 `orphanWorktrees`，以及缺失、分支漂移或 prunable 的 `staleUnits`；inspect 只暴露恢复证据，不自动清理或修复：
-
-```text
-pnpm exec tsx .agents/skills/web-run-parallel-worktrees/scripts/parallel-worktrees.ts inspect \
-  --project-root <primary>
-```
+清理前或恢复时委托 `$web-audit-worktrees`，按其 [审计执行契约](../web-audit-worktrees/references/inspection-contract.md) 核对 Git 与 helper 登记；审计只返回证据，不自动修复或清理。
 
 只有单元已经 `verify`、Worktree clean、HEAD 未漂移，且 verified HEAD 已成为精确父 Task 分支祖先时，才能从 source Worktree cwd 运行：
 
@@ -61,7 +56,7 @@ pnpm exec tsx <project-root>/.agents/skills/web-run-parallel-worktrees/scripts/p
   --task <task-slug> --unit <unit-slug> --integrated-into codex/task-<task-slug>
 ```
 
-`remove` 不使用 `--force`、不删除单元分支、不扫描前缀、不清理未知或未整合 Worktree。它先移除精确 Git Worktree，再原子删除 helper 登记；若两步之间失败或进程退出，保留的 stale 登记由下一次 `inspect` 明确报告，不能静默当作清理成功。
+`remove` 不使用 `--force`、不删除单元分支、不扫描前缀、不清理未知或未整合 Worktree。它先移除精确 Git Worktree，再原子删除 helper 登记；若两步之间失败或进程退出，保留的 stale 登记由下一次 `$web-audit-worktrees` 明确报告，不能静默当作清理成功。
 
 所有 CLI 命令只向 stdout 输出一个 JSON 对象：成功为 `{ "ok": true, "operation": "<command>", ... }`；失败为 `{ "ok": false, "error": { "code": "...", "message": "..." } }` 并返回非零退出码。调用方按结构字段判定，不解析任意 stderr 文本。
 

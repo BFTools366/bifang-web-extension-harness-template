@@ -45,6 +45,10 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   "tests/design-skill-installation.test.ts": "tombstone",
   ".agents/skills/web-check-development-environment/**": "managed",
   ".agents/skills/web-configure-git-commits/**": "managed",
+  ".agents/skills/web-connect-http-service/**": "managed",
+  ".agents/skills/web-audit-worktrees/**": "managed",
+  ".agents/skills/web-preview-harness-upgrade/**": "managed",
+  ".agents/skills/web-review-extension-compatibility/**": "conditional",
   ".agents/skills/web-define-product/**": "managed",
   ".agents/skills/web-design-prototype/**": "managed",
   ".agents/skills/web-extract-i18n-strings/**": "managed",
@@ -200,6 +204,14 @@ export const MINIMUM_REQUIRED_OWNERSHIP_PATTERNS = new Set([
 
 /** 保存必须从 source 精确传播到候选的关键 managed 文件。 */
 export const REQUIRED_MANAGED_SOURCE_PATHS = [
+  ".agents/skills/web-audit-worktrees/SKILL.md",
+  ".agents/skills/web-audit-worktrees/agents/openai.yaml",
+  ".agents/skills/web-audit-worktrees/references/inspection-contract.md",
+  ".agents/skills/web-preview-harness-upgrade/SKILL.md",
+  ".agents/skills/web-preview-harness-upgrade/agents/openai.yaml",
+  ".agents/skills/web-preview-harness-upgrade/references/preview-contract.md",
+  ".agents/skills/web-connect-http-service/SKILL.md",
+  ".agents/skills/web-connect-http-service/agents/openai.yaml",
   ".harness/tooling/design-skill.ts",
   ".agents/skills/web-design-prototype/SKILL.md",
   ".agents/skills/web-design-prototype/agents/openai.yaml",

@@ -7,6 +7,7 @@ import {
   UPSTREAM_LOCK_RELATIVE_PATH
 } from "./upgrade-policy.ts"
 import { ownershipRuleForNode } from "./upgrade-glob.ts"
+import { readBoundFileStable } from "./upgrade-mutation.ts"
 import type {
   CreateUpgradePlanOptions,
   HarnessUpgradePlan,
@@ -26,6 +27,15 @@ import {
   loadLock,
   sameSnapshot
 } from "./upgrade-snapshot.ts"
+
+/** 本地保存身份路径，避免逐文件自升级先更新 planner 时依赖 policy 的新增导出。 */
+const PROJECT_CONFIG_RELATIVE_PATH = ".harness/project.json"
+
+/** 本地保存宿主专用 Skill 根，保持旧 policy 与新 planner 可共同启动。 */
+const HOST_SPECIFIC_SKILL_ROOTS = {
+  web: [".agents/skills/web-implement-list-view"],
+  extension: [".agents/skills/web-review-extension-compatibility"]
+} as const
 
 /** 按所有权和三方事实生成一个稳定分类。 */
 export function classifyEntry(
@@ -176,6 +186,21 @@ export async function createUpgradePlan(
     throw new Error("Source, rendered candidate, and target roots must be distinct and non-nested")
   }
   const ownership = await loadOwnershipManifest(options.ownershipPath, targetRoot)
+  const projectFile = await readBoundFileStable(targetRoot, PROJECT_CONFIG_RELATIVE_PATH)
+  if (projectFile.bytes === undefined || projectFile.snapshot === undefined) {
+    throw new Error("Target project identity is missing")
+  }
+  const project: unknown = JSON.parse(projectFile.bytes.toString("utf8"))
+  if (
+    project === null ||
+    typeof project !== "object" ||
+    !("projectType" in project) ||
+    (project.projectType !== "web" && project.projectType !== "extension")
+  ) {
+    throw new Error("Target projectType must be web or extension")
+  }
+  const projectType = project.projectType
+  const forbiddenSkillRoots = HOST_SPECIFIC_SKILL_ROOTS[projectType === "web" ? "extension" : "web"]
   const lockPath = await exactControlPath(
     targetRoot,
     options.lockPath,
@@ -195,9 +220,15 @@ export async function createUpgradePlan(
     inventoryTree(targetRoot, true),
     loadLock(lockPath, targetRoot)
   ])
+  if (
+    !sameSnapshot(projectFile.snapshot, targetInventory.files.get(PROJECT_CONFIG_RELATIVE_PATH))
+  ) {
+    throw new Error("Target project identity changed while planning")
+  }
   // 保存 lock 变量供分类使用，同时单独把原始 lock 快照写入计划 provenance。
   const lock = loadedLock?.value
   const paths = new Set<string>([
+    PROJECT_CONFIG_RELATIVE_PATH,
     ...candidateInventory.files.keys(),
     ...candidateInventory.unsafe,
     ...Object.keys(lock?.files ?? {}),
@@ -221,6 +252,25 @@ export async function createUpgradePlan(
     })
     paths.add(relativePath)
   }
+  for (const inventory of [candidateInventory, targetInventory]) {
+    for (const relativePath of new Set([
+      ...inventory.files.keys(),
+      ...inventory.directories,
+      ...inventory.unsafe
+    ])) {
+      if (
+        forbiddenSkillRoots.some(
+          (root) => relativePath === root || relativePath.startsWith(`${root}/`)
+        )
+      ) {
+        block(
+          relativePath,
+          "conditional",
+          `Skill is not allowed for target projectType=${projectType}`
+        )
+      }
+    }
+  }
   for (const rule of ownership.manifest.rules) {
     if (
       rule.required === true &&
@@ -231,13 +281,24 @@ export async function createUpgradePlan(
       block(rule.pattern, rule.mode, "required candidate path is missing")
     }
   }
-  for (const relativePath of REQUIRED_MANAGED_SOURCE_PATHS) {
+  const requiredSourcePaths = [
+    ...REQUIRED_MANAGED_SOURCE_PATHS,
+    ...HOST_SPECIFIC_SKILL_ROOTS[projectType].flatMap((root) => [
+      `${root}/SKILL.md`,
+      `${root}/agents/openai.yaml`
+    ])
+  ]
+  for (const relativePath of requiredSourcePaths) {
     const sourceSnapshot = await optionalSourceSnapshot(sourceRoot, relativePath)
     if (
       sourceSnapshot !== undefined &&
       !sameSnapshot(sourceSnapshot, candidateInventory.files.get(relativePath))
     ) {
-      block(relativePath, "managed", "candidate does not exactly propagate required source file")
+      block(
+        relativePath,
+        ownershipRuleForNode(relativePath, ownership.manifest, false)?.mode ?? "managed",
+        "candidate does not exactly propagate required source file"
+      )
     }
   }
   for (const relativePath of candidateInventory.directories) {
@@ -327,7 +388,7 @@ export async function createUpgradePlan(
   }
 }
 
-/** 将计划独占写到候选与目标树之外的新文件。 */
+/** 将计划独占写到 source、候选与目标树之外的新文件。 */
 export async function writeUpgradePlan(
   plan: HarnessUpgradePlan,
   outputPath: string
@@ -335,8 +396,10 @@ export async function writeUpgradePlan(
   const requested = path.resolve(outputPath)
   const parent = await realDirectory(path.dirname(requested), "Upgrade plan output parent")
   const output = path.join(parent, path.basename(requested))
-  if ([plan.candidateRoot, plan.targetRoot].some((root) => isNested(root, output))) {
-    throw new Error("Upgrade plan output must be outside candidate and target roots")
+  if (
+    [plan.sourceRoot, plan.candidateRoot, plan.targetRoot].some((root) => isNested(root, output))
+  ) {
+    throw new Error("Upgrade plan output must be outside source, candidate and target roots")
   }
   try {
     await writeFile(output, `${JSON.stringify(plan, null, 2)}\n`, { flag: "wx", mode: 0o600 })

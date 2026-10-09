@@ -29,11 +29,11 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
 3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。
-5. Extension 使用同一 Plasmo 单包的 Chrome MV3 / Firefox MV2 约定；每次开发由执行 Agent 自行核对并保证两目标 API、callback/Promise、消息响应、权限、后台生命周期、CSP/资源和 URL 的差异与兼容。按真实消费者选择能力检测、类型化 adapter 或 Plasmo 目标入口，消息/storage 显式校验，监听器可清理，状态可恢复。最终 manifest 由 Plasmo 动态派生，共享 override 不固定 manifest_version。新增或扩大权限必须取得明确批准，并执行权限、安全及两个真实浏览器专项门禁。
+5. Extension 保持同一 Plasmo 单包的 Chrome MV3 / Firefox MV2 合同。已初始化下游的变更触及浏览器 API、消息、Storage、后台、权限、CSP 或资源时调用 `$web-review-extension-compatibility`；调用方负责修复与相关双目标测试，源模板维护按工程事实源核对兼容。最终 manifest 由 Plasmo 动态派生，共享 override 不固定 manifest_version。新增或扩大权限必须取得明确批准，并经既有候选链执行权限、安全及两个真实浏览器专项门禁。
 6. 面向用户的新文案通过既有 `i18next`/`react-i18next` 资源，不引入第二套 i18n 机制。
-7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止 `.env`/`.env*.local` 隐式覆盖及未知公开键，不得把浏览器公开变量当秘密。用户明确要求真实联网时，先复用有效配置，再汇总询问缺失的各环境和实际服务 BaseURL；配置通过后按 `DATA_ACCESS.md` §3.1 替换对应 API Mock，不能只填地址而保留假联网实现。
+7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止隐式环境覆盖，浏览器公开变量不承载秘密。已初始化下游授权包含真实 HTTP 接入或 Mock 迁移时，域 API 部分委托 `$web-connect-http-service`；源 Harness 不接收产品地址或接口。
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
-9. 集合分页与 HTTP client 变化读取 `DATA_ACCESS.md`：复用 `src/pagination/` 的 1-based page/pageSize 契约和 `src/api/client/` 的 header/Token 写入与 401/403/其他错误拦截边界；Query 使用 `requestHttpQuery` 交由最终状态反馈，直接请求、真实认证 adapter 与 Router/UI 按该事实源接线；普通集合使用生成的 session 状态机，Web 路由列表则按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复。真实 endpoint 负责把外部分页字段映射为内部结构，不能复制一套页面私有标准；业务行与 `total` 只属于 Query/feature。
+9. 集合分页与 HTTP client 基础维护读取 `DATA_ACCESS.md`，复用 `src/pagination/` 与 `src/api/client/`。Query 使用 `requestHttpQuery` 并只反馈最终失败；通用集合使用 session 状态机，Web 路由列表按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 只在原始 URL 无 owned key 时启动恢复。业务行与 `total` 归 Query/feature；真实接入的响应/分页映射由 `$web-connect-http-service` 在域 API 边界完成。
 10. 未配置对应 BaseURL 时，按 `DATA_ACCESS.md` §3.1 将所有需要该服务的数据放在 `src/api/<domain>/` 的类型化异步 Mock API；UI、route、hook 和 Query 只消费 API 函数。Mock 是当前功能的完整实现，不是 stub 或占位；已接入真实 HTTP 的服务移除运行路径中的 Mock，失败不回落 Mock。不得留下 stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力，也不得把 Mock 结果声明为真实联网通过。
 
 ## 测试与验证

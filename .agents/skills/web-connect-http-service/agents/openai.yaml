@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：接入真实 HTTP 服务"
+  short_description: "将已批准的下游 API Mock 接入真实 HTTP 并验证迁移边界"
+  default_prompt: "使用 $web-connect-http-service 接入已批准的真实 HTTP 服务并验证 Mock 迁移、域契约和缓存切换。"

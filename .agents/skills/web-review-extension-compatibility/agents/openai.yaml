@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：审查 Extension 双目标兼容"
+  short_description: "只读核对扩展真实消费者在 Chrome MV3 与 Firefox MV2 的兼容证据"
+  default_prompt: "使用 $web-review-extension-compatibility 只读审查当前 Extension 变更的双目标兼容证据与必要后续门禁。"

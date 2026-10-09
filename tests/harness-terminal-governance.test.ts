@@ -18,6 +18,49 @@ import {
 
 /** 验证 terminal identity, skills and UI governance 的完整回归场景。 */
 describe("terminal identity, skills and UI governance", () => {
+  /** 验证宿主专用 Skill 必须存在于对应终端，另一宿主注入立即失败。 */
+  test.each(["web", "extension"] as const)(
+    "enforces host-specific skills for %s",
+    async (projectType) => {
+      const root = await seedTemplateRoot()
+      await initializeProject(options(root, projectType))
+      const expected =
+        projectType === "web" ? "web-implement-list-view" : "web-review-extension-compatibility"
+      const forbidden =
+        projectType === "web" ? "web-review-extension-compatibility" : "web-implement-list-view"
+      const expectedRoot = path.join(root, ".agents/skills", expected)
+      await rm(expectedRoot, { recursive: true })
+      await expect(validateProject(root)).rejects.toThrow(/Terminal Skill/)
+      await cp(path.join(repositoryRoot, ".agents/skills", expected), expectedRoot, {
+        recursive: true
+      })
+      const forbiddenRoot = path.join(root, ".agents/skills", forbidden)
+      await cp(path.join(repositoryRoot, ".agents/skills", forbidden), forbiddenRoot, {
+        recursive: true
+      })
+      await expect(validateProject(root)).rejects.toThrow(/Terminal Skill directories/)
+      await rm(forbiddenRoot, { recursive: true })
+      await expect(validateProject(root)).resolves.toContain(projectType)
+      const agents = await readFile(path.join(root, "AGENTS.md"), "utf8")
+      expect(agents).toContain("$web-connect-http-service")
+      for (const [skill, reference] of [
+        ["web-audit-worktrees", "inspection-contract.md"],
+        ["web-preview-harness-upgrade", "preview-contract.md"]
+      ] as const) {
+        expect(agents).toContain("$" + skill)
+        expect(
+          await readFile(path.join(root, ".agents/skills", skill, "references", reference), "utf8")
+        ).toBe(
+          await readFile(
+            path.join(repositoryRoot, ".agents/skills", skill, "references", reference),
+            "utf8"
+          )
+        )
+      }
+      expect(agents).toContain(`$${expected}`)
+      expect(agents).not.toContain(`$${forbidden}`)
+    }
+  )
   /** 验证 keeps identity schemas exact while accepting only tooling at or above its baseline 场景。 */
   test("keeps identity schemas exact while accepting only tooling at or above its baseline", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 toolingRoot 变量供当前逻辑使用。

@@ -1,4 +1,4 @@
-import { lstat, mkdir, realpath, rm, writeFile } from "node:fs/promises"
+import { lstat, mkdir, readFile, realpath, rm, utimes, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import {
@@ -11,6 +11,18 @@ import { git, runCli, taskRepository, managedUnitPath } from "./parallel-worktre
 
 /** 验证 parallel worktree identity and recovery 的完整回归场景。 */
 describe("parallel worktree identity and recovery", () => {
+  /** 验证只读审计既不刷新过期索引缓存，也不创建缺失的登记目录。 */
+  test("inspects without refreshing the index or creating a registry", async () => {
+    const { root } = await taskRepository()
+    await utimes(path.join(root, "README.md"), 1, 1)
+    const indexPath = path.join(root, ".git/index")
+    const indexBefore = await readFile(indexPath)
+    const inspected = await inspectParallelWorktrees(root, root)
+    expect(inspected).toMatchObject({ clean: true, units: [], staleUnits: [] })
+    expect(await readFile(indexPath)).toEqual(indexBefore)
+    await expect(lstat(path.join(root, ".git/harness"))).rejects.toMatchObject({ code: "ENOENT" })
+  })
+
   /** 验证 inspect 只接受 primary checkout，并要求从其精确 cwd 运行。 */
   test("binds inspect to the primary checkout and its exact cwd", async () => {
     const { root, source } = await taskRepository()

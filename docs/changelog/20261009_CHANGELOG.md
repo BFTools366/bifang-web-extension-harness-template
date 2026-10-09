@@ -4,7 +4,9 @@
 
 ## Added
 
-- 下游新增原创 web-design-prototype：默认产出 2–3 个交互 HTML 方案，记录用户选择的具体版本；复用 web-define-product 维护唯一 PRD，选定后交 web-implement-change。Node 标准库 helper 绑定 PRD/候选摘要并阻断未选择或漂移；两类初始化只分发项目级能力，不新增业务问题、PRD、原型或全局安装。源/Web/Extension canonical Skills 分别为 18/16/15；业务原型和选择受升级保护。
+- 抽取 `$web-connect-http-service` 与 Extension-only `$web-review-extension-compatibility`：实施、列表与重构入口按事件委托；独立定义接入写入和兼容只读边界。源/下游发现、宿主裁剪和升级所有权同步；升级预演拒绝候选或目标的错宿主 Skill 残留。第二批抽取 `$web-audit-worktrees` 与 `$web-preview-harness-upgrade`，原并行与升级流程委托只读部分，helper 位置保持稳定；审计/预演状态查询关闭 Git optional locks，计划报告拒绝写入三棵冻结树。当前 Skill 数量见根 AGENTS.md。
+
+- 下游新增原创 web-design-prototype：默认产出 2–3 个交互 HTML 方案，记录用户选择的具体版本；复用 web-define-product 维护唯一 PRD，选定后交 web-implement-change。Node 标准库 helper 绑定 PRD/候选摘要并阻断未选择或漂移；两类初始化只分发项目级能力，不新增业务问题、PRD、原型或全局安装。当前 canonical Skill 数量见根 AGENTS.md；业务原型和选择受升级保护。
 
 - HTTP 增加请求/响应/错误拦截、经校验的显式 Token 写入、403 权限分类和失效周期并发保护；两宿主 Router/Providers 接入本地化错误界面与持续反馈。Query 读取有界重试且仅最终失败播报，mutation 不自动重放；新增实际执行生成客户端及 UI/Router/Query 的回归。
 
