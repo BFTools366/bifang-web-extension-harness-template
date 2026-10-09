@@ -1,7 +1,6 @@
 import { lstat, readFile } from "node:fs/promises"
 import path from "node:path"
 import { extensionIdentityManifest, validateIdentityLocales } from "./identity.ts"
-import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
 import {
   EXTENSION_TARGETS,
@@ -10,7 +9,7 @@ import {
   type ExtensionTarget
 } from "./extension-targets.ts"
 import { validateEnvironmentFiles } from "./environment.ts"
-import { pathExists, walkFiles } from "./files.ts"
+import { pathExists, walkFiles, isMainModule } from "./files.ts"
 import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
 
 // 保存 TEXT_EXTENSIONS 变量供当前逻辑使用。
@@ -331,10 +330,7 @@ async function inspectArtifact(
   }
 }
 
-// 保存 executedPath 变量供当前逻辑使用。
-const executedPath =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executedPath === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   // 保存 [command, ...rest] 变量供当前逻辑使用。
   const [command, ...rest] = process.argv.slice(2)
   if (command !== "inspect" || rest.length > 0) {

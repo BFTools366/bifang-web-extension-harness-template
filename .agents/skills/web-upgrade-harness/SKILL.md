@@ -17,7 +17,14 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 
 ### 旧下游的原型工作流迁移
 
-旧目标的本地清单可能尚未登记新增 Skill，旧 helper 也不能发现被投影排除的新路径。必须在渲染候选前展示目标本地清单的精确增量，并取得本次用户对该策略迁移的授权：仅补齐 `.agents/skills/web-design-prototype/**: managed`、`docs/prototypes/**: protected` 和 `tests/prototype-workflow.test.ts: tombstone` 三项缺失规则。保留 `defaultMode: protected`、已有保护与本地规则；冲突或遮蔽先阻断，不整文件覆盖目标清单，也不借用 source 清单替目标授权。清单变化后重新冻结目标状态并渲染候选。
+旧目标的本地清单可能尚未登记新增规则。渲染候选前，用 source 的 helper 只读计算增量并展示给用户：
+
+```bash
+pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts migrate-ownership \
+  --target-ownership <target>/.agents/skills/web-upgrade-harness/references/ownership-manifest.json
+```
+
+输出的 `missing` 是可追加规则，`conflicts`（模式不同）与 `shadowed`（被目标前置规则遮蔽）必须人工处理，工具不会覆盖。取得本次用户对该策略迁移的明确授权后追加 `--approval <授权摘要>`：命令只在目标清单末尾追加 `missing`，保留 `defaultMode: protected`、已有规则及顺序，合并结果通过完整下限校验后才原子写入；有冲突或遮蔽时拒绝写入。不借用 source 清单替目标授权，清单变化后重新冻结目标状态并渲染候选。
 
 两种宿主的候选必须逐文件包含与 source 字节一致的 `web-design-prototype/SKILL.md`、`agents/openai.yaml`、`references/prd-outline.md`、`scripts/prototype-review.ts`（均位于 `.agents/skills/` 下该 Skill 目录）。旧 helper 尚无必需路径门禁时，执行 Agent 必须在任何普通 managed 更新前完成此核对；缺失或陈旧均停止。经用户批准按 `add` 手工补齐目标中的四个新文件并重规划，已有本地内容按冲突处理。业务 PRD、原型和选择记录不得进入候选或被覆盖。之后继续既定升级顺序，普通 managed 在前，升级器自身在后；不得提前替换旧 CLI 或弱化保护规则。新 helper 对上述四个 source 文件执行必需传播校验，遗漏或陈旧会阻断 apply/record。
 

@@ -222,7 +222,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "仅在已初始化下游运行",
     "初始化仅分发 Skills",
     "必须等待用户明确选定",
-    "prototype-review.ts check",
+    "pnpm prototype:check",
     "旧选择失效"
   ],
   "web-implement-list-view": [

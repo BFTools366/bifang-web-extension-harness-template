@@ -1,6 +1,19 @@
-import { constants, type Stats } from "node:fs"
-import { access, lstat, mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises"
+import { createHash, randomUUID } from "node:crypto"
+import { constants, realpathSync, type Stats } from "node:fs"
+import { access, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
+import { pathToFileURL } from "node:url"
+
+/** 计算内容的 SHA-256 十六进制摘要，供产物指纹与基线共用。 */
+export function sha256Hex(contents: string | Uint8Array): string {
+  return createHash("sha256").update(contents).digest("hex")
+}
+
+/** 判断模块是否作为入口脚本直接运行；按真实路径比较，兼容符号链接启动。 */
+export function isMainModule(moduleUrl: string): boolean {
+  const entry = process.argv[1]
+  return entry !== undefined && pathToFileURL(realpathSync(entry)).href === moduleUrl
+}
 
 // 执行 pathExists 函数的处理逻辑。
 export async function pathExists(filePath: string): Promise<boolean> {
@@ -78,13 +91,16 @@ export async function writeJsonNew(filePath: string, value: unknown): Promise<vo
   await writeNew(filePath, `${JSON.stringify(value, null, 2)}\n`)
 }
 
-// 执行 writeAtomic 函数的处理逻辑。
+/** 以独占创建的随机临时文件原子替换目标，失败时回收临时文件。 */
 export async function writeAtomic(filePath: string, contents: string | Uint8Array): Promise<void> {
   await mkdir(path.dirname(filePath), { recursive: true })
-  // 保存 temporary 变量供当前逻辑使用。
-  const temporary = `${filePath}.harness-${process.pid}-${Date.now()}.tmp`
-  await writeFile(temporary, contents)
-  await rename(temporary, filePath)
+  const temporary = `${filePath}.${randomUUID()}.tmp`
+  try {
+    await writeFile(temporary, contents, { flag: "wx" })
+    await rename(temporary, filePath)
+  } finally {
+    await rm(temporary, { force: true })
+  }
 }
 
 // 执行 writeJsonAtomic 函数的处理逻辑。

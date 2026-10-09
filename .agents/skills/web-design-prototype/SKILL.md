@@ -37,7 +37,7 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 
    ```text
    pnpm exec tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts select <scope> <candidate-id> <用户明确选择的原话>
-   pnpm exec tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts check <scope>
+   pnpm prototype:check <scope>
    ```
 
    `candidate-id` 必须与用户选定的方案一致，不能照抄示例或默认第一项。参数经工具结构化传递或安全引用，不能把用户原话当 Shell 代码。只有真实用户选择后才可调用 `select`；helper 验证文件绑定，不能证明授权原话真实性，Agent 必须核对会话。`check` 通过后才可交给 `$web-implement-change`。

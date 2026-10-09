@@ -1,14 +1,15 @@
-import { pathToFileURL } from "node:url"
+import { isMainModule } from "../../../../.harness/tooling/files.ts"
 import {
   applyUpgradePath,
   createUpgradePlan,
   recordUpgradeBaseline,
   writeUpgradePlan
 } from "./upgrade-core.ts"
+import { migrateOwnership } from "./upgrade-ownership-delta.ts"
 import type { HarnessUpgradePlan } from "./upgrade-types.ts"
 
 /** 枚举升级 CLI 的唯一命令。 */
-type UpgradeCommand = "plan" | "apply" | "record"
+type UpgradeCommand = "plan" | "apply" | "record" | "migrate-ownership"
 
 /** 描述严格解析后的命令行输入。 */
 interface UpgradeCliOptions {
@@ -35,7 +36,8 @@ const VALUE_OPTIONS = {
     "--output"
   ]),
   apply: new Set(["--plan", "--path", "--approval"]),
-  record: new Set(["--plan", "--source-version", "--source-commit", "--approval"])
+  record: new Set(["--plan", "--source-version", "--source-commit", "--approval"]),
+  "migrate-ownership": new Set(["--target-ownership", "--approval"])
 } as const
 
 /** 保存各命令缺一不可的单值选项，plan 的输出文件保持可选。 */
@@ -50,7 +52,8 @@ const REQUIRED_VALUE_OPTIONS = {
     "--lock"
   ],
   apply: ["--plan", "--path", "--approval"],
-  record: ["--plan", "--source-version", "--source-commit", "--approval"]
+  record: ["--plan", "--source-version", "--source-commit", "--approval"],
+  "migrate-ownership": ["--target-ownership"]
 } as const
 
 /** 返回命令缺一不可的选项。 */
@@ -61,8 +64,13 @@ function requiredOptions(command: UpgradeCommand): readonly string[] {
 /** 严格解析位置命令、值参数、重复路径和 bootstrap 标记。 */
 function parseCli(argv: readonly string[]): UpgradeCliOptions {
   const [commandInput, ...tokens] = argv
-  if (commandInput !== "plan" && commandInput !== "apply" && commandInput !== "record") {
-    throw new Error("Usage: harness-upgrade <plan|apply|record> [options]")
+  if (
+    commandInput !== "plan" &&
+    commandInput !== "apply" &&
+    commandInput !== "record" &&
+    commandInput !== "migrate-ownership"
+  ) {
+    throw new Error("Usage: harness-upgrade <plan|apply|record|migrate-ownership> [options]")
   }
   const command = commandInput
   const values = new Map<string, string>()
@@ -130,6 +138,13 @@ export async function runUpgradeCli(argv: readonly string[]): Promise<unknown> {
       approval: value(options, "--approval")
     })
   }
+  if (options.command === "migrate-ownership") {
+    const approval = options.values.get("--approval")
+    return migrateOwnership({
+      targetOwnershipPath: value(options, "--target-ownership"),
+      ...(approval === undefined ? {} : { approval })
+    })
+  }
   return recordUpgradeBaseline({
     planPath: value(options, "--plan"),
     sourceVersion: value(options, "--source-version"),
@@ -176,6 +191,6 @@ async function main(): Promise<void> {
   }
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule(import.meta.url)) {
   await main()
 }

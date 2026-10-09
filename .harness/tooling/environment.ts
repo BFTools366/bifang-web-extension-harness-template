@@ -1,9 +1,8 @@
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
 import { parseEnv } from "node:util"
 import { loadProjectConfig } from "./config.ts"
-import { pathExists } from "./files.ts"
+import { pathExists, isMainModule } from "./files.ts"
 import type { EnvironmentBaseUrls, ProjectType } from "./types.ts"
 
 // 保存 ENVIRONMENT_FILES 变量供当前逻辑使用。
@@ -219,10 +218,7 @@ export function profileFromArgs(args: string[]): ApplicationEnvironment | undefi
   return profile
 }
 
-// 保存 executedPath 变量供当前逻辑使用。
-const executedPath =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executedPath === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   // 保存 [command, ...rest] 变量供当前逻辑使用。
   const [command, ...rest] = process.argv.slice(2)
   if (command !== "validate") {

@@ -1,8 +1,8 @@
 import { lstat, readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { TextDecoder } from "node:util"
-import { pathToFileURL } from "node:url"
 import ts from "typescript"
+import { isMainModule } from "./files.ts"
 
 /** 描述中文注释门禁发现的单个声明违规。 */
 export interface ChineseCommentViolation {
@@ -566,9 +566,7 @@ async function runCli(): Promise<void> {
   console.log("Chinese comment policy passed")
 }
 
-const executed =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executed === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   runCli().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1

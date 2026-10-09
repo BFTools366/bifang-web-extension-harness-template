@@ -1,5 +1,3 @@
-import { pathToFileURL } from "node:url"
-import path from "node:path"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
 import { parseIdentityI18n } from "./identity.ts"
 import { refreshBrand } from "./brand.ts"
@@ -15,6 +13,7 @@ import {
 import { recommendedAgentPolicy } from "./agent-policy.ts"
 import type { AgentPolicyChoice, AgentPolicySelection, InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
+import { isMainModule } from "./files.ts"
 
 // 保存 INIT_OPTIONS 变量供当前逻辑使用。
 const INIT_OPTIONS = [
@@ -259,10 +258,7 @@ export async function runCli(argv = process.argv.slice(2), root = process.cwd())
   throw new Error(`Unknown Harness command: ${command}\n\n${usage()}`)
 }
 
-// 保存 executedPath 变量供当前逻辑使用。
-const executedPath =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executedPath === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   runCli().catch(
     /* 执行 当前声明 函数的处理逻辑。 */ (error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error))

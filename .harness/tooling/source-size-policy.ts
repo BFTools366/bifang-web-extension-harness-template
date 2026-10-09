@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
-import { walkFiles } from "./files.ts"
+import { walkFiles, isMainModule } from "./files.ts"
 
 /** 保存需要复核职责的建议行数上限。 */
 export const SOURCE_SIZE_REVIEW_LIMIT = 500
@@ -160,10 +159,7 @@ async function runCli(): Promise<void> {
   console.log("Source size policy passed")
 }
 
-/** 保存当前脚本作为命令行入口执行时的规范 URL。 */
-const executed =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executed === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   runCli().catch(
     /* 执行 当前声明 函数的处理逻辑。 */ (error: unknown) => {
       console.error(error instanceof Error ? error.message : String(error))

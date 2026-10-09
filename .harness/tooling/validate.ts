@@ -272,6 +272,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       "source-size:check": "tsx .harness/tooling/source-size-policy.ts check",
       "env:validate": "tsx .harness/tooling/environment.ts validate",
       "release:inspect": "tsx .harness/tooling/release.ts inspect",
+      "prototype:check":
+        "tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts check",
       build: "pnpm build:release",
       lint: "eslint . && pnpm comments:check && pnpm source-size:check"
     },

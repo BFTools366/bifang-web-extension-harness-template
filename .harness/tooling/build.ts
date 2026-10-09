@@ -4,11 +4,11 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
-import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "./config.ts"
 import { EXTENSION_TARGETS } from "./extension-targets.ts"
 import type { E2eSelection, ProjectType } from "./types.ts"
 import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
+import { isMainModule } from "./files.ts"
 
 // 保存 BUILD_TIME_ZONE 变量供构建版本生成使用。
 const BUILD_TIME_ZONE = "Asia/Shanghai" as const
@@ -257,7 +257,4 @@ async function runCli(): Promise<void> {
   }
 }
 
-// 保存 executedPath 变量供直接执行检测使用。
-const executedPath =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executedPath === import.meta.url) void runCli()
+if (isMainModule(import.meta.url)) void runCli()

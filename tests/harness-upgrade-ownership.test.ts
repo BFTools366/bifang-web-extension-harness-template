@@ -1,13 +1,18 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
+import { walkFiles } from "../.harness/tooling/files.ts"
 import {
   applyUpgradePath,
   createUpgradePlan,
   recordUpgradeBaseline
 } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-core.ts"
-import { MINIMUM_OWNERSHIP_RULES } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-policy.ts"
+import { migrateOwnership } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-ownership-delta.ts"
+import {
+  MINIMUM_OWNERSHIP_RULES,
+  REQUIRED_MANAGED_SOURCE_PATHS
+} from "../.agents/skills/web-upgrade-harness/scripts/upgrade-policy.ts"
 import {
   ownershipPath,
   git,
@@ -16,22 +21,20 @@ import {
   persistPlan
 } from "./harness-upgrade-fixture.ts"
 
+const REQUIRED_SOURCE_FILES = [
+  ".harness/tooling/project-memory.ts",
+  ".agents/skills/web-design-prototype/SKILL.md",
+  ".agents/skills/web-design-prototype/agents/openai.yaml",
+  ".agents/skills/web-design-prototype/references/prd-outline.md",
+  ".agents/skills/web-design-prototype/scripts/prototype-review.ts"
+]
+
 /** 验证 upgrade ownership protection 的完整回归场景。 */
 describe("upgrade ownership protection", () => {
   /** 验证关键 helper 及原型 Skill 的每个文件在两宿主候选中缺失或陈旧时均失败关闭。 */
-  test.each(
-    (["web", "extension"] as const).flatMap((projectType) =>
-      [
-        ".harness/tooling/project-memory.ts",
-        ".agents/skills/web-design-prototype/SKILL.md",
-        ".agents/skills/web-design-prototype/agents/openai.yaml",
-        ".agents/skills/web-design-prototype/references/prd-outline.md",
-        ".agents/skills/web-design-prototype/scripts/prototype-review.ts"
-      ].map((requiredPath) => ({ projectType, requiredPath }))
-    )
-  )(
-    "blocks missing or stale $projectType source file $requiredPath",
-    async ({ projectType, requiredPath }) => {
+  test.each(["web", "extension"] as const)(
+    "blocks missing or stale %s source files",
+    async (projectType) => {
       const fixture = await upgradeFixture()
       await writeFile(
         path.join(fixture.target, ".harness/project.json"),
@@ -39,40 +42,111 @@ describe("upgrade ownership protection", () => {
       )
       await git(fixture.target, ["add", ".harness/project.json"])
       await git(fixture.target, ["commit", "--allow-empty", "-m", "test: set target host"])
-      await mkdir(path.dirname(path.join(fixture.source, requiredPath)), { recursive: true })
-      await writeFile(path.join(fixture.source, requiredPath), "source contract\n")
-      await git(fixture.source, ["add", requiredPath])
-      await git(fixture.source, ["commit", "-m", "test: add required managed source"])
+      for (const requiredPath of REQUIRED_SOURCE_FILES) {
+        await mkdir(path.dirname(path.join(fixture.source, requiredPath)), { recursive: true })
+        await writeFile(path.join(fixture.source, requiredPath), "source contract\n")
+      }
+      await git(fixture.source, ["add", ...REQUIRED_SOURCE_FILES])
+      await git(fixture.source, ["commit", "-m", "test: add required managed sources"])
       fixture.sourceCommit = await git(fixture.source, ["rev-parse", "HEAD"])
 
       const missingPlan = await planFor(fixture)
-      expect(missingPlan.entries).toEqual(
-        expect.arrayContaining([
+      for (const requiredPath of REQUIRED_SOURCE_FILES) {
+        expect(missingPlan.entries).toContainEqual(
           expect.objectContaining({
             path: requiredPath,
             classification: "blocked",
             reason: "candidate does not exactly propagate required source file"
           })
-        ])
-      )
+        )
+        await mkdir(path.dirname(path.join(fixture.candidate, requiredPath)), { recursive: true })
+        await writeFile(path.join(fixture.candidate, requiredPath), "stale candidate\n")
+      }
 
-      await mkdir(path.dirname(path.join(fixture.candidate, requiredPath)), { recursive: true })
-      await writeFile(path.join(fixture.candidate, requiredPath), "stale candidate\n")
       const stalePlan = await planFor(fixture)
-      expect(stalePlan.entries).toEqual(
-        expect.arrayContaining([
+      for (const requiredPath of REQUIRED_SOURCE_FILES) {
+        expect(stalePlan.entries).toContainEqual(
           expect.objectContaining({ path: requiredPath, classification: "blocked" })
-        ])
-      )
+        )
+        await writeFile(path.join(fixture.candidate, requiredPath), "source contract\n")
+      }
 
-      await writeFile(path.join(fixture.candidate, requiredPath), "source contract\n")
       const completePlan = await planFor(fixture)
-      expect(completePlan.entries.find((entry) => entry.path === requiredPath)).toMatchObject({
-        classification: "add",
-        ownership: "managed"
-      })
+      for (const requiredPath of REQUIRED_SOURCE_FILES) {
+        expect(completePlan.entries.find((entry) => entry.path === requiredPath)).toMatchObject({
+          classification: "add",
+          ownership: "managed"
+        })
+      }
     }
   )
+
+  /** 验证原型 Skill 目录的每个真实文件都被必需传播清单锚定，新增文件漏登记会失败。 */
+  test("anchors every prototype skill file in the required propagation list", async () => {
+    const skillRoot = path.resolve(".agents/skills/web-design-prototype")
+    const actual = (await walkFiles(skillRoot)).map(
+      (file) =>
+        `.agents/skills/web-design-prototype/${path.relative(skillRoot, file).split(path.sep).join("/")}`
+    )
+    for (const file of actual) {
+      expect(REQUIRED_MANAGED_SOURCE_PATHS, `${file} must be anchored`).toContain(file)
+    }
+  })
+
+  /** 验证磁盘上的每个 Skill 目录都被所有权清单显式覆盖，新增 Skill 漏登记会失败。 */
+  test("covers every on-disk skill directory with an ownership rule", async () => {
+    const manifest = JSON.parse(await readFile(ownershipPath, "utf8")) as {
+      rules: Array<{ pattern: string }>
+    }
+    const patterns = new Set(manifest.rules.map((rule) => rule.pattern))
+    const skills = await readdir(path.resolve(".agents/skills"))
+    for (const skill of skills) {
+      expect(patterns, `${skill} must have an ownership rule`).toContain(
+        `.agents/skills/${skill}/**`
+      )
+    }
+  })
+
+  /** 验证旧下游清单可由代码计算精确增量，授权后只追加缺失规则，冲突与遮蔽阻断。 */
+  test("migrates an old target ownership manifest by exact delta", async () => {
+    const fixture = await upgradeFixture()
+    const original = JSON.parse(await readFile(fixture.ownership, "utf8")) as {
+      rules: Array<{ pattern: string; mode: string; required?: boolean }>
+    }
+    const absent = new Set([
+      ".agents/skills/web-design-prototype/**",
+      "docs/prototypes/**",
+      "tests/prototype-workflow.test.ts"
+    ])
+    const old = { ...original, rules: original.rules.filter((rule) => !absent.has(rule.pattern)) }
+    await writeFile(fixture.ownership, `${JSON.stringify(old, null, 2)}\n`)
+
+    const preview = await migrateOwnership({ targetOwnershipPath: fixture.ownership })
+    expect(preview.written).toBe(false)
+    expect(new Set(preview.delta.missing.map((rule) => rule.pattern))).toEqual(absent)
+    expect(await readFile(fixture.ownership, "utf8")).toBe(`${JSON.stringify(old, null, 2)}\n`)
+
+    const applied = await migrateOwnership({
+      targetOwnershipPath: fixture.ownership,
+      approval: "migrate-ownership-delta"
+    })
+    expect(applied.written).toBe(true)
+    const migrated = JSON.parse(await readFile(fixture.ownership, "utf8")) as typeof old
+    expect(migrated.rules.slice(0, old.rules.length)).toEqual(old.rules)
+    expect(migrated.rules.slice(old.rules.length).map((rule) => rule.pattern)).toEqual(
+      preview.delta.missing.map((rule) => rule.pattern)
+    )
+    await expect(migrateOwnership({ targetOwnershipPath: fixture.ownership })).resolves.toEqual({
+      delta: { missing: [], conflicts: [], shadowed: [] },
+      written: false
+    })
+
+    const shadowed = { ...old, rules: [{ pattern: "docs/**", mode: "protected" }, ...old.rules] }
+    await writeFile(fixture.ownership, `${JSON.stringify(shadowed, null, 2)}\n`)
+    await expect(
+      migrateOwnership({ targetOwnershipPath: fixture.ownership, approval: "migrate" })
+    ).rejects.toThrow(/conflicts or shadowed/)
+  })
 
   /** 验证漏分发原型 Skill 时，其他 managed 文件不能先更新，基线也不能被记录。 */
   test("blocks managed writes and baseline recording when the prototype helper is omitted", async () => {

@@ -1,9 +1,12 @@
-import { createHash, randomUUID } from "node:crypto"
-import { realpathSync } from "node:fs"
-import { lstat, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises"
+import { lstat, readFile, readdir } from "node:fs/promises"
 import path from "node:path"
-import { pathToFileURL } from "node:url"
 import { loadProjectConfig } from "../../../../.harness/tooling/config.ts"
+import {
+  isMainModule,
+  lstatIfPresent,
+  sha256Hex,
+  writeJsonAtomic
+} from "../../../../.harness/tooling/files.ts"
 
 /** 绑定一份仓库内评审文件的相对路径与内容。 */
 interface Artifact {
@@ -22,6 +25,29 @@ export interface PrototypeReview {
   candidates: (Artifact & { id: string })[]
   state: "awaiting_selection" | "selected"
   selection?: { candidateId: string; confirmation: string; confirmedAt: string }
+}
+
+/** 保存已校验的下游项目配置类型。 */
+type ProjectConfig = Awaited<ReturnType<typeof loadProjectConfig>>
+
+/** 由当前项目身份构造评审记录的固定头部，读取校验与登记共用同一形状。 */
+function reviewHeader(
+  config: ProjectConfig,
+  scope: string,
+  revision: string
+): Omit<PrototypeReview, "prd" | "candidates" | "state"> {
+  return {
+    schemaVersion: 1,
+    projectId: config.id,
+    projectType: config.projectType,
+    scope,
+    revision
+  }
+}
+
+/** 选择确认语必须是非空白字符串。 */
+function hasConfirmation(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== ""
 }
 
 /** 校验稳定范围标识，避免命令参数改变记录目录。 */
@@ -44,40 +70,37 @@ async function localPath(root: string, relative: string, allowMissing = false): 
   let current = root
   for (const part of relative.split("/")) {
     current = path.join(current, part)
-    try {
-      if ((await lstat(current)).isSymbolicLink())
-        throw new Error("Symlink artifacts are forbidden")
-    } catch (error) {
-      if (allowMissing && error instanceof Error && "code" in error && error.code === "ENOENT") {
-        continue
-      }
-      throw error
+    const stats = await lstatIfPresent(current)
+    if (stats === undefined) {
+      if (allowMissing) continue
+      throw Object.assign(new Error(`Artifact not found: ${relative}`), { code: "ENOENT" })
     }
+    if (stats.isSymbolicLink()) throw new Error("Symlink artifacts are forbidden")
   }
   return current
 }
 
-/** 对真正存在的普通文件取摘要，防止目录或空产物充当候选。 */
-async function fingerprint(root: string, relative: string): Promise<Artifact> {
+/** 一次读取真正存在的普通文件并取摘要，防止目录或空产物充当候选。 */
+async function readArtifact(
+  root: string,
+  relative: string
+): Promise<{ artifact: Artifact; bytes: Buffer }> {
   const absolute = await localPath(root, relative)
   if (!(await lstat(absolute)).isFile()) throw new Error("Artifact must be a regular file")
   const bytes = await readFile(absolute)
   if (bytes.length === 0) throw new Error("Artifact must not be empty")
-  return { path: relative, sha256: createHash("sha256").update(bytes).digest("hex") }
+  return { artifact: { path: relative, sha256: sha256Hex(bytes) }, bytes }
 }
 
-/** 以单文件替换保存记录，失败时回收本次临时文件。 */
+/** 只需要摘要时的便捷入口。 */
+async function fingerprint(root: string, relative: string): Promise<Artifact> {
+  return (await readArtifact(root, relative)).artifact
+}
+
+/** 以原子替换保存记录，目录链先经符号链接核验。 */
 async function save(root: string, review: PrototypeReview): Promise<void> {
-  const relative = `docs/prototypes/${review.scope}/review.json`
-  const destination = await localPath(root, relative, true)
-  await mkdir(path.dirname(destination), { recursive: true })
-  const temporary = `${destination}.${randomUUID()}.tmp`
-  try {
-    await writeFile(temporary, `${JSON.stringify(review, null, 2)}\n`, { flag: "wx" })
-    await rename(temporary, destination)
-  } finally {
-    await rm(temporary, { force: true })
-  }
+  const destination = await localPath(root, `docs/prototypes/${review.scope}/review.json`, true)
+  await writeJsonAtomic(destination, review)
 }
 
 /** 收窄外部 JSON 对象，损坏记录不可进入开发门禁。 */
@@ -125,15 +148,14 @@ async function confirmedPrd(root: string, relative: string): Promise<Artifact> {
   if (!/^docs\/product_spec\/\d{8}_product_spec\.md$/u.test(relative)) {
     throw new Error("PRD must be the current dated Product Spec")
   }
-  const result = await fingerprint(root, relative)
+  const { artifact: result, bytes } = await readArtifact(root, relative)
   const specs = (await readdir(path.join(root, "docs/product_spec")))
     .filter((name) => /^\d{8}_product_spec\.md$/u.test(name))
     .sort()
   if (path.posix.basename(relative) !== specs.at(-1)) {
     throw new Error("PRD must be the latest Product Spec; request selection for the current scope")
   }
-  const source = await readFile(path.join(root, relative), "utf8")
-  if (!isApprovedPrd(source)) {
+  if (!isApprovedPrd(bytes.toString("utf8"))) {
     throw new Error("Confirm the PRD with the user before preparing prototypes")
   }
   return result
@@ -152,8 +174,11 @@ function candidateIdentity(scope: string, relative: string): { revision: string;
 }
 
 /** 读取并验证记录与当前项目及文件内容一致，任何漂移都要求重新展示。 */
-async function readReview(root: string, scope: string): Promise<PrototypeReview> {
-  const config = await loadProjectConfig(root)
+async function readReview(
+  root: string,
+  scope: string,
+  config: ProjectConfig
+): Promise<PrototypeReview> {
   let location: string
   try {
     location = await localPath(root, `docs/prototypes/${scope}/review.json`)
@@ -196,17 +221,14 @@ async function readReview(root: string, scope: string): Promise<PrototypeReview>
     ) {
       throw new Error("Invalid or duplicate candidate identity")
     }
-    if ((await fingerprint(root, file.path)).sha256 !== file.sha256) {
-      throw new Error("Prototype changed; prepare and request user selection again")
-    }
     candidates.push({ ...file, id: identity.id })
   }
+  const current = await Promise.all(candidates.map((item) => fingerprint(root, item.path)))
+  if (current.some((item, index) => item.sha256 !== candidates[index]?.sha256)) {
+    throw new Error("Prototype changed; prepare and request user selection again")
+  }
   const review: PrototypeReview = {
-    schemaVersion: 1,
-    projectId: config.id,
-    projectType: config.projectType,
-    scope,
-    revision: raw.revision,
+    ...reviewHeader(config, scope, raw.revision),
     prd,
     candidates,
     state: raw.state
@@ -216,8 +238,7 @@ async function readReview(root: string, scope: string): Promise<PrototypeReview>
     if (
       typeof selected.candidateId !== "string" ||
       !candidates.some((item) => item.id === selected.candidateId) ||
-      typeof selected.confirmation !== "string" ||
-      selected.confirmation.trim() === "" ||
+      !hasConfirmation(selected.confirmation) ||
       typeof selected.confirmedAt !== "string" ||
       !Number.isFinite(Date.parse(selected.confirmedAt))
     ) {
@@ -258,17 +279,13 @@ export async function runPrototypeReview(
       throw new Error("Candidates must have unique IDs and share one revision")
     }
     const candidates = await Promise.all(
-      paths.map(async (file) => ({
+      paths.map(async (file, index) => ({
         ...(await fingerprint(root, file)),
-        id: candidateIdentity(scope, file).id
+        id: identities[index]?.id ?? ""
       }))
     )
     const review: PrototypeReview = {
-      schemaVersion: 1,
-      projectId: config.id,
-      projectType: config.projectType,
-      scope,
-      revision: identities[0]?.revision ?? "",
+      ...reviewHeader(config, scope, identities[0]?.revision ?? ""),
       prd,
       candidates,
       state: "awaiting_selection"
@@ -283,14 +300,13 @@ export async function runPrototypeReview(
       "check takes no extra arguments; select requires candidate ID and user confirmation"
     )
   }
-  const review = await readReview(root, scope)
+  const review = await readReview(root, scope, config)
   if (command === "select") {
     const [id, confirmation] = args
     if (
       id === undefined ||
       !review.candidates.some((item) => item.id === id) ||
-      confirmation === undefined ||
-      confirmation.trim() === ""
+      !hasConfirmation(confirmation)
     ) {
       throw new Error("Select an existing candidate with the user's explicit confirmation")
     }
@@ -303,9 +319,7 @@ export async function runPrototypeReview(
   return review
 }
 
-const executed =
-  process.argv[1] === undefined ? undefined : pathToFileURL(realpathSync(process.argv[1])).href
-if (executed === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   runPrototypeReview(process.argv.slice(2))
     .then((review) => console.log(JSON.stringify(review, null, 2)))
     .catch((error: unknown) => {

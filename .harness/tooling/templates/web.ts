@@ -116,7 +116,7 @@ The endpoint-free \`client/httpClient.ts\` foundation owns governed Ky transport
 
 - \`client/\` owns transport concerns such as approved base URLs, dynamic authentication, cancellation, timeouts, and normalized API errors; it does not declare a business endpoint or login URL.
 - \`<domain>/\` owns typed endpoint functions, request and response contracts, and runtime boundary validation for one business domain.
-- When a service BaseURL is unconfigured, all data for that service comes from typed asynchronous Mock APIs in \`<domain>/\`. Keep Mock data and behavior out of UI, routes, feature hooks, and Query definitions. When the user requests real networking, collect missing environment/service BaseURLs and replace the corresponding Mock implementations with governed HTTP requests; never fall back to Mock after a real request fails. Follow \`docs/DATA_ACCESS.md\` §3.1.
+- Data for a service with an unconfigured BaseURL comes from its API-layer Mock; follow \`docs/DATA_ACCESS.md\` §3.1 for the Mock boundary and the migration to real networking.
 - Feature hooks own TanStack Query keys, cache policy, mutations, invalidation, and UI-facing orchestration.
 - TanStack Query owns server state. Do not mirror the same remote data into Jotai.
 - React components and route files never concatenate arbitrary URLs or depend on transport-library error classes.
