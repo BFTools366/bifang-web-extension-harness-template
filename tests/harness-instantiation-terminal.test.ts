@@ -307,7 +307,8 @@ describe("terminal source projection", () => {
     expect(downstreamMantineUi).not.toContain("## 9. Extension 宿主规范")
     expect(downstreamMantineUi).toContain("## 9. 交付检查")
     expect(downstreamMantineUi).not.toContain("Popup")
-    expect(downstreamMantineUi).not.toContain("Options")
+    // 独立 Options 界面不可泄漏，路由属性 activeOptions 不属于扩展宿主。
+    expect(downstreamMantineUi).not.toMatch(/\bOptions\b/u)
     expect(downstreamMantineUi).not.toContain("src/providers.tsx")
     expect(downstreamMantineUi).not.toContain("MV3/CSP")
     const downstreamRelease = await readFile(path.join(targetRoot, "docs/RELEASE.md"), "utf8")

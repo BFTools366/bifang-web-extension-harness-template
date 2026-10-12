@@ -192,7 +192,8 @@ describe("terminal Web initialization", () => {
     expect(mantineUiGuidelines).not.toContain("## 9. Extension 宿主规范")
     expect(mantineUiGuidelines).toContain('Container size="lg/xl"')
     expect(mantineUiGuidelines).not.toContain("Popup")
-    expect(mantineUiGuidelines).not.toContain("Options")
+    // 独立 Options 界面不可泄漏，路由属性 activeOptions 不属于扩展宿主。
+    expect(mantineUiGuidelines).not.toMatch(/\bOptions\b/u)
     expect(mantineUiGuidelines).not.toContain("src/providers.tsx")
     expect(mantineUiGuidelines).not.toContain("MV3/CSP")
     expect(developmentEnvironment).toContain("VITE_APP_ENV=development")
