@@ -12,6 +12,7 @@ import { HTTP_TEST_FIXTURES } from "../.harness/tooling/templates/http-test-fixt
 import { HTTP_AUTH_TEST } from "../.harness/tooling/templates/http-auth-test.ts"
 import { HTTP_ERRORS_SOURCE } from "../.harness/tooling/templates/http-errors.ts"
 import { languageSource } from "../.harness/tooling/templates/http-language.ts"
+import { WEB_STORAGE_SOURCE } from "../.harness/tooling/templates/data.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { webFiles } from "../.harness/tooling/templates/web.ts"
 import { extensionFiles } from "../.harness/tooling/templates/extension.ts"
@@ -25,18 +26,37 @@ describe("generated HTTP foundation", () => {
     // 保存本次隔离测试根，结束时只清理本次创建的目录。
     const root = await mkdtemp(path.join(cacheRoot, "harness-http-"))
     try {
-      for (const directory of ["src/api/client", "src/config", "src/i18n", "src/observability"]) {
+      for (const directory of [
+        "src/data/api/client",
+        "src/data/storage",
+        "src/config",
+        "src/i18n",
+        "src/observability"
+      ]) {
         await mkdir(path.join(root, directory), { recursive: true })
       }
-      await writeFile(path.join(root, "src/api/client/httpClient.ts"), HTTP_CLIENT_SOURCE)
-      await writeFile(path.join(root, "src/api/client/httpContracts.ts"), HTTP_CONTRACTS_SOURCE)
-      await writeFile(path.join(root, "src/api/client/httpProtocol.ts"), HTTP_PROTOCOL_SOURCE)
-      await writeFile(path.join(root, "src/api/client/httpClient.test.ts"), HTTP_CLIENT_TEST)
-      await writeFile(path.join(root, "src/api/client/httpTransport.test.ts"), HTTP_TRANSPORT_TEST)
-      await writeFile(path.join(root, "src/api/client/httpTestFixtures.ts"), HTTP_TEST_FIXTURES)
-      await writeFile(path.join(root, "src/api/client/httpInterception.test.ts"), HTTP_AUTH_TEST)
-      await writeFile(path.join(root, "src/api/client/httpErrors.ts"), HTTP_ERRORS_SOURCE)
+      await writeFile(path.join(root, "src/data/api/client/httpClient.ts"), HTTP_CLIENT_SOURCE)
+      await writeFile(
+        path.join(root, "src/data/api/client/httpContracts.ts"),
+        HTTP_CONTRACTS_SOURCE
+      )
+      await writeFile(path.join(root, "src/data/api/client/httpProtocol.ts"), HTTP_PROTOCOL_SOURCE)
+      await writeFile(path.join(root, "src/data/api/client/httpClient.test.ts"), HTTP_CLIENT_TEST)
+      await writeFile(
+        path.join(root, "src/data/api/client/httpTransport.test.ts"),
+        HTTP_TRANSPORT_TEST
+      )
+      await writeFile(
+        path.join(root, "src/data/api/client/httpTestFixtures.ts"),
+        HTTP_TEST_FIXTURES
+      )
+      await writeFile(
+        path.join(root, "src/data/api/client/httpInterception.test.ts"),
+        HTTP_AUTH_TEST
+      )
+      await writeFile(path.join(root, "src/data/api/client/httpErrors.ts"), HTTP_ERRORS_SOURCE)
       await writeFile(path.join(root, "src/i18n/language.ts"), languageSource())
+      await writeFile(path.join(root, "src/data/storage/webStorage.ts"), WEB_STORAGE_SOURCE)
       await writeFile(path.join(root, "src/brand.ts"), 'export const BRAND = { id: "http-test" }\n')
       await writeFile(
         path.join(root, "src/config/environment.ts"),
@@ -159,7 +179,9 @@ for (const projectType of ["web", "extension"] as const) {
       for (const [name, source] of files) {
         if (
           !selected.has(name) &&
-          !["src/api/client/", "src/i18n/", "src/theme/"].some((prefix) => name.startsWith(prefix))
+          !["src/data/", "src/i18n/", "src/theme/", "src/pagination/"].some((prefix) =>
+            name.startsWith(prefix)
+          )
         )
           continue
         await mkdir(path.dirname(path.join(root, name)), { recursive: true })
@@ -201,11 +223,20 @@ for (const projectType of ["web", "extension"] as const) {
               include:
                 projectType === "web"
                   ? [
-                      "src/api/client/httpUi.test.tsx",
+                      "src/data/api/client/httpUi.test.tsx",
+                      "src/data/storage/webStorage.test.ts",
+                      "src/i18n/language.test.ts",
+                      "src/pagination/pagination.test.tsx",
                       "src/features/route-state/RouteState.test.tsx",
                       "src/features/welcome/WelcomePage.test.tsx"
                     ]
-                  : ["src/api/client/httpUi.test.tsx", "src/ExtensionShell.test.tsx"],
+                  : [
+                      "src/data/api/client/httpUi.test.tsx",
+                      "src/data/storage/webStorage.test.ts",
+                      "src/i18n/language.test.ts",
+                      "src/pagination/pagination.test.tsx",
+                      "src/ExtensionShell.test.tsx"
+                    ],
               setupFiles: [path.resolve(import.meta.dirname, "setup.ts")]
             }
           })

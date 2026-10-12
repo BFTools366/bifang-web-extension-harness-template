@@ -14,6 +14,41 @@ import type {
   ProjectType
 } from "./types.ts"
 
+/** 枚举创建 Web 时的三个产品形态，仅工具站点已开放流程。 */
+export type WebCreationType = "tool-site" | "saas-client" | "saas-admin"
+
+/** 保存创建表单与汇总共用的 Web 类型名称。 */
+const WEB_TYPE_LABELS: Record<WebCreationType, string> = {
+  "tool-site": "工具站点",
+  "saas-client": "SaaS客户端",
+  "saas-admin": "SaaS大后台"
+}
+
+/** 将编号、中文名称或 CLI 值解析为显式 Web 类型，不设置默认值。 */
+export function parseWebCreationType(value: string): WebCreationType {
+  const normalized = value.trim().toLowerCase()
+  const types = Object.keys(WEB_TYPE_LABELS) as WebCreationType[]
+  const selected = types.find((type, index) =>
+    [type, String(index + 1), WEB_TYPE_LABELS[type].toLowerCase()].includes(normalized)
+  )
+  if (selected !== undefined) return selected
+  throw new Error(
+    "Web 类型必须选择：1.工具站点（tool-site）/ 2.SaaS客户端（saas-client，流程待开放）/ 3.SaaS大后台（saas-admin，流程待开放）"
+  )
+}
+
+/** 在初始化写入和策略补问前拒绝不适用字段及尚未开放的 SaaS 流程。 */
+export function assertWebCreationAvailable(projectType: ProjectType, value?: string): void {
+  if (projectType === "extension") {
+    if (value?.trim()) throw new Error("--web-type / webType 仅适用于 Web 项目")
+    return
+  }
+  const type = parseWebCreationType(value ?? "")
+  if (type !== "tool-site") {
+    throw new Error(`${WEB_TYPE_LABELS[type]}创建流程暂未开放；当前仅工具站点可沿用现有流程创建`)
+  }
+}
+
 /** 将中文初始化策略选项与命令行模式统一为稳定内部值。 */
 export function parsePolicyMode(value: string): AgentPolicyMode {
   const normalized = value.trim().toLowerCase()
@@ -26,6 +61,7 @@ export function parsePolicyMode(value: string): AgentPolicyMode {
 export interface PromptDefaults {
   targetRoot?: string
   projectType?: string
+  webType?: string
   name?: string
   id?: string
   description?: string
@@ -49,6 +85,7 @@ export interface PromptedIdentity {
   policyMode: AgentPolicyMode
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
+  webType?: WebCreationType
   name: string
   id: string
   description: string
@@ -84,13 +121,14 @@ export interface InstantiationSummary {
     | "testBaseUrl"
     | "releaseBaseUrl"
     | "agentPolicy"
-  >
+  > & { webType?: WebCreationType }
 }
 
 /** 枚举首轮批量表单的稳定字段名。 */
 type BasicField =
   | "targetRoot"
   | "projectType"
+  | "webType"
   | "name"
   | "id"
   | "description"
@@ -130,6 +168,12 @@ const BASIC_FIELDS: ReadonlyArray<{
     key: "projectType",
     label: "项目类型",
     constraint: "web（React 网页）或 extension（Chrome 扩展），不设默认值"
+  },
+  {
+    key: "webType",
+    label: "Web 类型",
+    constraint:
+      "1.工具站点（tool-site，现有流程）/ 2.SaaS客户端（saas-client，流程待开放）/ 3.SaaS大后台（saas-admin，流程待开放），不设默认值"
   },
   { key: "name", label: "项目显示名称", constraint: "非空文本" },
   { key: "id", label: "项目标识", constraint: "小写字母、数字和连字符，例如 my-project" },
@@ -171,6 +215,7 @@ const BASIC_FIELDS: ReadonlyArray<{
 
 /** 保存无需首轮询问、但可主动提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
+  "webType",
   "description",
   "identityI18n",
   "brandColor",
@@ -213,6 +258,11 @@ function normalizeBasicField(
     return projectType
   }
   if (field === "name") return requiredText(value, "Project name")
+  if (field === "webType") {
+    return ["web", "1"].includes(allValues.projectType?.trim() ?? "")
+      ? parseWebCreationType(requiredText(value, "Web type (--web-type)"))
+      : (value?.trim() ?? "")
+  }
   if (field === "id") {
     const id = requiredText(value, "Project id")
     if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) {
@@ -340,7 +390,13 @@ async function collectBasicFields(
         issues.set(key, error instanceof Error ? error.message : String(error))
       }
     }
+    if (!issues.has("projectType") && !issues.has("webType")) {
+      const projectType = normalized.projectType
+      if (projectType === "web" || projectType === "extension")
+        assertWebCreationAvailable(projectType, normalized.webType)
+    }
     if (issues.size === 0) {
+      if (normalized.projectType === "extension") inputSources.webType = "不适用"
       if (!values.description?.trim()) inputSources.description = "默认使用显示名称"
       for (const key of ["developmentBaseUrl", "testBaseUrl", "releaseBaseUrl"] as const) {
         if (normalized[key] === "") inputSources[key] = "未配置（可后续补齐）"
@@ -460,6 +516,7 @@ export async function collectPromptedIdentity(
     policyMode,
     inputSources: { ...collected.inputSources, ...policySources },
     projectType,
+    webType: projectType === "web" ? parseWebCreationType(basic.webType ?? "") : undefined,
     name: requiredText(basic.name, "Project name"),
     id: requiredText(basic.id, "Project id"),
     description: basic.description?.trim() || requiredText(basic.name, "Project name"),
@@ -495,7 +552,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（原始）：${summary.rawTargetRoot}
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
-- 项目类型：${summary.init.projectType}
+- 项目类型：${summary.init.projectType}${summary.init.webType === undefined ? "" : `\n- Web 类型：${WEB_TYPE_LABELS[summary.init.webType]}（${summary.init.webType}）`}
 - 展示名称：${summary.init.name}
 - 项目 id：${summary.init.id}
 - 项目说明：${summary.init.description}

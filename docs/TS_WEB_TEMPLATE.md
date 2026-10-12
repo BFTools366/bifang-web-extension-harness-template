@@ -7,6 +7,7 @@
 - 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-target-outside-harness> ...`；目标必须位于源 Harness 之外。
 - 源 Harness 不提供 `pnpm harness:init` script；`pnpm harness init` 明确拒绝原地初始化。底层 initializer 只作为 `instantiate` 在目标同级 sibling staging 中调用的内部步骤。
 - 非交互 CLI 必须传入 `--type web` 或 `--type extension`；交互式 TTY 必须提示用户选择且不得提供默认类型。
+- 选择 Web 后必须显式选择 `webType`，不设默认值；工具站点沿用现有流程，两个 SaaS 选项仅预留，流程暂未开放。该选择不增加宿主或改变 `.harness/project.json` 的 Schema。
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
 - 不支持 `both`，不提供默认类型，也不提供下游 target add/remove。
 - Web 与 Extension 是两个独立模板；它们不在同一仓库共存，不共享源码、状态、测试、品牌派生或构建产物。
@@ -19,7 +20,7 @@
 从源 Harness 根创建独立 Web 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path/example-web --type web \
+pnpm instantiate -- /absolute/path/example-web --type web --web-type tool-site \
   --name "示例 Web" --id example-web --policy-mode 预设
 ```
 
@@ -33,6 +34,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
 - `--name` 是用户可见名称。
+- `--web-type` 仅用于 Web，必填且无默认值：`tool-site`（1.工具站点）沿用现有流程；`saas-client`（2.SaaS客户端）和 `saas-admin`（3.SaaS大后台）是合法预留选项，选择后在任何初始化写入前报告“创建流程暂未开放”并停止，不套用工具站点流程。交互表单字段为 `webType`，接受编号、中文名称或稳定值；已提供的选择直接复用，首轮才明确 Web 时条件补问。Extension 不接受该字段。选择仅用于创建解析和汇总，不写入下游身份配置。
 - `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
 - `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`。自定义模式必须逐项显式提供五个 `enabled|disabled` 选择；预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
@@ -115,7 +117,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ### 3.6 分页、语言与 HTTP 基线
 
-两种项目都生成 `src/pagination/`、`src/api/client/`、`src/i18n/language.ts` 和对应非空测试，但不生成真实 endpoint、登录页、refresh/replay 或占位网络调用：
+两种项目都生成 `src/pagination/`、`src/data/api/client/`、`src/i18n/language.ts` 和对应非空测试，但不生成真实 endpoint、登录页、refresh/replay 或占位网络调用：
 
 - 分页以 1-based `page`、`10|20|50|100` 的受控 `pageSize`、`items` 与非负安全整数 `total` 为内部结构，默认 `{ page: 1, pageSize: 20 }`。sessionStorage 只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；切换 `pageSize` 回第一页。
 - 只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；旧响应、错误和暂时空态保持当前位置。这是通用 session 分页状态机；Web 路由列表按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 的封闭 Router 恢复契约特化。生成的组件/hook 不自动挂进非分页 Landing、404、Popup 或 Options。
@@ -174,17 +176,16 @@ Web 输出是普通浏览器页面，不携带 Chrome Extension 权限、manifes
 
 ```text
 src/
-├── api/
+├── data/
 │   ├── README.md
-│   └── client/
-│       ├── httpClient.test.ts
-│       ├── httpClient.ts
-│       ├── httpErrors.ts
-│       ├── httpFeedback.ts
-│       ├── httpRuntime.ts
-│       ├── HttpErrorView.tsx
-│       ├── httpInterception.test.ts
-│       └── httpUi.test.tsx
+│   ├── api/
+│   │   ├── README.md
+│   │   └── client/             # Ky、会话、错误与对应测试
+│   └── storage/
+│       ├── README.md
+│       ├── webStorage.ts
+│       ├── webStorage.test.ts
+│       └── colorScheme.ts
 ├── app/
 │   ├── AppProviders.tsx
 │   ├── queryClient.ts
@@ -219,10 +220,11 @@ src/
 - `app/` 只装配全局 Provider、主题、QueryClient 与 Router；`routes/` 使用 TanStack 文件命名约定声明 URL、loader/search/context 等路由契约；具体业务 UI、hooks、Jotai atom 和测试留在 `features/`。
 - Vite 配置必须把 TanStack Router plugin 放在 React plugin 之前，并显式启用 `autoCodeSplitting`。route 组件按路由边界形成异步 chunk；共享依赖由 Vite/Rollup 根据真实引用处理，不在模板中预设手工 vendor 分组。
 - `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`typecheck` script 先生成它；导入完整应用 Router 的测试先运行 `pnpm routes:generate`，中性页面和路由状态测试不依赖该临时文件。
-- `api/client/` 是初始化生成的 Ky HTTP 基础，统一受控 BaseURL、三个 header、timeout/取消、并发 revision、`ApiError`、Token setter 与 401/403 反馈；它不包含真实 endpoint、refresh/replay 或登录地址。真实业务出现后才在 `api/` 下增加按域划分的 service；Ky 传输与 OpenAPI adapter 不得复制第二套请求上下文。
-- `pagination/` 提供所有真实集合页复用的 sessionStorage adapter、hook、受控组件与成功空页 reconciliation。TanStack Query 的 key、缓存、mutation、失效、`items` 与 `total` 属于消费端 feature，服务器状态不得复制进 Jotai 或分页 Storage。
+- `data/api/client/` 是初始化生成的 Ky HTTP 基础，统一受控 BaseURL、三个 header、timeout/取消、并发 revision、`ApiError`、Token setter 与 401/403 反馈；它不包含真实 endpoint、refresh/replay 或登录地址。真实业务出现后才在 `data/api/` 下增加按域划分的 service；Ky 传输与 OpenAPI adapter 不得复制第二套请求上下文。
+- `data/storage/` 集中 Cookie、LocalStorage、SessionStorage、Memory 与 IndexedDB 的访问；Dexie 只用于 IndexedDB，REST/GraphQL 分工与按需目录见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3。
+- `pagination/` 提供所有真实集合页复用的分页状态机、hook、受控组件与成功空页 reconciliation。TanStack Query 的 key、缓存、mutation、失效、`items` 与 `total` 属于消费端 feature，服务器状态不得复制进 Jotai 或分页 Storage。
 - 真实 Web 列表页使用 `$web-implement-list-view`：复用 `pagination/` 的页码/pageSize 基础，但由类型化 Router adapter 拥有已应用状态；sessionStorage 仅在原始 URL 无 owned key 时做一次启动恢复，不挂载第二份 session 状态。业务行、`total`、错误和请求结果继续只属于 Query/feature。
-- 依赖方向保持为 `main/app → routes → features → pagination/api`；API 与分页基础不反向依赖 React route 或 feature，401 client 只接受宿主注入的窄 handler。跨 feature 共享组件和纯逻辑只有出现真实复用后才提取，禁止为了目录对称生成空壳。
+- 依赖方向保持为 `main/app → routes → features → pagination/data`；API 与分页基础不反向依赖 React route 或 feature，401 client 只接受宿主注入的窄 handler。跨 feature 共享组件和纯逻辑只有出现真实复用后才提取，禁止为了目录对称生成空壳。
 
 ### 4.2 Web 功能覆盖与设计触发
 
@@ -264,7 +266,7 @@ Extension 基线在 Popup 与 Options 分别挂载 TanStack Router，使用共�
 
 Extension 不保留或调用 `$web-implement-list-view`，也不复用其 Web 列表 URL/session 恢复、图标或 DnD 路径。
 
-Extension 与 Web 生成相同的 `src/pagination/` 和 `src/api/client/` 本地工程契约，但每个 Popup、Options、content script 或 service worker 都有独立的 JavaScript 执行上下文。sessionStorage、内存 Token/continuation 与 401 single-flight 不跨上下文；初始化不为了共享它们增加 background、`storage`、消息入口或权限。产品确需跨上下文认证时必须先定义唯一所有者、类型化消息、生命周期和拒绝路径，再取得权限/隐私批准并进入真实 Chrome/Firefox 验证门禁。
+Extension 与 Web 生成相同的 `src/pagination/` 和 `src/data/api/client/` 本地工程契约，但每个 Popup、Options、content script 或 service worker 都有独立的 JavaScript 执行上下文。sessionStorage、内存 Token/continuation 与 401 single-flight 不跨上下文；初始化不为了共享它们增加 background、`storage`、消息入口或权限。产品确需跨上下文认证时必须先定义唯一所有者、类型化消息、生命周期和拒绝路径，再取得权限/隐私批准并进入真实 Chrome/Firefox 验证门禁。
 
 Extension 的 `package.json.targets.default` 必须显式声明 `context: "browser"` 与 `includeNodeModules: true`，`@parcel/resolver-default.packageExports` 必须为 `true`。这不是 Chrome manifest 权限，而是 Parcel 打包边界：React、Mantine、TanStack Router、TanStack Query、Jotai、i18next 等运行时依赖必须进入最终浏览器 bundle，TanStack Router 的 `isServer` 子路径必须选择浏览器条件入口，不得留下浏览器无法解析的裸包 self-map。
 
@@ -296,15 +298,20 @@ Web：
 .harness/brand/logo-1024.png
 public/logo.png
 public/favicon.png
-src/api/README.md
-src/api/client/httpClient.ts
-src/api/client/httpClient.test.ts
-src/api/client/httpErrors.ts
-src/api/client/httpFeedback.ts
-src/api/client/httpRuntime.ts
-src/api/client/HttpErrorView.tsx
-src/api/client/httpInterception.test.ts
-src/api/client/httpUi.test.tsx
+src/data/README.md
+src/data/storage/README.md
+src/data/storage/webStorage.ts
+src/data/storage/webStorage.test.ts
+src/data/storage/colorScheme.ts
+src/data/api/README.md
+src/data/api/client/httpClient.ts
+src/data/api/client/httpClient.test.ts
+src/data/api/client/httpErrors.ts
+src/data/api/client/httpFeedback.ts
+src/data/api/client/httpRuntime.ts
+src/data/api/client/HttpErrorView.tsx
+src/data/api/client/httpInterception.test.ts
+src/data/api/client/httpUi.test.tsx
 src/app/
 src/config/environment.schema.ts
 src/config/environment.ts
@@ -338,15 +345,21 @@ Extension：
 .harness/brand/logo-1024.png
 assets/icon.png
 src/
-  api/client/httpClient.ts
-  api/client/httpClient.test.ts
-  api/client/httpErrors.ts
-  api/client/httpFeedback.ts
-  api/client/httpRuntime.ts
-  api/client/HttpErrorView.tsx
-  api/client/ExtensionRouteErrorPage.tsx
-  api/client/httpInterception.test.ts
-  api/client/httpUi.test.tsx
+  data/README.md
+  data/api/README.md
+  data/storage/README.md
+  data/storage/webStorage.ts
+  data/storage/webStorage.test.ts
+  data/storage/colorScheme.ts
+  data/api/client/httpClient.ts
+  data/api/client/httpClient.test.ts
+  data/api/client/httpErrors.ts
+  data/api/client/httpFeedback.ts
+  data/api/client/httpRuntime.ts
+  data/api/client/HttpErrorView.tsx
+  data/api/client/ExtensionRouteErrorPage.tsx
+  data/api/client/httpInterception.test.ts
+  data/api/client/httpUi.test.tsx
   config/environment.schema.ts
   config/environment.ts
   config/environment.test.ts
@@ -407,12 +420,12 @@ pnpm harness validate
 
 初始化只有同时满足以下条件才算完成：
 
-1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同。
+1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；Web 已显式选择工具站点，预留 SaaS 选项不会生成项目。
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。
 5. 三份环境文件齐全且宿主前缀正确，`APP_CONFIG` 和 logger 测试非空；初始化器直接验证全部环境，Release 配置使用 HTTPS 且日志最低级别为 `warn`。后续 `pnpm env:validate` 与最终构建仍独立复核该契约。
-6. `src/pagination/`、`src/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。package manifest 声明 Ky 运行时依赖而不预装 Axios，Extension manifest 仍无预置权限。
+6. `src/pagination/`、`src/data/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。package manifest 声明 Ky 运行时依赖而不预装 Axios，Extension manifest 仍无预置权限。
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
 8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；公开 CLI 不提供跳过安装入口，内部单元测试注入跳过状态时必须明确断言安装未执行。
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。

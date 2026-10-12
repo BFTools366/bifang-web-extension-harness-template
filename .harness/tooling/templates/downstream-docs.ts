@@ -33,7 +33,7 @@ function engineeringRules(config: ProjectConfig): string {
   // 保存 hostRules 变量供当前逻辑使用。
   const hostRules =
     config.projectType === "web"
-      ? `- Web 按 \`app → routes → features → api\` 组织；\`api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
+      ? `- Web 按 \`app → routes → features → data\` 组织；\`data/api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
       : `- Extension 固定维护 Chrome MV3 与 Firefox MV2，仍是一个单包。宿主边界变更或重构调用 \`$web-review-extension-compatibility\` 做只读审查，修复及必要测试由调用方负责。执行 Agent 在每次开发中自行核对并保证两目标的 API、callback/Promise、消息、权限、后台、CSP/资源及 URL 差异；按真实消费者使用能力检测、类型化 adapter 或 Plasmo 目标入口，补充受影响目标的成功/失败测试，一个目标通过不能推断另一个。\n- 最终 manifest 由 Plasmo 动态生成，共享 package.json.manifest 不固定 manifest_version；专有 override 按 manifest.overrides.chrome/firefox 浅合并，值使用目标最终协议，不能期待自动转换任意手写后台/action；pnpm dev 默认 Chrome，pnpm dev:firefox 使用 Firefox，build/package 默认完成两目标与统一检查。\n- Popup 与 Options 是独立 Plasmo 入口，各自挂载 TanStack Router；Popup 使用 memory history，Options 使用 hash history。 \`src/extension-router.tsx\` 用代码声明路由，不使用 Web 文件路由生成器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Chrome MV3 使用可回收 service worker，Firefox MV2 使用后台 scripts/page；监听器及时注册，状态可恢复，不把后台页持久运行当作共同前提；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化浏览器消息或 Port。`
   // 保存 routeTreeExclusion 变量供当前逻辑使用。
   const routeTreeExclusion = config.projectType === "web" ? " src/routeTree.gen.ts、" : " "
@@ -54,8 +54,9 @@ function engineeringRules(config: ProjectConfig): string {
 
 - 启用严格类型检查；跨模块输入、外部响应、浏览器消息和环境变量在边界校验，不用无约束 \`any\` 隐藏不确定性。
 - React 组件负责渲染与局部交互；TanStack Query 管理远端或异步服务状态；Jotai 只管理确需跨组件共享的纯客户端状态，不镜像 Query 数据。
-- \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
-- 未配置对应 BaseURL 的服务数据由 API 层 Mock 提供，真实联网迁移及失败不回落 Mock 的规则以 \`docs/DATA_ACCESS.md\` §3.1 为准。
+- \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/data/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
+- 未配置对应 BaseURL 时，仅依赖该远端 API 的操作由 API 层 Mock 提供；本地能力直接真实实现，不要求 BaseURL。混合流程只隔离远端边界，真实联网迁移及失败不回落 Mock 的规则以 \`docs/DATA_ACCESS.md\` §3.1 为准。
+- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。REST 负责主要交互与写入，GraphQL 负责复杂查询与 Subscription；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
 - Ky 为默认 HTTP 传输；OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
 - Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。
@@ -141,7 +142,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 - \`${prefix}LOG_LEVEL\`：只接受 \`debug|info|warn|error\`，Release 只接受 \`warn|error\`。
 - \`${prefix}REQUEST_TIMEOUT_MS\`：\`1000\`–\`120000\` 的正整数。
 
-开发/测试运行时允许地址为空，未配置服务的数据流向见 \`docs/DATA_ACCESS.md\` §3.1；真实 HTTP client 在未配置地址时于 Fetch 前报错，不猜测 endpoint 或发送相对请求。Release 运行时拒绝空地址。
+开发/测试运行时允许地址为空；本地能力直接真实实现，不要求 BaseURL，只有对应远端 API 进入 Mock，详细分工见 \`docs/DATA_ACCESS.md\` §3.1。真实 HTTP client 在未配置地址时于 Fetch 前报错，不猜测 endpoint 或发送相对请求。Release 运行时拒绝空地址。
 
 浏览器公开前缀中的值会进入产物，绝不保存 Token、Cookie、密码、API key 或服务端秘密。业务代码只读 \`src/config/environment.ts\` 导出的冻结 \`APP_CONFIG\`，不得散落读取宿主环境变量或拼接任意 BaseURL。
 
@@ -151,7 +152,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 ## 用户要求真实联网时
 
-先读取三份受管配置并复用有效值，再汇总询问缺失的 development、test、release BaseURL 及当前功能实际使用的服务 target。用户已提供的值不重复询问；暂不使用的环境或服务可留空，正式发布仍须补齐 HTTPS 正式地址。初始化与普通 Mock 开发不提前收集这些地址。
+先读取三份受管配置并复用有效值，再汇总询问缺失的 development、test、release BaseURL 及当前功能实际使用的远端服务 target。用户已提供的值不重复询问；暂不使用的环境或服务可留空，正式发布仍须补齐 HTTPS 正式地址。初始化、本地能力开发与普通 Mock 开发不提前收集这些地址。
 
 使用当前宿主的 \`${prefix}\` 前缀更新对应受管环境文件并校验；多服务仅在确有消费者时扩展类型化只读 target registry、schema 与公开键白名单。配置通过后按 \`docs/DATA_ACCESS.md\` §3.1 迁移对应 API；仅填写地址不代表服务已接通。Web CORS、认证和 Extension 网络权限按真实消费者单独处理。
 
@@ -358,6 +359,7 @@ function docsReadme(config: ProjectConfig): string {
 | [\`AGENT_POLICY.md\`](AGENT_POLICY.md)           | 判断任务路径、持久计划、并行、冒烟与 E2E 偏好 |
 | [\`ENGINEERING_RULES.md\`](ENGINEERING_RULES.md) | 修改代码、测试、文档或配置           |
 | [\`MANTINE_UI_GUIDELINES.md\`](MANTINE_UI_GUIDELINES.md) | 修改主题、页面、组件、布局、交互状态或 UI 无障碍 |
+| [\`API.md\`](API.md) | 查阅可选基础 API 契约、数据模型与接入边界 |
 | [\`DATA_ACCESS.md\`](DATA_ACCESS.md)             | 分页、HTTP/认证、数据访问、SSE 与 RxJS |
 | [\`RUNTIME_CONFIGURATION.md\`](RUNTIME_CONFIGURATION.md) | 修改环境或运行配置       |
 | [\`LOGGING.md\`](LOGGING.md)                     | 修改日志、错误边界或发布脱敏         |
@@ -365,6 +367,8 @@ function docsReadme(config: ProjectConfig): string {
 | [\`TECH_DEBT.md\`](TECH_DEBT.md)                 | 记录当前范围外的已知限制             |
 
 按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。
+
+需要从当前代码整理 API 文档时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 生成索引与每个模块的独立文档；\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。
 `
 }
 

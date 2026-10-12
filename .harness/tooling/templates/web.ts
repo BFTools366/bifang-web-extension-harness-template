@@ -3,6 +3,7 @@ import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
 import { escapeHtml } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
+import { dataFiles } from "./data.ts"
 import { HTTP_ERROR_TRANSLATIONS } from "./http-errors.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
@@ -49,6 +50,7 @@ export function webFiles(
   return new Map<string, string>([
     ...environmentFiles(config, baseUrls),
     ...httpFiles(config),
+    ...dataFiles(),
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
     ...themeFiles(),
@@ -106,22 +108,6 @@ interface ImportMeta {
     [
       "src/buildVersion.ts",
       `export const BUILD_VERSION = import.meta.env.VITE_BUILD_VERSION ?? "development"
-`
-    ],
-    [
-      "src/api/README.md",
-      `# API module boundary
-
-The endpoint-free \`client/httpClient.ts\` foundation owns governed Ky transport, request/response/error interception, safe Token writes, 401/403, timeout and cancellation. Features share the lazy \`applicationHttp\`; Query reads use \`requestHttpQuery\` so intermediate retries do not leave error banners. Local/route recovery and global feedback use the same fixed i18next classification. Do not bypass it with page-local fetch calls or mutable global headers.
-
-- \`client/\` owns transport concerns such as approved base URLs, dynamic authentication, cancellation, timeouts, and normalized API errors; it does not declare a business endpoint or login URL.
-- \`<domain>/\` owns typed endpoint functions, request and response contracts, and runtime boundary validation for one business domain.
-- Data for a service with an unconfigured BaseURL comes from its API-layer Mock; follow \`docs/DATA_ACCESS.md\` §3.1 for the Mock boundary and the migration to real networking.
-- Feature hooks own TanStack Query keys, cache policy, mutations, invalidation, and UI-facing orchestration.
-- TanStack Query owns server state. Do not mirror the same remote data into Jotai.
-- React components and route files never concatenate arbitrary URLs or depend on transport-library error classes.
-
-Do not add placeholder requests, a second client, or a \`services/\` layer. Follow \`docs/DATA_ACCESS.md\` when the first real API, GraphQL, SSE, or event-stream consumer is introduced.
 `
     ],
     [
@@ -213,8 +199,8 @@ export default i18n
       "src/app/queryClient.ts",
       `import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
 import { createLogger } from "../observability/logger"
-import { reportHttpError } from "../api/client/httpFeedback"
-import { retryHttpQuery } from "../api/client/httpErrors"
+import { reportHttpError } from "../data/api/client/httpFeedback"
+import { retryHttpQuery } from "../data/api/client/httpErrors"
 
 const logger = createLogger("query")
 
@@ -259,17 +245,14 @@ export const theme = createTheme({
     ],
     [
       "src/app/AppProviders.tsx",
-      `import { MantineProvider, localStorageColorSchemeManager } from "@mantine/core"
+      `import { MantineProvider } from "@mantine/core"
 import { QueryClientProvider } from "@tanstack/react-query"
 import type { ReactNode } from "react"
-import { BRAND } from "../brand"
+import { colorSchemeManager } from "../data/storage/colorScheme"
 import { queryClient } from "./queryClient"
-import { HttpFeedback } from "../api/client/HttpErrorView"
+import { HttpFeedback } from "../data/api/client/HttpErrorView"
 import { theme } from "./theme"
 
-const colorSchemeManager = localStorageColorSchemeManager({
-  key: BRAND.id + ":color-scheme:v1"
-})
 
 /** 说明 AppProvidersProps 的稳定结构与职责边界。 */
 interface AppProvidersProps {

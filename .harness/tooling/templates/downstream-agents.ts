@@ -28,7 +28,7 @@ This repository is the terminal \`${config.projectType}\` project **${config.nam
 
 ## Minimum reading
 
-Always inspect the workspace and protect existing changes. Read this file and \`.harness/project.json\`; read \`docs/AGENT_POLICY.md\` for capability preferences, title lifecycle, persistent planning, parallel work, smoke, or E2E. Read \`docs/ENGINEERING_RULES.md\` before modifying code, tests, docs, or configuration, plus the selected Skill. Read \`docs/MANTINE_UI_GUIDELINES.md\` for theme, page, Popup, Options, layout, component, interaction-state, responsive, or UI-accessibility work. Read \`docs/RUNTIME_CONFIGURATION.md\` for environment work, \`docs/LOGGING.md\` for logging/error handling, and \`docs/DATA_ACCESS.md\` for pagination, HTTP headers, authentication, REST/OpenAPI, GraphQL, SSE, multiple remote endpoints, multi-source event streams, or RxJS. Read only the additional facts needed.
+Always inspect the workspace and protect existing changes. Read this file and \`.harness/project.json\`; read \`docs/AGENT_POLICY.md\` for capability preferences, title lifecycle, persistent planning, parallel work, smoke, or E2E. Read \`docs/ENGINEERING_RULES.md\` before modifying code, tests, docs, or configuration, plus the selected Skill. Read \`docs/MANTINE_UI_GUIDELINES.md\` for theme, page, Popup, Options, layout, component, interaction-state, responsive, or UI-accessibility work. Read \`docs/RUNTIME_CONFIGURATION.md\` for environment work, \`docs/LOGGING.md\` for logging/error handling, and \`docs/DATA_ACCESS.md\` for pagination, HTTP headers, authentication, REST/OpenAPI, GraphQL, SSE, multiple remote endpoints, multi-source event streams, or RxJS. Read \`docs/API.md\` when consulting or adopting the optional foundation API and data-model contract; its inclusion does not configure or connect a service. Read only the additional facts needed.
 
 ${hostMinimumReading}When authorized work connects a real HTTP service or migrates an API Mock, invoke \`$web-connect-http-service\`; keep UI/Router presentation and candidate acceptance with the calling workflow.\n\nFor existing Worktree or registry audits, invoke \`$web-audit-worktrees\` from the primary checkout; inspection does not authorize cleanup. For Harness comparisons or upgrade replanning, invoke \`$web-preview-harness-upgrade\`; \`$web-upgrade-harness\` owns approved application and baseline recording.\n\n## Event-driven execution
 
@@ -49,7 +49,11 @@ Create a requested Task once with \`Task {序号} | 已分配 | {单一结果}\`
 - \`package.json\` and \`pnpm-lock.yaml\`: scripts and dependency versions.
 - Product source and tests: executable behavior.
 ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state and empty-page reconciliation contract.
-- \`src/api/client/\`: the endpoint-free Ky HTTP, request-context, language, token, error, and unauthorized-handler foundation.
+- \`src/data/\`: API and Cookie, LocalStorage, SessionStorage, Memory and IndexedDB access; REST owns primary interactions, GraphQL owns complex queries and subscriptions, and Dexie is only for IndexedDB. Local capabilities use real implementations without a BaseURL; only remote API operations with unconfigured addresses use Mock, as defined in \`docs/DATA_ACCESS.md\` §3.1.
+- \`src/data/storage/\`: centralized browser storage adapters with separate lifecycles and explicit failure handling.
+- \`src/data/api/client/\`: the endpoint-free Ky HTTP, request-context, language, token, error, and unauthorized-handler foundation.
+- \`docs/API.md\`: the complete optional foundation API and data-model reference, including provenance and adaptation boundaries; adopt and split it only for actual requirements.
+- \`docs/api/\`: when requested, \`$web-document-api\` derives one document per API module and an index from current code; keep reference contracts and Mock behavior distinct from implemented HTTP behavior.
 - \`docs/DATA_ACCESS.md\`: pagination, request headers, authentication, data access, SSE, optional RxJS, and state ownership boundaries.
 - \`docs/MANTINE_UI_GUIDELINES.md\`: Mantine theme, tokens, layout, component semantics, interaction states, responsive behavior, accessibility, and current-host UI rules.
 - \`docs/RUNTIME_CONFIGURATION.md\`: the three profiles, public configuration schema, and build mapping.
@@ -65,6 +69,7 @@ ${hostSources}- \`src/pagination/\`: the governed page/pageSize session state an
 - \`$web-connect-http-service\`：在已初始化下游接入已批准服务，验证域 API、Mock 退出与缓存切换。
 - \`$web-define-product\`：在下游澄清需求，将范围和验收标准记录为唯一 Product Spec（PRD）。
 - \`$web-design-prototype\`：在下游产出 2–3 个可交互 HTML 原型，等待用户选定具体版本后交接开发。
+- \`$web-document-api\`：根据当前 API 实现、类型与相关测试整理 \`docs/api/\`，每个模块独立成文并明确 Mock 和未知边界。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-implement-change\`：实施并验证已批准的 Web Harness 前端变更。

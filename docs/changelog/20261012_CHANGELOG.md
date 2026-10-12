@@ -1,8 +1,10 @@
-# 2026-10-09 变更记录
+# 2026-10-12 变更记录
 
-本记录保留前次当前记录的变化，并补充仅在下游实际开发运行的 PRD、原型选择与开发交接流程。
+本记录保留前次当前记录的变化，并补充 Web 创建类型选择。
 
 ## Added
+
+- 新增 `$web-document-api`，从下游当前 API 实现、类型与相关测试反向整理 `docs/api/`，每个模块独立成文并提供索引，区分 Mock、真实 HTTP 与未确认行为。两宿主同步分发与发现；模块文档受升级保护，初始化不生成业务接口文档。
 
 - 抽取 `$web-connect-http-service` 与 Extension-only `$web-review-extension-compatibility`：实施、列表与重构入口按事件委托；独立定义接入写入和兼容只读边界。源/下游发现、宿主裁剪和升级所有权同步；升级预演拒绝候选或目标的错宿主 Skill 残留。第二批抽取 `$web-audit-worktrees` 与 `$web-preview-harness-upgrade`，原并行与升级流程委托只读部分，helper 位置保持稳定；审计/预演状态查询关闭 Git optional locks，计划报告拒绝写入三棵冻结树。当前 Skill 数量见根 AGENTS.md。
 
@@ -27,7 +29,10 @@
 
 ## Changed
 
-- 未配置对应环境/服务 BaseURL 时，所有需要该服务的数据由 API 层提供完整 Mock；用户要求真实联网后复用已有配置、询问缺失的各环境和实际服务地址，并替换对应 Mock 实现。UI/Query 不内嵌 Mock，真实请求失败不回落 Mock；源规则、实施 Skill、两宿主生成文档与 Web API 边界说明同步，HTTP 和正式 Release 配置门禁继续有效。
+- API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入生成项目 src/data；HTTP imports 与校验路径同步，语言、分页、外观存储入口集中且保留既有键和格式。REST/Ky 负责主要交互与写入，GraphQL 负责复杂查询和 Subscription；Dexie 仅用于按需 IndexedDB，订阅按真实协议使用 graphql-ws/graphql-sse，未预装无消费者依赖。REST/GraphQL 请求前缓存统一由 TanStack Query 管理，feature options 与同一 QueryClient 贯通组件/loader/命令式读取，Extension 导出现有实例；明确新鲜度、去重、失效与上下文边界，Ky/client 不再增加结果缓存。
+
+- Web 创建新增必选 `webType` / `--web-type`，无默认值：工具站点沿用现有生成逻辑；SaaS客户端和 SaaS大后台先提供预留选项，选中后提示流程暂未开放并立即停止，不产生初始化写入。Extension 不接受该字段；选择只用于创建解析与汇总，不改下游身份 Schema。
+- 未配置对应远端服务 BaseURL 时，仅依赖该远端 API 的操作由 API 层提供完整 Mock；本地计算、转换和存储直接真实实现，不要求 BaseURL，混合流程仅隔离远端边界。用户要求真实联网后复用已有配置、询问缺失的各环境和实际服务地址，并替换对应 Mock 实现。UI/Query 不内嵌 Mock，真实请求失败不回落 Mock；源规则、实施/接入 Skills、两宿主生成文档与初始化断言同步，HTTP 和正式 Release 配置门禁继续有效。
 - 自有 Harness/Skill 工具统一使用本地 Node.js/TypeScript，并新增拒绝 Python 文件与执行入口的门禁；清点未发现需迁移的自有 Python 工具，第三方附带文件保持原样。
 - 人工维护代码硬上限统一为 600 行，601 行起按功能与模块拆分；HTTP、实例化事务、列表、验证器、并行/升级工具及回归测试完成职责拆分，生成代码与新文件分发采用同一约束。
 - 升级器自更新前要求新增 helper 已手工收敛并重规划，防止替换 core 后目标 CLI 缺模块而无法启动。

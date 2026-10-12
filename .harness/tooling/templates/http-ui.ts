@@ -61,7 +61,7 @@ import { Link, useRouter, type ErrorComponentProps } from "@tanstack/react-route
 import { useTranslation } from "react-i18next"
 import { useEffect, useRef, useState } from "react"
 import { HttpErrorView } from "./HttpErrorView"
-import { createLogger } from "../../observability/logger"
+import { createLogger } from "../../../observability/logger"
 
 const logger = createLogger("router")
 

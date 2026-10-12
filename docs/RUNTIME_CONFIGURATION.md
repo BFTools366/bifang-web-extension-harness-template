@@ -34,14 +34,16 @@
 - `LOG_LEVEL` 只接受 `debug`、`info`、`warn`、`error`；`release` 只接受 `warn` 或 `error`。
 - `REQUEST_TIMEOUT_MS` 必须是 `1000`–`120000` 的正整数；初始化默认写入 `10000`。
 
+BaseURL 只配置远端 API，不是本地能力的启用条件。本地计算和存储直接真实实现；地址留空时仅对应远端 API 使用 Mock，混合流程只隔离远端边界，详细分工见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1。
+
 项目名称、标识、说明、`projectType` 与品牌继续来自 `.harness/project.json`，软件版本继续来自相应版本事实源，不复制进环境文件。Extension 配置某个远端 BaseURL 不会自动授予 `host_permissions`；只有真实网络消费者出现时，才按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 审批最小权限。
 
 ## 4. 初始化输入
 
-非交互创建只要求目标、名称、标识、唯一项目类型和 Agent 策略模式。三份 API BaseURL 均可省略，开发地址可主动提供或后续配置，测试/正式地址无需初始化时填写。说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
+非交互创建要求目标、名称、标识、唯一项目类型和 Agent 策略模式，以及当前宿主的条件必填字段；Web 类型选择与 Extension 说明规则见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2。三份 API BaseURL 均可省略，开发地址可主动提供或后续配置，测试/正式地址无需初始化时填写。Web 说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对目标必须位于源 Harness 之外：
 
 ```bash
-pnpm instantiate -- /absolute/path/example-web --type web \
+pnpm instantiate -- /absolute/path/example-web --type web --web-type tool-site \
   --name "示例 Web" --id example-web --policy-mode 预设
 ```
 

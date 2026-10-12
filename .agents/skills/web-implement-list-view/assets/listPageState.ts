@@ -457,9 +457,6 @@ export function buildListPageAnnouncement(input: {
     .filter((value): value is string => value !== undefined && value.length > 0)
     .join(" ")
 }
-/** 保持原入口的公开函数与常量兼容。 */
-export { getBrowserListStorage } from "./listPageStorage.ts"
-
 /** 保持原入口的公开类型兼容。 */
 export type { ListStorage } from "./listPageStorage.ts"
 

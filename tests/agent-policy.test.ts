@@ -44,6 +44,8 @@ describe("Agent policy contract", () => {
     const base = [
       "--type",
       "web",
+      "--web-type",
+      "tool-site",
       "--name",
       "Simple Web",
       "--id",
@@ -93,6 +95,7 @@ describe("Agent policy contract", () => {
       {
         targetRoot: path.join(repositoryRoot, "..", "simple-web"),
         projectType: "web",
+        webType: "tool-site",
         name: "Simple Web",
         id: "simple-web",
         policyMode: "预设",

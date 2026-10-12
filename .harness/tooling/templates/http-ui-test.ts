@@ -1,21 +1,22 @@
 import type { ProjectType } from "../types.ts"
 
-/** 在真实宿主 Providers、Router 和 QueryClient 上验证安全错误反馈。 */
+/** 在真实宿主 Providers、Router 和 QueryClient 上验证缓存所有权与安全错误反馈。 */
 export function httpUiTest(projectType: ProjectType): string {
   const imports =
     projectType === "web"
-      ? `import { AppProviders as Providers } from "../../app/AppProviders"
-import { Route as RootRoute } from "../../routes/__root"
-import { routeStateDefaults } from "../../features/route-state/RouteState"`
-      : `import { Providers } from "../../providers"
-import { createExtensionRouter } from "../../extension-router"`
+      ? `import { AppProviders as Providers } from "../../../app/AppProviders"
+import { queryClient as configuredQueryClient } from "../../../app/queryClient"
+import { Route as RootRoute } from "../../../routes/__root"
+import { routeStateDefaults } from "../../../features/route-state/RouteState"`
+      : `import { Providers, queryClient as configuredQueryClient } from "../../../providers"
+import { createExtensionRouter } from "../../../extension-router"`
   const routerTests = projectType === "web" ? WEB_ROUTER_TEST : EXTENSION_ROUTER_TEST
   return `// @vitest-environment jsdom
-import "../../i18n"
-import i18n from "../../i18n"
+import "../../../i18n"
+import i18n from "../../../i18n"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
+import { queryOptions, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query"
 import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router"
 import { getDefaultStore } from "jotai"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
@@ -26,7 +27,7 @@ import { applicationHttp, configureUnauthorizedHandler, requestHttpQuery } from 
 ${imports}
 
 /** 网络集成测试使用独立公开配置，不要求新项目先填测试 API 地址。 */
-vi.mock("../../config/environment", () => ({ APP_CONFIG: { environment: "test", apiBaseUrl: "https://api.example.com/v1", requestTimeoutMs: 1000, logLevel: "error" } }))
+vi.mock("../../../config/environment", () => ({ APP_CONFIG: { environment: "test", apiBaseUrl: "https://api.example.com/v1", requestTimeoutMs: 1000, logLevel: "error" } }))
 
 let queryClient: QueryClient | undefined
 
@@ -45,6 +46,29 @@ function response(status: number): Response {
   return value
 }
 
+/** 用可消费的真实 JSON 响应证明 Query 缓存的是领域结果而不是 Response。 */
+function domainResponse(label: string): Response {
+  const value = new Response(JSON.stringify({ label }), { headers: { "Content-Type": "application/json" } })
+  Object.defineProperty(value, "url", { value: "https://api.example.com/v1/items" })
+  return value
+}
+
+/** 中性测试领域共享读取 options，参数与语言隔离且透传 Query 取消信号。 */
+function cachedReadOptions(scope = "primary", language = "en") {
+  return queryOptions({
+    queryKey: ["cached-read", { target: "fixture", operation: "snapshot", scope, language }],
+    staleTime: 60_000,
+    queryFn: async ({ signal }) => {
+      const result = await requestHttpQuery("items", { signal })
+      const value: unknown = await result.json()
+      if (typeof value !== "object" || value === null || !("label" in value) || typeof value.label !== "string") {
+        throw new Error("Invalid domain response")
+      }
+      return { label: value.label }
+    }
+  })
+}
+
 beforeEach(async () => {
   clearHttpFeedback()
   await i18n.changeLanguage("en")
@@ -52,6 +76,74 @@ beforeEach(async () => {
   vi.spyOn(console, "warn").mockImplementation(() => undefined)
 })
 afterEach(() => { cleanup(); queryClient?.clear(); queryClient = undefined; clearHttpFeedback(); applicationHttp.clearSession(); vi.restoreAllMocks() })
+
+/** 同一实例复用在途读取和 fresh 领域缓存，随后挂载组件无需再次传输或消费 body。 */
+test("shares in-flight and fresh Ky reads across imperative and component consumers", async () => {
+  let finish: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => { finish = resolve })
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    await gate
+    return domainResponse("Cached domain content")
+  })
+  render(<Providers><ClientCapture /></Providers>)
+  const client = queryClient
+  if (!client) throw new Error("Missing QueryClient")
+  expect(client).toBe(configuredQueryClient)
+  const options = cachedReadOptions()
+  const first = client.query(options)
+  const concurrent = client.query(options)
+  await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1))
+  finish?.()
+  expect(await Promise.all([first, concurrent])).toEqual([{ label: "Cached domain content" }, { label: "Cached domain content" }])
+  expect(await client.query(options)).toEqual({ label: "Cached domain content" })
+  /** 组件订阅与前置读取相同 options，不重新保存一份服务器状态。 */
+  function Page() {
+    const result = useQuery(options)
+    return <h1>{result.data?.label ?? "Loading content"}</h1>
+  }
+  render(<Providers><Page /></Providers>)
+  expect(await screen.findByRole("heading", { name: "Cached domain content" })).toBeInTheDocument()
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(client.getQueryData(options.queryKey)).toEqual({ label: "Cached domain content" })
+})
+
+/** 过期读取等待新结果，mutation 精确失效后可重新传输，即使 staleTime 尚未结束。 */
+test("refreshes stale and mutation-invalidated reads through the same Query cache", async () => {
+  let version = 0
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => domainResponse("Version " + ++version))
+  render(<Providers><ClientCapture /></Providers>)
+  const client = queryClient
+  if (!client) throw new Error("Missing QueryClient")
+  const options = cachedReadOptions()
+  expect(await client.query(options)).toEqual({ label: "Version 1" })
+  client.setQueryData(options.queryKey, { label: "Expired content" }, { updatedAt: Date.now() - 120_000 })
+  expect(await client.query(options)).toEqual({ label: "Version 2" })
+  const mutationFn = vi.fn().mockResolvedValue(undefined)
+  const mutation = client.getMutationCache().build(client, {
+    mutationFn,
+    onSuccess: () => client.invalidateQueries({ queryKey: options.queryKey, exact: true, refetchType: "none" })
+  })
+  await mutation.execute(undefined)
+  expect(mutationFn).toHaveBeenCalledTimes(1)
+  expect(await client.query(options)).toEqual({ label: "Version 3" })
+  expect(fetch).toHaveBeenCalledTimes(3)
+})
+
+/** 语言与非敏感 scope 是缓存身份，不能误用其他表示或会话的 fresh 结果。 */
+test("isolates fresh cached domain data by language and scope", async () => {
+  let version = 0
+  const fetch = vi.spyOn(globalThis, "fetch").mockImplementation(async () => domainResponse("Version " + ++version))
+  render(<Providers><ClientCapture /></Providers>)
+  const client = queryClient
+  if (!client) throw new Error("Missing QueryClient")
+  expect(await client.query(cachedReadOptions())).toEqual({ label: "Version 1" })
+  expect(await client.query(cachedReadOptions("other"))).toEqual({ label: "Version 2" })
+  await act(async () => { await i18n.changeLanguage("zh") })
+  expect(await client.query(cachedReadOptions("primary", "zh"))).toEqual({ label: "Version 3" })
+  expect(client.getQueryData(cachedReadOptions().queryKey)).toEqual({ label: "Version 1" })
+  expect(client.getQueryData(cachedReadOptions("other").queryKey)).toEqual({ label: "Version 2" })
+  expect(fetch).toHaveBeenCalledTimes(3)
+})
 
 /** primitive 异常也能由局部状态接管，固定文案不显示远端文本。 */
 test("deduplicates local and global unknown failures safely", async () => {
@@ -93,11 +185,11 @@ test("localizes authentication and permission feedback with a dismiss action", a
 
 /** Query 的中间 500 由唯一重试 owner 处理，随后成功不留下虚假的失败提示。 */
 test("retries a read through Query without leaving intermediate global feedback", async () => {
-  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(response(500)).mockResolvedValue(response(200))
+  const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(response(500)).mockResolvedValue(domainResponse("Recovered content"))
   render(<Providers><ClientCapture /></Providers>)
   if (!queryClient) throw new Error("Missing QueryClient")
-  const result = await queryClient.fetchQuery({ queryKey: ["http-recovery"], queryFn: ({ signal }) => requestHttpQuery("items", { signal }), retryDelay: 0 })
-  expect(result.status).toBe(200)
+  const result = await queryClient.query({ ...cachedReadOptions(), queryKey: ["http-recovery"], retryDelay: 0 })
+  expect(result).toEqual({ label: "Recovered content" })
   expect(fetch).toHaveBeenCalledTimes(2)
   expect(screen.queryByRole("alert")).not.toBeInTheDocument()
 })

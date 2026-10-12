@@ -4,6 +4,7 @@ import { tsString } from "./helpers.ts"
 // 保存 PAGINATION_SOURCE 变量供当前逻辑使用。
 const PAGINATION_SOURCE = `import { useCallback, useEffect, useRef, useState } from "react"
 import { BRAND } from "../brand"
+import { getWebStorage } from "../data/storage/webStorage"
 
 /** 说明 PAGE_SIZES 的稳定结构与职责边界。 */
 export const PAGE_SIZES = [10, 20, 50, 100] as const
@@ -81,15 +82,6 @@ export function paginationStorageKey(scope: string): string {
   return BRAND.id + ":pagination:v1:" + encodeURIComponent(normalizedScope)
 }
 
-/** 说明 sessionStorageOrUndefined 的稳定结构与职责边界。 */
-function sessionStorageOrUndefined(): Storage | undefined {
-  try {
-    return typeof window === "undefined" ? undefined : window.sessionStorage
-  } catch {
-    return undefined
-  }
-}
-
 /** 说明 parseStoredRequest 的稳定结构与职责边界。 */
 function parseStoredRequest(raw: string | null): PageRequest {
   if (raw === null) return DEFAULT_REQUEST
@@ -112,7 +104,7 @@ function parseStoredRequest(raw: string | null): PageRequest {
 /** 说明 readStoredRequest 的稳定结构与职责边界。 */
 function readStoredRequest(storageKey: string): PageRequest {
   try {
-    return parseStoredRequest(sessionStorageOrUndefined()?.getItem(storageKey) ?? null)
+    return parseStoredRequest(getWebStorage("session")?.getItem(storageKey) ?? null)
   } catch {
     return DEFAULT_REQUEST
   }
@@ -122,7 +114,7 @@ function readStoredRequest(storageKey: string): PageRequest {
 function writeStoredRequest(storageKey: string, request: PageRequest): void {
   const record: StoredPageRequest = { version: 1, ...request }
   try {
-    sessionStorageOrUndefined()?.setItem(storageKey, JSON.stringify(record))
+    getWebStorage("session")?.setItem(storageKey, JSON.stringify(record))
   } catch {
     // Storage denial or quota exhaustion must not break navigation.
   }

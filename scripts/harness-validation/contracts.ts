@@ -1,4 +1,4 @@
-/** 保存源 Harness 唯一允许的 22 个 Web Skill canonical id。 */
+/** 保存源 Harness 唯一允许的 23 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
   "web-audit-worktrees",
   "web-check-development-environment",
@@ -7,6 +7,7 @@ export const EXPECTED_SKILLS = [
   "web-curate-harness-memory",
   "web-define-product",
   "web-design-prototype",
+  "web-document-api",
   "web-extract-i18n-strings",
   "web-implement-change",
   "web-implement-list-view",
@@ -38,7 +39,7 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 22 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 23 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
   "web-preview-harness-upgrade": {
     description:
@@ -111,6 +112,15 @@ export const SKILL_CONTRACTS = {
     shortDescription: "在下游生成交互原型方案并记录用户选择，确认具体版本后交接开发",
     defaultPrompt:
       "使用 $web-design-prototype 在当前已初始化下游根据 PRD 生成 2–3 个可交互 HTML 方案，展示比较并等待我选择具体版本后进入开发。"
+  },
+  "web-document-api": {
+    description:
+      "在已初始化 React Web 或 Plasmo Extension 下游中，依据当前 API 实现、类型和相关测试反向生成或更新 docs/api/ 模块文档，每个模块一份独立 Markdown；用于接口文档整理和代码文档同步，不把参考契约或 Mock 当作已实现的服务端接口。",
+    title: "# Web Harness：从代码整理 API 文档",
+    displayName: "Web Harness：从代码整理 API 文档",
+    shortDescription: "依据当前 API 实现反向整理文档，每个模块独立保存到 docs/api",
+    defaultPrompt:
+      "使用 $web-document-api 根据当前 API 代码整理 docs/api 文档，每个模块独立成文，并核对类型、错误、Mock 边界和源码依据。"
   },
   "web-extract-i18n-strings": {
     description:
@@ -263,6 +273,8 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "不静默安装或升级"
   ],
   "web-implement-change": [
+    "只将依赖该远端 API 的操作",
+    "本地能力直接真实实现，不要求 BaseURL",
     "只有实际创建新下游时调用一次 `$web-check-development-environment`",
     "最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测",
     "git rev-parse --path-format=absolute --git-common-dir",
@@ -272,6 +284,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
   ],
   "web-connect-http-service": [
     "仅用于已初始化且 `projectType=web|extension`",
+    "本地实现继续真实运行，不纳入 Mock 迁移",
     "真实请求失败不得回落 Mock",
     "取消相关旧请求并清理对应 Mock Query 缓存",
     "不扩张生产、付费、凭据或不可逆写入授权"
@@ -340,6 +353,7 @@ export const REQUIRED_FILES = [
   "pnpm-workspace.yaml",
   "docs/README.md",
   "docs/AGENT_POLICY.md",
+  "docs/API.md",
   "docs/DATA_ACCESS.md",
   "docs/ENGINEERING_RULES.md",
   "docs/HARNESS_ENGINEERING.md",
@@ -385,6 +399,7 @@ export const REQUIRED_FILES = [
   ".harness/tooling/templates/http-ui-test.ts",
   ".harness/tooling/templates/http-language.ts",
   ".harness/tooling/templates/http.ts",
+  ".harness/tooling/templates/data.ts",
   ".harness/tooling/templates/logging.ts",
   ".harness/tooling/templates/pagination.ts",
   ".harness/tooling/version.ts",

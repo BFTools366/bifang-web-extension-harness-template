@@ -17,7 +17,7 @@ export async function validateHttpFoundation(
     // 保存 contract 变量供当前逻辑使用。
     for (const contract of [
       "BRAND.id",
-      "localStorage",
+      'getWebStorage("local")',
       "initialApplicationLanguage",
       "initializeLanguage",
       "getRequestLanguage",
@@ -27,10 +27,34 @@ export async function validateHttpFoundation(
     }
   }
 
+  // 集中验证存储入口，语言与分页不再各自访问浏览器存储对象。
+  const storageContracts: Array<[string, string[]]> = [
+    [
+      "src/data/storage/webStorage.ts",
+      [
+        "getWebStorage",
+        'typeof window === "undefined"',
+        "window.localStorage",
+        "window.sessionStorage"
+      ]
+    ],
+    [
+      "src/data/storage/colorScheme.ts",
+      ["localStorageColorSchemeManager", 'BRAND.id + ":color-scheme:v1"']
+    ]
+  ]
+  for (const [relativePath, contracts] of storageContracts) {
+    if (!(await pathExists(path.join(root, relativePath)))) continue
+    const source = await readFile(path.join(root, relativePath), "utf8")
+    for (const contract of contracts) {
+      if (!source.includes(contract)) errors.push(`Data storage contract is missing ${contract}`)
+    }
+  }
+
   // 按模块职责验证协议、传输和会话合同，避免拆分后只检查旧入口。
   const moduleContracts: Array<[string, string[]]> = [
     [
-      "src/api/client/httpContracts.ts",
+      "src/data/api/client/httpContracts.ts",
       [
         'continuation: "X-Http-Request"',
         'language: "X-Lang"',
@@ -41,7 +65,7 @@ export async function validateHttpFoundation(
       ]
     ],
     [
-      "src/api/client/httpProtocol.ts",
+      "src/data/api/client/httpProtocol.ts",
       [
         'import ky from "ky"',
         "ky(new Request(input, init)",
@@ -56,7 +80,7 @@ export async function validateHttpFoundation(
       ]
     ],
     [
-      "src/api/client/httpClient.ts",
+      "src/data/api/client/httpClient.ts",
       [
         "options.fetch ?? requestWithKy",
         "APP_CONFIG",
@@ -90,15 +114,22 @@ export async function validateHttpFoundation(
   const providerPath =
     config.projectType === "web" ? "src/app/AppProviders.tsx" : "src/providers.tsx"
   const queryPath = config.projectType === "web" ? "src/app/queryClient.ts" : providerPath
+  // 非 React 的前置读取必须能导入 Providers 实际使用的同一实例。
+  if (await pathExists(path.join(root, queryPath))) {
+    const source = await readFile(path.join(root, queryPath), "utf8")
+    if (!source.includes("export const queryClient = new QueryClient(")) {
+      errors.push("Query cache contract is missing the exported shared QueryClient")
+    }
+  }
   const routerPath =
     config.projectType === "web" ? "src/app/router.tsx" : "src/extension-router.tsx"
   const feedbackContracts: Array<[string, string[]]> = [
     [
-      "src/api/client/httpErrors.ts",
+      "src/data/api/client/httpErrors.ts",
       ["retryHttpQuery", "failureCount < 2", "error.status !== 401", "error.status !== 403"]
     ],
     [
-      "src/api/client/httpRuntime.ts",
+      "src/data/api/client/httpRuntime.ts",
       [
         "applicationHttp",
         "requestHttpQuery",
@@ -108,11 +139,11 @@ export async function validateHttpFoundation(
       ]
     ],
     [
-      "src/api/client/httpFeedback.ts",
+      "src/data/api/client/httpFeedback.ts",
       ["httpFeedbackAtom", "currentReference", "WeakRef", "clearHttpFeedback"]
     ],
     [
-      "src/api/client/HttpErrorView.tsx",
+      "src/data/api/client/HttpErrorView.tsx",
       ["HttpErrorView", "HttpFeedback", "useTranslation", "clearHttpFeedback(error)"]
     ],
     [providerPath, ["<HttpFeedback />"]],

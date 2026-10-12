@@ -100,15 +100,18 @@ describe("terminal identity, skills and UI governance", () => {
     await expect(initializeProject(init)).rejects.toThrow(/Refusing to overwrite/)
   })
 
-  /** 验证 requires the generated data-access and event-stream knowledge in terminal projects 场景。 */
-  test("requires the generated data-access and event-stream knowledge in terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
-    const root = await seedTemplateRoot()
-    await initializeProject(options(root, "web"))
-    await rm(path.join(root, "docs/DATA_ACCESS.md"))
+  /** 验证完整基础契约和数据访问文档必须随终端工程保留。 */
+  test.each(["docs/API.md", "docs/DATA_ACCESS.md"])(
+    "requires foundation documentation %s in terminal projects",
+    async (relativePath) => {
+      // 保存 root 变量供当前逻辑使用。
+      const root = await seedTemplateRoot()
+      await initializeProject(options(root, "web"))
+      await rm(path.join(root, relativePath))
 
-    await expect(validateProject(root)).rejects.toThrow(/Missing docs\/DATA_ACCESS\.md/)
-  })
+      await expect(validateProject(root)).rejects.toThrow("Missing " + relativePath)
+    }
+  )
 
   /** 验证 requires the generated Mantine UI guidelines in terminal projects 场景。 */
   test("requires the generated Mantine UI guidelines in terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
@@ -305,9 +308,12 @@ export const Route = createFileRoute("/")({
     const paginationPath = path.join(root, "src/pagination/useSessionPagination.ts")
     // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(paginationPath, "utf8")
-    await writeFile(paginationPath, pagination.replaceAll("sessionStorage", "localStorage"))
+    await writeFile(
+      paginationPath,
+      pagination.replaceAll('getWebStorage("session")', 'getWebStorage("local")')
+    )
 
-    await expect(validateProject(root)).rejects.toThrow(/Pagination state must use/)
+    await expect(validateProject(root)).rejects.toThrow(/Pagination contract is missing/)
   })
 
   /** 验证 requires every shared pagination file in Web projects 场景。 */
@@ -366,7 +372,7 @@ export const Route = createFileRoute("/")({
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
     // 保存 clientPath 变量供当前逻辑使用。
-    const clientPath = path.join(root, "src/api/client/httpContracts.ts")
+    const clientPath = path.join(root, "src/data/api/client/httpContracts.ts")
     // 保存 client 变量供当前逻辑使用。
     const client = await readFile(clientPath, "utf8")
     await writeFile(clientPath, client.replace('authToken: "X-AUTH-TOKEN"', 'authToken: "X-Token"'))

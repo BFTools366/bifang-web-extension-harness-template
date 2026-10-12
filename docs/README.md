@@ -10,6 +10,7 @@
 | [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)             | 初始化、维护 Web 或 Extension 模板与品牌派生     |
 | [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) | 初始化、读取或验证 development/test/release 配置 |
 | [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物        |
+| [`API.md`](API.md)                                     | 查阅基础 API 设计、数据模型、流程与适配边界      |
 | [`DATA_ACCESS.md`](DATA_ACCESS.md)                     | 分页、HTTP/认证、数据访问或事件流变化            |
 | [`RELEASE.md`](RELEASE.md)                             | 准备版本、候选或发布                             |
 | [`VERIFICATION.md`](VERIFICATION.md)                   | 完整验收或候选证据                               |
@@ -17,3 +18,7 @@
 | [`HARNESS_ENGINEERING.md`](HARNESS_ENGINEERING.md)     | 需要理解模板方法、生命周期和扩展边界             |
 
 按任务读取，不要为了“完整”一次性加载全部文档。
+
+API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3 为准。
+
+下游需要从当前代码整理 API 文档时，调用 [`$web-document-api`](../.agents/skills/web-document-api/SKILL.md)，在 `docs/api/` 生成索引与每个模块的独立文档；`API.md` 仍是可选基础契约参考，不能替代当前实现证据。

@@ -60,7 +60,7 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(20)
+    expect(skills).toHaveLength(21)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
@@ -71,6 +71,7 @@ describe("terminal source projection", () => {
         "web-connect-http-service",
         "web-define-product",
         "web-design-prototype",
+        "web-document-api",
         "web-extract-i18n-strings",
         "web-implement-change",
         "web-implement-list-view",
@@ -172,7 +173,7 @@ describe("terminal source projection", () => {
     expect(downstreamAgents).toContain("interaction-state, responsive, or UI-accessibility work")
     expect(downstreamAgents).toContain("multi-source event streams, or RxJS")
     expect(downstreamAgents).toContain("`src/routes/`")
-    expect(downstreamAgents).toContain("`src/api/client/`")
+    expect(downstreamAgents).toContain("`src/data/api/client/`")
     expect(downstreamAgents).toContain("`src/pagination/`")
     expect(downstreamAgents).toContain("Create a persistent plan only when the user explicitly")
     expect(downstreamAgents).toContain("## Event-driven execution")

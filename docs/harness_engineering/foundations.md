@@ -6,11 +6,13 @@ Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、
 
 ```text
 pnpm instantiate -- <absolute-target-outside-harness> ...
-├── --type web       → 独立 Vite React 单包
+├── --type web --web-type tool-site → 独立 Vite React 单包
 └── --type extension → 独立 Plasmo Chrome MV3 / Firefox MV2 单包
 ```
 
 需要两个宿主时建立两个仓库。相同技术选型不等于共享业务源码；下游不保留添加/删除宿主、workspace、`apps/`、`packages/` 或共享 core。
+
+Web 创建类型选择及 SaaS 预留选项的停止边界见 [`../TS_WEB_TEMPLATE.md`](../TS_WEB_TEMPLATE.md) §2；分类不增加宿主。
 
 ## Extension 双浏览器兼容
 

@@ -25,7 +25,7 @@
 - Mantine 提供主题与 UI 组件；TanStack Router 使用 `src/routes/` 文件路由管理 URL 与页面，Vite Router plugin 负责生成路由树和 route 级自动拆包；TanStack Query 管理远端/异步服务器状态；Jotai 只管理确实需要跨组件共享的客户端状态；i18next 管理用户可见文案。
 - `src/routeTree.gen.ts` 是 Git、格式化器和 lint 忽略的临时生成文件，只能由 `pnpm routes:generate`、开发或构建流程再生，禁止手工编辑或固化进模板。没有实际 bundle 证据时不预设 `manualChunks`。
 - 路由加载、页面数据和错误状态应有清晰职责。不要把服务器缓存复制进 Jotai，也不要为局部输入状态建立全局 atom。真实多来源事件需要时可按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 引入 RxJS，但事件流不成为第二状态仓库。
-- 初始化生成 `src/pagination/`、`src/api/client/` 与语言偏好基础，但不把分页控件或网络请求强塞进静态 Landing/404。真实集合页复用统一 page/pageSize 状态，真实登录路由存在后才装配 401 导航 adapter。
+- 初始化生成 `src/pagination/`、`src/data/api/client/` 与语言偏好基础，但不把分页控件或网络请求强塞进静态 Landing/404。真实集合页复用统一 page/pageSize 状态，真实登录路由存在后才装配 401 导航 adapter。
 - Web 的列表页、数据表格、后台列表与搜索结果同时调用 `$web-implement-list-view`，但根据真实信息结构选择 Table、卡片或搜索形态，不强制 Table、选择、列偏好或 DnD。初始化不生成业务列表、假 endpoint 或可选列表依赖。
 - 根 `index.html` 只承载文档元数据、挂载点与当前项目资源引用；业务内容留在 React 页面。
 - 初始化必须同步 `public/logo.png`、`public/favicon.png`、根 `index.html` 和 Landing 页面；不得生成 Extension 的 Popup、Options、manifest 或图标路径。
@@ -49,13 +49,13 @@
 
 - 启用严格 TypeScript；不得用 `any`、非空断言或未校验类型转换掩盖未知输入。确需边界转换时先验证，再收窄为业务类型。
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
-- Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`api/` 承载生成的 client 基础与类型化服务数据边界。页面或 route 文件不得直接拼任意 URL。
-- 两种宿主未配置对应 BaseURL 时，服务数据统一在 `src/api/<domain>/` 以完整 Mock API 提供；用户要求真实联网后收集缺失配置，再替换对应实现，流程以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 为准。组件、route、hook 和 Query 不内嵌业务 Mock，真实请求失败不回落 Mock；中性初始化不生成业务数据。
-- `api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。初始化不生成业务请求、refresh/replay、登录页、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
+- Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`data/` 统一承载 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；`data/api/` 提供 client 与类型化服务边界，`data/storage/` 集中存储访问。页面或 route 文件不得直接拼任意 URL。
+- 两种宿主未配置对应 BaseURL 时，只有依赖该远端 API 的操作在 `src/data/api/<domain>/` 以完整 Mock API 提供；本地能力直接真实实现，不要求 BaseURL，纯业务逻辑留在 feature，存储访问经 `src/data/storage/`。混合流程只 Mock 缺少地址的远端边界；用户要求真实联网后收集缺失配置，再替换对应实现，流程以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 为准。组件、route、hook 和 Query 不内嵌业务 Mock，真实请求失败不回落 Mock；中性初始化不生成业务数据。
+- `data/api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。初始化不生成业务请求、refresh/replay、登录页、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
-- Query key、缓存、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target 与语言。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
+- Query key、请求前缓存、新鲜度、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target、语言与非敏感 scope。REST/GraphQL 有限查询统一复用当前上下文的 QueryClient 与 feature Query options，缓存已解析校验的领域数据；Ky/client 不再建立结果缓存，不缓存可消耗的 Response。详细入口和新鲜度语义见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.7。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
 - React 组件负责呈现和交互编排；可复用的纯逻辑放在当前单包内有业务名称的模块或 hook 中。不要为假想复用建立跨包抽象。
-- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 只留在当前执行上下文内存，不得写入环境或任一 Storage。
+- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言与分页经 `data/storage/webStorage.ts` 访问原生 Storage；外观偏好经 `data/storage/colorScheme.ts` 复用 Mantine manager。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 只留在当前执行上下文内存，不得写入环境或任一持久存储。REST 负责主要交互与写入，GraphQL 负责复杂查询与 Subscription；IndexedDB 默认用 Dexie，其他存储保持原生语义，详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3。
 - 运行时配置集中在 `src/config/`，业务代码只读冻结的 `APP_CONFIG`；组件、route、feature、service 与扩展入口不得直接散落 `import.meta.env`、`process.env` 或硬编码服务 URL。字段、前缀和三环境映射见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 - 应用日志集中在 `src/observability/logger.ts`。产品代码不得直接使用 `console.*`；只允许 logger 默认 sink、测试替身或工具脚本在明确边界使用 console。事件字段、级别、Release allowlist 与脱敏规则见 [`LOGGING.md`](LOGGING.md)。
 - Promise 必须被等待、返回或显式处理；用户触发的异步操作需要加载、成功与失败反馈，取消或卸载后不得更新失效 UI。

@@ -5,7 +5,6 @@ import {
   claimListCorrection,
   getBusinessIdKey,
   getCorrectedPage,
-  getBrowserListStorage,
   getEffectiveCurrentPageSelection,
   isOwnedListSearchCanonical,
   loadColumnPreferences,
@@ -138,7 +137,6 @@ const columns: readonly ListColumnContract<ColumnId, SortField>[] = [
 
 /** 覆盖模板最容易回归的解析、迁移、响应和选择纯函数契约。 */
 function runListPageContractTests(): void {
-  assert.equal(getBrowserListStorage("session"), undefined)
   assert.equal(parsePageSize("100"), 100)
   assert.equal(parsePageSize(25), undefined)
   assert.equal(parsePage("1e308"), undefined)

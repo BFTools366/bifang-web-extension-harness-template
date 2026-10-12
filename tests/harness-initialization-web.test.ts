@@ -55,10 +55,13 @@ describe("terminal Web initialization", () => {
     // 保存 language 变量供当前逻辑使用。
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
     // 保存 httpClient 变量供当前逻辑使用。
-    const httpClient = await readFile(path.join(root, "src/api/client/httpClient.ts"), "utf8")
-    const httpContracts = await readFile(path.join(root, "src/api/client/httpContracts.ts"), "utf8")
+    const httpClient = await readFile(path.join(root, "src/data/api/client/httpClient.ts"), "utf8")
+    const httpContracts = await readFile(
+      path.join(root, "src/data/api/client/httpContracts.ts"),
+      "utf8"
+    )
     // 保存 apiBoundary 变量供当前逻辑使用。
-    const apiBoundary = await readFile(path.join(root, "src/api/README.md"), "utf8")
+    const apiBoundary = await readFile(path.join(root, "src/data/api/README.md"), "utf8")
     // 保存 gitignore 变量供当前逻辑使用。
     const gitignore = await readFile(path.join(root, ".gitignore"), "utf8")
     // 保存 dataAccess 变量供当前逻辑使用。
@@ -176,7 +179,8 @@ describe("terminal Web initialization", () => {
     expect(viteConfig).not.toContain("esbuild:")
     expect(viteConfig).toContain("sourcemap: false")
     expect(apiBoundary).toContain("Do not add placeholder requests")
-    expect(apiBoundary).toContain("TanStack Query owns server state")
+    expect(apiBoundary).toContain("TanStack Query owns REST/GraphQL cache lookup")
+    expect(apiBoundary).toContain("Cache parsed, validated domain data")
     expect(gitignore.split(/\r?\n/)).toContain("src/routeTree.gen.ts")
     await expect(readFile(path.join(root, "src/routeTree.gen.ts"), "utf8")).rejects.toThrow()
     expect(i18n).toContain("initializeLanguage")
@@ -187,7 +191,7 @@ describe("terminal Web initialization", () => {
       expect(englishLocale).toContain(`${key}:`)
       expect(chineseLocale).toContain(`${key}:`)
     }
-    expect(language).toContain("localStorage")
+    expect(language).toContain('getWebStorage("local")')
     expect(language).toContain("changeApplicationLanguage")
     expect(language).toContain("getRequestLanguage")
     expect(language).toContain("document.documentElement")
@@ -243,7 +247,7 @@ describe("terminal Web initialization", () => {
     expect(logger).toContain("[REDACTED]")
     expect(logger).toContain('const RELEASE_BUILD = import.meta.env.VITE_APP_ENV === "release"')
     expect(logger).not.toContain("PLASMO_PUBLIC_APP_ENV")
-    expect(pagination).toContain("sessionStorage")
+    expect(pagination).toContain('getWebStorage("session")')
     expect(pagination).toContain("BRAND.id")
     expect(pagination).toContain("requestedPageSize")
     expect(pagination).toContain("isPlaceholderData")
@@ -251,7 +255,10 @@ describe("terminal Web initialization", () => {
     expect(paginationControls).toContain("labels")
     expect(queryClient).toContain('logger.error("query_failed"')
     expect(providers).toContain('defaultColorScheme="auto"')
-    expect(providers).toContain('key: BRAND.id + ":color-scheme:v1"')
+    expect(providers).toContain("data/storage/colorScheme")
+    expect(await readFile(path.join(root, "src/data/storage/colorScheme.ts"), "utf8")).toContain(
+      'key: BRAND.id + ":color-scheme:v1"'
+    )
     expect(providers).not.toContain("JotaiProvider")
     expect(theme).toContain("createBrandScale(BRAND.primaryColor)")
     expect(theme).toContain("luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD")

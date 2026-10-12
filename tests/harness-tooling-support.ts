@@ -41,6 +41,10 @@ const TEST_AGENT_POLICY = {
 } as const
 // 保存 OPTIONAL_INTEGRATION_PACKAGES 变量供当前逻辑使用。
 const OPTIONAL_INTEGRATION_PACKAGES = [
+  "dexie",
+  "js-cookie",
+  "graphql-ws",
+  "graphql-sse",
   "axios",
   "openapi-fetch",
   "openapi-typescript",
@@ -104,6 +108,7 @@ async function seedTemplateRoot(): Promise<string> {
     path.join(root, ".gitignore"),
     await readFile(path.join(repositoryRoot, ".gitignore"), "utf8")
   )
+  await cp(path.join(repositoryRoot, "docs/API.md"), path.join(root, "docs/API.md"))
   await writeFile(
     path.join(root, "docs/DATA_ACCESS.md"),
     await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8")

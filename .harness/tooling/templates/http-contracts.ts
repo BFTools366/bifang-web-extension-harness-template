@@ -1,5 +1,5 @@
 /** 生成 HTTP 稳定协议类型与唯一 ApiError 类，不保存任何会话状态。 */
-export const HTTP_CONTRACTS_SOURCE = `import type { AppConfig } from "../../config/environment.schema"
+export const HTTP_CONTRACTS_SOURCE = `import type { AppConfig } from "../../../config/environment.schema"
 
 /** 说明 HTTP_HEADERS 的稳定结构与职责边界。 */
 export const HTTP_HEADERS = {

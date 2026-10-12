@@ -22,7 +22,7 @@ pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts migr
 
 输出的 `missing` 是可追加规则，`conflicts`（模式不同）与 `shadowed`（被目标前置规则遮蔽）必须人工处理，工具不会覆盖。取得本次用户对该策略迁移的明确授权后追加 `--approval <授权摘要>`：命令只在目标清单末尾追加 `missing`，保留 `defaultMode: protected`、已有规则及顺序，合并结果通过完整下限校验后才原子写入；有冲突或遮蔽时拒绝写入。不借用 source 清单替目标授权，清单变化后重新冻结目标状态并渲染候选。
 
-在委托新 Skill 或更新任何父 Skill 前，先逐文件核对并按既有计划和精确路径授权补齐两宿主通用 `web-connect-http-service` 的 SKILL/元数据、`web-audit-worktrees` 的 SKILL/元数据/`references/inspection-contract.md`、`web-preview-harness-upgrade` 的 SKILL/元数据/`references/preview-contract.md`；Extension 另核对并补齐 `web-review-extension-compatibility` 的 SKILL/元数据，Web 不补入它。文件均位于 `.agents/skills/` 下对应目录，候选须与已验证 source 字节一致；目标已有本地内容按冲突复核，不覆盖。旧 helper 不具备这些必需传播门禁时由执行 Agent 手工核对；缺失或陈旧先停止父级委托与自更新，完成获批补齐后重规划。新版 helper 还会阻止普通 managed Skill 的新增未收敛时提前自更新。
+在委托新 Skill 或更新任何父 Skill 前，先逐文件核对并按既有计划和精确路径授权补齐两宿主通用 `web-connect-http-service` 与 `web-document-api` 的 SKILL/元数据、`web-audit-worktrees` 的 SKILL/元数据/`references/inspection-contract.md`、`web-preview-harness-upgrade` 的 SKILL/元数据/`references/preview-contract.md`；Extension 另核对并补齐 `web-review-extension-compatibility` 的 SKILL/元数据，Web 不补入它。文件均位于 `.agents/skills/` 下对应目录，候选须与已验证 source 字节一致；目标已有本地内容按冲突复核，不覆盖。旧 helper 不具备这些必需传播门禁时由执行 Agent 手工核对；缺失或陈旧先停止父级委托与自更新，完成获批补齐后重规划。新版 helper 还会阻止普通 managed Skill 的新增未收敛时提前自更新。
 
 两种宿主的候选必须逐文件包含与 source 字节一致的 `web-design-prototype/SKILL.md`、`agents/openai.yaml`、`references/prd-outline.md`、`scripts/prototype-review.ts`（均位于 `.agents/skills/` 下该 Skill 目录）。旧 helper 尚无必需路径门禁时，执行 Agent 必须在任何普通 managed 更新前完成此核对；缺失或陈旧均停止。经用户批准按 `add` 手工补齐目标中的四个新文件并重规划，已有本地内容按冲突处理。业务 PRD、原型和选择记录不得进入候选或被覆盖。之后继续既定升级顺序，普通 managed 及新增 Skill 先到位，升级器自身在后；不得提前替换旧 CLI 或弱化保护规则。新 helper 对上述四个 source 文件执行必需传播校验，遗漏或陈旧会阻断 apply/record。
 

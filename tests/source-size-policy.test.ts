@@ -54,7 +54,7 @@ describe("source size policy", /* 执行 当前声明 函数的处理逻辑。 *
   /** 验证 excludes generated and external paths without hiding maintained source 场景。 */
   test("excludes generated and external paths without hiding maintained source", /* 执行 当前声明 函数的处理逻辑。 */ () => {
     expect(isSourceSizePolicyExcluded("src/routeTree.gen.ts")).toBe(true)
-    expect(isSourceSizePolicyExcluded("src/api/graphql/generated/graphql.ts")).toBe(true)
+    expect(isSourceSizePolicyExcluded("src/data/api/graphql/generated/graphql.ts")).toBe(true)
     expect(isSourceSizePolicyExcluded("dist/assets/app.ts")).toBe(true)
     expect(isSourceSizePolicyExcluded("src/feature.gen.ts")).toBe(false)
     expect(isSourceSizePolicyExcluded("src/features/generated-report.ts")).toBe(false)

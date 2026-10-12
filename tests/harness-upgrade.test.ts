@@ -26,10 +26,11 @@ import {
 
 /** 验证 three-way Harness upgrade 的完整回归场景。 */
 describe("three-way Harness upgrade", () => {
-  /** 验证项目设计支持、业务原型与用户选择不进入候选，升级原样保留目标内容。 */
+  /** 验证项目设计支持、业务原型、用户选择与模块接口文档不进入候选，升级原样保留目标内容。 */
   test.each([
     [".agents/skills/design-taste-frontend", "SKILL.md"],
-    ["docs/prototypes", "settings/review.json"]
+    ["docs/prototypes", "settings/review.json"],
+    ["docs/api", "orders.md"]
   ])(
     "excludes protected content under %s from the upgrade projection",
     async (protectedRoot, filename) => {

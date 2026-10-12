@@ -55,6 +55,10 @@
       "mode": "managed"
     },
     {
+      "pattern": ".agents/skills/web-document-api/**",
+      "mode": "managed"
+    },
+    {
       "pattern": ".agents/skills/web-extract-i18n-strings/**",
       "mode": "managed"
     },
@@ -239,6 +243,10 @@
       "mode": "managed"
     },
     {
+      "pattern": "docs/API.md",
+      "mode": "merge-sections"
+    },
+    {
       "pattern": "docs/DATA_ACCESS.md",
       "mode": "merge-sections"
     },
@@ -371,6 +379,10 @@
     },
     {
       "pattern": "docs/prototypes/**",
+      "mode": "protected"
+    },
+    {
+      "pattern": "docs/api/**",
       "mode": "protected"
     },
     {

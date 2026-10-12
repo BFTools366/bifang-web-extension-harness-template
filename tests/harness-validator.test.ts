@@ -17,7 +17,7 @@ describe("Harness template validator", () => {
   test("accepts the complete clean template contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 report 变量供当前逻辑使用。
     const report = await validateHarness(repositoryRoot)
-    expect(report.skills).toHaveLength(22)
+    expect(report.skills).toHaveLength(23)
     expect(report.skills).toContain("web-implement-list-view")
     // 保存 verifyDelivery 变量供当前逻辑使用。
     const verifyDelivery = await readFile(
@@ -348,16 +348,19 @@ describe("Harness template validator", () => {
     )
   })
 
-  /** 验证 rejects a template missing the canonical data-access knowledge 场景。 */
-  test("rejects a template missing the canonical data-access knowledge", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 targetRoot 变量供当前逻辑使用。
-    const targetRoot = await copyRepository()
-    await rm(path.join(targetRoot, "docs/DATA_ACCESS.md"))
+  /** 验证源模板丢失完整基础契约或数据访问文档时失败关闭。 */
+  test.each(["docs/API.md", "docs/DATA_ACCESS.md"])(
+    "rejects missing foundation documentation %s",
+    async (relativePath) => {
+      // 保存 targetRoot 变量供当前逻辑使用。
+      const targetRoot = await copyRepository()
+      await rm(path.join(targetRoot, relativePath))
 
-    await expect(validateHarness(targetRoot)).rejects.toThrow(
-      /Missing required file: docs\/DATA_ACCESS\.md/
-    )
-  })
+      await expect(validateHarness(targetRoot)).rejects.toThrow(
+        "Missing required file: " + relativePath
+      )
+    }
+  )
 
   /** 验证 rejects a template missing the canonical Mantine UI guidelines 场景。 */
   test("rejects a template missing the canonical Mantine UI guidelines", /* 执行 当前声明 函数的处理逻辑。 */ async () => {

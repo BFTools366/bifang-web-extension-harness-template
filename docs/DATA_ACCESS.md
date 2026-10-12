@@ -1,4 +1,4 @@
-# 分页、数据访问与事件流集成技术选型
+# 数据层、存储与 API 职责
 
 本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成基于 Ky 的无业务 endpoint HTTP client、语言偏好、分页基础与非空测试；`ky` 是两种宿主共有的运行时依赖，不生成占位业务请求、登录页、列表页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
 
@@ -6,19 +6,76 @@
 
 ## 1. 选型结论
 
-| 能力                           | 默认选型                                                    | 何时改选                                                                                                           |
-| ------------------------------ | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| 统一集合分页                   | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态 | 真实接口使用 cursor/offset 时由域 service 映射；Web 路由列表按 §2.5 改用 Router 运行时 owner，但仍复用同一内部契约 |
-| 基础 HTTP                      | 生成的类型化 Ky HTTP client factory                         | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                 |
-| 无可靠 OpenAPI 契约的 REST     | 生成的 Ky HTTP 基础                                         | 统一复用请求上下文；已有必须保留的 Axios 生态或 Ky/Fetch 无法满足的能力才使用 `axios`                              |
-| 有可靠 OpenAPI 契约的 REST     | `openapi-typescript` + `openapi-fetch`                      | Schema 不完整、长期漂移或无法进入生成/类型检查门禁时使用生成的 Ky HTTP 基础，并在运行时校验响应                    |
-| 不需要规范化实体缓存的 GraphQL | `graphql-request` + `@graphql-codegen/client-preset`        | 只有明确需要跨查询实体归一化、Fragments 驱动缓存更新等能力时才选择 Apollo Client                                   |
-| 简单 SSE                       | 浏览器原生 `EventSource`                                    | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
-| Fetch 风格 SSE 备选            | `@microsoft/fetch-event-source`                             | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
-| 多来源持续事件编排             | RxJS（按需）                                                | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
-| 安全关键/外部响应的运行时校验  | `zod` 将 `unknown` 响应收窄为业务类型                       | 已有等价运行时校验器时复用；`openapi-fetch` 的静态类型本身不能验证运行时响应                                       |
+| 能力                          | 默认选型                                                     | 何时改选                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| 统一集合分页                  | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态  | 真实接口使用 cursor/offset 时由域 service 映射；Web 路由列表按 §2.5 改用 Router 运行时 owner，但仍复用同一内部契约 |
+| 基础 HTTP                     | 生成的类型化 Ky HTTP client factory                          | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                 |
+| 请求前缓存与有限查询状态      | `@tanstack/react-query`，REST / GraphQL 复用同一 QueryClient | feature 声明 key 与新鲜度，Ky 只负责实际传输；本地偏好和 IndexedDB 领域数据保持独立所有权                          |
+| 无可靠 OpenAPI 契约的 REST    | 生成的 Ky HTTP 基础                                          | 统一复用请求上下文；已有必须保留的 Axios 生态或 Ky/Fetch 无法满足的能力才使用 `axios`                              |
+| 有可靠 OpenAPI 契约的 REST    | `openapi-typescript` + 受管 Ky 领域 adapter                  | 已有可靠 `openapi-fetch` 消费者且迁移无收益时保留协议 adapter，不复制请求上下文；运行时仍校验外部响应              |
+| GraphQL 复杂查询              | `graphql-request` + `@graphql-codegen/client-preset` + Query | Apollo 会改变统一缓存所有权，仅在用户明确批准规范化缓存例外时采用                                                  |
+| 简单 SSE                      | 浏览器原生 `EventSource`                                     | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
+| Fetch 风格 SSE 备选           | `@microsoft/fetch-event-source`                              | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
+| 多来源持续事件编排            | RxJS（按需）                                                 | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
+| 安全关键/外部响应的运行时校验 | `zod` 将 `unknown` 响应收窄为业务类型                        | 已有等价运行时校验器时复用；`openapi-fetch` 的静态类型本身不能验证运行时响应                                       |
 
 Ky HTTP、分页和语言基础是生成项目的固定源码与测试，`ky` 声明在运行时 dependencies 中。OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
+
+### 1.1 统一数据层结构
+
+API 与存储统一归入 `src/data/` 数据层，包含数据契约、访问和持久化；它不是只放 interface 的“数据结构”目录。新生成项目使用以下结构，标为按需的部分仅在真实消费者出现时创建：
+
+```text
+src/data/
+  README.md
+  api/
+    README.md
+    client/                 # 已生成：Ky、认证上下文、错误与取消
+    <domain>/               # 按需：领域类型、REST、远端 API Mock 与响应映射
+    graphql/                # 按需：复杂查询、Codegen 文档与订阅 adapter
+  storage/
+    README.md
+    webStorage.ts           # 已生成：LocalStorage / SessionStorage 原生入口
+    webStorage.test.ts
+    colorScheme.ts          # 已生成：Mantine 外观偏好适配
+    cookie/                 # 按需：非 HttpOnly Cookie 的领域访问
+    memory/                 # 按需：当前执行上下文的领域内存仓库
+    indexeddb/              # 按需：Dexie 数据库、表与版本迁移
+```
+
+- `i18n/` 保留语言规范化、运行时切换与翻译资源；`pagination/` 保留分页状态机、hook 和控件；浏览器 Storage 访问通过 `data/storage/webStorage.ts`。外观偏好在 `data/storage/colorScheme.ts` 复用 Mantine manager，不重写其订阅和异常处理。
+- `features/` 拥有 Query key、缓存策略、交互编排与事件投影，调用数据层的领域函数。数据层不反向依赖 feature/route，不建立万能 repository、第二套 `services/` 或自动同步所有存储的总线。
+- 同一业务域的 REST、GraphQL 查询与 Mock 使用明确操作名和同一领域模型；传输 adapter 与生成文档放 `data/api/graphql/`，避免因协议不同复制两份业务判断。
+- 此结构适用于新生成项目。既有下游的 `src/**` 仍受升级保护，不能通过 ownership 规则自动搬迁产品源码；迁移需在对应下游授权范围内同步 imports、消费者与测试，保留原有 Storage key、格式和权限，再更新依赖该结构的 validator。
+
+### 1.2 REST 与 GraphQL 分工
+
+| 场景                                                        | 责任                 | 传输与状态                                                                        |
+| ----------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------- |
+| 常规详情/列表、创建/修改/删除、登录登出、上传及主要业务动作 | REST 为主入口        | 受管 Ky client；Query 管读取与 mutation 缓存生命周期                              |
+| 多实体关联、聚合、按需字段裁剪等复杂读取                    | GraphQL Query        | `graphql-request` + Codegen，HTTP adapter 复用受管 Ky 请求上下文                  |
+| 服务端向客户端连续推送数据变化                              | GraphQL Subscription | 按服务端协议选 `graphql-ws` 或 `graphql-sse`；feature 管订阅生命周期和 Query 投影 |
+
+默认写操作全部走 REST，不为同一业务动作再建立 GraphQL Mutation。已有服务只能提供 Mutation 时，按明确的真实契约记录例外、幂等和缓存所有者，不能悄悄改变默认分工。复杂查询的传输 POST 不代表业务写入，其安全重试必须按 operation 语义判断。REST 读取和 GraphQL 查询访问相同实体时，feature 明确缓存键、失效与投影关系，避免维护无法对账的副本。
+
+推送指客户端主动订阅后的服务端事件，不等同于浏览器 Push API、离线通知或自动双向同步。GraphQL 本身不提供传输实现：Ky 处理 HTTP，不承担 WebSocket；`graphql-request` 处理有限请求，不承担长期订阅。服务端没有 Subscription schema 与协议时，不能从查询接口推断支持推送。当前 [`API.md`](API.md) 的参考契约只定义只读 GraphQL 查询，没有订阅契约；采用时须保持这项事实。
+
+### 1.3 存储机制与选型
+
+| 机制           | 默认实现                                                | 职责与生命周期                                                                                                           |
+| -------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Cookie         | 浏览器/服务端原生机制；复杂非敏感操作按需用 `js-cookie` | 需要随请求发送的少量状态；声明 path/domain、Secure、SameSite 与期限，认证 HttpOnly Cookie 只能由服务端设置，前端不能读取 |
+| LocalStorage   | 原生 Storage，经 `getWebStorage("local")`               | 语言、外观等少量非敏感持久偏好；同步字符串键值，按 origin 隔离                                                           |
+| SessionStorage | 原生 Storage，经 `getWebStorage("session")`             | 当前标签页会话恢复；同步字符串键值，按 origin 与标签页隔离                                                               |
+| Memory         | 模块闭包、Map 或现有 Query/Jotai 状态所有者             | 当前执行上下文临时状态，页面/Worker 销毁即丢失；不能冒充持久或跨上下文共享存储                                           |
+| IndexedDB      | `dexie`                                                 | 大量结构化本地数据、索引、事务与显式版本迁移；按真实领域定义 schema，异步读取                                            |
+
+Dexie 只封装 IndexedDB，不能替换 Cookie、LocalStorage 或 SessionStorage，也不自动把它们迁入数据库。当前已有同步偏好访问不需要额外存储库；不为统一接口引入会隐藏后端或生命周期变化的透明 fallback。IndexedDB 是默认采用 Dexie 的场景；只有确需更薄的原生 Promise 封装且不需要 Dexie 查询/迁移能力时，才评估 `idb` 并记录具体理由。
+
+- 现有语言、外观、分页键和 payload 保持不变；所有存储读入仍是未知数据，领域边界负责版本/形状校验。浏览器拒绝访问、损坏内容与容量失败不能阻断非关键偏好交互；持久写入失败不得报告“已保存”。
+- HTTP Token/continuation 仍只保存在 `data/api/client/` 的单个会话闭包，不因为归类到数据层而复制到通用 Memory 仓库，更不能写入 Cookie、LocalStorage、SessionStorage 或 IndexedDB。真实 HttpOnly Cookie 认证属于另行确认的服务端认证契约，不是把当前 Token 持久化。
+- Dexie 依赖只在真实 IndexedDB 消费者出现时声明并固定 lockfile；初始化不生成空表、离线队列、Cookie 策略或占位 repository。迁移需覆盖升级失败/事务回滚、blocked/versionchange、多连接与数据 scope 清理；本地结构化数据不自动成为服务器 Query 缓存的第二权威。
+- Extension service worker 没有 Window/DOM，不能使用 Web Storage 或 `document.cookie`；IndexedDB/Memory 的可用性和生命周期按实际上下文核对。跨上下文或浏览器同步使用受控 `chrome.storage`/消息 adapter，权限和 Chrome/Firefox 差异仍需对应评审，统一目录不授予权限。
 
 ## 2. 共同边界与统一分页
 
@@ -82,29 +139,50 @@ Ky HTTP、分页和语言基础是生成项目的固定源码与测试，`ky` �
 - mutation 成功后，根据已校验返回值更新精确 Query key，或失效受影响的详情、列表和统计；禁止无理由清空全部缓存。需要等待刷新才能完成当前动作时，返回或等待失效 Promise；服务端写入成功但后续读取失败必须分别反馈，不能诱导用户再次提交。
 - 乐观更新只在真实交互需要时开启：取消冲突查询、保存可回滚快照、受控更新、失败恢复并最终对账；并发 mutation 不能用旧快照覆盖后来已经成功的修改。
 - 认证会话或数据 scope 改变时，先取消相关请求，再移除属于旧 scope 的私有缓存；key 不包含 Token。迟到响应不能回填新 scope，新的凭据与 Query 会话隔离由真实认证 feature 共同完成。
-- Router loader 若预取远端数据，复用 feature 的 Query options 与同一 QueryClient，通过 `ensureQueryData` 等入口准备缓存；组件订阅该缓存，不在 Router/Jotai 建立第二份服务器数据。Query 的取消 signal 传到受管 client。
+- Router loader 若准备远端数据，复用 feature 的 Query options 与同一 QueryClient，按 §2.7 的新鲜度语义读取；组件订阅该缓存，不在 Router/Jotai 建立第二份服务器数据。Query 的取消 signal 传到受管 client。
 
 首次真实读写功能的非空测试覆盖适用的成功、不可重试失败、重试上限、取消、提交防重、精确缓存更新/失效；启用乐观更新或认证 scope 时，额外验证回滚、并发与迟到响应。表单交互由 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §5.2 定义；这些规则不生成业务 endpoint 或占位表单。
 
+### 2.7 请求前缓存统一由 TanStack Query 处理
+
+React 项目使用已声明的 `@tanstack/react-query`。REST 读取与 GraphQL 有限查询的应用缓存命中、同 key 在途读取去重、新鲜度判断和失效刷新，统一由当前执行上下文的 QueryClient 处理；Ky、`applicationHttp` 和协议 adapter 不再建立 Map、Storage 或其他请求结果缓存。请求链为：feature Query options → QueryClient 检查缓存 → 缺失/过期时调用领域 API → Ky 传输 → 解析与校验 → Query 缓存领域数据。
+
+- feature 用 `queryOptions` 集中声明 `queryKey`、`queryFn` 和 `staleTime`；组件 `useQuery` / `useSuspenseQuery`、loader 与命令式读取复用这组 options 和同一 QueryClient。Web 从 `app/queryClient.ts` 导入，Extension 从 `providers.tsx` 导入，不能在页面、hook 或 loader 中另建实例。
+- 当前固定版本的命令式入口为 `queryClient.query(options)`：未失效且处于 `staleTime` 内时返回缓存，缺失或过期时等待请求。同 key 的在途有限读取共享请求；mutation 不具有这种缓存命中或自动提交防重语义。
+- 默认 `staleTime: 0` 表示结果立即过期，不等于关闭缓存；`gcTime` 只决定无 observer 后保留多久，不能充当新鲜度。按领域确定时效，不能为展示命中而给所有请求统一长 TTL。显式 `refetch`、轮询或失效仍按各自语义执行。
+- 既有 `fetchQuery` 仍可兼容相同的新鲜度读取，但当前固定版本已标记弃用。`ensureQueryData` 默认有缓存就返回，即使已过期；`revalidateIfStale: true` 只在后台刷新。只有明确允许旧值优先时才采用该语义，不能将其当作等待最新数据的门禁。
+- 预取复用同组 options 与同一实例，当前版本可提前调用 `queryClient.query(options)` 并处理 Promise；组件随后消费同一缓存。现有 QueryCache 仍反馈最终失败，吞掉 Promise 不会关闭全局反馈；需要无提示的可选预取时，先定义并验证其与实际读取的错误归属。Router 预加载应让 Query 决定新鲜度，例如对应路由设置 `staleTime: 0`、`preloadStaleTime: 0`，loader 不返回远端结果副本。
+- Query 缓存解析、运行时校验后的领域结果；不缓存 `Response`、Stream 或可消耗的 body。key 覆盖 target、操作/数据形状、参数、语言与非敏感会话 scope，不放 Token。REST 与 GraphQL 只有形状和语义都一致才共用 key；同一 QueryClient 不等于不同操作强行共用 key。
+- REST 写操作使用 mutation，成功后精确更新/失效读取缓存；GraphQL Subscription 连接由 feature 管理，校验事件后投影到这份缓存。LocalStorage 偏好、SessionStorage 恢复和 Dexie 本地领域数据仍按 §1.3 访问，不自动变成 Query 结果的持久副本；浏览器 HTTP 缓存仍遵守 §3.4。
+- Extension 每个 Popup、Options、content script 或 Worker 执行上下文拥有独立内存和生命周期；统一缓存策略不承诺跨上下文共享、重开 Popup 或 Worker 回收后恢复。跨上下文需求按真实消息/Storage 合同另行设计。
+
+生成回归在两种宿主的实际 QueryClient 与 Ky 上证明：fresh 命中不再传输、同 key 并发去重、组件复用预先读取的领域数据、过期/失效后重新读取，以及语言/scope 隔离。真实业务继续按 §2.6 覆盖 mutation 与订阅投影。
+
 ## 3. HTTP、认证与 REST/OpenAPI
+
+[`API.md`](API.md) 完整收录可选的基础服务契约与数据模型，当前整体保留，后续按实际需求拆解。其 Bearer 鉴权、请求追踪、响应 envelope 与 GraphQL 语义须按该文档的适配边界另行确认；文档收录不表示现有 client 已接通，也不替换本文的默认工程规则。
 
 ### 3.1 生成的 Ky HTTP 基础
 
-两种宿主都生成 `src/api/client/` 的类型化 Ky HTTP client、错误分类、本地化界面和非空测试。`applicationHttp` 是当前执行上下文的惰性会话 owner；静态页面可在 BaseURL 留空时启动，首次真实操作才校验配置。真实 feature 与 Router loader 复用该实例；测试或受控 adapter 才按需使用 factory。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
+两种宿主都生成 `src/data/api/client/` 的类型化 Ky HTTP client、错误分类、本地化界面和非空测试。`applicationHttp` 是当前执行上下文的惰性会话 owner；静态页面可在 BaseURL 留空时启动，首次真实操作才校验配置。真实 feature 与 Router loader 复用该实例；测试或受控 adapter 才按需使用 factory。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
 
-#### 未配置 BaseURL 的 API Mock
+#### 未配置远端地址时的能力分工
 
-当前环境的对应服务 BaseURL 未配置时，所有需要该服务的数据均由 `src/api/<domain>/` 中的类型化异步 API 函数以 Mock 形式提供。Mock 数据、读取、写入及必要的筛选、排序和分页语义集中在 API 层；React 组件、route、feature hook 和 Query 只消费这些函数，不内嵌业务样例数据或各自建立 Mock 分支。Query 继续拥有异步服务结果与缓存，Jotai、Storage 和 UI 不成为第二份服务数据源。
+未配置远端地址时，只有依赖该远端 API 的操作使用 Mock；本地能力直接真实实现，不要求 BaseURL。先按操作识别真实依赖，不能把整个功能或所有数据一律归为远端服务：
 
-Mock 应覆盖当前功能的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不伪造 Token、continuation 或网络成功证据。初始化仍只生成中性 HTTP 基础；没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
+- 远端 API：当前环境的对应服务 BaseURL 未配置时，由 `src/data/api/<domain>/` 中的类型化异步 API 函数提供 Mock。Mock 数据、读取、写入及必要的筛选、排序和分页语义集中在 API 层；React 组件、route、feature hook 和 Query 只消费这些函数，不内嵌业务样例数据或各自建立 Mock 分支。Query 继续拥有远端异步服务结果与缓存，Jotai、Storage 和 UI 不成为第二份服务数据源。
+- 本地能力：计算、转换、浏览器存储与本地数据操作按真实需求直接实现。纯业务逻辑留在对应 feature，存储访问通过 `src/data/storage/`，真实读取、写入、校验与失败处理不能替换为 Mock；不为本地操作包装假 HTTP 请求、等待远端配置或创建占位 endpoint。
+- 混合流程：本地部分照常执行，仅隔离缺少地址的远端 API 边界。一个远端服务未配置，不影响独立的本地能力或已配置的其他服务；Mock 结果不能冒充真实远端响应或本地已保存数据。
+
+Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不伪造 Token、continuation 或网络成功证据。初始化仍只生成中性工程基础；没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
 
 #### 用户要求真实联网后的迁移
 
 已初始化下游通过 `$web-connect-http-service` 执行本节工作流；实施与列表 Skill 按真实接入事件委托，数据契约仍以本文件为唯一来源。
 
-1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 收集缺失的各环境、各实际服务 BaseURL；初始化或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
+1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 收集缺失的各环境、各实际远端服务 BaseURL；初始化、本地能力开发或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
 2. 确认当前功能需要的 endpoint 路径、方法、输入/响应与认证契约；缺失时询问，不从 BaseURL 猜测接口。校验配置后，把对应 API 函数的 Mock 实现替换为真实 HTTP 请求，复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误与认证边界。UI 和 Query 保持相同的领域契约，外部响应与分页字段在 API 层校验、映射。
-3. 按环境和服务逐项完成迁移；尚未配置的服务继续通过其 API Mock 提供数据，明确报告剩余范围。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。
+3. 按环境和远端服务逐项完成迁移；尚未配置的远端 API 继续通过其 API Mock 提供数据，明确报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。
 4. 配置变更按冻结 `APP_CONFIG` 的加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，避免样例数据残留或迟到响应覆盖真实结果。测试至少证明 Mock 路径零网络调用、真实请求成功及最高风险失败不回落 Mock；真实服务、CORS、权限或浏览器未验证时如实报告，不把 Mock 测试写成联网通过。
 
 取消与超时覆盖 Fetch、异步 credential extractor 及 401 handler 等待阶段。即使 adapter 不响应 AbortSignal 或 extractor 挂起，外层 request 也必须及时以首次终止原因拒绝，清理计时器与监听器；迟到的成功或失败均不更新 Token/continuation。它不能强制停止任意自定义提取器内部副作用，提取器仍应只负责读取并返回结果。
@@ -117,7 +195,7 @@ Mock 应覆盖当前功能的完整可观察行为，不能用恒定成功、空
 - Request context/session：语言、continuation、Token、单调 dispatch sequence 和 Token revision；不依赖 React route。
 - `UnauthorizedHandler`：运行时默认呈现认证失效；真实登录存在后，组合层通过 `configureUnauthorizedHandler` 注入受控导航。client 不导入 Router、`window.location` 或 Chrome 导航 API。
 - UI 组合层：`httpErrors` 只输出固定本地化键、分类和恢复能力，`HttpErrorView` 处理局部/路由失败，根 Provider 的 `HttpFeedback` 处理直接请求和最终 Query/mutation 失败。
-- API domain：拥有类型化数据函数、未配置 BaseURL 时的 Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。
+- API domain：拥有类型化远端数据函数、未配置对应 BaseURL 时的远端 API Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。本地业务逻辑与真实存储访问按前述分工实现，不伪装成未接入的远端 API。
 
 ### 3.2 三个标准 header 与语言
 
@@ -169,9 +247,9 @@ Ky 基于 Fetch API，采用 MIT 许可证，无额外运行时依赖，作为 W
 
 Ky 使用浏览器 Fetch，不改变 CORS、Extension 权限或后台生命周期。Chrome MV3 service worker 与 Firefox MV2 后台页沿用相同客户端接口；content script 的跨域差异按 §3.4 处理。新增 hooks、JSON helper 或域实例必须复用请求上下文，不能建立任意绝对 URL 客户端，也不能再次引入认证或重试状态机。
 
-### 3.6 有 OpenAPI 时优先 openapi-fetch
+### 3.6 OpenAPI 类型与 Ky adapter
 
-当团队拥有可信且会随实现同步的 OpenAPI 3 Schema 时，使用 `openapi-typescript` 生成 `paths` 类型，再由 `openapi-fetch` 提供类型化 method/path/params/body/response。每个独立服务或不兼容版本拥有自己的 schema 输入、生成目录和 client registry 条目。
+当团队拥有可信且会随实现同步的 OpenAPI 3 Schema 时，使用 `openapi-typescript` 生成 `paths` 类型，在领域 adapter 中约束 method/path/params/body/response，网络继续走受管 Ky client。每个独立服务或不兼容版本拥有自己的 schema 输入、生成目录和 client registry 条目。已有 `openapi-fetch` 消费者可按实际收益保留，不为了新增 Schema 替换默认 Ky 传输。
 
 - Schema 或 operation 变化后必须重新生成并运行 `pnpm typecheck`；生成目录不手工编辑。
 - Token/continuation 获取、语言、并发 revision、401、错误归一化、取消和观测规则与生成的 HTTP 请求上下文相同，通过 `openapi-fetch` middleware 或清晰的外层 service 复用。
@@ -186,9 +264,9 @@ Axios 不是新项目默认值。只有现有业务已经依赖其 interceptors�
 
 ### 4.1 默认组合
 
-在不需要规范化实体缓存时，使用 `graphql-request` 发起最小 GraphQL 请求，并使用 GraphQL Code Generator 的 `client` preset 生成 `TypedDocumentNode`/类型化文档。运行时依赖通常包括 `graphql` 与 `graphql-request`，生成期依赖包括 `@graphql-codegen/cli` 和 `@graphql-codegen/client-preset`；只有首次真实 GraphQL 功能落地时才安装。
+默认使用 `graphql-request` 发起最小 GraphQL 请求，并使用 GraphQL Code Generator 的 `client` preset 生成 `TypedDocumentNode`/类型化文档；请求前缓存统一归 TanStack Query。运行时依赖通常包括 `graphql` 与 `graphql-request`，生成期依赖包括 `@graphql-codegen/cli` 和 `@graphql-codegen/client-preset`；只有首次真实 GraphQL 功能落地时才安装。
 
-- GraphQL operation 在 feature 层交给 TanStack Query 管理查询、mutation、取消与失效；`queryFn` 将 `AbortSignal` 传到实际请求，不建立另一份全局 GraphQL 缓存。
+- GraphQL Query 在 feature 层交给 TanStack Query 管理查询、取消与失效；写操作默认走 REST。`queryFn` 将 `AbortSignal` 传到实际请求，不建立另一份全局 GraphQL 缓存；长期 Subscription 不放入永不完成的 `queryFn`。
 - 为 `graphql-request` 注入受管 custom Fetch adapter。adapter 先将其 URL/Request 输入与当前编译期 target registry 核对，映射到生成 HTTP client 接受的相对路径，再复用三个 header、超时、Token revision、401 single-flight、错误归一化与日志脱敏。直接调用未受管的全局 `fetch` 会绕开这条边界。
 - Codegen 文档提供静态类型；GraphQL `errors`、`data`、安全关键字段与外部响应仍需按真实 schema 和信任边界做运行时校验。
 
@@ -200,17 +278,26 @@ Axios 不是新项目默认值。只有现有业务已经依赖其 interceptors�
 - 业务调用传 target，不传任意 URL；registry 初始化时校验 URL，Extension 还要校验它与已批准的最小 `host_permissions` 一致。
 - 每个不同 GraphQL schema 使用独立的 Codegen `generates` 输出目录。不能把 A schema 生成的 operation/type 发往 B endpoint。
 - 同一 schema 的多个环境或副本可以复用生成类型，但运行时 target 仍必须显式，认证 headers 在每次请求时动态获取。
-- 若接入 TanStack Query，`queryKey` 至少包含 GraphQL target、operation 标识和影响结果的 variables；否则不同服务的相同 operation 会污染缓存。
+- TanStack Query 的 `queryKey` 至少包含 GraphQL target、operation 标识和影响结果的 variables、语言与非敏感 scope；否则不同服务或会话的相同 operation 会污染缓存。
 
 ### 4.3 “不需要缓存”的含义
 
-- 真正不保留结果时，直接调用 `graphql-request`，由组件或 feature service 管理一次性 pending/error/result 生命周期。
+- 真正不保留结果的一次性读取，只有 feature 明确声明此例外后才直接调用受管 `graphql-request` adapter，并管理 pending/error/result 生命周期；这条路径不承诺 Query 的缓存命中或去重，普通有限查询仍遵循 §2.7。
 - 仍想复用 TanStack Query 的取消、错误状态或去重时，可以设置 `gcTime: 0` 并按业务设置 `staleTime`/`retry`；这只会在 query 失去最后一个 observer 后尽快回收，活跃 observer 仍会持有当前结果，不能宣称为绝对零缓存。
 - GraphQL errors 与 HTTP/network errors 分开归一化；是否接受 partial data 必须显式决定，不能静默吞掉 `errors`。
 
 ### 4.4 何时选择 Apollo Client
 
-只有产品明确需要规范化实体缓存、跨 operation 的 entity 更新、复杂 fragment/cache policy、Apollo Link 生态或 Apollo 本地状态时选择 Apollo Client。若采用 Apollo，它独占该 GraphQL 数据的缓存；TanStack Query 继续管理 REST 或其他异步数据，不对同一 GraphQL operation 再包一层 Query 缓存。
+Apollo 不属于当前统一缓存默认组合。只有真实需求证明 Query 无法满足的规范化实体缓存或 fragment/cache policy 能力，且用户明确批准改变统一缓存策略时才采用；记录消费者、所有权和退出条件。该例外下 Apollo 独占对应 GraphQL 数据的缓存，TanStack Query 继续管理 REST 或其他异步数据，不对同一 GraphQL operation 再包一层 Query 缓存，也不宣称全部请求缓存仍由 Query 统一。
+
+### 4.5 Subscription 推送
+
+- 先确认真实 Subscription schema、endpoint、认证握手、事件字段与版本/恢复契约。WebSocket 使用 `graphql-ws` 的 `graphql-transport-ws` 协议；服务端采用 GraphQL over SSE 时使用 `graphql-sse`。旧 `subscriptions-transport-ws` 的 `graphql-ws` 子协议与前者不同，不可混用，也不同时安装两个无消费者的 client。
+- 浏览器 WebSocket 不能任意设置 HTTP headers；不得声称 Ky 的三个 header 拦截器会自动作用于握手。按服务端已批准协议将动态认证信息送入 `connectionParams`，或采用明确 Cookie 策略；不把 Token 放入 URL/日志，不擅自将 continuation 作为认证信息。
+- 订阅 adapter 放在 `data/api/graphql/`，只暴露类型化事件和幂等 dispose/取消；feature hook/service 拥有启停、连接状态、重连上限、退避与 jitter。在卸载、target/scope 变更、登出、权限撤销和认证 revision 变化时关闭旧连接，拒绝旧会话迟到事件；重连与认证失败只有一个 owner，401/403 或确定性协议错误不能无限重试。
+- 外部事件先做运行时校验，再按 eventId/实体版本拒绝重复与乱序。只有完整且可判定更新的事件才能 `setQueryData`，其他事件只失效精确 Query。初始快照与订阅之间的窗口通过服务端 cursor/sequence、缓冲对账或重取快照解决，不能假定连接后绝不漏事件。
+- 两种 Extension 后台生命周期差异继续适用：不承诺 MV3 service worker 永久保持连接；跨 Popup/Options/后台的共享推送须先定义唯一连接所有者、消息与恢复策略。
+- 首次真实接入测试成功推送、partial/error payload、取消与最后一个消费者退出、重复/乱序、断线恢复、认证轮换和晚到事件；WebSocket 或 SSE 必须验证与服务端协议匹配，Mock 订阅不证明真实推送可达。
 
 ## 5. Server-Sent Events
 
@@ -283,6 +370,13 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 ## 8. 官方参考
 
 - [Ky](https://github.com/sindresorhus/ky)
+- [Dexie：IndexedDB 文档](https://dexie.org/docs/)
+- [MDN：Web Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
+- [js-cookie](https://github.com/js-cookie/js-cookie)
+- [idb](https://github.com/jakearchibald/idb)
+- [GraphQL Subscriptions](https://graphql.org/learn/subscriptions/)
+- [graphql-ws](https://the-guild.dev/graphql/ws)
+- [graphql-sse](https://the-guild.dev/graphql/sse)
 - [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)
 - [graphql-request](https://github.com/graffle-js/graffle/tree/graphql-request)
 - [GraphQL Code Generator client preset](https://the-guild.dev/graphql/codegen/plugins/presets/preset-client)
@@ -296,6 +390,8 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 - [RxJS overview](https://rxjs.dev/guide/overview)
 - [RxJS `share`](https://rxjs.dev/api/operators/share)
 - [TanStack Query important defaults](https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults)
+- [TanStack QueryClient：命令式缓存读取](https://tanstack.com/query/latest/docs/framework/react/reference/classes/QueryClient)
+- [TanStack Query options：共享查询定义](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
 - [TanStack Query query cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation)
 - [TanStack Query bounded retries](https://tanstack.com/query/latest/docs/framework/react/guides/query-retries)
 - [TanStack Router external data loading and Query error reset](https://tanstack.com/router/latest/docs/guide/external-data-loading)

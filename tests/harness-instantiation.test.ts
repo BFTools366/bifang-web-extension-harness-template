@@ -30,7 +30,7 @@ import {
 
 /** 验证 minimal public instantiation inputs 的完整回归场景。 */
 describe("minimal public instantiation inputs", () => {
-  /** 验证公开入口仅凭五项基础信息即可生成两种宿主，未提供地址保持空值。 */
+  /** 验证公开入口凭基础信息与宿主条件选择生成项目，未提供地址保持空值。 */
   test.each(["web", "extension"] as const)(
     "creates %s with only required public inputs",
     async (projectType) => {
@@ -42,6 +42,7 @@ describe("minimal public instantiation inputs", () => {
           targetRoot,
           "--type",
           projectType,
+          ...(projectType === "web" ? ["--web-type", "tool-site"] : []),
           "--name",
           "Minimal Project",
           "--id",
@@ -62,6 +63,10 @@ describe("minimal public instantiation inputs", () => {
         }
       )
       expect(config.description).toBe("Minimal Project")
+      const apiContract = await readFile(path.join(repositoryRoot, "docs/API.md"), "utf8")
+      expect(await readFile(path.join(targetRoot, "docs/API.md"), "utf8")).toBe(apiContract)
+      expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")
+      expect(await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")).toContain("docs/API.md")
       const prefix = projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
       for (const filename of [".env.development", ".env.test", ".env.production"]) {
         expect(await readFile(path.join(targetRoot, filename), "utf8")).toContain(

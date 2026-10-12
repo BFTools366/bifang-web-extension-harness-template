@@ -12,6 +12,7 @@ const EXPECTED_COMMON_TERMINAL_SKILLS = [
   "web-connect-http-service",
   "web-define-product",
   "web-design-prototype",
+  "web-document-api",
   "web-extract-i18n-strings",
   "web-implement-change",
   "web-plan-change",

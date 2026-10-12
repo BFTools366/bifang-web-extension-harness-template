@@ -10,7 +10,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 ## 收集输入
 
 1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。首轮用一份编号表单批量收集全部尚未明确的基础字段：唯一项目类型、展示名称、跨平台安全的 ASCII kebab-case 项目标识、源 Harness 之外的完整绝对目标目录和中文策略模式“预设/自定义”；只重问缺失或非法项。非交互命令必须把绝对目标作为位置参数；交互式终端未给位置参数时，把目标与其他缺失字段并入同一首轮。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型在首轮才明确时进入条件补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
-2. 要求用户明确选择且只能选择一种项目类型：`web` 或 `extension`。不得默认、推断、同时选择或保留稍后转换类型的入口。
+2. 要求用户明确选择且只能选择一种项目类型：`web` 或 `extension`。不得默认、推断、同时选择或保留稍后转换类型的入口。选择 Web 后必须让用户选择 Web 类型：1.工具站点（`tool-site`，沿用现有逻辑）；2.SaaS客户端（`saas-client`）；3.SaaS大后台（`saas-admin`）。Web 类型没有默认值，不能从产品描述推断；已明确的合法选择直接复用，尚未提供时条件补问。两个 SaaS 选项只预留，流程暂未开放：选中后明确说明并结束本次创建，不继续 Logo、环境检查、复制、安装或 Git 初始化，不替用户改选工具站点，也不收集 SaaS 具体流程。Extension 不询问或接受 Web 类型。
 3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式此后每轮只询问一个仍缺失的策略字段，用户在一次回答中主动提供的多个合法值全部复用。按用户选择记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
@@ -44,7 +44,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
      --name "<display-name>" --id <project-id> --policy-mode <预设|自定义>
    ```
 
-   自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
+   Web 必须额外传入 `--web-type tool-site`，Extension 不传该参数；`saas-client` 和 `saas-admin` 仅用于表达预留选项，当前命令会在写入前报告流程暂未开放。自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
    交互模式先批量解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
 

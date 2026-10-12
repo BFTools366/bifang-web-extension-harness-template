@@ -16,21 +16,21 @@ export function httpFiles(config: ProjectConfig): Map<string, string> {
   return new Map([
     ["src/i18n/language.ts", languageSource()],
     ["src/i18n/language.test.ts", languageTest(config)],
-    ["src/api/client/httpClient.ts", HTTP_CLIENT_SOURCE],
-    ["src/api/client/httpContracts.ts", HTTP_CONTRACTS_SOURCE],
-    ["src/api/client/httpProtocol.ts", HTTP_PROTOCOL_SOURCE],
-    ["src/api/client/httpClient.test.ts", HTTP_CLIENT_TEST],
-    ["src/api/client/httpTransport.test.ts", HTTP_TRANSPORT_TEST],
-    ["src/api/client/httpTestFixtures.ts", HTTP_TEST_FIXTURES],
-    ["src/api/client/httpInterception.test.ts", HTTP_AUTH_TEST],
-    ["src/api/client/httpUi.test.tsx", httpUiTest(config.projectType)],
-    ["src/api/client/httpErrors.ts", HTTP_ERRORS_SOURCE],
-    ["src/api/client/httpFeedback.ts", HTTP_FEEDBACK_SOURCE],
-    ["src/api/client/httpRuntime.ts", HTTP_RUNTIME_SOURCE],
-    ["src/api/client/HttpErrorView.tsx", HTTP_ERROR_VIEW_SOURCE],
+    ["src/data/api/client/httpClient.ts", HTTP_CLIENT_SOURCE],
+    ["src/data/api/client/httpContracts.ts", HTTP_CONTRACTS_SOURCE],
+    ["src/data/api/client/httpProtocol.ts", HTTP_PROTOCOL_SOURCE],
+    ["src/data/api/client/httpClient.test.ts", HTTP_CLIENT_TEST],
+    ["src/data/api/client/httpTransport.test.ts", HTTP_TRANSPORT_TEST],
+    ["src/data/api/client/httpTestFixtures.ts", HTTP_TEST_FIXTURES],
+    ["src/data/api/client/httpInterception.test.ts", HTTP_AUTH_TEST],
+    ["src/data/api/client/httpUi.test.tsx", httpUiTest(config.projectType)],
+    ["src/data/api/client/httpErrors.ts", HTTP_ERRORS_SOURCE],
+    ["src/data/api/client/httpFeedback.ts", HTTP_FEEDBACK_SOURCE],
+    ["src/data/api/client/httpRuntime.ts", HTTP_RUNTIME_SOURCE],
+    ["src/data/api/client/HttpErrorView.tsx", HTTP_ERROR_VIEW_SOURCE],
     ...(config.projectType === "extension"
       ? [
-          ["src/api/client/ExtensionRouteErrorPage.tsx", EXTENSION_HTTP_ROUTE_SOURCE] as [
+          ["src/data/api/client/ExtensionRouteErrorPage.tsx", EXTENSION_HTTP_ROUTE_SOURCE] as [
             string,
             string
           ]

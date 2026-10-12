@@ -6,7 +6,10 @@ import { rejectInPlaceInitialization } from "./init.ts"
 import {
   isInteractiveTerminal,
   parsePolicyMode,
+  assertWebCreationAvailable,
+  parseWebCreationType,
   promptForIdentity,
+  type WebCreationType,
   type PromptDefaults,
   type PromptedIdentity
 } from "./prompts.ts"
@@ -18,6 +21,7 @@ import { isMainModule } from "./files.ts"
 // 保存 INIT_OPTIONS 变量供当前逻辑使用。
 const INIT_OPTIONS = [
   "type",
+  "web-type",
   "name",
   "id",
   "description",
@@ -42,6 +46,7 @@ function usage(): string {
 
 Project creation (the target must be outside this Harness repository):
   pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
+    [--web-type tool-site|saas-client|saas-admin (required for web)] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
     [--description <description> (required for extension)] [--identity-i18n <json>] \\
@@ -55,6 +60,7 @@ Maintenance commands:
   pnpm harness validate
 
 In-place initialization is forbidden. Project creation requires exactly one type.
+Web 类型：1.工具站点（现有流程）；2.SaaS客户端、3.SaaS大后台（选项预留，流程暂未开放）。
 `
 }
 
@@ -138,7 +144,7 @@ export async function resolveInitOptions(
   args: ParsedArgs,
   root: string,
   runtime: InitOptionsResolutionRuntime = {}
-): Promise<InitOptions> {
+): Promise<InitOptions & { webType?: WebCreationType }> {
   assertKnownOptions(args, INIT_OPTIONS)
   // 保存 interactive 变量供当前逻辑使用。
   const interactive = runtime.interactive ?? isInteractiveTerminal()
@@ -148,6 +154,7 @@ export async function resolveInitOptions(
   const supplied = {
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
+    webType: readStringOption(args, "web-type"),
     name: readStringOption(args, "name"),
     id: readStringOption(args, "id"),
     description: readStringOption(args, "description", true),
@@ -168,6 +175,7 @@ export async function resolveInitOptions(
   const required = [
     ["<absolute-target>", supplied.targetRoot],
     ["--type", supplied.projectType],
+    ...(supplied.projectType === "web" ? [["--web-type", supplied.webType] as const] : []),
     ["--name", supplied.name],
     ["--id", supplied.id],
     ["--policy-mode", supplied.policyMode]
@@ -189,6 +197,9 @@ export async function resolveInitOptions(
     )
   }
 
+  if (identity.projectType === undefined) throw new Error("Project type is required")
+  assertProjectType(identity.projectType)
+  assertWebCreationAvailable(identity.projectType, identity.webType)
   const agentPolicy =
     "agentPolicy" in identity && identity.agentPolicy !== undefined
       ? identity.agentPolicy
@@ -196,14 +207,14 @@ export async function resolveInitOptions(
   runtime.onPolicyModeResolved?.(parsePolicyMode(identity.policyMode ?? ""))
   if ("inputSources" in identity) runtime.onInputSourcesResolved?.(identity.inputSources)
 
-  if (identity.projectType === undefined) throw new Error("Project type is required")
-  assertProjectType(identity.projectType)
   if (identity.projectType === "extension" && !identity.description?.trim()) {
     throw new Error("Extension project description is required (--description)")
   }
   return {
     root: identity.targetRoot ?? root,
     projectType: identity.projectType,
+    webType:
+      identity.projectType === "web" ? parseWebCreationType(identity.webType ?? "") : undefined,
     name: identity.name ?? "",
     id: identity.id ?? "",
     description: identity.description?.trim() || identity.name?.trim() || "",

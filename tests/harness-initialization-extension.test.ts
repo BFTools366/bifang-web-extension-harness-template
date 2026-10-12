@@ -44,8 +44,11 @@ describe("terminal dual-browser Extension initialization", () => {
     // 保存 language 变量供当前逻辑使用。
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
     // 保存 httpClient 变量供当前逻辑使用。
-    const httpClient = await readFile(path.join(root, "src/api/client/httpClient.ts"), "utf8")
-    const httpContracts = await readFile(path.join(root, "src/api/client/httpContracts.ts"), "utf8")
+    const httpClient = await readFile(path.join(root, "src/data/api/client/httpClient.ts"), "utf8")
+    const httpContracts = await readFile(
+      path.join(root, "src/data/api/client/httpContracts.ts"),
+      "utf8"
+    )
     // 保存 dataAccess 变量供当前逻辑使用。
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
     // 保存 engineeringRules 变量供当前逻辑使用。
@@ -108,7 +111,7 @@ describe("terminal dual-browser Extension initialization", () => {
     for (const key of PAGINATION_I18N_KEYS) {
       expect(i18n.split(`${key}:`)).toHaveLength(3)
     }
-    expect(language).toContain("localStorage")
+    expect(language).toContain('getWebStorage("local")')
     expect(language).toContain("document.documentElement")
     expect(httpContracts).toContain('"X-Http-Request"')
     expect(httpContracts).toContain('"X-Lang"')
@@ -172,7 +175,10 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(buildTooling).toContain("本次构建完成后是否启用 E2E 测试")
     expect(providers).toContain('logger.error("mutation_failed"')
     expect(providers).toContain('defaultColorScheme="auto"')
-    expect(providers).toContain('key: BRAND.id + ":color-scheme:v1"')
+    expect(providers).toContain("data/storage/colorScheme")
+    expect(await readFile(path.join(root, "src/data/storage/colorScheme.ts"), "utf8")).toContain(
+      'key: BRAND.id + ":color-scheme:v1"'
+    )
     expect(providers).toContain("luminanceThreshold: BRAND_TEXT_LUMINANCE_THRESHOLD")
     expect(providers).toContain("fontFamily")
     expect(providers).not.toContain("JotaiProvider")
@@ -183,7 +189,7 @@ describe("terminal dual-browser Extension initialization", () => {
       'const RELEASE_BUILD = process.env.PLASMO_PUBLIC_APP_ENV === "release"'
     )
     expect(logger).not.toContain("import.meta.env.VITE_APP_ENV")
-    expect(pagination).toContain("sessionStorage")
+    expect(pagination).toContain('getWebStorage("session")')
     expect(pagination).toContain("BRAND.id")
     expect(pagination).not.toContain("chrome.storage")
     expect(paginationControls).toContain("onPageSizeChange")
@@ -271,9 +277,10 @@ describe("terminal dual-browser Extension initialization", () => {
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()
-    expect(extensionSkills).toHaveLength(20)
+    expect(extensionSkills).toHaveLength(21)
     expect(extensionSkills).toContain("design-taste-frontend")
     expect(extensionSkills).toContain("web-design-prototype")
+    expect(extensionSkills).toContain("web-document-api")
     expect(extensionSkills).toContain("web-audit-worktrees")
     expect(extensionSkills).toContain("web-preview-harness-upgrade")
     expect(extensionSkills).toContain("web-connect-http-service")

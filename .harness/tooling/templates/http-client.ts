@@ -1,7 +1,7 @@
 /** 生成当前执行上下文唯一的请求、认证 revision、截止时间与 single-flight owner。 */
-export const HTTP_CLIENT_SOURCE = `import { APP_CONFIG } from "../../config/environment"
-import { getRequestLanguage, normalizeLanguage } from "../../i18n/language"
-import { createLogger } from "../../observability/logger"
+export const HTTP_CLIENT_SOURCE = `import { APP_CONFIG } from "../../../config/environment"
+import { getRequestLanguage, normalizeLanguage } from "../../../i18n/language"
+import { createLogger } from "../../../observability/logger"
 import { ApiError, HTTP_HEADERS, type HttpClientOptions, type HttpClient, type HttpRequestOptions, type UnauthorizedContext } from "./httpContracts"
 import { apiError, MAX_AUTH_TOKEN_LENGTH, MAX_CONTINUATION_LENGTH, controlledApiBaseUrl, controlledRequestTimeout, requestWithKy, defaultCredentialExtractor, normalizeFailure, cancelledError, hasControlCharacter, encodableHeader, resolveApiUrl, responseError, trustedResponse, opaqueHeader } from "./httpProtocol"
 

@@ -2,6 +2,7 @@ import { renderIdentityBrand, extensionIdentityFiles } from "../identity.ts"
 import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
 import { httpFiles } from "./http.ts"
+import { dataFiles } from "./data.ts"
 import { HTTP_ERROR_TRANSLATIONS } from "./http-errors.ts"
 import { loggingFiles } from "./logging.ts"
 import { paginationFiles } from "./pagination.ts"
@@ -27,6 +28,7 @@ export function extensionFiles(
     ...environmentFiles(config, baseUrls),
     ...extensionIdentityFiles(config),
     ...httpFiles(config),
+    ...dataFiles(),
     ...loggingFiles(config.projectType),
     ...paginationFiles(config),
     ...themeFiles(),
@@ -126,13 +128,14 @@ export default i18n
     [
       "src/providers.tsx",
       `import type { PropsWithChildren } from "react"
-import { MantineProvider, createTheme, localStorageColorSchemeManager } from "@mantine/core"
+import { MantineProvider, createTheme } from "@mantine/core"
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { BRAND } from "./brand"
 import { createLogger } from "./observability/logger"
-import { HttpFeedback } from "./api/client/HttpErrorView"
-import { reportHttpError } from "./api/client/httpFeedback"
-import { retryHttpQuery } from "./api/client/httpErrors"
+import { colorSchemeManager } from "./data/storage/colorScheme"
+import { HttpFeedback } from "./data/api/client/HttpErrorView"
+import { reportHttpError } from "./data/api/client/httpFeedback"
+import { retryHttpQuery } from "./data/api/client/httpErrors"
 import { BRAND_TEXT_LUMINANCE_THRESHOLD, createBrandScale } from "./theme/brandScale"
 
 const SYSTEM_SANS = "ui-sans-serif, system-ui, -apple-system, sans-serif"
@@ -155,11 +158,9 @@ const theme = createTheme({
   fontFamily: SYSTEM_SANS,
   headings: { fontFamily: SYSTEM_SANS }
 })
-const colorSchemeManager = localStorageColorSchemeManager({
-  key: BRAND.id + ":color-scheme:v1"
-})
 const logger = createLogger("query")
-const queryClient = new QueryClient({
+/** 当前执行上下文共享同一 QueryClient，供组件、loader 与命令式读取复用。 */
+export const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: retryHttpQuery }, mutations: { retry: false } },
   queryCache: new QueryCache({
     onError: (error) => { logger.error("query_failed", { component: "tanstack-query", error }); reportHttpError(error) }
@@ -280,7 +281,7 @@ export function ExtensionNotFoundPage() {
 } from "@tanstack/react-router"
 import { ExtensionShell } from "./ExtensionShell"
 import { ExtensionNotFoundPage } from "./ExtensionNotFoundPage"
-import { ExtensionRouteErrorPage } from "./api/client/ExtensionRouteErrorPage"
+import { ExtensionRouteErrorPage } from "./data/api/client/ExtensionRouteErrorPage"
 import { createLogger } from "./observability/logger"
 
 const routerLogger = createLogger("router")

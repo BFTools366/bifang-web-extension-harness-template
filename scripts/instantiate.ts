@@ -16,6 +16,7 @@ import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/type
 /** 保存唯一公开创建入口允许的参数。 */
 const INSTANTIATE_OPTIONS = [
   "type",
+  "web-type",
   "name",
   "id",
   "description",
@@ -50,7 +51,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension --name <name> --id <id> --policy-mode 预设|自定义 [--description <text> (required for extension)] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [custom policy flags]"
+  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension [--web-type tool-site|saas-client|saas-admin (required for web; SaaS 流程暂未开放)] --name <name> --id <id> --policy-mode 预设|自定义 [--description <text> (required for extension)] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [custom policy flags]"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -106,6 +107,7 @@ function inputSources(
   optionNames: ReadonlySet<string>,
   interactive: boolean,
   policyMode: "recommended" | "custom",
+  projectType: ProjectConfig["projectType"],
   targetWasPositional: boolean,
   resolvedInteractiveSources?: Readonly<Record<string, string>>
 ): Record<string, string> {
@@ -122,6 +124,7 @@ function inputSources(
     sourceRoot: "脚本固定 Harness 源入口",
     targetRoot: "命令行绝对位置参数",
     projectType: source("type"),
+    webType: projectType === "web" ? source("web-type") : "不适用",
     name: source("name"),
     id: source("id"),
     description: optionNames.has("description") ? "命令行参数" : "默认使用显示名称",
@@ -210,6 +213,7 @@ export async function runInstantiateCli(
         new Set(parsed.options.keys()),
         interactive,
         policyMode,
+        init.projectType,
         positionalTargetRoot !== undefined,
         resolvedInteractiveSources
       ),

@@ -9,7 +9,7 @@ export function webRouteStateFiles(): Map<string, string> {
 const ROUTE_STATE_SOURCE = `import { Anchor, Container, Loader, Paper, Stack, Text } from "@mantine/core"
 import { useQueryErrorResetBoundary } from "@tanstack/react-query"
 import { Link, useRouter, type ErrorComponentProps } from "@tanstack/react-router"
-import { HttpErrorView } from "../../api/client/HttpErrorView"
+import { HttpErrorView } from "../../data/api/client/HttpErrorView"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { createLogger } from "../../observability/logger"

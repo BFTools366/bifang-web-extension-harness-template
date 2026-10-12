@@ -55,15 +55,18 @@ async function expectPrototypeWorkflowDistributed(root: string): Promise<void> {
   )
 }
 
-/** 验证两宿主生成结果保留 API Mock 边界，其他文档只指向 DATA_ACCESS §3.1。 */
-async function expectMockBoundaryDocs(root: string): Promise<void> {
+/** 验证两宿主仅隔离未配置的远端 API，本地能力仍真实实现且不要求地址。 */
+async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void> {
   const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
   const runtimeRules = await readFile(path.join(root, "docs/RUNTIME_CONFIGURATION.md"), "utf8")
   const implementationSkill = await readFile(
     path.join(root, ".agents/skills/web-implement-change/SKILL.md"),
     "utf8"
   )
-  expect(dataAccess).toContain("#### 未配置 BaseURL 的 API Mock")
+  expect(dataAccess).toContain("#### 未配置远端地址时的能力分工")
+  expect(dataAccess).toContain("只有依赖该远端 API 的操作使用 Mock")
+  expect(dataAccess).toContain("混合流程：本地部分照常执行")
+  expect(dataAccess).not.toContain("所有需要该服务的数据均由")
   expect(dataAccess).toContain("Mock API 不调用 HTTP client、不触发 Fetch")
   expect(dataAccess).toContain("禁止失败后自动回落 Mock")
   expect(runtimeRules).toContain("DATA_ACCESS.md")
@@ -75,7 +78,22 @@ async function expectMockBoundaryDocs(root: string): Promise<void> {
   )
   expect(connectionSkill).toContain("只汇总询问必要缺项")
   expect(connectionSkill).toContain("真实请求失败不得回落 Mock")
-  expect(implementationSkill).toContain("Mock 是当前功能的完整实现")
+  expect(connectionSkill).toContain("本地实现继续真实运行，不纳入 Mock 迁移")
+  expect(implementationSkill).toContain("Mock 是当前远端 API 契约的完整实现")
+  for (const source of [
+    dataAccess,
+    runtimeRules,
+    implementationSkill,
+    connectionSkill,
+    await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8"),
+    await readFile(path.join(root, "src/data/README.md"), "utf8")
+  ]) {
+    expect(source).toContain("本地能力直接真实实现，不要求 BaseURL")
+  }
+  for (const relative of ["AGENTS.md", "src/data/api/README.md"]) {
+    const source = await readFile(path.join(root, relative), "utf8")
+    expect(source).toContain("Local capabilities use real implementations without a BaseURL")
+  }
 }
 
 /** 验证 single-package Harness initialization 的完整回归场景。 */
@@ -89,6 +107,8 @@ describe("single-package Harness initialization", () => {
       parseArgs([
         "--type",
         "web",
+        "--web-type",
+        "tool-site",
         "--name",
         "Default Brand",
         "--id",
@@ -125,6 +145,8 @@ describe("single-package Harness initialization", () => {
         parseArgs([
           "--type",
           "web",
+          "--web-type",
+          "tool-site",
           "--name",
           "Missing URLs",
           "--id",
@@ -143,7 +165,7 @@ describe("single-package Harness initialization", () => {
     })
   })
 
-  /** 验证精简表单无需说明、地址与确认来源，且中文预设只需一轮。 */
+  /** 验证首轮可主动提供工具站点选择，无需说明、地址与确认来源。 */
   test("collects only required identity and Chinese preset fields", async () => {
     const questions: string[] = []
     const resolved = await collectPromptedIdentity({ confirmedBy: " " }, async (question) => {
@@ -151,6 +173,7 @@ describe("single-package Harness initialization", () => {
       return JSON.stringify({
         targetRoot: path.join(repositoryRoot, "..", "simple-web"),
         projectType: "web",
+        webType: "tool-site",
         name: "Simple Web",
         id: "simple-web",
         policyMode: "预设"
@@ -191,6 +214,7 @@ describe("single-package Harness initialization", () => {
         parseArgs([
           "--type",
           projectType,
+          ...(projectType === "web" ? ["--web-type", "tool-site"] : []),
           "--name",
           "Deferred API",
           "--id",
@@ -205,7 +229,7 @@ describe("single-package Harness initialization", () => {
       await initializeProject({ ...resolved, skipInstall: true, skipGit: true })
       await expect(validateProject(root)).resolves.toContain(projectType)
       await expectPrototypeWorkflowDistributed(root)
-      await expectMockBoundaryDocs(root)
+      await expectRemoteMockAndLocalBoundaryDocs(root)
       for (const profile of [undefined, "development", "test"] as const) {
         const configs = await validateEnvironmentFiles(root, profile)
         expect(configs.development.apiBaseUrl).toBe("")

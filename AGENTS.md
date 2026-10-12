@@ -13,26 +13,27 @@
 
 ## 按任务渐进读取
 
-| 当前任务                                 | 读取内容                                                                        | 执行入口                                                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Harness 文档、规则、脚本或 Skill 维护    | `docs/ENGINEERING_RULES.md`；再读直接影响的事实源、脚本和测试                   | `$web-implement-change`；真实结构问题同时用 `$web-refactor-code`                                   |
-| 创建新下游                               | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单                   | `$web-instantiate-project`；品牌步骤按需用 `$web-prepare-brand-identity`                           |
-| 下游需求澄清、PRD、原型与选择            | 已初始化下游的 `docs/product_spec/`；原型任务再读当前宿主 UI 规范和对应选择记录 | `$web-define-product` → `$web-design-prototype` → 用户选定后 `$web-implement-change`；初始化仅分发 |
-| 范围清楚的实现、问题修复或 i18n 整理     | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实               | `$web-implement-change`、`$web-extract-i18n-strings`                                               |
-| React Web 列表、数据表格或搜索结果       | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约             | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用                              |
-| UI、页面、Popup、Options、响应式或无障碍 | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                  | `$web-implement-change`                                                                            |
-| 下游真实 HTTP 接入或 Mock 迁移           | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约     | `$web-connect-http-service`；实施与列表流程按接入事件委托                                          |
-| Extension 宿主边界兼容审查               | 当前下游工程规则、受影响消费者与双目标证据                                      | `$web-review-extension-compatibility`；仅 Extension，只读                                          |
-| 环境、数据、认证、事件流或日志           | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`            | `$web-implement-change`                                                                            |
-| 创建或检查左侧 user-owned Task           | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”                   | Codex Task 工具；`user_owned_tasks` 启用或用户明确要求时调用                                       |
-| 既有 Worktree 审计                       | primary Git 身份与既有并行登记                                                  | `$web-audit-worktrees`，只读，不要求并行创建开关启用                                               |
-| 当前 Task 内部并行或提交                 | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill                       | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                                        |
-| 恢复、阻断、交接或持久计划               | 最新 Product Status；用户要求或已有活动计划时读最新 Work Plan                   | `$web-plan-change`，仅在独立触发器成立时                                                           |
-| 显式候选、完整验收或 E2E                 | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则                        | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`                     |
-| 长期决定、硬例外或源记忆整理             | `docs/adr/README.md` 与最新 ADR；只追溯其明确引用                               | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                                            |
-| 回顾开发历程、决策沿革或未来方向         | 实际存在的记忆索引与 Git 历史；按问题限定范围                                   | `$web-summarize-development-history`；默认只读、不改写记忆                                         |
-| 理解 Harness 方法                        | `docs/HARNESS_ENGINEERING.md`，再按索引选择一个主题卷                           | 不因阅读自动进入计划、构建或验收                                                                   |
-| 升级已初始化下游                         | 下游事实、源版本和升级 Skill 指定资料                                           | `$web-preview-harness-upgrade` 只读比较；`$web-upgrade-harness` 承接已批准应用                     |
+| 当前任务                                      | 读取内容                                                                                         | 执行入口                                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| Harness 文档、规则、脚本或 Skill 维护         | `docs/ENGINEERING_RULES.md`；再读直接影响的事实源、脚本和测试                                    | `$web-implement-change`；真实结构问题同时用 `$web-refactor-code`                                   |
+| 创建新下游                                    | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单                                    | `$web-instantiate-project`；品牌步骤按需用 `$web-prepare-brand-identity`                           |
+| 下游需求澄清、PRD、原型与选择                 | 已初始化下游的 `docs/product_spec/`；原型任务再读当前宿主 UI 规范和对应选择记录                  | `$web-define-product` → `$web-design-prototype` → 用户选定后 `$web-implement-change`；初始化仅分发 |
+| 范围清楚的实现、问题修复或 i18n 整理          | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实                                | `$web-implement-change`、`$web-extract-i18n-strings`                                               |
+| React Web 列表、数据表格或搜索结果            | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约                              | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用                              |
+| UI、页面、Popup、Options、响应式或无障碍      | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                                   | `$web-implement-change`                                                                            |
+| 下游真实 HTTP 接入或 Mock 迁移                | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约                      | `$web-connect-http-service`；实施与列表流程按接入事件委托                                          |
+| 从当前 API 代码整理模块文档                   | 当前 API 实现、类型、相关测试与既有模块文档                                                      | `$web-document-api`；在下游写入 `docs/api/`，每个模块独立成文                                      |
+| Extension 宿主边界兼容审查                    | 当前下游工程规则、受影响消费者与双目标证据                                                       | `$web-review-extension-compatibility`；仅 Extension，只读                                          |
+| 环境、数据、认证、基础 API 契约、事件流或日志 | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`；基础契约另读 `docs/API.md` | `$web-implement-change`                                                                            |
+| 创建或检查左侧 user-owned Task                | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”                                    | Codex Task 工具；`user_owned_tasks` 启用或用户明确要求时调用                                       |
+| 既有 Worktree 审计                            | primary Git 身份与既有并行登记                                                                   | `$web-audit-worktrees`，只读，不要求并行创建开关启用                                               |
+| 当前 Task 内部并行或提交                      | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill                                        | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                                        |
+| 恢复、阻断、交接或持久计划                    | 最新 Product Status；用户要求或已有活动计划时读最新 Work Plan                                    | `$web-plan-change`，仅在独立触发器成立时                                                           |
+| 显式候选、完整验收或 E2E                      | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则                                         | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`                     |
+| 长期决定、硬例外或源记忆整理                  | `docs/adr/README.md` 与最新 ADR；只追溯其明确引用                                                | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                                            |
+| 回顾开发历程、决策沿革或未来方向              | 实际存在的记忆索引与 Git 历史；按问题限定范围                                                    | `$web-summarize-development-history`；默认只读、不改写记忆                                         |
+| 理解 Harness 方法                             | `docs/HARNESS_ENGINEERING.md`，再按索引选择一个主题卷                                            | 不因阅读自动进入计划、构建或验收                                                                   |
+| 升级已初始化下游                              | 下游事实、源版本和升级 Skill 指定资料                                                            | `$web-preview-harness-upgrade` 只读比较；`$web-upgrade-harness` 承接已批准应用                     |
 
 ## 始终生效的边界
 
@@ -54,10 +55,10 @@
 项目 Skills 位于 `.agents/skills/`。先按任务路由选择最小集合；命中后必须完整读取对应 `SKILL.md` 及其要求的精确引用，不得预先加载同类全部 Skills。
 
 - 初始化与身份：`$web-instantiate-project`、`$web-check-development-environment`、`$web-prepare-brand-identity`。
-- 开发与治理：`$web-define-product`、`$web-design-prototype`、`$web-implement-change`、`$web-implement-list-view`（仅 Web）、`$web-refactor-code`、`$web-connect-http-service`、`$web-review-extension-compatibility`（仅 Extension）、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-audit-worktrees`、`$web-run-parallel-worktrees`、`$web-preview-harness-upgrade`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
+- 开发与治理：`$web-define-product`、`$web-design-prototype`、`$web-implement-change`、`$web-implement-list-view`（仅 Web）、`$web-refactor-code`、`$web-connect-http-service`、`$web-document-api`、`$web-review-extension-compatibility`（仅 Extension）、`$web-extract-i18n-strings`、`$web-plan-change`、`$web-configure-git-commits`、`$web-audit-worktrees`、`$web-run-parallel-worktrees`、`$web-preview-harness-upgrade`、`$web-upgrade-harness`、`$web-summarize-development-history`、`$web-curate-harness-memory`。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。
 
-源 Harness 共保留 22 个 canonical `web-*` Skills；两类终端均删除实例化与源记忆整理能力。Web 另删除 Extension-only `$web-review-extension-compatibility`，Extension 另删除 Web-only `$web-implement-list-view`，各保留 19 个维护 Skills（不含设计支持）。初始化只分发能力，不生成业务记录。两类下游另在项目内默认补装缺失的 `design-taste-frontend`，有效已有版本保留，不额外问询、不全局安装；规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
+源 Harness 共保留 23 个 canonical `web-*` Skills；两类终端均删除实例化与源记忆整理能力。Web 另删除 Extension-only `$web-review-extension-compatibility`，Extension 另删除 Web-only `$web-implement-list-view`，各保留 20 个维护 Skills（不含设计支持）。初始化只分发能力，不生成业务记录。两类下游另在项目内默认补装缺失的 `design-taste-frontend`，有效已有版本保留，不额外问询、不全局安装；规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。Skill 目录、frontmatter、发现元数据与实际文件必须一致。
 
 ## 约束地图
 

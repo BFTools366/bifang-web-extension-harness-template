@@ -25,7 +25,8 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 1. 下游只修改 `.harness/project.json` 声明的唯一类型，不增加另一类型入口、项目派生入口、workspace package 或跨项目共享层；源 Harness 模板契约遵守根 `AGENTS.md` 的唯一源外创建入口与两个互斥生成结果硬约束。
 2. 按功能内聚组织 TypeScript：
    - React 组件拥有展示、表单输入和局部交互；可复用 feature hook/service 拥有该功能的请求、缓存、持久化和协调。
-   - TanStack Query 管理远端/异步服务状态；Jotai 只管理确需跨组件共享的客户端交互状态，不镜像 Query 数据。
+   - TanStack Query 统一管理 REST/GraphQL 有限读取的请求前缓存与远端/异步服务状态；feature 共享 Query options 和当前上下文 QueryClient，缓存已校验领域数据，Ky/client 不建结果缓存。新鲜度与入口按 `docs/DATA_ACCESS.md` §2.7；Jotai 只管理确需跨组件共享的客户端交互状态，不镜像 Query 数据。
+   - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一在 `src/data/`；存储访问经 `data/storage/`，REST 主交互、GraphQL 复杂查询/订阅与 Dexie 的 IndexedDB 边界按 `docs/DATA_ACCESS.md` §1.1–1.3 执行。
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
 3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。
@@ -33,8 +34,8 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 6. 面向用户的新文案通过既有 `i18next`/`react-i18next` 资源，不引入第二套 i18n 机制。
 7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止隐式环境覆盖，浏览器公开变量不承载秘密。已初始化下游授权包含真实 HTTP 接入或 Mock 迁移时，域 API 部分委托 `$web-connect-http-service`；源 Harness 不接收产品地址或接口。
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
-9. 集合分页与 HTTP client 基础维护读取 `DATA_ACCESS.md`，复用 `src/pagination/` 与 `src/api/client/`。Query 使用 `requestHttpQuery` 并只反馈最终失败；通用集合使用 session 状态机，Web 路由列表按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 只在原始 URL 无 owned key 时启动恢复。业务行与 `total` 归 Query/feature；真实接入的响应/分页映射由 `$web-connect-http-service` 在域 API 边界完成。
-10. 未配置对应 BaseURL 时，按 `DATA_ACCESS.md` §3.1 将所有需要该服务的数据放在 `src/api/<domain>/` 的类型化异步 Mock API；UI、route、hook 和 Query 只消费 API 函数。Mock 是当前功能的完整实现，不是 stub 或占位；已接入真实 HTTP 的服务移除运行路径中的 Mock，失败不回落 Mock。不得留下 stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力，也不得把 Mock 结果声明为真实联网通过。
+9. 集合分页与 HTTP client 基础维护读取 `DATA_ACCESS.md`，复用 `src/pagination/` 与 `src/data/api/client/`。Query 使用 `requestHttpQuery` 并只反馈最终失败；通用集合使用 session 状态机，Web 路由列表按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 只在原始 URL 无 owned key 时启动恢复。业务行与 `total` 归 Query/feature；真实接入的响应/分页映射由 `$web-connect-http-service` 在域 API 边界完成。
+10. 未配置对应 BaseURL 时，按 `DATA_ACCESS.md` §3.1 只将依赖该远端 API 的操作放在 `src/data/api/<domain>/` 的类型化异步 Mock API；UI、route、hook 和 Query 只消费这些 API 函数。本地能力直接真实实现，不要求 BaseURL，纯业务逻辑留在 feature，真实存储访问经 `src/data/storage/`；混合流程仅隔离未配置的远端边界，不把本地部分一并 Mock。Mock 是当前远端 API 契约的完整实现，不是 stub 或占位；已接入真实 HTTP 的服务移除运行路径中的 Mock，失败不回落 Mock。不得留下 stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力，也不得把 Mock 结果声明为真实联网通过。
 
 ## 测试与验证
 

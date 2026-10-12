@@ -31,6 +31,8 @@ const REQUIRED_SOURCE_FILES = [
   ".harness/tooling/project-memory.ts",
   ".agents/skills/web-connect-http-service/SKILL.md",
   ".agents/skills/web-connect-http-service/agents/openai.yaml",
+  ".agents/skills/web-document-api/SKILL.md",
+  ".agents/skills/web-document-api/agents/openai.yaml",
   ".agents/skills/web-design-prototype/SKILL.md",
   ".agents/skills/web-design-prototype/agents/openai.yaml",
   ".agents/skills/web-design-prototype/references/prd-outline.md",
@@ -230,6 +232,8 @@ describe("upgrade ownership protection", () => {
     const absent = new Set([
       ".agents/skills/web-design-prototype/**",
       "docs/prototypes/**",
+      ".agents/skills/web-document-api/**",
+      "docs/api/**",
       ".agents/skills/web-connect-http-service/**",
       ".agents/skills/web-audit-worktrees/**",
       ".agents/skills/web-preview-harness-upgrade/**",
@@ -368,6 +372,7 @@ describe("upgrade ownership protection", () => {
       })
     }
     for (const productExtensibleDocument of [
+      "docs/API.md",
       "docs/DATA_ACCESS.md",
       "docs/MANTINE_UI_GUIDELINES.md",
       "docs/RUNTIME_CONFIGURATION.md"

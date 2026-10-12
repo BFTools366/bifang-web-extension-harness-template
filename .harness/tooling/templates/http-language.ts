@@ -3,6 +3,7 @@ import type { ProjectConfig } from "../types.ts"
 // 执行 languageSource 函数的处理逻辑。
 export function languageSource(): string {
   return `import { BRAND } from "../brand"
+import { getWebStorage } from "../data/storage/webStorage"
 
 /** 说明 SUPPORTED_LANGUAGES 的稳定结构与职责边界。 */
 export const SUPPORTED_LANGUAGES = ["en", "zh"] as const
@@ -64,15 +65,6 @@ function recognizedLanguage(value: unknown): SupportedLanguage | undefined {
 /** 说明 normalizeLanguage 的稳定结构与职责边界。 */
 export function normalizeLanguage(value: unknown): SupportedLanguage {
   return recognizedLanguage(value) ?? "en"
-}
-
-/** 说明 browserStorage 的稳定结构与职责边界。 */
-function browserStorage(): LanguageStorage | undefined {
-  try {
-    return typeof localStorage === "undefined" ? undefined : localStorage
-  } catch {
-    return undefined
-  }
 }
 
 /** 说明 browserDocumentElement 的稳定职责与浏览器降级边界。 */
@@ -171,7 +163,7 @@ export interface InitialLanguageOptions {
 
 /** 说明 initialApplicationLanguage 的稳定结构与职责边界。 */
 export function initialApplicationLanguage(options: InitialLanguageOptions = {}): SupportedLanguage {
-  const storage = options.storage ?? browserStorage()
+  const storage = options.storage ?? getWebStorage("local")
   const storageKey = options.storageKey ?? LANGUAGE_STORAGE_KEY
   const navigatorLanguage =
     options.navigatorLanguage ?? (typeof navigator === "undefined" ? "en" : navigator.language)
@@ -183,7 +175,7 @@ export function initializeLanguage(runtime: LanguageRuntime): void {
   if (defaultController !== undefined) return
   defaultController = createLanguageController({
     runtime,
-    storage: browserStorage(),
+    storage: getWebStorage("local"),
     navigatorLanguage: initialApplicationLanguage()
   })
   void defaultController.ready()
