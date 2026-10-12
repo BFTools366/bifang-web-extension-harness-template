@@ -367,9 +367,13 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
   "web-implement-access-control": [
     "功能选择不授予权限",
     "权限未加载、不可解析或缺失时默认拒绝",
+    "已识别但无权限的目标",
+    "不依赖被拒绝的业务权限",
     "业务 403",
     "返回调用方"
   ],
+  "web-implement-saas-auth": ["权限差异测试矩阵"],
+  "web-document-api": ["客户端控制参数不属于 wire 字段", "HTTP 待确认项"],
   "web-implement-write-recovery": [
     "写操作不自动重放",
     "未知时先通过已确认",

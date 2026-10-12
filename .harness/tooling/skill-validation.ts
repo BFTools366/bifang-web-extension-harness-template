@@ -51,7 +51,14 @@ export const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = [
 const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]>> = {
   "web-review-api-contract": ["只读核对不证明服务可达", "不修改代码、配置、测试或文档"],
   "web-review-module-boundaries": ["只读，不移动文件", "源门禁与运行时门禁"],
-  "web-implement-access-control": ["功能选择不授予权限", "权限未加载、不可解析或缺失时默认拒绝"],
+  "web-implement-access-control": [
+    "功能选择不授予权限",
+    "权限未加载、不可解析或缺失时默认拒绝",
+    "已识别但无权限的目标",
+    "不依赖被拒绝的业务权限"
+  ],
+  "web-implement-saas-auth": ["权限差异测试矩阵"],
+  "web-document-api": ["客户端控制参数不属于 wire 字段", "HTTP 待确认项"],
   "web-implement-write-recovery": ["写操作不自动重放", "未知时先通过已确认"],
   "web-implement-browser-storage": ["本地能力直接真实实现，不要求 BaseURL"],
   "web-implement-event-stream": ["不能从查询接口推断支持"],

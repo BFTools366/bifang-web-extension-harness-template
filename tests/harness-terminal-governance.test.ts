@@ -63,6 +63,23 @@ describe("terminal identity, skills and UI governance", () => {
       await writeFile(recoveryFile, recoverySource.replace("写操作不自动重放", "写操作可自动重放"))
       await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
       await writeFile(recoveryFile, recoverySource)
+      // 验证真实分发后仍拒绝弱化权限恢复、差异身份或 Mock 协议边界。
+      const accessContracts: [string, string][] = [
+        ["web-implement-access-control", "已识别但无权限的目标"],
+        ["web-implement-access-control", "不依赖被拒绝的业务权限"],
+        ["web-document-api", "客户端控制参数不属于 wire 字段"],
+        ["web-document-api", "HTTP 待确认项"]
+      ]
+      if (projectType === "web")
+        accessContracts.push(["web-implement-saas-auth", "权限差异测试矩阵"])
+      for (const [skill, fragment] of accessContracts) {
+        const file = path.join(root, ".agents/skills", skill, "SKILL.md")
+        const source = await readFile(file, "utf8")
+        expect(source).toContain(fragment)
+        await writeFile(file, source.replaceAll(fragment, "已删除的交接边界"))
+        await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
+        await writeFile(file, source)
+      }
       const composition = canonicalRules
         .split("### 7.2 Skill 职责、复用与渐进披露\n")[1]
         ?.split("## 8. 依赖与安全")[0]

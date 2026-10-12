@@ -30,12 +30,16 @@ test("SaaS 基础设计按宿主传播", async () => {
         "未登录默认进入登录页",
         "演示账号模式",
         "侧栏底部",
+        "每个表示独立页面的叶子菜单项拥有独立的规范 URL",
+        '每个可见导航区域最多一个 `aria-current="page"`',
+        "activeOptions.exact: true",
         "商品选择、订单管理、钱包管理"
       ])
         expect(document).toContain(text)
     } else {
       expect(document).not.toContain(marker)
       expect(document).not.toContain("### 8.1 SaaS 基础设计与页面闭环")
+      expect(document).not.toContain("### 8.4 导航路由与当前项")
     }
   }
 })
