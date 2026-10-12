@@ -1,6 +1,15 @@
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
+import { createProjectConfig } from "../.harness/tooling/config.ts"
+import { runInstantiateCli } from "../scripts/instantiate.ts"
+import {
+  mkdir,
+  readdir,
+  repositoryRoot,
+  temporaryDirectory,
+  writeFile
+} from "./harness-tooling-support.ts"
 
 /** 提供合法基础身份，让测试聚焦逐项补问与默认值接受边界。 */
 const BASE_INPUT = {
@@ -13,6 +22,108 @@ const BASE_INPUT = {
 }
 
 describe("初始化渐进式引导", () => {
+  /** 验证数字类型与英文名称在公开入口解析，父目录已有内容不妨碍创建新子目录。 */
+  test.each([
+    ["1", "web"],
+    ["2", "extension"]
+  ] as const)("编号 %s 创建 %s 的同名子目录", async (number, projectType) => {
+    const parent = await temporaryDirectory("creation-parent-")
+    await writeFile(path.join(parent, "existing.txt"), "保留用户文件")
+    const config = await runInstantiateCli(
+      [
+        parent,
+        "--type",
+        number,
+        "--name",
+        "My Notes",
+        "--policy-mode",
+        "预设",
+        ...(projectType === "web" ? ["--web-type", "1"] : ["--description", "My Notes"])
+      ],
+      {
+        sourceRoot: repositoryRoot,
+        interactive: false,
+        output: () => undefined,
+        instantiate: async (supplied) => {
+          expect(supplied.targetRoot).toBe(path.join(parent, "my-notes"))
+          expect(supplied.init.projectType).toBe(projectType)
+          return createProjectConfig(supplied.init)
+        }
+      }
+    )
+    expect(config.id).toBe("my-notes")
+    expect(await readdir(parent)).toEqual(["existing.txt"])
+  })
+
+  /** 验证缺译名、非法标识和非空最终目录都在任何创建写入前失败。 */
+  test("生成标识和最终子目录的错误保持父目录内容", async () => {
+    const parent = await temporaryDirectory("creation-conflict-")
+    const basics = [parent, "--type", "web", "--web-type", "1", "--policy-mode", "预设"]
+    const runtime = {
+      sourceRoot: repositoryRoot,
+      interactive: false,
+      instantiate: async () => {
+        throw new Error("不能越过预检写入")
+      }
+    }
+    await expect(runInstantiateCli([...basics, "--name", "笔记"], runtime)).rejects.toThrow(
+      /--english-name/
+    )
+    await expect(
+      runInstantiateCli([...basics, "--name", "Notes", "--id", "../escape"], runtime)
+    ).rejects.toThrow(/项目标识/)
+    expect(await readdir(parent)).toEqual([])
+    await mkdir(path.join(parent, "notes"))
+    await writeFile(path.join(parent, "notes", "user.txt"), "保留")
+    await expect(runInstantiateCli([...basics, "--name", "Notes"], runtime)).rejects.toThrow(
+      /must be empty/
+    )
+    expect(await readdir(path.join(parent, "notes"))).toEqual(["user.txt"])
+  })
+
+  /** 验证父目录尚不存在时取消最终确认，不会创建父目录、子目录或暂存目录。 */
+  test("取消创建保留不存在的父目录", async () => {
+    const workspace = await temporaryDirectory("creation-cancel-")
+    const parent = path.join(workspace, "new-parent")
+    await expect(
+      runInstantiateCli(
+        [
+          parent,
+          "--type",
+          "1",
+          "--web-type",
+          "1",
+          "--name",
+          "笔记",
+          "--english-name",
+          "Notes",
+          "--policy-mode",
+          "预设"
+        ],
+        {
+          sourceRoot: repositoryRoot,
+          interactive: true,
+          promptIdentity: (defaults) =>
+            collectPromptedIdentity(defaults, async () => {
+              throw new Error("无需补问")
+            }),
+          confirm: async (summary) => {
+            expect(summary.rawParentRoot).toBe(parent)
+            expect(summary.rawTargetRoot).toBe(path.join(parent, "notes"))
+            expect(summary.init.englishName).toBe("Notes")
+            expect(summary.init.id).toBe("notes")
+            expect(summary.inputSources.id).toBe("英文名称自动生成")
+            return false
+          },
+          instantiate: async () => {
+            throw new Error("取消后不能创建")
+          }
+        }
+      )
+    ).rejects.toThrow(/cancelled before any target write/)
+    expect(await readdir(workspace)).toEqual([])
+  })
+
   /** 验证自定义配置的每个建议都需要一次实际回答，来源可追溯。 */
   test("自定义策略逐项回车接受既有预设", async () => {
     const questions: string[] = []
@@ -68,11 +179,11 @@ describe("初始化渐进式引导", () => {
     expect(resolved.inputSources.userOwnedTasks).toBe("命令行参数")
   })
 
-  /** 验证未知标识与原始绝对路径不可猜测，错误只重问当前字段。 */
-  test("中文名称不生成拼音且相对路径不能作为默认目标", async () => {
+  /** 验证终端只补问中文名称的英文译名，标识自动生成且拒绝相对父路径。 */
+  test("英文译名生成标识且相对路径不能作为父目录", async () => {
     const questions: string[] = []
     const target = path.resolve("..", "notes")
-    const answers = ["", "notes", "./notes", target]
+    const answers = ["", "Notes", "./notes", target]
     const resolved = await collectPromptedIdentity(
       { ...BASE_INPUT, name: "笔记", id: undefined, targetRoot: undefined },
       async (question) => {
@@ -84,7 +195,7 @@ describe("初始化渐进式引导", () => {
     )
     expect(questions).toHaveLength(4)
     for (const question of questions.slice(0, 2)) {
-      expect(question).toContain("字段： id")
+      expect(question).toContain("字段： englishName")
       expect(question).not.toContain("建议/默认")
     }
     for (const question of questions.slice(2)) {
@@ -93,22 +204,49 @@ describe("初始化渐进式引导", () => {
     }
     expect(questions[3]).toContain("必须提供绝对路径")
     expect(resolved).toMatchObject({ id: "notes", targetRoot: target, name: "笔记" })
+    expect(resolved.inputSources.id).toBe("英文名称自动生成")
   })
 
-  /** 验证已知安全目录名可作标识建议，不依赖名称转写。 */
-  test("接受已知目标目录名作为项目标识建议", async () => {
+  /** 验证英文译名优先于父目录，自动生成标识时不要求手填。 */
+  test("父目录名不影响英文译名生成的项目标识", async () => {
     const questions: string[] = []
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, name: "项目名称", id: undefined },
+      { ...BASE_INPUT, name: "项目名称", englishName: "Project Name", id: undefined },
       async (question) => {
         questions.push(question)
         return ""
       }
     )
-    expect(questions).toHaveLength(1)
-    expect(questions[0]).toContain("建议/默认：guided-web；回车采用")
-    expect(resolved.id).toBe("guided-web")
-    expect(resolved.inputSources.id).toBe("交互接受默认值")
+    expect(questions).toHaveLength(0)
+    expect(resolved.id).toBe("project-name")
+    expect(resolved.inputSources.id).toBe("英文名称自动生成")
+  })
+
+  /** 验证后续主动补充译名时重算派生标识，不将旧派生值当成用户显式决定。 */
+  test("后续 JSON 补充英文译名会重新生成标识", async () => {
+    const answers = [
+      "Notes",
+      JSON.stringify({ targetRoot: BASE_INPUT.targetRoot, englishName: "Bookmark Manager" })
+    ]
+    const resolved = await collectPromptedIdentity(
+      { projectType: "web", webType: "tool-site", policyMode: "预设" },
+      async () => {
+        const answer = answers.shift()
+        if (answer === undefined) throw new Error("不应询问自动生成的标识")
+        return answer
+      }
+    )
+    expect(resolved).toMatchObject({ englishName: "Bookmark Manager", id: "bookmark-manager" })
+    expect(answers).toEqual([])
+  })
+
+  /** 验证已有显式标识继续复用，不因自动规则覆盖用户决定。 */
+  test("复用显式标识且不要求补英文译名", async () => {
+    const resolved = await collectPromptedIdentity({ ...BASE_INPUT, name: "笔记" }, async () => {
+      throw new Error("不应重问已有标识")
+    })
+    expect(resolved.id).toBe(BASE_INPUT.id)
+    expect(resolved.inputSources.id).toBe("命令行参数")
   })
 
   /** 验证错误的主动 JSON 不丢失既有事实，仍可返回普通问答继续。 */

@@ -42,17 +42,17 @@ describe("minimal public instantiation inputs", () => {
     const targetRoot = path.join(parent, id)
     const config = await runInstantiateCli(
       [
-        targetRoot,
+        parent,
         "--type",
         projectType,
         ...(webType === undefined ? [] : ["--web-type", webType]),
         "--name",
-        "Minimal Project",
-        "--id",
-        id,
+        "示例项目",
+        "--english-name",
+        `Minimal ${projectType}`,
         "--policy-mode",
         "预设",
-        ...(projectType === "extension" ? ["--description", "Minimal Project"] : [])
+        ...(projectType === "extension" ? ["--description", "示例项目"] : [])
       ],
       {
         sourceRoot: repositoryRoot,
@@ -65,7 +65,8 @@ describe("minimal public instantiation inputs", () => {
           })
       }
     )
-    expect(config.description).toBe("Minimal Project")
+    expect(config).toMatchObject({ name: "示例项目", id, description: "示例项目" })
+    expect(config).not.toHaveProperty("englishName")
     const apiContract = await readFile(path.join(repositoryRoot, "docs/API.md"), "utf8")
     expect(await readFile(path.join(targetRoot, "docs/API.md"), "utf8")).toBe(apiContract)
     expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")

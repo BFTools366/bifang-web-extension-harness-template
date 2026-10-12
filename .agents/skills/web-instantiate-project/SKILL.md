@@ -9,8 +9,8 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 收集输入
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮优先问一个：唯一项目类型、展示名称、跨平台安全的 ASCII kebab-case 项目标识、源 Harness 之外的完整绝对目标目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识有可靠推导时给建议，策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面明确“回车采用”后可接受默认值；目标目录不得猜测。非交互命令仍必须把绝对目标作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
-2. 要求用户明确选择且只能选择一种项目类型：`web` 或 `extension`。不得默认、推断、同时选择或保留稍后转换类型的入口。选择 Web 后必须让用户选择 Web 类型：1.工具站点（`tool-site`，沿用现有逻辑）；2.SaaS客户端（`saas-client`）；3.SaaS大后台（`saas-admin`）。Web 类型没有默认值，不能从产品描述推断；已明确的合法选择直接复用，尚未提供时条件补问。三种 Web 类型均可创建，沿用相同的中性工程初始化事务；将明确类型保留在下游 README 的“创建交接”，不新增身份 Schema 或在源收集具体产品需求。创建后的模式差异与交接按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 执行。Extension 不询问或接受 Web 类型。
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮优先问一个：唯一项目类型、展示名称、源 Harness 之外的完整绝对父目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
+2. 要求用户明确选择且只能选择一种项目类型：1.Web（`web`）或 2.Extension（`extension`），可直接回答 `1` 或 `2`。不得默认、推断、同时选择或保留稍后转换类型的入口。选择 Web 后必须让用户选择 Web 类型：1.工具站点（`tool-site`，沿用现有逻辑）；2.SaaS客户端（`saas-client`）；3.SaaS大后台（`saas-admin`）。Web 类型没有默认值，不能从产品描述推断；已明确的合法选择直接复用，尚未提供时条件补问。三种 Web 类型均可创建，沿用相同的中性工程初始化事务；将明确类型保留在下游 README 的“创建交接”，不新增身份 Schema 或在源收集具体产品需求。创建后的模式差异与交接按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 执行。Extension 不询问或接受 Web 类型。
 3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户选择记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
@@ -21,7 +21,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 安全复制
 
-1. 目标目录的原始输入本身必须是绝对路径；不得先用当前目录把相对输入静默转绝对。将源 Harness 根和目标目录继续解析为规范绝对路径，在最终汇总中同时展示原始值、规范值与输入来源。目标目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
+1. 用户提供的父目录原始输入本身必须是绝对路径；不得先用当前目录把相对输入静默转绝对。在父目录下拼接已校验项目标识得到最终目录，将源 Harness 根和最终目录解析为规范绝对路径，在最终汇总中同时展示原始父目录、最终目录、规范值与输入来源。最终目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
 2. 写入前清点目标。目标必须不存在或完全为空，包括隐藏条目；发现任何用户文件都停止，不覆盖、合并或清理。
 3. 正式创建在目标父目录建立同目标唯一的 sibling 租约，并绑定父目录、staging、holding 与预存空目标的设备、inode 和模式；任何身份漂移都停止发布。父目录漂移时不得沿替代路径递归清理，而要报告无法安全回收的原 staging/租约。
 4. 本次首次初始化调用 `$web-check-development-environment` 一次，只检查 Node.js/pnpm；同时运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Chrome/Firefox 不属于初始化门禁；Git 缺失、模板验证失败或模板状态无法可信识别时停止。
@@ -37,11 +37,11 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 执行唯一创建入口
 
-1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对目标、身份、策略模式与唯一类型；BaseURL 仅在用户主动提供时传入。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
+1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对父目录、身份、策略模式与唯一类型；BaseURL 仅在用户主动提供时传入。CLI 在父目录下以生成的项目标识创建子目录；英文显示名称可省略 `--english-name`，显式 `--id` 仅用于复用用户已给标识。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
 
    ```text
-   pnpm instantiate -- <absolute-target-outside-harness> --type <web|extension> \
-     --name "<display-name>" --id <project-id> --policy-mode <预设|自定义>
+   pnpm instantiate -- <absolute-parent-outside-harness> --type <web|extension> \
+     --name "<display-name>" --english-name "<English translation>" --policy-mode <预设|自定义>
    ```
 
    Web 必须额外传入已明确选择的 `--web-type tool-site|saas-client|saas-admin`，Extension 不传该参数；三种类型共用安全复制、安装、验证与 Git 基线流程，不自动生成业务页面。自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
@@ -56,7 +56,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 ## 不变量
 
 - 下游仓库必须是纯 `web` 或纯 `extension`，不能是两者组合、可增减目标的工作区或 monorepo。
-- 源 Harness 的 `pnpm instantiate -- <absolute-target-outside-harness> ...` 是唯一公开创建入口；模板副本、源根和源内目录不得原地初始化。
+- 源 Harness 的 `pnpm instantiate -- <absolute-parent-outside-harness> ...` 是唯一公开创建入口；模板副本、源根和源内目录不得原地初始化。
 - 目标目录与独立 Git 顶层目录必须相同。
 - 保留用户文件优先于完成实例化；任何冲突都必须停止。
 - 不迁移模板的批准结论、日期记忆、验证证据、版本发布记录或人工签署。

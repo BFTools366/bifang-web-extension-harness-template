@@ -82,6 +82,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   webType?: WebCreationType
   // 描述 name 接口成员的结构契约。
   name: string
+  // 保存创建期英文译名，仅用于标识生成与确认，不写入 ProjectConfig。
+  englishName?: string
   // 描述 id 接口成员的结构契约。
   id: string
   // 描述 description 接口成员的结构契约。

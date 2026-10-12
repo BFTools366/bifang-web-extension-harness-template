@@ -29,6 +29,7 @@ export interface PromptedIdentity {
   projectType: ProjectType
   webType?: WebCreationType
   name: string
+  englishName?: string
   id: string
   description: string
   identityI18n?: string
@@ -43,6 +44,7 @@ export interface PromptedIdentity {
 export interface InstantiationSummary {
   rawSourceRoot: string
   canonicalSourceRoot: string
+  rawParentRoot?: string
   rawTargetRoot: string
   canonicalTargetRoot: string
   inputSources: Readonly<Record<string, string>>
@@ -51,6 +53,7 @@ export interface InstantiationSummary {
     InitOptions,
     | "projectType"
     | "name"
+    | "englishName"
     | "id"
     | "description"
     | "identityI18n"
@@ -167,6 +170,7 @@ export async function collectPromptedIdentity(
     projectType,
     webType: projectType === "web" ? parseWebCreationType(basic.webType ?? "") : undefined,
     name: requiredText(basic.name, "项目名称"),
+    englishName: basic.englishName || undefined,
     id: requiredText(basic.id, "项目标识"),
     description: basic.description?.trim() || requiredText(basic.name, "项目名称"),
     identityI18n: basic.identityI18n || undefined,
@@ -198,11 +202,13 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
   return `初始化完整汇总
 - 源路径（原始）：${summary.rawSourceRoot}
 - 源路径（规范）：${summary.canonicalSourceRoot}
+- 父目录（原始）：${summary.rawParentRoot ?? "未单独提供"}
 - 目标路径（原始）：${summary.rawTargetRoot}
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}${summary.init.webType === undefined ? "" : `\n- Web 类型：${WEB_TYPE_LABELS[summary.init.webType]}（${summary.init.webType}）`}
 - 展示名称：${summary.init.name}
+- 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}
 - 项目说明：${summary.init.description}
 - 品牌颜色：${summary.init.brandColor}

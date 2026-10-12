@@ -52,7 +52,7 @@ export type InitializationGitConfigurator = (
 ) => Promise<void>
 
 export const DOWNSTREAM_ONLY_INITIALIZATION_ERROR =
-  "Refusing to initialize inside the source Harness. No files were changed. Create a downstream project outside this repository with `pnpm instantiate -- <absolute-target> ...`."
+  "Refusing to initialize inside the source Harness. No files were changed. Create a downstream project outside this repository with `pnpm instantiate -- <absolute-parent> ...`."
 
 // 保存 execFileAsync 变量，用于不经 Shell 读取 Git 仓库事实。
 const execFileAsync = promisify(execFile)

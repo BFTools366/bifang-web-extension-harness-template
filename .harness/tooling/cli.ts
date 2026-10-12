@@ -1,13 +1,15 @@
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
 import { parseIdentityI18n } from "./identity.ts"
 import { refreshBrand } from "./brand.ts"
-import { assertProjectType } from "./config.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
   assertWebCreationType,
+  deriveProjectId,
+  parseProjectType,
   parsePolicyMode,
   parseWebCreationType,
-  type PromptDefaults
+  type PromptDefaults,
+  validateProjectId
 } from "./initialization-input.ts"
 import { isInteractiveTerminal, promptForIdentity, type PromptedIdentity } from "./prompts.ts"
 import { recommendedAgentPolicy } from "./agent-policy.ts"
@@ -19,6 +21,7 @@ const INIT_OPTIONS = [
   "type",
   "web-type",
   "name",
+  "english-name",
   "id",
   "description",
   "identity-i18n",
@@ -41,7 +44,8 @@ function usage(): string {
   return `Bifang Web Harness
 
 创建项目（目标必须位于本 Harness 仓库之外）：
-  pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
+  pnpm instantiate -- <absolute-parent> --type web|extension --name <name> \\
+    [--english-name <English translation>] [--id <id>] \\
     [--web-type tool-site|saas-client|saas-admin（Web 必填）] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
@@ -56,6 +60,7 @@ function usage(): string {
   pnpm harness validate
 
 禁止原地初始化；创建项目必须且只能选择一种宿主类型。
+项目类型：1.Web；2.Extension，可输入编号；最终目录为 <absolute-parent>/<id>。
 Web 类型：1.工具站点；2.SaaS客户端；3.SaaS大后台，均创建中性 Web 工程并交接对应开发 SOP。
 `
 }
@@ -149,6 +154,7 @@ export async function resolveInitOptions(
     projectType: readStringOption(args, "type"),
     webType: readStringOption(args, "web-type"),
     name: readStringOption(args, "name"),
+    englishName: readStringOption(args, "english-name"),
     id: readStringOption(args, "id"),
     description: readStringOption(args, "description", true),
     identityI18n: readStringOption(args, "identity-i18n", true),
@@ -165,11 +171,12 @@ export async function resolveInitOptions(
     e2eHint: readStringOption(args, "e2e-hint")
   }
   const required = [
-    ["<absolute-target>", supplied.targetRoot],
+    ["<absolute-parent>", supplied.targetRoot],
     ["--type", supplied.projectType],
-    ...(supplied.projectType === "web" ? [["--web-type", supplied.webType] as const] : []),
+    ...(["web", "1"].includes(supplied.projectType ?? "")
+      ? [["--web-type", supplied.webType] as const]
+      : []),
     ["--name", supplied.name],
-    ["--id", supplied.id],
     ["--policy-mode", supplied.policyMode]
   ] as const
   const missing = required
@@ -190,8 +197,13 @@ export async function resolveInitOptions(
   }
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
-  assertProjectType(identity.projectType)
-  assertWebCreationType(identity.projectType, identity.webType)
+  const projectType = parseProjectType(identity.projectType)
+  assertWebCreationType(projectType, identity.webType)
+  const id = identity.id ?? deriveProjectId(identity.name, identity.englishName)
+  if (id === undefined) {
+    throw new Error("无法从项目名称生成标识，请提供项目名称的英文翻译（--english-name）或显式 --id")
+  }
+  validateProjectId(id)
   const agentPolicy =
     "agentPolicy" in identity && identity.agentPolicy !== undefined
       ? identity.agentPolicy
@@ -199,16 +211,16 @@ export async function resolveInitOptions(
   runtime.onPolicyModeResolved?.(parsePolicyMode(identity.policyMode ?? ""))
   if ("inputSources" in identity) runtime.onInputSourcesResolved?.(identity.inputSources)
 
-  if (identity.projectType === "extension" && !identity.description?.trim()) {
+  if (projectType === "extension" && !identity.description?.trim()) {
     throw new Error("Extension project description is required (--description)")
   }
   return {
     root: identity.targetRoot ?? root,
-    projectType: identity.projectType,
-    webType:
-      identity.projectType === "web" ? parseWebCreationType(identity.webType ?? "") : undefined,
+    projectType,
+    webType: projectType === "web" ? parseWebCreationType(identity.webType ?? "") : undefined,
     name: identity.name ?? "",
-    id: identity.id ?? "",
+    englishName: identity.englishName,
+    id,
     description: identity.description?.trim() || identity.name?.trim() || "",
     identityI18n: parseIdentityI18n(identity.identityI18n),
     brandColor: identity.brandColor ?? "",

@@ -4,7 +4,7 @@
 
 ## 1. 不变量
 
-- 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-target-outside-harness> ...`；目标必须位于源 Harness 之外。
+- 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-parent-outside-harness> ...`；在用户提供的源外父目录下，以项目标识创建子目录。
 - 源 Harness 不提供 `pnpm harness:init` script；`pnpm harness init` 明确拒绝原地初始化。底层 initializer 只作为 `instantiate` 在目标同级 同级暂存目录 中调用的内部步骤。
 - 非交互 CLI 必须传入 `--type web` 或 `--type extension`；交互式 TTY 必须提示用户选择且不得提供默认类型。
 - 选择 Web 后必须显式选择 `webType`，不设默认值；工具站点、SaaS 客户端和大后台均可创建中性 Web 工程，并交接对应开发 SOP。该选择不增加宿主或改变 `.harness/project.json` 的 Schema。
@@ -20,22 +20,23 @@
 从源 Harness 根创建独立 Web 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path/example-web --type web --web-type tool-site \
-  --name "示例 Web" --id example-web --policy-mode 预设
+pnpm instantiate -- /absolute/path --type web --web-type tool-site \
+  --name "示例 Web" --english-name "Example Web" --policy-mode 预设
 ```
 
 从同一个源 Harness 根创建独立 Extension 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path/example-extension --type extension \
-  --name "示例扩展" --description "示例浏览器扩展。" --id example-extension --policy-mode 预设
+pnpm instantiate -- /absolute/path --type extension \
+  --name "示例扩展" --english-name "Example Extension" --description "示例浏览器扩展。" --policy-mode 预设
 ```
 
-目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
+位置参数是源 Harness 之外的绝对父目录；最终项目目录自动拼接为“父目录/项目标识”，该子目录必须不存在或为空。上述示例分别创建 `/absolute/path/example-web` 和 `/absolute/path/example-extension`。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
+- 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`，无默认值。
 - `--name` 是用户可见名称。
 - `--web-type` 仅用于 Web，必填且无默认值：`tool-site`（1.工具站点）、`saas-client`（2.SaaS客户端）和 `saas-admin`（3.SaaS大后台）均沿用中性 Web 工程初始化事务，不生成产品页面或业务 PRD。交互字段为 `webType`，接受编号、中文名称或稳定值；已提供的选择直接复用，明确 Web 后优先逐项补问。Extension 不接受该字段。明确选择保留在下游 README 创建交接，首次需求直接复用，不写入下游身份配置。
-- `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
+- 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
 - 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
 - `--identity-i18n` 接受 §3.1 的 JSON 字符串；默认语言与名称/说明翻译保存在 `.harness/project.json`，UI 和 manifest 都消费同一事实。
@@ -45,7 +46,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 - `--brand-color` 可选，使用 `#RRGGBB`；缺省为 `#4C6EF5`。例如追加 `--logo /absolute/path/logo.png --brand-color "#3B82F6"`。
 - 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；后续显式 `pnpm build` 解析或复用本次发布的 `--e2e=enabled|disabled` 选择。
 
-基础字段按依赖顺序逐项引导，直接回答普通文本；主动提供多个字段的 JSON 仍复用。合法项目标识可从已知目录名或 ASCII 名称推荐，路径与服务地址不猜测。全部解析后才展示完整汇总并询问一次最终确认，空回答取消。参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 同级暂存目录 完成复制，通过内部初始化器 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部初始化器 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
+基础字段按依赖顺序逐项引导，直接回答普通文本；主动提供多个字段的 JSON 仍复用。项目标识按英文名称自动生成，父目录与服务地址不猜测。最终汇总同时展示原始父目录、完整项目目录与规范路径。全部解析后才展示完整汇总并询问一次最终确认，空回答取消。参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 同级暂存目录 完成复制，通过内部初始化器 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部初始化器 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
 生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。公开 CLI 不接受跳过安装或 Git 的参数；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。初始化不运行格式 CLI、lint、typecheck、全量测试或生产构建；这些完整门禁只由后续唯一 Release 构建入口拥有。
 

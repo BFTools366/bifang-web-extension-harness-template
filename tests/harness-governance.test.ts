@@ -23,7 +23,7 @@ describe("single-package Harness validation and governance", () => {
   /** 验证首轮选择 Web 后只补问 Web 类型，非法值重问且编号可选工具站点。 */
   test("requires a Web type after choosing Web without defaulting", async () => {
     const questions: string[] = []
-    const answers = ["", "web", "", "unknown", "1"]
+    const answers = ["", "1", "", "unknown", "1"]
     const identity = await collectPromptedIdentity(
       {
         targetRoot: path.join(repositoryRoot, "..", "chosen-web"),
@@ -41,6 +41,8 @@ describe("single-package Harness validation and governance", () => {
     expect(questions).toHaveLength(5)
     for (const question of questions.slice(0, 2)) {
       expect(question).toContain("字段： projectType")
+      expect(question).toContain("1.Web")
+      expect(question).toContain("2.Extension")
       expect(question).not.toContain("回车采用")
     }
     for (const question of questions.slice(2)) {
@@ -72,7 +74,7 @@ describe("single-package Harness validation and governance", () => {
       const output: string[] = []
       await runInstantiateCli(
         [
-          targetRoot,
+          parent,
           "--type",
           "web",
           "--name",
@@ -101,6 +103,7 @@ describe("single-package Harness validation and governance", () => {
           },
           instantiate: async (supplied) => {
             instantiated = true
+            expect(supplied.targetRoot).toBe(targetRoot)
             expect(supplied.init.webType).toBe(webType)
             expect(supplied.init.projectType).toBe("web")
             return createProjectConfig(supplied.init)
@@ -122,7 +125,6 @@ describe("single-package Harness validation and governance", () => {
     const answers = [
       JSON.stringify({ projectType: "web", webType }),
       "SaaS Basics",
-      "saas-basics",
       targetRoot,
       "预设"
     ]
@@ -134,7 +136,7 @@ describe("single-package Harness validation and governance", () => {
       return answer
     })
     expect(identity.webType).toBe(webType)
-    expect(questions).toHaveLength(5)
+    expect(questions).toHaveLength(4)
     expect(questions.slice(1).every((question) => !question.includes("字段： webType"))).toBe(true)
     await expect(
       runInstantiateCli([targetRoot, "--type", "web", "--web-type", webType], {
@@ -157,7 +159,7 @@ describe("single-package Harness validation and governance", () => {
       await expect(
         runInstantiateCli(
           [
-            targetRoot,
+            parent,
             "--type",
             "web",
             "--web-type",
@@ -337,7 +339,7 @@ describe("single-package Harness validation and governance", () => {
     const parent = await temporaryDirectory("web-harness-target-form-")
     const targetRoot = path.join(parent, "form-target")
     const basicQuestions: string[] = []
-    const answers = ["Form Target", "form-target", targetRoot]
+    const answers = ["Form Target", parent]
     let instantiated = false
     await expect(
       runInstantiateCli(
@@ -371,7 +373,8 @@ describe("single-package Harness validation and governance", () => {
             }),
           confirm: async (summary) => {
             expect(summary.rawTargetRoot).toBe(targetRoot)
-            expect(summary.inputSources.targetRoot).toBe("交互问答")
+            expect(summary.rawParentRoot).toBe(parent)
+            expect(summary.inputSources.targetRoot).toBe("交互问答父目录 + 项目标识")
             return false
           },
           instantiate: async () => {
@@ -382,8 +385,8 @@ describe("single-package Harness validation and governance", () => {
       )
     ).rejects.toThrow(/cancelled before any target write/)
 
-    expect(basicQuestions).toHaveLength(3)
-    for (const [index, key] of ["name", "id", "targetRoot"].entries()) {
+    expect(basicQuestions).toHaveLength(2)
+    for (const [index, key] of ["name", "targetRoot"].entries()) {
       expect(basicQuestions[index]).toContain(`字段： ${key}`)
       expect(basicQuestions[index]?.match(/字段：/g)).toHaveLength(1)
     }
@@ -399,7 +402,7 @@ describe("single-package Harness validation and governance", () => {
       const parent = await temporaryDirectory("web-harness-confirmation-")
       const targetRoot = path.join(parent, "confirmed-web")
       const argv = [
-        targetRoot,
+        parent,
         "--type",
         "web",
         "--web-type",
@@ -435,10 +438,11 @@ describe("single-package Harness validation and governance", () => {
             expect(summary.rawSourceRoot).toBe(repositoryRoot)
             expect(summary.canonicalSourceRoot).toBe(repositoryRoot)
             expect(summary.rawTargetRoot).toBe(targetRoot)
+            expect(summary.rawParentRoot).toBe(parent)
             expect(summary.canonicalTargetRoot).toBe(
               path.join(await realpath(parent), "confirmed-web")
             )
-            expect(summary.inputSources.targetRoot).toBe("命令行绝对位置参数")
+            expect(summary.inputSources.targetRoot).toBe("命令行父目录 + 项目标识")
             expect(summary.inputSources.webType).toBe("命令行参数")
             expect(summary.inputSources.brandColor).toBe("Harness 默认值")
             expect(summary.inputSources.superpowers).toBe("recommended 确定性预设")
@@ -447,7 +451,8 @@ describe("single-package Harness validation and governance", () => {
               confirmationCount += 1
               expect(question).toContain(`源路径（原始）：${repositoryRoot}`)
               expect(question).toContain(`目标路径（原始）：${targetRoot}`)
-              expect(question).toContain("targetRoot: 命令行绝对位置参数")
+              expect(question).toContain(`父目录（原始）：${parent}`)
+              expect(question).toContain("targetRoot: 命令行父目录 + 项目标识")
               expect(question).toContain("Web 类型：工具站点（tool-site）")
               expect(question).toContain("按此创建？")
               return answer

@@ -5,7 +5,7 @@
 Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、入口、构建和渠道不同。源 Harness 因此提供终端单选：
 
 ```text
-pnpm instantiate -- <absolute-target-outside-harness> ...
+pnpm instantiate -- <absolute-parent-outside-harness> ...
 ├── --type web --web-type tool-site → 独立 Vite React 单包
 └── --type extension → 独立 Plasmo Chrome MV3 / Firefox MV2 单包
 ```

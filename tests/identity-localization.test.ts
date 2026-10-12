@@ -54,7 +54,7 @@ describe("localized identity and visible brand initialization", () => {
     }
     let writes = 0
     await expect(
-      runInstantiateCli([path.join(repositoryRoot, "..", "clipper"), ...args], {
+      runInstantiateCli([path.join(repositoryRoot, ".."), ...args], {
         sourceRoot: repositoryRoot,
         interactive: false,
         instantiate: async () => {

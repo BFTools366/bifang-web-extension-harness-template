@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
 import { resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
-import type { PromptDefaults } from "../.harness/tooling/initialization-input.ts"
+import { validateProjectId, type PromptDefaults } from "../.harness/tooling/initialization-input.ts"
 import {
   confirmInstantiation,
   isInteractiveTerminal,
@@ -18,6 +18,7 @@ const INSTANTIATE_OPTIONS = [
   "type",
   "web-type",
   "name",
+  "english-name",
   "id",
   "description",
   "identity-i18n",
@@ -51,7 +52,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension [--web-type tool-site|saas-client|saas-admin （Web 必填）] --name <name> --id <id> --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]"
+  return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） [--web-type tool-site|saas-client|saas-admin （Web 必填）] --name <name> [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -126,7 +127,8 @@ function inputSources(
     projectType: source("type"),
     webType: projectType === "web" ? source("web-type") : "不适用",
     name: source("name"),
-    id: source("id"),
+    englishName: optionNames.has("english-name") ? "命令行参数" : "未单独提供",
+    id: optionNames.has("id") ? "命令行参数" : "英文名称自动生成",
     description: optionNames.has("description") ? "命令行参数" : "默认使用显示名称",
     identityI18n: optionNames.has("identity-i18n") ? "命令行参数" : "默认语言，未提供翻译",
     developmentBaseUrl: optionNames.has("development-base-url")
@@ -153,8 +155,8 @@ function inputSources(
     ...result,
     ...resolvedInteractiveSources,
     targetRoot: targetWasPositional
-      ? "命令行绝对位置参数"
-      : (resolvedInteractiveSources?.targetRoot ?? "交互问答")
+      ? "命令行父目录 + 项目标识"
+      : `${resolvedInteractiveSources?.targetRoot ?? "交互问答"}父目录 + 项目标识`
   }
 }
 
@@ -173,19 +175,19 @@ export async function runInstantiateCli(
   const rawSourceRoot = runtime.sourceRoot ?? DEFAULT_SOURCE_ROOT
   const sourceRoot = path.resolve(rawSourceRoot)
   const interactive = runtime.interactive ?? isInteractiveTerminal()
-  const positionalTargetRoot = parsed.positionals[0]
-  if (positionalTargetRoot === undefined && !interactive) throw new Error(usage())
-  if (positionalTargetRoot !== undefined && !path.isAbsolute(positionalTargetRoot)) {
+  const positionalParentRoot = parsed.positionals[0]
+  if (positionalParentRoot === undefined && !interactive) throw new Error(usage())
+  if (positionalParentRoot !== undefined && !path.isAbsolute(positionalParentRoot)) {
     throw new Error(
-      `Instantiation target must be provided as an absolute path: ${positionalTargetRoot}`
+      `Instantiation parent must be provided as an absolute path: ${positionalParentRoot}`
     )
   }
   const initArgs = { ...parsed, positionals: [] }
   let policyMode: "recommended" | "custom" = "recommended"
   let resolvedInteractiveSources: Readonly<Record<string, string>> | undefined
-  const init = await resolveInitOptions(initArgs, positionalTargetRoot ?? "", {
+  const init = await resolveInitOptions(initArgs, positionalParentRoot ?? "", {
     interactive,
-    targetRoot: positionalTargetRoot,
+    targetRoot: positionalParentRoot,
     promptIdentity: runtime.promptIdentity,
     onPolicyModeResolved: (resolved) => {
       policyMode = resolved
@@ -194,10 +196,12 @@ export async function runInstantiateCli(
       resolvedInteractiveSources = resolved
     }
   })
-  const rawTargetRoot = positionalTargetRoot ?? init.root
-  if (!path.isAbsolute(rawTargetRoot)) {
-    throw new Error(`Instantiation target must be provided as an absolute path: ${rawTargetRoot}`)
+  const rawParentRoot = positionalParentRoot ?? init.root
+  if (!path.isAbsolute(rawParentRoot)) {
+    throw new Error(`Instantiation parent must be provided as an absolute path: ${rawParentRoot}`)
   }
+  validateProjectId(init.id)
+  const rawTargetRoot = path.join(rawParentRoot, init.id)
   const targetRoot = path.normalize(rawTargetRoot)
   if (init.logoPath !== undefined) init.logoPath = path.resolve(cwd, init.logoPath)
 
@@ -208,6 +212,7 @@ export async function runInstantiateCli(
     const summary: InstantiationSummary = {
       rawSourceRoot,
       canonicalSourceRoot,
+      rawParentRoot,
       rawTargetRoot,
       canonicalTargetRoot,
       policyMode,
@@ -216,7 +221,7 @@ export async function runInstantiateCli(
         interactive,
         policyMode,
         init.projectType,
-        positionalTargetRoot !== undefined,
+        positionalParentRoot !== undefined,
         resolvedInteractiveSources
       ),
       init

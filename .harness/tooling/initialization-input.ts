@@ -4,6 +4,33 @@ import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type { AgentPolicyMode, ProjectType, WebCreationType } from "./types.ts"
 
+/** 将创建类型编号或名称解析为唯一宿主，不提供默认类型。 */
+export function parseProjectType(value: string): ProjectType {
+  const normalized = value.trim().toLowerCase()
+  const projectType = normalized === "1" ? "web" : normalized === "2" ? "extension" : normalized
+  assertProjectType(projectType)
+  return projectType
+}
+
+/** 从英文名称生成稳定标识；非英文名称必须先由 Agent 翻译或提供英文译名。 */
+export function deriveProjectId(name?: string, englishName?: string): string | undefined {
+  const english = (englishName ?? name)?.trim() ?? ""
+  if (!/^[\x20-\x7e]+$/.test(english)) return undefined
+  const id = english
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+  return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id) ? id : undefined
+}
+
+/** 在拼接目录前拒绝非法标识，避免路径片段逃逸。 */
+export function validateProjectId(value: string): string {
+  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(value)) {
+    throw new Error("项目标识必须由小写 ASCII 字母、数字与单个连字符组成")
+  }
+  return value
+}
+
 /** 保存创建表单与汇总共用的 Web 类型名称。 */
 export const WEB_TYPE_LABELS: Record<WebCreationType, string> = {
   "tool-site": "工具站点",
@@ -47,6 +74,7 @@ export interface PromptDefaults {
   projectType?: string
   webType?: string
   name?: string
+  englishName?: string
   id?: string
   description?: string
   identityI18n?: string
@@ -72,6 +100,7 @@ type BasicField =
   | "projectType"
   | "webType"
   | "name"
+  | "englishName"
   | "id"
   | "description"
   | "identityI18n"
@@ -103,7 +132,8 @@ const BASIC_FIELDS: ReadonlyArray<{
   {
     key: "projectType",
     label: "项目类型",
-    constraint: "web（React 网页）或 extension（Chrome 扩展），不设默认值"
+    constraint:
+      "1.Web（web，React 网页）/ 2.Extension（extension，Chrome MV3 / Firefox MV2 扩展），输入 1 或 2，不设默认值"
   },
   {
     key: "webType",
@@ -112,11 +142,16 @@ const BASIC_FIELDS: ReadonlyArray<{
       "1.工具站点（tool-site）/ 2.SaaS客户端（saas-client）/ 3.SaaS大后台（saas-admin），不设默认值"
   },
   { key: "name", label: "项目显示名称", constraint: "非空文本" },
+  {
+    key: "englishName",
+    label: "项目名称的英文翻译",
+    constraint: "用英文表达项目名称，自动生成小写 kebab-case 项目标识，不使用拼音"
+  },
   { key: "id", label: "项目标识", constraint: "小写字母、数字和连字符，例如 my-project" },
   {
     key: "targetRoot",
-    label: "源 Harness 外的目标目录",
-    constraint: "原始输入本身必须是完整绝对路径"
+    label: "源 Harness 外的父目录",
+    constraint: "原始输入本身必须是完整绝对路径；最终项目目录为此路径/项目标识"
   },
   { key: "description", label: "项目说明", constraint: "Extension 必填，简短说明；Web 可省略" },
   {
@@ -152,6 +187,7 @@ const BASIC_FIELDS: ReadonlyArray<{
 /** 保存无需主动询问、但可提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
   "webType",
+  "englishName",
   "description",
   "identityI18n",
   "brandColor",
@@ -180,26 +216,32 @@ function normalizeBasicField(
     return targetRoot
   }
   if (field === "projectType") {
-    const normalized = requiredText(value, "项目类型")
-    const projectType = normalized === "1" ? "web" : normalized === "2" ? "extension" : normalized
-    assertProjectType(projectType)
-    return projectType
+    return parseProjectType(requiredText(value, "项目类型"))
   }
   if (field === "name") return requiredText(value, "项目名称")
+  if (field === "englishName") {
+    if (!value?.trim() && (allValues.id?.trim() || deriveProjectId(allValues.name))) return ""
+    const englishName = requiredText(value, "项目名称的英文翻译（--english-name）")
+    if (deriveProjectId(undefined, englishName) === undefined) {
+      throw new Error("请提供以英文字母开头的英文名称，用于生成项目标识")
+    }
+    return englishName
+  }
   if (field === "webType") {
-    return ["web", "1"].includes(allValues.projectType?.trim() ?? "")
+    return ["web", "1"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
       ? parseWebCreationType(requiredText(value, "Web 类型（--web-type）"))
       : (value?.trim() ?? "")
   }
   if (field === "id") {
-    const id = requiredText(value, "项目标识")
-    if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) {
-      throw new Error("项目标识必须由小写 ASCII 字母、数字与单个连字符组成")
-    }
-    return id
+    return validateProjectId(
+      requiredText(
+        value ?? deriveProjectId(allValues.name, allValues.englishName || undefined),
+        "项目标识"
+      )
+    )
   }
   if (field === "description") {
-    return allValues.projectType?.trim() === "extension" || allValues.projectType?.trim() === "2"
+    return ["extension", "2"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
       ? requiredText(value, "Extension 项目说明")
       : (value?.trim() ?? "")
   }
@@ -245,14 +287,7 @@ function suggestedBasicValue(field: BasicField, values: PromptDefaults): string 
       ? "custom"
       : "recommended"
   }
-  if (field !== "id") return undefined
-  const directoryName =
-    values.targetRoot && path.isAbsolute(values.targetRoot) ? path.basename(values.targetRoot) : ""
-  if (/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(directoryName)) return directoryName
-  const name = values.name?.trim() ?? ""
-  if (!/^[a-zA-Z][a-zA-Z0-9 -]*$/.test(name)) return undefined
-  const id = name.toLowerCase().replace(/[ -]+/g, "-").replace(/-$/, "")
-  return /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id) ? id : undefined
+  return undefined
 }
 
 /** 接受当前字段的普通回答，同时兼容用户主动附带多个待补字段。 */
@@ -311,7 +346,7 @@ function basicQuestion(
   const value = field === "policyMode" ? (suggested === "custom" ? "自定义" : "预设") : suggested
   const reason =
     field === "id"
-      ? "建议由已知目录名或 ASCII 名称推导。"
+      ? "由项目名称的英文翻译生成。"
       : suggested === "custom"
         ? "已有单项策略，使用自定义可保留这些决定。"
         : "沿用仓库五项预设，减少逐项配置。"
@@ -337,6 +372,7 @@ export async function collectBasicFields(
   }
   if (defaults.brandColor === undefined) inputSources.brandColor = "Harness 默认值"
   for (const key of OPTIONAL_BASIC_FIELDS) {
+    if (key === "englishName") continue
     if (defaults[key] === undefined)
       inputSources[key] =
         key === "description"
@@ -351,6 +387,8 @@ export async function collectBasicFields(
   }
   let parseError: string | undefined
   while (true) {
+    // 派生标识随名称重算，只有用户显式提供的标识才作为稳定输入复用。
+    if (inputSources.id === "英文名称自动生成") values = { ...values, id: undefined }
     const normalized: PromptDefaults = { ...values }
     if (!values.confirmedBy?.trim()) inputSources.confirmedBy = "当前用户（自动记录）"
     const issues = new Map<BasicField, string>()
@@ -360,6 +398,9 @@ export async function collectBasicFields(
       } catch (error) {
         issues.set(key, error instanceof Error ? error.message : String(error))
       }
+    }
+    if (values.id === undefined && normalized.id !== undefined && !issues.has("id")) {
+      inputSources.id = "英文名称自动生成"
     }
     if (!issues.has("projectType") && !issues.has("webType")) {
       const projectType = normalized.projectType
