@@ -75,22 +75,20 @@ describe("localized identity and visible brand initialization", () => {
       policyMode: "预设"
     }
     const questions: string[] = []
-    const answers = [
-      { projectType: "extension" },
-      { description: " " },
-      { description: "Clip useful pages." }
-    ]
+    const answers = ["extension", " ", "Clip useful pages."]
     const resolved = await collectPromptedIdentity(defaults, async (question) => {
       questions.push(question)
-      return JSON.stringify(answers.shift())
+      const answer = answers.shift()
+      if (answer === undefined) throw new Error("Unexpected extra question")
+      return answer
     })
     expect(questions).toHaveLength(3)
-    expect(questions[0]).toContain("JSON key: projectType")
-    expect(questions[0]).not.toContain("JSON key: description")
-    expect(questions[1]).toContain("JSON key: description")
-    expect(questions[1]).not.toContain("JSON key: name")
+    expect(questions[0]).toContain("字段： projectType")
+    expect(questions[0]).not.toContain("字段： description")
+    expect(questions[1]).toContain("字段： description")
+    expect(questions[1]).not.toContain("字段： name")
     expect(resolved.description).toBe("Clip useful pages.")
-    expect(resolved.inputSources.description).toBe("交互表单")
+    expect(resolved.inputSources.description).toBe("交互问答")
     for (const projectType of [" extension ", " 2 "]) {
       const conditionalQuestions: string[] = []
       await collectPromptedIdentity({ ...defaults, projectType }, async (question) => {
@@ -98,7 +96,7 @@ describe("localized identity and visible brand initialization", () => {
         return JSON.stringify({ description: "Explicit extension description" })
       })
       expect(conditionalQuestions).toHaveLength(1)
-      expect(conditionalQuestions[0]).toContain("JSON key: description")
+      expect(conditionalQuestions[0]).toContain("字段： description")
     }
 
     await expect(

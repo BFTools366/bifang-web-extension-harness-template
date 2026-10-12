@@ -43,7 +43,7 @@
 - 推荐 Agent policy 固定为关闭自动用户 Task、关闭 superpowers、关闭内部并行、启用完整候选 smoke、关闭 E2E 建议；内部并行默认关闭不影响用户明确创建的左侧 Git Task。
 - 初始化后的永久策略变更必须由用户明确确认并写入当日 ADR；同值按幂等 no-op，临时 Task 限制不得改写持久策略。
 - `acceptance_smoke` 只在完整候选验收解析：硬要求优先，`enabled` 为 `required`，`disabled` 为 `not-required`，源 `pending` 在无硬要求时也是 `not-required`。它与本次发布的 E2E 选择相互独立；同一流程内构建、打包及修复重建复用已明确的选择，新字节仍重新验收。
-- 初始化先完成首轮项目字段收集，再按条件确认 Agent policy；非交互调用必须显式给出全部必需决议。所有写入前冻结 source 文件、模式、Version 与可用 Git 身份，发布 staging 前再次逐字节复核；脚手架验证和裁剪完成后在 staging 建立独立 Git 根、受管 repo-local 身份/模板与恰好一个 `chore: initialize project` 中性基线提交。
+- 初始化按工程规则“渐进式交互引导”逐项收集项目字段，再按条件确认 Agent policy；可靠配置建议可由用户回答接受，项目类型及最终创建不得默认确认；非交互调用必须显式给出全部必需决议。所有写入前冻结 source 文件、模式、Version 与可用 Git 身份，发布 staging 前再次逐字节复核；脚手架验证和裁剪完成后在 staging 建立独立 Git 根、受管 repo-local 身份/模板与恰好一个遵循当前中文提交规范的中性初始化基线提交。
 - Git 提交 helper 只补齐缺失的生效身份，复用合法 Unicode/global 配置；模板与配置只写仓库 local/common-dir，失败回滚，不自动提交。
 - 下游升级使用受保护双基线、不可弱化所有权、只读三方 plan、路径级批准、每次写后重规划与收敛后 record。
 - 源 Harness 与各终端保留的 canonical `web-*` Skills 数量以 `AGENTS.md` Skills 地图为准。Skill 与参考资产是治理契约，不是已生成的产品功能。

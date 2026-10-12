@@ -22,7 +22,6 @@ import {
   requirePathsContains
 } from "./typescript-contracts.ts"
 
-// 保存 FORBIDDEN_TEMPLATE_PATHS 变量供当前逻辑使用。
 const FORBIDDEN_TEMPLATE_PATHS = [
   "apps",
   "packages",
@@ -44,37 +43,24 @@ function mentionsInstantiationE2eSelection(source: string): boolean {
 
 // 执行 validateToolingContract 函数的处理逻辑。
 export async function validateToolingContract(root: string, errors: string[]): Promise<void> {
-  // 保存 requiredExists 变量供当前逻辑使用。
   const requiredExists = await Promise.all(
-    REQUIRED_FILES.map(
-      /* 执行 当前声明 函数的处理逻辑。 */ (required) => pathExists(path.join(root, required))
-    )
+    REQUIRED_FILES.map((required) => pathExists(path.join(root, required)))
   )
-  REQUIRED_FILES.forEach(
-    /* 执行 当前声明 函数的处理逻辑。 */ (required, index) => {
-      if (!requiredExists[index]) errors.push(`Missing required file: ${required}`)
-    }
-  )
-  // 保存 forbiddenExists 变量供当前逻辑使用。
+  REQUIRED_FILES.forEach((required, index) => {
+    if (!requiredExists[index]) errors.push(`Missing required file: ${required}`)
+  })
   const forbiddenExists = await Promise.all(
-    FORBIDDEN_TEMPLATE_PATHS.map(
-      /* 执行 当前声明 函数的处理逻辑。 */ (forbidden) => pathExists(path.join(root, forbidden))
-    )
+    FORBIDDEN_TEMPLATE_PATHS.map((forbidden) => pathExists(path.join(root, forbidden)))
   )
-  FORBIDDEN_TEMPLATE_PATHS.forEach(
-    /* 执行 当前声明 函数的处理逻辑。 */ (forbidden, index) => {
-      if (forbiddenExists[index]) errors.push(`Clean template must not contain ${forbidden}`)
-    }
-  )
+  FORBIDDEN_TEMPLATE_PATHS.forEach((forbidden, index) => {
+    if (forbiddenExists[index]) errors.push(`Clean template must not contain ${forbidden}`)
+  })
 
-  // 保存 manifest 变量供当前逻辑使用。
   const manifest = await readJson<Record<string, unknown>>(path.join(root, "package.json"))
   if ("workspaces" in manifest) errors.push("Template package.json must not define workspaces")
   assertPackageManagerPins(manifest, errors)
   await validatePnpmBuildPolicy(root, errors)
-  // 保存 scripts 变量供当前逻辑使用。
   const scripts = manifest.scripts as Record<string, unknown> | undefined
-  // 保存 script 变量供当前逻辑使用。
   for (const script of ["harness", "instantiate", "validate:harness", "comments:check", "lint"]) {
     if (typeof scripts?.[script] !== "string")
       errors.push(`package.json is missing script ${script}`)
@@ -94,9 +80,7 @@ export async function validateToolingContract(root: string, errors: string[]): P
   if (scripts?.lint !== "eslint . && pnpm comments:check") {
     errors.push("Source Harness script lint must enforce the governed comment policy")
   }
-  // 保存 devDependencies 变量供当前逻辑使用。
   const devDependencies = manifest.devDependencies as Record<string, unknown> | undefined
-  // 保存 [dependency, version] 变量供当前逻辑使用。
   for (const [dependency, version] of [
     ["typescript", "6.0.3"],
     ["vitest", "5.0.2"],
@@ -106,11 +90,8 @@ export async function validateToolingContract(root: string, errors: string[]): P
       errors.push(`${dependency} minimum must not be lower than ${version}`)
     }
   }
-  // 保存 cli 变量供当前逻辑使用。
   const cli = await readFile(path.join(root, ".harness/tooling/cli.ts"), "utf8")
-  // 保存 cliSourceFile 变量供当前逻辑使用。
   const cliSourceFile = parseTypeScriptSource(cli, ".harness/tooling/cli.ts")
-  // 保存 usageText 变量供当前逻辑使用。
   const usageText = directFunctionReturnText(cliSourceFile, "usage")
   if (usageText === undefined || !usageText.includes("pnpm instantiate")) {
     errors.push("Harness CLI is missing the pnpm instantiate help contract")
@@ -118,7 +99,6 @@ export async function validateToolingContract(root: string, errors: string[]): P
   if (mentionsInstantiationE2eSelection(usageText ?? "")) {
     errors.push("Harness initialization help must not accept an E2E selection")
   }
-  // 保存 runBrand 变量供当前逻辑使用。
   const runBrand = findFunctionDeclaration(cliSourceFile, "runBrand")
   if (
     runBrand === undefined ||
@@ -139,19 +119,15 @@ export async function validateToolingContract(root: string, errors: string[]): P
   if (containsIdentifier(cliSourceFile, "initializeProject")) {
     errors.push("Harness CLI must not dispatch directly to initializeProject")
   }
-  // 保存 instantiationEntry 变量供公开创建入口契约校验使用。
   const instantiationEntry = await readFile(path.join(root, "scripts/instantiate.ts"), "utf8")
   if (mentionsInstantiationE2eSelection(instantiationEntry)) {
     errors.push("Public instantiate entry must not accept an E2E selection")
   }
-  if (!instantiationEntry.includes("Release artifacts were not built")) {
+  if (!instantiationEntry.includes("未构建正式产物")) {
     errors.push("Public instantiate entry must report that Release artifacts are deferred")
   }
-  // 保存 initializer 变量供当前逻辑使用。
   const initializer = await readFile(path.join(root, ".harness/tooling/init.ts"), "utf8")
-  // 保存 initializerSourceFile 变量供当前逻辑使用。
   const initializerSourceFile = parseTypeScriptSource(initializer, ".harness/tooling/init.ts")
-  // 保存 initializeProject 变量供当前逻辑使用。
   const initializeProject = findFunctionDeclaration(initializerSourceFile, "initializeProject")
   if (
     initializeProject === undefined ||
@@ -161,7 +137,6 @@ export async function validateToolingContract(root: string, errors: string[]): P
       "Harness initializer must format only its generated or rewritten files before validation"
     )
   }
-  // 保存 postInitialization 变量供创建期外部命令契约校验使用。
   const postInitialization = findFunctionDeclaration(initializerSourceFile, "runPostInitialization")
   if (
     postInitialization === undefined ||
@@ -181,7 +156,6 @@ export async function validateToolingContract(root: string, errors: string[]): P
   ) {
     errors.push("Harness initializer must not run format or build commands after installation")
   }
-  // 保存 initializationCalls 变量供当前逻辑使用。
   const initializationCalls = [
     {
       callee: "assertDownstreamInitializationRoot",
@@ -199,7 +173,6 @@ export async function validateToolingContract(root: string, errors: string[]): P
       contract: "await runPostInitialization(resolvedOptions, commandRunner)"
     }
   ] as const
-  // 保存 initializationPositions 变量供当前逻辑使用。
   const initializationPositions = initializationCalls.map(
     /* 提取初始化函数中顶层 await 调用的位置。 */ ({ callee, args }) =>
       directAwaitedCallPosition(initializeProject, initializerSourceFile, callee, args)
@@ -222,7 +195,6 @@ export async function validateToolingContract(root: string, errors: string[]): P
   ) {
     errors.push("Harness initializer must await root gate, validation, and post checks in order")
   }
-  // 保存 downstreamRootGate 变量供当前逻辑使用。
   const downstreamRootGate = findFunctionDeclaration(
     initializerSourceFile,
     "assertDownstreamInitializationRoot"
@@ -235,9 +207,7 @@ export async function validateToolingContract(root: string, errors: string[]): P
   ) {
     errors.push("Harness initializer is missing its executable source-root rejection contract")
   }
-  // 保存 finalizer 变量供当前逻辑使用。
   const finalizer = await readFile(path.join(root, ".harness/tooling/finalize.ts"), "utf8")
-  // 保存 finalizerSourceFile 变量供当前逻辑使用。
   const finalizerSourceFile = parseTypeScriptSource(finalizer, ".harness/tooling/finalize.ts")
   if (
     propertyAccessCallPositions(finalizerSourceFile, finalizerSourceFile, "JSON", "stringify", [
@@ -246,9 +216,7 @@ export async function validateToolingContract(root: string, errors: string[]): P
   ) {
     errors.push("Downstream config must retain the source-only path tombstones for validation")
   }
-  // 保存 terminalBrand 变量供当前逻辑使用。
   const terminalBrand = noSubstitutionTemplateValue(finalizerSourceFile, "TERMINAL_BRAND")
-  // 保存 terminalBrandSourceFile 变量供当前逻辑使用。
   const terminalBrandSourceFile =
     terminalBrand === undefined
       ? undefined
@@ -256,20 +224,16 @@ export async function validateToolingContract(root: string, errors: string[]): P
   if (terminalBrandSourceFile === undefined || terminalBrand === undefined) {
     errors.push("Downstream brand template must remain valid TypeScript")
   } else {
-    // 保存 terminalBrandComments 变量供静态模板注释门禁使用。
     const terminalBrandComments = inspectChineseComments(terminalBrand, ".harness/tooling/brand.ts")
     if (terminalBrandComments.errors.length > 0 || terminalBrandComments.violations.length > 0) {
       errors.push("Downstream brand template must contain static Chinese structure comments")
     }
   }
-  // 保存 manifestTooling 变量供当前逻辑使用。
   const manifestTooling = await readFile(path.join(root, ".harness/tooling/manifest.ts"), "utf8")
-  // 保存 manifestToolingSourceFile 变量供当前逻辑使用。
   const manifestToolingSourceFile = parseTypeScriptSource(
     manifestTooling,
     ".harness/tooling/manifest.ts"
   )
-  // 保存 commonScripts 变量供当前逻辑使用。
   const commonScripts = findFunctionDeclaration(manifestToolingSourceFile, "commonScripts")
   if (
     commonScripts === undefined ||
@@ -310,7 +274,6 @@ export async function validateToolingContract(root: string, errors: string[]): P
   ) {
     errors.push("Downstream manifest tooling is missing test:related")
   }
-  // 保存 buildProjectManifest 变量供当前逻辑使用。
   const buildProjectManifest = findFunctionDeclaration(
     manifestToolingSourceFile,
     "buildProjectManifest"
@@ -335,24 +298,20 @@ export async function validateToolingContract(root: string, errors: string[]): P
       errors.push(`Downstream manifest tooling is missing governed ${name}`)
     }
   }
-  // 保存 downstreamValidator 变量供当前逻辑使用。
   const downstreamValidator = await readFile(
     path.join(root, ".harness/tooling/validate.ts"),
     "utf8"
   )
-  // 保存 downstreamValidatorSourceFile 变量供当前逻辑使用。
   const downstreamValidatorSourceFile = parseTypeScriptSource(
     downstreamValidator,
     ".harness/tooling/validate.ts"
   )
-  // 保存 validateProject 变量供当前逻辑使用。
   const validateProject = findFunctionDeclaration(downstreamValidatorSourceFile, "validateProject")
   /** 保存按职责拆分后的共享构建脚本验证源。 */
   const helperSourceFile = parseTypeScriptSource(
     await readFile(path.join(root, ".harness/tooling/validate-helpers.ts"), "utf8"),
     ".harness/tooling/validate-helpers.ts"
   )
-  // 保存 assertReleaseOnlyBuildScripts 变量供当前逻辑使用。
   const assertReleaseOnlyBuildScripts = findFunctionDeclaration(
     helperSourceFile,
     "assertReleaseOnlyBuildScripts"

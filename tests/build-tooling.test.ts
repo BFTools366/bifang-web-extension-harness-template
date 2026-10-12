@@ -15,7 +15,6 @@ import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "../.harness/
 describe("release build orchestration", /* 执行当前测试分组的验证逻辑。 */ () => {
   /** 验证 Web 按上海时间生成秒级版本且拒绝旧字段顺序。 */
   test("formats the Web build version in Asia/Shanghai", /* 执行当前测试用例的验证逻辑。 */ () => {
-    // 保存 version 变量供格式断言使用。
     const version = formatBuildVersion(new Date("2026-08-24T04:34:59.000Z"))
     expect(version).toBe("260824123459")
     expect(formatBuildVersion(new Date("2026-08-24T04:35:00.000Z"))).toBe("260824123500")
@@ -52,9 +51,7 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
 
   /** 验证 requires an explicit E2E decision for non-interactive builds 场景。 */
   test("requires an explicit E2E decision for non-interactive builds", /* 执行当前测试用例的验证逻辑。 */ async () => {
-    await expect(resolveE2eSelection(undefined, false)).rejects.toThrow(
-      /Non-interactive builds require/
-    )
+    await expect(resolveE2eSelection(undefined, false)).rejects.toThrow(/非交互构建必须传入/)
     await expect(resolveE2eSelection("enabled", false)).resolves.toBe("enabled")
     for (const selection of ["enabled", "disabled"] as const) {
       await expect(resolveE2eSelection(selection, false)).resolves.toBe(selection)
@@ -72,9 +69,7 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
 
   /** 验证 runs the full unit suite before injecting the Web build version 场景。 */
   test("runs the full unit suite before injecting the Web build version", /* 执行当前测试用例的验证逻辑。 */ () => {
-    // 保存 commands 变量供顺序与环境断言使用。
     const commands = createBuildCommandPlan("web", "build", "260824123459")
-    // 保存 commandLines 变量供可读顺序断言使用。
     const commandLines = commands.map(
       /* 执行当前命令到文本的映射。 */ (command) => `${command.command} ${command.args.join(" ")}`
     )
@@ -95,9 +90,7 @@ describe("release build orchestration", /* 执行当前测试分组的验证逻�
 
   /** 验证 injects the same version into Extension build and package commands 场景。 */
   test("injects the same version into Extension build and package commands", /* 执行当前测试用例的验证逻辑。 */ () => {
-    // 保存 build 变量供普通构建断言使用。
     const build = createBuildCommandPlan("extension", "build", "1.2.3")
-    // 保存 packaged 变量供 zip 构建断言使用。
     const packaged = createBuildCommandPlan("extension", "package", "1.2.3")
     for (const [index, browser] of ["chrome-mv3", "firefox-mv2"].entries()) {
       const args = [

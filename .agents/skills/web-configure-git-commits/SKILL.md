@@ -36,7 +36,7 @@ pnpm exec tsx .agents/skills/web-configure-git-commits/scripts/configure-git-com
 4. 模板安装到 `<git-common-dir>/harness/meaningful-commit-template.txt`；模板所有非空行必须以 `#` 开头，并同时把 `core.commentChar` 与优先级更高的 `core.commentString` 固定为 `#`，避免模板文本意外进入提交消息。
 5. 冲突在首个写入前全部预检。任一写入失败时恢复模板、身份与 local 配置；失败不授权提交、推送或历史修改。
 6. 实际提交前运行 `identity-check` 与 `check`，再根据真实 diff 写有意义的提交正文。不得把注释模板原样当消息，也不得伪造验证结果。
-7. 简单且意图明确的维护变化可以只使用一行 Conventional Commit 主题。非简单变化必须填写 `Why`、`Changes`、`Impact`、`Test`；未运行时写 `Not run: <原因>`。`!` 或 `BREAKING CHANGE:` 只用于已批准的破坏性契约，不自行扩大授权。
+7. 简单且意图明确的维护变化可以只使用一行 Conventional Commit 主题。主题摘要和正文必须使用中文，技术标识符及必要 Git 语义可以保留。非简单变化必须填写“原因、变更、影响、验证”；未运行时写 `未执行：<原因>`。`!` 或 `BREAKING CHANGE:` 只用于已批准的破坏性契约，不自行扩大授权。
 8. CLI 无论成功或失败都只向 stdout 输出一个 JSON；成功包含 `ok`、`operation`、`status` 及适用的 `changed`、`replacedConflicts`、`settings`，失败包含稳定 `error.code` 与 `error.message`。
 
 ## 完成输出

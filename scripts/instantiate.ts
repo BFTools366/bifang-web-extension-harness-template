@@ -4,11 +4,11 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
 import { resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
+import type { PromptDefaults } from "../.harness/tooling/initialization-input.ts"
 import {
   confirmInstantiation,
   isInteractiveTerminal,
   type InstantiationSummary,
-  type PromptDefaults,
   type PromptedIdentity
 } from "../.harness/tooling/prompts.ts"
 import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/types.ts"
@@ -51,7 +51,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "Usage: pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension [--web-type tool-site|saas-client|saas-admin (required for web; SaaS 流程暂未开放)] --name <name> --id <id> --policy-mode 预设|自定义 [--description <text> (required for extension)] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [custom policy flags]"
+  return "用法：pnpm instantiate -- <absolute-empty-target-outside-harness> --type web|extension [--web-type tool-site|saas-client|saas-admin （Web 必填；SaaS 流程暂未开放）] --name <name> --id <id> --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -152,7 +152,9 @@ function inputSources(
   return {
     ...result,
     ...resolvedInteractiveSources,
-    targetRoot: targetWasPositional ? "命令行绝对位置参数" : "交互表单"
+    targetRoot: targetWasPositional
+      ? "命令行绝对位置参数"
+      : (resolvedInteractiveSources?.targetRoot ?? "交互问答")
   }
 }
 
@@ -242,14 +244,14 @@ export async function runInstantiateCli(
     }
   })
   const output = runtime.output ?? console.log
-  output(`Created ${config.projectType} project at ${targetRoot}`)
-  output(`Logo master: ${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
+  output(`已创建 ${config.projectType} 项目：${targetRoot}`)
+  output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
   output(
     config.projectType === "web"
-      ? "Brand assets: public/logo.png (512×512), public/favicon.png (64×64)"
-      : "Brand assets: assets/icon.png (1024×1024); Plasmo derives manifest icon sizes during build"
+      ? "品牌资产：public/logo.png (512×512), public/favicon.png (64×64)"
+      : "品牌资产：assets/icon.png (1024×1024); Plasmo 在构建时派生 manifest 所需的图标尺寸"
   )
-  output("Release artifacts were not built. Run `pnpm build` in the project when needed.")
+  output("未构建正式产物。需要时在项目中运行 `pnpm build`。")
   return config
 }
 

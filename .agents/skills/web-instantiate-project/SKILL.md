@@ -9,9 +9,9 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 收集输入
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。首轮用一份编号表单批量收集全部尚未明确的基础字段：唯一项目类型、展示名称、跨平台安全的 ASCII kebab-case 项目标识、源 Harness 之外的完整绝对目标目录和中文策略模式“预设/自定义”；只重问缺失或非法项。非交互命令必须把绝对目标作为位置参数；交互式终端未给位置参数时，把目标与其他缺失字段并入同一首轮。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型在首轮才明确时进入条件补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮优先问一个：唯一项目类型、展示名称、跨平台安全的 ASCII kebab-case 项目标识、源 Harness 之外的完整绝对目标目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识有可靠推导时给建议，策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面明确“回车采用”后可接受默认值；目标目录不得猜测。非交互命令仍必须把绝对目标作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
 2. 要求用户明确选择且只能选择一种项目类型：`web` 或 `extension`。不得默认、推断、同时选择或保留稍后转换类型的入口。选择 Web 后必须让用户选择 Web 类型：1.工具站点（`tool-site`，沿用现有逻辑）；2.SaaS客户端（`saas-client`）；3.SaaS大后台（`saas-admin`）。Web 类型没有默认值，不能从产品描述推断；已明确的合法选择直接复用，尚未提供时条件补问。两个 SaaS 选项只预留，流程暂未开放：选中后明确说明并结束本次创建，不继续 Logo、环境检查、复制、安装或 Git 初始化，不替用户改选工具站点，也不收集 SaaS 具体流程。Extension 不询问或接受 Web 类型。
-3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式此后每轮只询问一个仍缺失的策略字段，用户在一次回答中主动提供的多个合法值全部复用。按用户选择记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
+3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户选择记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
 
@@ -31,8 +31,8 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 建立独立仓库
 
-1. 调用 `pnpm instantiate` 前保持目标完全为空，不要先在目标运行 `git init`；否则 `.git` 会触发非空目标保护。初始化器只在 staging 中完成生成、安装、结构验证和一次性裁剪后建立 `main` 独立 Git 根；紧邻唯一提交按 `$web-configure-git-commits` 契约执行 `identity-report`、必要时 `identity-bootstrap`、`identity-check`、模板 `install` 与 `check`，随后创建恰好一个 `chore: initialize project` 中性基线提交，全部成功后才允许原子发布。
-2. 命令成功后验证 `git rev-parse --show-toplevel` 的规范路径等于目标根、当前分支为 `main`、`git remote` 为空、`HEAD` 存在且仓库恰好只有一个 root commit，提交主题为 `chore: initialize project`，工作区与暂存区为空。测试可通过直接调用内部 TypeScript 接口注入跳过 Git 或安装；公开 `pnpm instantiate` 不接受 `--skip-git` 或 `--skip-install`。
+1. 调用 `pnpm instantiate` 前保持目标完全为空，不要先在目标运行 `git init`；否则 `.git` 会触发非空目标保护。初始化器只在 staging 中完成生成、安装、结构验证和一次性裁剪后建立 `main` 独立 Git 根；紧邻唯一提交按 `$web-configure-git-commits` 契约执行 `identity-report`、必要时 `identity-bootstrap`、`identity-check`、模板 `install` 与 `check`，随后创建恰好一个 `chore: 初始化项目` 中性基线提交，全部成功后才允许原子发布。
+2. 命令成功后验证 `git rev-parse --show-toplevel` 的规范路径等于目标根、当前分支为 `main`、`git remote` 为空、`HEAD` 存在且仓库恰好只有一个 root commit，提交主题为 `chore: 初始化项目`，工作区与暂存区为空。测试可通过直接调用内部 TypeScript 接口注入跳过 Git 或安装；公开 `pnpm instantiate` 不接受 `--skip-git` 或 `--skip-install`。
 3. 不复制源历史，不创建远端、标签、托管仓库，不推送，也不修改全局 Git 配置。
 
 ## 执行唯一创建入口
@@ -46,7 +46,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
    Web 必须额外传入 `--web-type tool-site`，Extension 不传该参数；`saas-client` 和 `saas-admin` 仅用于表达预留选项，当前命令会在写入前报告流程暂未开放。自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
-   交互模式先批量解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
+   交互模式按依赖顺序逐项解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的 Ky HTTP 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。默认在项目内检查 `design-taste-frontend`，有效已有版本原样保留，缺失时由 initializer 使用固定快照自动补装至 `.agents/skills/design-taste-frontend/`，不追加用户选择、不依赖全局版本、不执行远程安装器；快照及事务边界见 `docs/TS_WEB_TEMPLATE.md` §3.9，设计适用规则见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。

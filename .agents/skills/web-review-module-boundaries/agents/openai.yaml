@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：审查模块边界"
+  short_description: "只读定位模块职责、依赖方向与状态归属问题，给出有证据的拆分建议"
+  default_prompt: "使用 $web-review-module-boundaries 只读梳理指定范围的职责、依赖和状态拥有者，给出有代码证据的模块边界与拆分建议。"

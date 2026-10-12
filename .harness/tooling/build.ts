@@ -10,7 +10,6 @@ import type { E2eSelection, ProjectType } from "./types.ts"
 import { isValidExtensionVersion, WEB_BUILD_VERSION_PATTERN } from "./version.ts"
 import { isMainModule } from "./files.ts"
 
-// 保存 BUILD_TIME_ZONE 变量供构建版本生成使用。
 const BUILD_TIME_ZONE = "Asia/Shanghai" as const
 // 定义 BuildTarget 类型约束受支持的产物动作。
 export type BuildTarget = "build" | "package"
@@ -36,7 +35,6 @@ export interface BuildCommand {
 
 // 执行 formatBuildVersion 函数，按上海时区生成 YYMMDDHHMMSS 构建版本。
 export function formatBuildVersion(now: Date): string {
-  // 保存 formatter 变量供时间字段格式化使用。
   const formatter = new Intl.DateTimeFormat("en-CA", {
     day: "2-digit",
     hour: "2-digit",
@@ -47,13 +45,11 @@ export function formatBuildVersion(now: Date): string {
     timeZone: BUILD_TIME_ZONE,
     year: "numeric"
   })
-  // 保存 values 变量供格式化字段聚合使用。
   const values = new Map<string, string>()
   // 遍历格式化字段并保存版本所需值。
   for (const part of formatter.formatToParts(now)) {
     values.set(part.type, part.value)
   }
-  // 保存 version 变量供最终格式校验使用。
   const version = ["year", "month", "day", "hour", "minute", "second"]
     .map(
       // 执行当前字段到格式化值的映射。
@@ -90,14 +86,12 @@ export async function resolveBuildVersion(
 
 // 执行 parseBuildArguments 函数，解析产物动作和 E2E 选择。
 export function parseBuildArguments(argv: readonly string[]): BuildArguments {
-  // 保存 target 变量供产物动作校验使用。
   const target = argv[0]
   if (target !== "build" && target !== "package") {
     throw new Error(
       "Usage: pnpm build -- --e2e=enabled|disabled or pnpm package -- --e2e=enabled|disabled"
     )
   }
-  // 保存 e2e 变量供显式选择解析使用。
   let e2e: E2eSelection | undefined
   // 遍历剩余参数并拒绝未知构建选项。
   for (const argument of argv.slice(1)) {
@@ -106,7 +100,6 @@ export function parseBuildArguments(argv: readonly string[]): BuildArguments {
       throw new Error(`Unknown build option: ${argument}`)
     }
     if (e2e !== undefined) throw new Error("--e2e can only be provided once")
-    // 保存 value 变量供 E2E 枚举校验使用。
     const value = argument.slice("--e2e=".length)
     if (value !== "enabled" && value !== "disabled") {
       throw new Error("--e2e must be enabled or disabled")
@@ -131,7 +124,6 @@ export function createBuildCommandPlan(
   if (target === "package" && projectType !== "extension") {
     throw new Error("Only an Extension project can create a package")
   }
-  // 保存 commands 变量供顺序构建使用。
   const commands: BuildCommand[] = [
     { command: "pnpm", args: ["env:validate", "--profile", "release"] },
     { command: "pnpm", args: ["harness", "validate"] },
@@ -174,11 +166,9 @@ export function createBuildCommandPlan(
 
 // 执行 promptForE2eSelection 函数，取得交互式构建的当次 E2E 决定。
 async function promptForE2eSelection(): Promise<E2eSelection> {
-  // 保存 prompt 变量供终端问答使用。
   const prompt = createInterface({ input: stdin, output: stdout })
   try {
     while (true) {
-      // 保存 answer 变量供用户选择标准化使用。
       const answer = (await prompt.question("本次构建完成后是否启用 E2E 测试？[y/N] ")).trim()
       if (answer === "" || /^(?:n|no|否)$/iu.test(answer)) return "disabled"
       if (/^(?:y|yes|是)$/iu.test(answer)) return "enabled"
@@ -196,25 +186,20 @@ export async function resolveE2eSelection(
 ): Promise<E2eSelection> {
   if (explicit !== undefined) return explicit
   if (interactive) return promptForE2eSelection()
-  throw new Error(
-    "Non-interactive builds require --e2e=enabled or --e2e=disabled; reuse the current release selection."
-  )
+  throw new Error("非交互构建必须传入 --e2e=enabled 或 --e2e=disabled；复用当前发布的 E2E 选择。")
 }
 
 // 执行 runCommand 函数，按原样转发单个构建门禁的输入输出。
 async function runCommand(specification: BuildCommand, root: string): Promise<void> {
-  // 保存 child 变量供子进程生命周期管理使用。
   const child = spawn(specification.command, specification.args, {
     cwd: root,
     env: { ...process.env, ...specification.env },
     stdio: "inherit"
   })
-  // 保存 [code, signal] 变量供退出状态判断使用。
   const [code, signal] = (await once(child, "exit")) as [number | null, NodeJS.Signals | null]
   if (code === 0) return
-  // 保存 suffix 变量供失败信息使用。
-  const suffix = signal === null ? `exit code ${String(code)}` : `signal ${signal}`
-  throw new Error(`${specification.command} ${specification.args.join(" ")} failed with ${suffix}`)
+  const suffix = signal === null ? `退出码 ${String(code)}` : `信号 ${signal}`
+  throw new Error(`${specification.command} ${specification.args.join(" ")} 执行失败：${suffix}`)
 }
 
 // 执行 runBuild 函数，串行完成选择、全量单测、宿主构建与产物检查。
@@ -224,23 +209,16 @@ export async function runBuild(
   interactive: boolean,
   now = new Date()
 ): Promise<{ buildVersion: string; e2e: E2eSelection }> {
-  // 保存 root 变量供所有构建命令使用。
   const root = path.resolve(rootInput)
-  // 保存 project 变量供宿主命令选择使用。
   const project = await loadProjectConfig(root)
-  // 保存 e2e 变量供构建后验收提示使用。
   const e2e = await resolveE2eSelection(args.e2e, interactive)
-  // 保存 buildVersion 变量供当前候选注入使用。
   const buildVersion = await resolveBuildVersion(project.projectType, root, now)
-  // 保存 command 变量供顺序执行使用。
   for (const command of createBuildCommandPlan(project.projectType, args.target, buildVersion)) {
     await runCommand(command, root)
   }
-  console.log(`Build ${buildVersion} passed with E2E ${e2e}.`)
+  console.log(`构建 ${buildVersion} 通过；E2E 选择：${e2e}。`)
   if (e2e === "enabled") {
-    console.log(
-      "E2E is requested and remains pending: run $web-test-final-artifact-e2e against this exact artifact."
-    )
+    console.log("已选择 E2E，尚待执行：对本次精确产物运行 $web-test-final-artifact-e2e。")
   }
   return { buildVersion, e2e }
 }
@@ -248,7 +226,6 @@ export async function runBuild(
 // 执行 runCli 函数，连接 pnpm 脚本与构建编排器。
 async function runCli(): Promise<void> {
   try {
-    // 保存 args 变量供命令执行使用。
     const args = parseBuildArguments(process.argv.slice(2))
     await runBuild(process.cwd(), args, stdin.isTTY === true && stdout.isTTY === true)
   } catch (error) {

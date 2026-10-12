@@ -17,7 +17,7 @@
 
 ### 需要提供的信息
 
-你可以随提示词一起提供以下信息；缺少的基础信息由 Agent 一次收集：
+你可以随提示词一起提供以下信息，也可以让 Agent 逐项引导。每次优先问一个关键问题，有可靠默认值时给出建议；已有答案直接复用，无需一次填写整份表格：
 
 | 信息       | 如何填写                                                                              |
 | ---------- | ------------------------------------------------------------------------------------- |
@@ -43,15 +43,25 @@ Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/we
 
 创建完成后，在新项目目录中打开 Agent，再描述具体功能、页面和交互需求。模板源只负责创建工程基线；业务开发在生成的新项目中进行。
 
-下游的新产品、新页面或显著交互改版遵循“需求澄清 → Product Spec（PRD）记录并确认 → 2–3 个可交互 HTML 原型 → 用户选定具体版本 → 开发”。对应 `$web-define-product`、[`$web-design-prototype`](.agents/skills/web-design-prototype/SKILL.md) 和 `$web-implement-change` 随初始化安装到下游 `.agents/skills/`，不污染全局。初始化不执行这套业务流程；日常小修复不强制重走。原型选择绑定 PRD 与候选内容，内容变化后需重新选择。
+下游的新产品、新页面或显著交互改版遵循“需求澄清 → 产品规格（PRD）记录并确认 → 2–3 个可交互 HTML 原型 → 用户选定具体版本 → 开发”。对应 `$web-define-product`、[`$web-design-prototype`](.agents/skills/web-design-prototype/SKILL.md) 和 `$web-implement-change` 随初始化安装到下游 `.agents/skills/`，不污染全局。初始化不执行这套业务流程；日常小修复不强制重走。原型选择绑定 PRD 与候选内容，内容变化后需重新选择。
 
 每个项目只包含 Web 或 Extension 中的一种。需要两种时分别创建两个独立项目。初始化成功仅表示工程基线创建完成；正式产物需要后续构建和验收。
 
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md) §1.1–1.3 为准。
 
-需要整理接口文档时，在下游调用 [`$web-document-api`](.agents/skills/web-document-api/SKILL.md)，依据当前 API 实现、类型与相关测试写入 `docs/api/`：每个模块一份文档，并生成索引。初始化只分发 Skill，不生成业务接口文档。
+已初始化 Web 需要 SaaS 认证时，使用独立 [`$web-implement-saas-auth`](.agents/skills/web-implement-saas-auth/SKILL.md) 完善登录、退出、注册/找回、组织切换、路由与权限 SOP；大后台不含注册和组织切换。Skill 只分发通用能力，创建期 SaaS 选项仍待开放，具体需求在下游记录。
+
+SaaS 客户端可明确选中独立 [`$web-implement-saas-commerce`](.agents/skills/web-implement-saas-commerce/SKILL.md)；默认关闭，选中后才应用商品购买、订单查询与钱包管理。它包含树形分类、服务端钱包支付选项、原订单续付及支付后账户刷新 SOP，并附[离线中性界面参考](.agents/skills/web-implement-saas-commerce/assets/commerce-reference.html)。源只分发能力与示例，不创建产品订单或开通真实支付。
+
+SaaS 大后台管理使用 [`$web-implement-saas-admin`](.agents/skills/web-implement-saas-admin/SKILL.md)：提供商品与树形分类、组织与成员、订单管理，补齐钱包/支付查询、平台访问控制和操作审计的页面与 SOP。管理目标组织不切换登录身份，改价保留历史订单快照，钱包默认只读；具体服务能力在已初始化下游采用。
+
+工具站点、SaaS 客户端与 SaaS 大后台统一遵循 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)：创建期选择不持久化，下游业务模式与购买选择由唯一 PRD 记录；需求、原型、实现和真实接入复用同一事实。创建期 SaaS 仍保持预留，不因安装 Skill 而启用。
+
+三项 SaaS 能力共用 [API 关联表](docs/API.md#saas-能力与-api-关联)：映射已有认证操作、协议与字段，列明组织切换/权限、购买及后台管理的服务契约缺口。需要整理接口文档或公开 API 实际变化时，在下游调用 [`$web-document-api`](.agents/skills/web-document-api/SKILL.md)，依据当前 API 实现、类型与相关测试写入 `docs/api/`：每个模块一份文档，并生成索引；实现/接入流程仅同步受影响模块。REST 展示接口名称、接口说明、请求路径、请求方法、请求头、请求与响应数据，JSON 数据使用字段表；GraphQL 展示接口名称、接口说明与有来源的 Schema。初始化只分发 Skill，不生成业务接口文档。
 
 Extension 默认同时构建 Chrome MV3 与 Firefox MV2；`pnpm dev` 开发 Chrome，`pnpm dev:firefox` 开发 Firefox。最终 manifest 由 Plasmo 动态生成，后续开发按 [工程基础](docs/harness_engineering/foundations.md) 自行处理两浏览器差异与兼容。
+
+独立复用能力覆盖 API 契约核对、模块边界审查、访问控制、写操作恢复、浏览器存储、持续事件流与用户可见 Task。现有流程按实际事件委托，参考资料按阶段/宿主/协议读取；完整地图见 [Skill 职责与组合](docs/harness_engineering/skill_composition.md)。源共 33 个 `web-*` Skills，Web 与 Extension 分别分发 30 与 27 个维护 Skills，设计支持另计。
 
 ## 在新项目中使用
 
@@ -77,6 +87,19 @@ Web 使用 Vite；Extension 使用 Plasmo。扩展的本地加载和开发方式
 | Chrome MV3 / Firefox MV2 扩展 | React + TypeScript、Plasmo、Mantine、TanStack Router 代码路由 |
 | 共同基础                      | TanStack Query、Jotai、i18next、Vitest、Testing Library       |
 
+Harness 源工程按职责组织：
+
+| 路径                | 职责                                                                                    |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `.harness/tooling/` | 项目生成、身份与品牌、运行配置、结构校验和交付工具；`templates/` 保存两种宿主的生成模板 |
+| `scripts/`          | 公开实例化入口与 Harness 源校验；`harness-validation/` 按检查职责拆分                   |
+| `.agents/skills/`   | 可复用工作流程、操作规范、参考契约与辅助脚本                                            |
+| `.harness/vendor/`  | 随工程分发的第三方设计支持，保留上游原文与来源                                          |
+| `docs/`             | 工程规范、专题说明、产品规格、架构决策和变更记录                                        |
+| `tests/`            | 生成、治理、升级和工具边界的回归测试                                                    |
+
+源工程只维护通用能力；产品源码在生成的独立项目内。
+
 生成项目中的主要入口：
 
 | 路径                           | 用途                           |
@@ -95,6 +118,6 @@ Web 使用 Vite；Extension 使用 Plasmo。扩展的本地加载和开发方式
 - [Agent 创建项目 Skill](.agents/skills/web-instantiate-project/SKILL.md)：创建流程与输入规则。
 - [Agent 入口](AGENTS.md)：让 Agent 按任务读取适用的规则。
 
-维护状态：Active。当前版本与发布状态见 [Version.md](Version.md)。
+维护状态：维护中。当前版本与发布状态见 [Version.md](Version.md)。
 
 许可证：企业专有商业许可，使用与分发前请阅读[中文许可](LICENSE.zh-CN.md)或[英文许可](LICENSE.en.md)。

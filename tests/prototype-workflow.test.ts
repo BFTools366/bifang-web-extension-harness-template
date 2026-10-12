@@ -83,7 +83,7 @@ describe("downstream prototype selection", () => {
   ])("rejects misleading approval text in the PRD: %s", async (source) => {
     const root = await fixture()
     await writeFile(path.join(root, prd), source)
-    await expect(prepare(root)).rejects.toThrow(/Confirm the PRD/)
+    await expect(prepare(root)).rejects.toThrow(/用户确认 PRD/)
     await expectNoReview(root)
   })
 
@@ -100,7 +100,7 @@ describe("downstream prototype selection", () => {
         state: "awaiting_selection"
       })
       expect(prepared.candidates.map((item) => item.id)).toEqual(["a", "b"])
-      await expect(review(root, "check")).rejects.toThrow(/Awaiting user selection/)
+      await expect(review(root, "check")).rejects.toThrow(/等待用户选择/)
       const quote = "选择 settings v1 的 B，进入开发"
       await review(root, "select", "b", quote)
       const selected = await review(root, "check")
@@ -122,10 +122,10 @@ describe("downstream prototype selection", () => {
       path.join(root, file),
       `${await readFile(path.join(root, file), "utf8")}\n修改\n`
     )
-    await expect(review(root, "check")).rejects.toThrow(/changed/)
-    await expect(review(root, "select", "b", "选 B")).rejects.toThrow(/changed/)
+    await expect(review(root, "check")).rejects.toThrow(/已变化/)
+    await expect(review(root, "select", "b", "选 B")).rejects.toThrow(/已变化/)
     await prepare(root)
-    await expect(review(root, "check")).rejects.toThrow(/Awaiting user selection/)
+    await expect(review(root, "check")).rejects.toThrow(/等待用户选择/)
   })
 
   // 验证源模板身份不能登记产品需求，失败不创建原型记录。
@@ -145,9 +145,9 @@ describe("downstream prototype selection", () => {
       ["z", "选不存在的 Z"],
       ["a", ""]
     ] as const) {
-      await expect(review(root, "select", ...args)).rejects.toThrow(/existing candidate/)
+      await expect(review(root, "select", ...args)).rejects.toThrow(/已有候选方案/)
     }
-    await expect(review(root, "check")).rejects.toThrow(/Awaiting user selection/)
+    await expect(review(root, "check")).rejects.toThrow(/等待用户选择/)
   })
 
   // 验证旧版 PRD 不能在新快照出现后继续通过开发检查。
@@ -159,7 +159,7 @@ describe("downstream prototype selection", () => {
       path.join(root, "docs/product_spec/20261010_product_spec.md"),
       "状态：Approved\n新范围\n"
     )
-    await expect(review(root, "check")).rejects.toThrow(/latest Product Spec/)
+    await expect(review(root, "check")).rejects.toThrow(/最新产品规格/)
   })
 
   // 验证不能跨范围、跨版本、重复候选或使用仓库外输入。

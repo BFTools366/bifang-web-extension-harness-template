@@ -4,9 +4,9 @@
 
 ## 1. 统一入口
 
-生成项目使用 `src/observability/logger.ts`，业务模块按稳定 scope 创建 logger。产品代码不得直接调用 `console.debug/info/warn/error`；只有统一 sink 和 Harness CLI 的受控终端输出可以使用 console。CLI 只输出必要进度与安全错误摘要，不打印完整环境、凭据、请求体或不必要的个人绝对路径。
+生成项目使用 `src/observability/logger.ts`，业务模块按稳定 scope 创建日志记录器。产品代码不得直接调用 `console.debug/info/warn/error`；只有统一日志输出端 和 Harness CLI 的受控终端输出可以使用 console。CLI 只输出必要进度与安全错误摘要，不打印完整环境、凭据、请求体或不必要的个人绝对路径。
 
-默认 logger 只写浏览器 console，不持久化，也不上传到远端。新增文件、网络或第三方遥测 sink 会改变隐私与数据边界，必须先获得产品批准并执行隐私、安全及适用候选门禁。
+默认日志记录器 只写浏览器 console，不持久化，也不上传到远端。新增文件、网络或第三方遥测输出端 会改变隐私与数据边界，必须先获得产品批准并执行隐私、安全及适用候选门禁。
 
 ## 2. 日志记录
 
@@ -23,13 +23,13 @@ scope 与 event 使用小写字母开头，只包含小写字母、数字、点�
 
 ## 3. 环境行为
 
-| 环境          | 最低默认级别 | 规则                                                                    |
-| ------------- | ------------ | ----------------------------------------------------------------------- |
-| `development` | `debug`      | 可保留安全调试上下文和 Error stack/cause；仍始终脱敏敏感键              |
-| `test`        | `info`       | 使用可注入内存 sink 做确定性断言；测试不得依赖真实 console 顺序         |
-| `release`     | `warn`       | 抑制 debug/info，只保留 allowlist 上下文，并删除 stack/cause 与本机路径 |
+| 环境          | 最低默认级别 | 规则                                                                        |
+| ------------- | ------------ | --------------------------------------------------------------------------- |
+| `development` | `debug`      | 可保留安全调试上下文和 Error stack/cause；仍始终脱敏敏感键                  |
+| `test`        | `info`       | 使用可注入内存输出端 做确定性断言；测试不得依赖真实 console 顺序            |
+| `release`     | `warn`       | 抑制 debug/info，只保留 白名单中的上下文字段，并删除 stack/cause 与本机路径 |
 
-Release 配置即使被错误设置成更低级别，logger 也必须把有效最低级别提升到 `warn`；环境校验同时拒绝 Release 的 `debug` 或 `info` 配置。日志 sink 自身失败不得中断被观察的业务路径。
+Release 配置即使被错误设置成更低级别，logger 也必须把有效最低级别提升到 `warn`；环境校验同时拒绝 Release 的 `debug` 或 `info` 配置。日志输出端 自身失败不得中断被观察的业务路径。
 
 ## 4. 敏感信息与裁剪
 
@@ -52,12 +52,12 @@ Release 配置即使被错误设置成更低级别，logger 也必须把有效�
 - 基础 HTTP client 使用稳定的 `http.request_failed`、`http.unauthorized` 、`http.unauthorized_handler_failed` 与 `http.error_interceptor_failed` 事件；只记录状态、耗时、稳定 code/reason/retryable。错误观察器失败只记录固定 reason/code，不替换原失败；非法请求 header、响应 header 或 extractor 通过 `http.request_failed` 与稳定 code 表达；基线不记录 URL、Error、header 或 body。真实域层只有提供不含标识符的静态 endpoint 模板后才可把它作为批准字段加入。`X-Http-Request` 是服务端允许传播的 opaque continuation，不自动等同于可记录的 request ID。
 - transport 层只记录协议、网络与认证边界；TanStack Query 的全局错误日志负责最终 query/mutation 失败。接入真实 feature 时应明确单一所有者，区分传输尝试与最终失败，避免同一边界重复记录。UI 共同分类与精确清理去重，日志不能代替用户反馈。
 - Extension 的 popup、options、content script 与 service worker 分属不同执行上下文，日志不能提供跨上下文状态或可靠传输。
-- 测试可注入 sink 和时钟，断言级别、结构与脱敏；不得通过屏蔽 console 错误掩盖产品失败。
+- 测试可注入日志输出端 和时钟，断言级别、结构与脱敏；不得通过屏蔽 console 错误掩盖产品失败。
 - `web-extract-i18n-strings` 继续排除日志事件名和错误码；它们是工程契约，不是用户文案。
 
 ## 6. 测试与 Release 门禁
 
-日志测试至少覆盖：级别过滤、敏感键、URL query/fragment、本机路径、Error stack/cause、循环对象、深度/长度限制、sink 失败，以及 Release 未知字段丢弃。
+日志测试至少覆盖：级别过滤、敏感键、URL query/fragment、本机路径、Error stack/cause、循环对象、深度/长度限制、日志输出端失败，以及 Release 未知字段丢弃。
 
 Release 候选除单元测试外必须运行真实脚本：
 

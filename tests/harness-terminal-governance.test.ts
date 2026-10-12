@@ -16,7 +16,7 @@ import {
   writeFile
 } from "./harness-tooling-support.ts"
 
-/** 验证 terminal identity, skills and UI governance 的完整回归场景。 */
+/** 终端身份、Skill 分发与 UI 合同共用同一初始化边界，相关反例保留在此内聚测试模块。 */
 describe("terminal identity, skills and UI governance", () => {
   /** 验证宿主专用 Skill 必须存在于对应终端，另一宿主注入立即失败。 */
   test.each(["web", "extension"] as const)(
@@ -24,22 +24,87 @@ describe("terminal identity, skills and UI governance", () => {
     async (projectType) => {
       const root = await seedTemplateRoot()
       await initializeProject(options(root, projectType))
+      const canonicalRules = await readFile(
+        path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"),
+        "utf8"
+      )
+      const moduleStructure = canonicalRules
+        .split("### 3.2 文件结构与模块依赖\n")[1]
+        ?.split("## 4. 文件规模")[0]
+        ?.trim()
+      if (!moduleStructure) throw new Error("Missing canonical module structure contract")
+      expect(await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")).toContain(
+        `## 文件结构与模块依赖\n\n${moduleStructure}\n`
+      )
+      const common = [
+        "web-review-api-contract",
+        "web-review-module-boundaries",
+        "web-implement-access-control",
+        "web-implement-write-recovery",
+        "web-implement-browser-storage",
+        "web-implement-event-stream",
+        "web-manage-user-tasks"
+      ]
+      for (const skill of common) {
+        expect(await readFile(path.join(root, ".agents/skills", skill, "SKILL.md"), "utf8")).toBe(
+          await readFile(path.join(repositoryRoot, ".agents/skills", skill, "SKILL.md"), "utf8")
+        )
+        expect(
+          await readFile(path.join(root, ".agents/skills", skill, "agents/openai.yaml"), "utf8")
+        ).toBe(
+          await readFile(
+            path.join(repositoryRoot, ".agents/skills", skill, "agents/openai.yaml"),
+            "utf8"
+          )
+        )
+      }
+      const recoveryFile = path.join(root, ".agents/skills/web-implement-write-recovery/SKILL.md")
+      const recoverySource = await readFile(recoveryFile, "utf8")
+      await writeFile(recoveryFile, recoverySource.replace("写操作不自动重放", "写操作可自动重放"))
+      await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
+      await writeFile(recoveryFile, recoverySource)
+      const composition = canonicalRules
+        .split("### 7.2 Skill 职责、复用与渐进披露\n")[1]
+        ?.split("## 8. 依赖与安全")[0]
+        ?.trim()
+      if (!composition) throw new Error("Missing canonical Skill composition contract")
+      expect(await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")).toContain(
+        `## Skill 职责、复用与渐进披露\n\n${composition}\n`
+      )
       const expected =
-        projectType === "web" ? "web-implement-list-view" : "web-review-extension-compatibility"
+        projectType === "web"
+          ? [
+              "web-implement-list-view",
+              "web-implement-saas-auth",
+              "web-implement-saas-commerce",
+              "web-implement-saas-admin"
+            ]
+          : ["web-review-extension-compatibility"]
       const forbidden =
-        projectType === "web" ? "web-review-extension-compatibility" : "web-implement-list-view"
-      const expectedRoot = path.join(root, ".agents/skills", expected)
-      await rm(expectedRoot, { recursive: true })
-      await expect(validateProject(root)).rejects.toThrow(/Terminal Skill/)
-      await cp(path.join(repositoryRoot, ".agents/skills", expected), expectedRoot, {
-        recursive: true
-      })
-      const forbiddenRoot = path.join(root, ".agents/skills", forbidden)
-      await cp(path.join(repositoryRoot, ".agents/skills", forbidden), forbiddenRoot, {
-        recursive: true
-      })
-      await expect(validateProject(root)).rejects.toThrow(/Terminal Skill directories/)
-      await rm(forbiddenRoot, { recursive: true })
+        projectType === "web"
+          ? ["web-review-extension-compatibility"]
+          : [
+              "web-implement-list-view",
+              "web-implement-saas-auth",
+              "web-implement-saas-commerce",
+              "web-implement-saas-admin"
+            ]
+      for (const skill of [...common, ...expected]) {
+        const skillRoot = path.join(root, ".agents/skills", skill)
+        await rm(skillRoot, { recursive: true })
+        await expect(validateProject(root)).rejects.toThrow(/Terminal Skill/)
+        await cp(path.join(repositoryRoot, ".agents/skills", skill), skillRoot, {
+          recursive: true
+        })
+      }
+      for (const skill of forbidden) {
+        const skillRoot = path.join(root, ".agents/skills", skill)
+        await cp(path.join(repositoryRoot, ".agents/skills", skill), skillRoot, {
+          recursive: true
+        })
+        await expect(validateProject(root)).rejects.toThrow(/Terminal Skill directories/)
+        await rm(skillRoot, { recursive: true })
+      }
       await expect(validateProject(root)).resolves.toContain(projectType)
       const agents = await readFile(path.join(root, "AGENTS.md"), "utf8")
       expect(agents).toContain("$web-connect-http-service")
@@ -57,18 +122,73 @@ describe("terminal identity, skills and UI governance", () => {
           )
         )
       }
-      expect(agents).toContain(`$${expected}`)
-      expect(agents).not.toContain(`$${forbidden}`)
+      for (const skill of [...common, ...expected]) expect(agents).toContain(`$${skill}`)
+      for (const skill of forbidden) expect(agents).not.toContain(`$${skill}`)
+      if (projectType === "web") {
+        for (const reference of [
+          "pages-and-sop.md",
+          "management-contract.md",
+          "neutral-ui-design.md"
+        ]) {
+          const file = path.join(
+            root,
+            ".agents/skills/web-implement-saas-admin/references",
+            reference
+          )
+          const contents = await readFile(file, "utf8")
+          await rm(file)
+          await expect(validateProject(root)).rejects.toThrow(/Missing/)
+          await writeFile(file, contents)
+        }
+        const adminSkill = path.join(root, ".agents/skills/web-implement-saas-admin/SKILL.md")
+        const adminSource = await readFile(adminSkill, "utf8")
+        await writeFile(
+          adminSkill,
+          adminSource.replace("组织管理不切换管理员登录组织或冒充客户", "自动切换客户身份")
+        )
+        await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
+        await writeFile(adminSkill, adminSource)
+        for (const resource of [
+          "references/requirements-and-sop.md",
+          "references/order-and-wallet-contract.md",
+          "references/neutral-ui-design.md",
+          "assets/commerce-reference.html",
+          "assets/commerce-reference.css",
+          "assets/commerce-reference.js"
+        ]) {
+          const file = path.join(root, ".agents/skills/web-implement-saas-commerce", resource)
+          const contents = await readFile(file, "utf8")
+          await rm(file)
+          await expect(validateProject(root)).rejects.toThrow(/Missing/)
+          await writeFile(file, contents)
+        }
+        const commerceSkill = path.join(root, ".agents/skills/web-implement-saas-commerce/SKILL.md")
+        const commerceSource = await readFile(commerceSkill, "utf8")
+        await writeFile(
+          commerceSkill,
+          commerceSource.replace("默认关闭，只有明确选中后才应用", "默认自动应用")
+        )
+        await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
+        await writeFile(commerceSkill, commerceSource)
+        for (const reference of ["requirements-and-sop.md", "session-contract.md"]) {
+          const file = path.join(
+            root,
+            ".agents/skills/web-implement-saas-auth/references",
+            reference
+          )
+          const contents = await readFile(file, "utf8")
+          await rm(file)
+          await expect(validateProject(root)).rejects.toThrow(/Missing/)
+          await writeFile(file, contents)
+        }
+      }
     }
   )
   /** 验证 keeps identity schemas exact while accepting only tooling at or above its baseline 场景。 */
   test("keeps identity schemas exact while accepting only tooling at or above its baseline", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 toolingRoot 变量供当前逻辑使用。
     const toolingRoot = await seedTemplateRoot()
     await initializeProject(options(toolingRoot, "web"))
-    // 保存 manifestPath 变量供当前逻辑使用。
     const manifestPath = path.join(toolingRoot, "package.json")
-    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
       devDependencies: Record<string, string>
     }
@@ -78,12 +198,9 @@ describe("terminal identity, skills and UI governance", () => {
       /typescript minimum must not be lower than 6\.0\.3/
     )
 
-    // 保存 schemaRoot 变量供当前逻辑使用。
     const schemaRoot = await seedTemplateRoot()
     await initializeProject(options(schemaRoot, "web"))
-    // 保存 configPath 变量供当前逻辑使用。
     const configPath = path.join(schemaRoot, ".harness/project.json")
-    // 保存 config 变量供当前逻辑使用。
     const config = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>
     config.schemaVersion = 2
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
@@ -92,9 +209,7 @@ describe("terminal identity, skills and UI governance", () => {
 
   /** 验证 rejects repeat initialization without overwriting the project 场景。 */
   test("rejects repeat initialization without overwriting the project", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
-    // 保存 init 变量供当前逻辑使用。
     const init = options(root, "web")
     await initializeProject(init)
     await expect(initializeProject(init)).rejects.toThrow(/Refusing to overwrite/)
@@ -104,7 +219,6 @@ describe("terminal identity, skills and UI governance", () => {
   test.each(["docs/API.md", "docs/DATA_ACCESS.md"])(
     "requires foundation documentation %s in terminal projects",
     async (relativePath) => {
-      // 保存 root 变量供当前逻辑使用。
       const root = await seedTemplateRoot()
       await initializeProject(options(root, "web"))
       await rm(path.join(root, relativePath))
@@ -115,7 +229,6 @@ describe("terminal identity, skills and UI governance", () => {
 
   /** 验证 requires the generated Mantine UI guidelines in terminal projects 场景。 */
   test("requires the generated Mantine UI guidelines in terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
     await rm(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"))
@@ -129,7 +242,6 @@ describe("terminal identity, skills and UI governance", () => {
     async (projectType) => {
       const root = await seedTemplateRoot()
       await initializeProject(options(root, projectType))
-      // 保存 versionSurfacePath 变量供验证自定义展示与完全移除展示两种边界使用。
       let versionSurfacePath: string
 
       if (projectType === "web") {
@@ -171,7 +283,6 @@ export const Route = createFileRoute("/")({
 
       await expect(validateProject(root)).resolves.toContain(projectType)
 
-      // 保存 versionSurface 变量供证明完全移除 UI 消费会失败使用。
       const versionSurface = await readFile(versionSurfacePath, "utf8")
       await writeFile(versionSurfacePath, versionSurface.replace("{BUILD_VERSION}", "Product"))
       await expect(validateProject(root)).rejects.toThrow(
@@ -190,18 +301,14 @@ export const Route = createFileRoute("/")({
   /** 验证 rejects a missing Chinese declaration comment in a generated %s project 场景。 */
   test.each(["web", "extension"] as const)(
     "rejects a missing Chinese declaration comment in a generated %s project",
-    /* 执行 当前声明 函数的处理逻辑。 */ async (projectType) => {
-      // 保存 root 变量供当前逻辑使用。
+    async (projectType) => {
       const root = await seedTemplateRoot()
       await initializeProject(options(root, projectType))
-      // 保存 governedPath 变量供当前宿主的导出组件注释篡改使用。
       const governedPath = path.join(
         root,
         projectType === "web" ? "src/features/welcome/WelcomePage.tsx" : "src/ExtensionShell.tsx"
       )
-      // 保存 governedSource 变量供移除真正受管的结构声明注释使用。
       const governedSource = await readFile(governedPath, "utf8")
-      // 保存 withoutComment 变量供当前逻辑使用。
       const withoutComment = governedSource.replace(
         /\/\*\*[^*]*\*\/\nexport function (WelcomePage|ExtensionShell)/u,
         "export function $1"
@@ -215,10 +322,8 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects terminal Skill directory and Chinese metadata drift 场景。 */
   test("rejects terminal Skill directory and Chinese metadata drift", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
-    // 保存 verifySkillRoot 变量供当前逻辑使用。
     const verifySkillRoot = path.join(root, ".agents/skills/web-verify-delivery")
     await rm(verifySkillRoot, { recursive: true, force: true })
     await expect(validateProject(root)).rejects.toThrow(/Terminal Skill directories must exactly/)
@@ -226,9 +331,7 @@ export const Route = createFileRoute("/")({
     await cp(path.join(repositoryRoot, ".agents/skills/web-verify-delivery"), verifySkillRoot, {
       recursive: true
     })
-    // 保存 metadataPath 变量供当前逻辑使用。
     const metadataPath = path.join(verifySkillRoot, "agents/openai.yaml")
-    // 保存 metadata 变量供当前逻辑使用。
     const metadata = await readFile(metadataPath, "utf8")
     await writeFile(
       metadataPath,
@@ -258,15 +361,11 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects every source-only path finalized out of terminal projects 场景。 */
   test("rejects every source-only path finalized out of terminal projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
-    // 保存 sourceOnlyPaths 变量供当前逻辑使用。
     const sourceOnlyPaths = HARNESS_ONLY_PATHS
 
-    // 保存 relativePath 变量供当前逻辑使用。
     for (const relativePath of sourceOnlyPaths) {
-      // 保存 sourceOnlyPath 变量供当前逻辑使用。
       const sourceOnlyPath = path.join(root, relativePath)
       await mkdir(path.dirname(sourceOnlyPath), { recursive: true })
       await writeFile(sourceOnlyPath, "source Harness residue\n")
@@ -280,10 +379,8 @@ export const Route = createFileRoute("/")({
 
   /** 验证终端项目可在独立事件后创建受命名和索引约束的记忆。 */
   test("allows governed project memory after terminal initialization", async () => {
-    // 保存 root 变量供终端可选记忆正反例使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
-    // 保存 workPlanRoot 变量供创建合法索引与正文使用。
     const workPlanRoot = path.join(root, "docs/work_plan")
     await mkdir(workPlanRoot, { recursive: true })
     await writeFile(
@@ -301,12 +398,9 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects drift from the shared pagination contract 场景。 */
   test("rejects drift from the shared pagination contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
-    // 保存 paginationPath 变量供当前逻辑使用。
     const paginationPath = path.join(root, "src/pagination/useSessionPagination.ts")
-    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(paginationPath, "utf8")
     await writeFile(
       paginationPath,
@@ -318,7 +412,6 @@ export const Route = createFileRoute("/")({
 
   /** 验证 requires every shared pagination file in Web projects 场景。 */
   test("requires every shared pagination file in Web projects", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
     await rm(path.join(root, "src/pagination/useSessionPagination.ts"))
@@ -330,12 +423,9 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects a pagination empty-page reconciliation drift 场景。 */
   test("rejects a pagination empty-page reconciliation drift", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
-    // 保存 paginationPath 变量供当前逻辑使用。
     const paginationPath = path.join(root, "src/pagination/useSessionPagination.ts")
-    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(paginationPath, "utf8")
     await writeFile(
       paginationPath,
@@ -349,12 +439,9 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects a missing pagination translation 场景。 */
   test("rejects a missing pagination translation", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
-    // 保存 localePath 变量供当前逻辑使用。
     const localePath = path.join(root, "src/i18n/locales/en.ts")
-    // 保存 locale 变量供当前逻辑使用。
     const locale = await readFile(localePath, "utf8")
     await writeFile(
       localePath,
@@ -368,12 +455,9 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects drift from the shared HTTP authentication contract 场景。 */
   test("rejects drift from the shared HTTP authentication contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
-    // 保存 clientPath 变量供当前逻辑使用。
     const clientPath = path.join(root, "src/data/api/client/httpContracts.ts")
-    // 保存 client 变量供当前逻辑使用。
     const client = await readFile(clientPath, "utf8")
     await writeFile(clientPath, client.replace('authToken: "X-AUTH-TOKEN"', 'authToken: "X-Token"'))
 
@@ -382,12 +466,9 @@ export const Route = createFileRoute("/")({
 
   /** 验证 rejects drift from the Web file-route and code-splitting contract 场景。 */
   test("rejects drift from the Web file-route and code-splitting contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 missingPluginRoot 变量供当前逻辑使用。
     const missingPluginRoot = await seedTemplateRoot()
     await initializeProject(options(missingPluginRoot, "web"))
-    // 保存 manifestPath 变量供当前逻辑使用。
     const manifestPath = path.join(missingPluginRoot, "package.json")
-    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(manifestPath, "utf8")) as {
       devDependencies: Record<string, string>
     }
@@ -397,12 +478,9 @@ export const Route = createFileRoute("/")({
       /missing @tanstack\/router-plugin/
     )
 
-    // 保存 disabledSplittingRoot 变量供当前逻辑使用。
     const disabledSplittingRoot = await seedTemplateRoot()
     await initializeProject(options(disabledSplittingRoot, "web"))
-    // 保存 viteConfigPath 变量供当前逻辑使用。
     const viteConfigPath = path.join(disabledSplittingRoot, "vite.config.ts")
-    // 保存 viteConfig 变量供当前逻辑使用。
     const viteConfig = await readFile(viteConfigPath, "utf8")
     await writeFile(
       viteConfigPath,
@@ -413,24 +491,18 @@ export const Route = createFileRoute("/")({
 
   /** 验证 refreshes generated branding deterministically from edited identity 场景。 */
   test("refreshes generated branding deterministically from edited identity", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
-    // 保存 configPath 变量供当前逻辑使用。
     const configPath = path.join(root, ".harness/project.json")
-    // 保存 config 变量供当前逻辑使用。
     const config = JSON.parse(await readFile(configPath, "utf8")) as Record<string, unknown>
     config.name = "Renamed Aurora"
     config.id = "renamed-aurora"
     await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`)
 
     await refreshBrand(root)
-    // 保存 first 变量供当前逻辑使用。
     const first = await readFile(path.join(root, ".harness/brand/logo-1024.png"))
     await refreshBrand(root)
-    // 保存 second 变量供当前逻辑使用。
     const second = await readFile(path.join(root, ".harness/brand/logo-1024.png"))
-    // 保存 paginationTest 变量供当前逻辑使用。
     const paginationTest = await readFile(
       path.join(root, "src/pagination/pagination.test.tsx"),
       "utf8"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：管理用户可见 Task"
+  short_description: "按项目策略管理左侧 Task 的创建、编号、绑定、恢复与真实进度转换"
+  default_prompt: "使用 $web-manage-user-tasks 按当前项目策略管理用户可见 Task，核对真实身份与绑定，保留原结果并如实返回状态和证据。"

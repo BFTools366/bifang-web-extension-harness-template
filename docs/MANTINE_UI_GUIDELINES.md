@@ -27,7 +27,7 @@
 5. **内容驱动布局**：适配中英文、文本缩放和窄视口，不以固定文案长度或开发机字体作为布局前提。
 6. **无障碍默认开启**：键盘、可见焦点、语义标签、对比度和减少动态效果是默认能力，不是交付前补丁。
 
-## 3. Theme 与设计令牌
+## 3. 主题与设计令牌
 
 ### 3.1 单一主题入口
 
@@ -81,7 +81,7 @@
 | 区块标题      | `Title order={2}`           | 页面内主要分区                               |
 | 子区块标题    | `Title order={3}`           | 复杂区块内分组；不要为了视觉大小跳过标题层级 |
 | 正文          | `Text size="md"`            | 默认说明、结果和表单上下文                   |
-| 辅助文字      | `Text size="sm" c="dimmed"` | helper、元数据、时间和次要说明               |
+| 辅助文字      | `Text size="sm" c="dimmed"` | 帮助文案、元数据、时间和次要说明             |
 | 极短标签/眉题 | `Text size="xs"` 或 `Badge` | 分类或状态，不承载长句                       |
 
 长说明左对齐并控制行宽；营销页可以居中短标题，但表单、错误、帮助与多行正文不使用大段居中排版。只用字重和字号建立主次，不同时叠加大字号、全大写、品牌色与重阴影。
@@ -90,15 +90,15 @@
 
 ### 4.1 通用布局
 
-- 页面由 `page/surface/section/field/action` 五级关系组织。页面容器控制宽度和外边距，surface 承载一组相关内容，section 用标题与间距分组，field 保持标签/输入/帮助/错误相邻，action 与其影响对象就近出现。
+- 页面由页面、内容面板、区块、字段、操作五级关系组织。页面容器控制宽度和外边距，内容面板承载一组相关内容，区块用标题与间距分组，字段保持标签/输入/帮助/错误相邻，操作与其影响对象就近出现。
 - 默认密度为 `comfortable`：常规控件使用 Mantine `md` size，区块 gap 使用 `md/lg`。受限空间可以采用 `compact`，但最小点击目标仍不小于 `24 × 24 CSS px`；主要触控动作默认接近 `40 × 40 CSS px`。
 - 同一操作组只保留一个视觉主动作。主动作使用品牌 filled，次要动作使用 default/outline，低优先级动作使用 subtle/链接；危险动作使用 red 且不得与主动作同色。
-- surface 默认使用 `Paper/Card` 的边框和统一圆角；只有浮层、拖拽对象或需要明显脱离页面的临时区域使用 shadow。避免卡片套卡片和每个区块一张卡。
+- 内容面板默认使用 `Paper/Card` 的边框和统一圆角；只有浮层、拖拽对象或需要明显脱离页面的临时区域使用 shadow。避免卡片套卡片和每个区块一张卡。
 - 主要内容按 DOM 顺序排列。视觉重排不得造成键盘焦点顺序与阅读顺序不一致。
 
 ### 4.2 响应式策略
 
-- 使用 mobile-first。先保证等价于 `320 CSS px` 的窄容器、200% 文本缩放和用户覆盖文本间距后仍可用，再从 Mantine `sm/md/lg` 断点扩展列数或留白。
+- 采用移动端优先策略。先保证等价于 `320 CSS px` 的窄容器、200% 文本缩放和用户覆盖文本间距后仍可用，再从 Mantine `sm/md/lg` 断点扩展列数或留白。
 - 断点只解决真实结构变化：单列/多列、导航显隐、操作组换行、次要信息折叠和容器宽度。不要为每个组件发明局部断点。
 - 小范围响应变化可用 Mantine 响应式 props；复杂或重复布局使用 CSS Modules。大列表避免在每一项上使用响应式 style props；需要时先用容器/网格 CSS，存在证据再考虑 `deduplicateInlineStyles`。
 - 文案、按钮、表单和状态区域允许自然换行；不以固定高度裁切中英文。数据表在窄屏优先保留关键列、卡片化或允许局部横向滚动，不让整个页面横向滚动。
@@ -269,12 +269,12 @@ Popup 与 Options 使用同一主题语义，但服务不同任务：
 
 ## 12. 官方依据
 
-- [Mantine Theme object](https://mantine.dev/theming/theme-object/)
+- [Mantine 主题对象](https://mantine.dev/theming/theme-object/)
 - [MantineProvider](https://mantine.dev/theming/mantine-provider/)
-- [Mantine colors](https://mantine.dev/theming/colors/)
-- [Mantine default props](https://mantine.dev/theming/default-props/)
+- [Mantine 颜色](https://mantine.dev/theming/colors/)
+- [Mantine 默认属性](https://mantine.dev/theming/default-props/)
 - [Mantine Styles API](https://mantine.dev/styles/styles-api/)
-- [Mantine responsive styles](https://mantine.dev/styles/responsive/)
+- [Mantine 响应式样式](https://mantine.dev/styles/responsive/)
 - [WCAG 2.2](https://www.w3.org/TR/WCAG22/)
-- [TanStack Router data loading and error recovery](https://tanstack.com/router/latest/docs/guide/data-loading)
-- [TanStack Router scroll restoration](https://tanstack.com/router/latest/docs/guide/scroll-restoration)
+- [TanStack Router 数据加载与错误恢复](https://tanstack.com/router/latest/docs/guide/data-loading)
+- [TanStack Router 滚动恢复](https://tanstack.com/router/latest/docs/guide/scroll-restoration)

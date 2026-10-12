@@ -73,9 +73,15 @@ src/data/
 Dexie 只封装 IndexedDB，不能替换 Cookie、LocalStorage 或 SessionStorage，也不自动把它们迁入数据库。当前已有同步偏好访问不需要额外存储库；不为统一接口引入会隐藏后端或生命周期变化的透明 fallback。IndexedDB 是默认采用 Dexie 的场景；只有确需更薄的原生 Promise 封装且不需要 Dexie 查询/迁移能力时，才评估 `idb` 并记录具体理由。
 
 - 现有语言、外观、分页键和 payload 保持不变；所有存储读入仍是未知数据，领域边界负责版本/形状校验。浏览器拒绝访问、损坏内容与容量失败不能阻断非关键偏好交互；持久写入失败不得报告“已保存”。
-- HTTP Token/continuation 仍只保存在 `data/api/client/` 的单个会话闭包，不因为归类到数据层而复制到通用 Memory 仓库，更不能写入 Cookie、LocalStorage、SessionStorage 或 IndexedDB。真实 HttpOnly Cookie 认证属于另行确认的服务端认证契约，不是把当前 Token 持久化。
+- HTTP Token/continuation 默认仍只保存在 `data/api/client/` 的单个会话闭包，不因为归类到数据层而复制到通用 Memory 仓库，更不能写入 Cookie、LocalStorage、SessionStorage 或 IndexedDB。真实 HttpOnly Cookie 认证属于另行确认的服务端认证契约，不是把当前 Token 持久化。
 - Dexie 依赖只在真实 IndexedDB 消费者出现时声明并固定 lockfile；初始化不生成空表、离线队列、Cookie 策略或占位 repository。迁移需覆盖升级失败/事务回滚、blocked/versionchange、多连接与数据 scope 清理；本地结构化数据不自动成为服务器 Query 缓存的第二权威。
 - Extension service worker 没有 Window/DOM，不能使用 Web Storage 或 `document.cookie`；IndexedDB/Memory 的可用性和生命周期按实际上下文核对。跨上下文或浏览器同步使用受控 `chrome.storage`/消息 adapter，权限和 Chrome/Firefox 差异仍需对应评审，统一目录不授予权限。
+
+### 1.3.1 Web SaaS 会话凭据持久化例外
+
+仅 `projectType=web` 且明确采用 SaaS 客户端或 SaaS 大后台认证时，按用户要求将服务端会话凭据写入 LocalStorage。由认证 feature 经 `src/data/storage/` 维护版本化、项目/模式/环境隔离的必要记录，并恢复到受管 client；默认基础 client、普通站点和 Extension 不启用此行为，continuation 始终只留内存。此段是上文 Token 默认禁持久化规则的限定例外。
+
+使用 `$web-implement-saas-auth`；需求/SOP 与会话实施合同分别位于其 `references/requirements-and-sop.md` 和 `references/session-contract.md`。后者规定写入/删除失败、轮换、跨标签页、XSS 风险和恢复条件；用户/权限不持久化，密码/验证码/日志/URL 不携带凭据。凭据校验操作返回错误时退出，network/timeout 无 HTTP 响应时保留凭据但不新增授权；普通业务 403 仍保留会话。此策略仅在真实 SaaS feature 中装配，不改下文基础 client 默认行为，不开放预留的 SaaS 创建流程。
 
 ## 2. 共同边界与统一分页
 
@@ -180,7 +186,7 @@ Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定�
 
 已初始化下游通过 `$web-connect-http-service` 执行本节工作流；实施与列表 Skill 按真实接入事件委托，数据契约仍以本文件为唯一来源。
 
-1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 收集缺失的各环境、各实际远端服务 BaseURL；初始化、本地能力开发或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
+1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 逐项补问本次操作依赖的环境与服务 BaseURL；不要求一次补齐全部环境或服务。初始化、本地能力开发或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
 2. 确认当前功能需要的 endpoint 路径、方法、输入/响应与认证契约；缺失时询问，不从 BaseURL 猜测接口。校验配置后，把对应 API 函数的 Mock 实现替换为真实 HTTP 请求，复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误与认证边界。UI 和 Query 保持相同的领域契约，外部响应与分页字段在 API 层校验、映射。
 3. 按环境和远端服务逐项完成迁移；尚未配置的远端 API 继续通过其 API Mock 提供数据，明确报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。
 4. 配置变更按冻结 `APP_CONFIG` 的加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，避免样例数据残留或迟到响应覆盖真实结果。测试至少证明 Mock 路径零网络调用、真实请求成功及最高风险失败不回落 Mock；真实服务、CORS、权限或浏览器未验证时如实报告，不把 Mock 测试写成联网通过。
@@ -192,22 +198,22 @@ Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定�
 - 请求拦截：受控相对路径、标准 Header 编码、动态语言与当前会话；移除调用方伪造的三个标准 header。非法 header 归一为不可重试的 `invalid_request_headers`，不发送网络请求。
 - 响应拦截：校验实际响应边界，只有可信 2xx 自动提取并原子提交 continuation/Token，先校验两项再更新状态；保留原始 Response/body。
 - 错误拦截：统一 `ApiError`、401 single-flight 与安全日志；`interceptors.onError` 只同步投影客户端反馈，不接管认证、重放或异步副作用。观察器抛错/误传异步拒绝只记录 `http.error_interceptor_failed`，不延长请求或替换原错误。
-- Request context/session：语言、continuation、Token、单调 dispatch sequence 和 Token revision；不依赖 React route。
+- 请求上下文与会话：语言、continuation、Token、单调 dispatch sequence 和 Token revision；不依赖 React route。
 - `UnauthorizedHandler`：运行时默认呈现认证失效；真实登录存在后，组合层通过 `configureUnauthorizedHandler` 注入受控导航。client 不导入 Router、`window.location` 或 Chrome 导航 API。
 - UI 组合层：`httpErrors` 只输出固定本地化键、分类和恢复能力，`HttpErrorView` 处理局部/路由失败，根 Provider 的 `HttpFeedback` 处理直接请求和最终 Query/mutation 失败。
-- API domain：拥有类型化远端数据函数、未配置对应 BaseURL 时的远端 API Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。本地业务逻辑与真实存储访问按前述分工实现，不伪装成未接入的远端 API。
+- API 领域模块：拥有类型化远端数据函数、未配置对应 BaseURL 时的远端 API Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。本地业务逻辑与真实存储访问按前述分工实现，不伪装成未接入的远端 API。
 
-### 3.2 三个标准 header 与语言
+### 3.2 三个标准请求头与语言
 
 每次真正 dispatch 时动态读取上下文，只有值通过校验且非空时才设置 header：
 
-| Header           | 请求值来源                                     | 成功响应处理                                                                                                        | 存储边界                                             |
-| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| `X-Http-Request` | 当前内存中的服务端 continuation/correlation 值 | 只从同一受控 API 边界的 2xx 响应提取并供后续请求携带；它不是客户端生成或复用的每请求唯一 request-id                 | 当前执行上下文内存；不写 Storage、环境或默认日志     |
-| `X-Lang`         | 每次 dispatch 动态读取的规范化当前语言         | 不以任意响应值静默改写用户偏好；若响应内容随语言变化，Query key 必须包含语言                                        | 项目命名空间 localStorage，只保存支持的语言标识      |
-| `X-AUTH-TOKEN`   | 当前 Token revision 的内存值                   | 默认从同名 header 提取；真实协议可注入异步 `extractAuthToken(response.clone())`，但必须保留相同信任、并发和存储规则 | 当前执行上下文内存；禁止 local/sessionStorage 与 env |
+| 请求头           | 请求值来源                                     | 成功响应处理                                                                                                        | 存储边界                                                                       |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `X-Http-Request` | 当前内存中的服务端 continuation/correlation 值 | 只从同一受控 API 边界的 2xx 响应提取并供后续请求携带；它不是客户端生成或复用的每请求唯一 request-id                 | 当前执行上下文内存；不写 Storage、环境或默认日志                               |
+| `X-Lang`         | 每次 dispatch 动态读取的规范化当前语言         | 不以任意响应值静默改写用户偏好；若响应内容随语言变化，Query key 必须包含语言                                        | 项目命名空间 localStorage，只保存支持的语言标识                                |
+| `X-AUTH-TOKEN`   | 当前 Token revision 的内存值                   | 默认从同名 header 提取；真实协议可注入异步 `extractAuthToken(response.clone())`，但必须保留相同信任、并发和存储规则 | 当前执行上下文内存；默认禁止 local/sessionStorage 与 env，Web SaaS 例外见 §1.3 |
 
-语言偏好以 `<project-id>:language:v1` 保存当前支持的 `en|zh`。读取顺序是：项目命名空间下可识别的 localStorage 值、规范化浏览器语言、英文 fallback。非法/未知语言、Storage 异常或浏览器拒绝访问时回退且不阻断应用；i18next 的真实语言变化同步更新该偏好，下一次请求才读取新值。不得把语言存储与认证 Token 混在同一个对象中。
+语言偏好以 `<project-id>:language:v1` 保存当前支持的 `en|zh`。读取顺序是：项目命名空间下可识别的 localStorage 值、规范化浏览器语言、回退为英文。非法/未知语言、Storage 异常或浏览器拒绝访问时回退且不阻断应用；i18next 的真实语言变化同步更新该偏好，下一次请求才读取新值。不得把语言存储与认证 Token 混在同一个对象中。
 
 client 会先移除调用方伪造的三个标准 header，再根据当前受控状态写入。自动更新只来自同一受控 API 边界的 2xx 响应；真实认证协议确认登录成功后也可调用 `applicationHttp.setAuthToken(token)` 显式建立会话。每次 dispatch 分配单调 sequence，并让 Token 更新/显式登录产生新的 revision；迟到的旧响应不得覆盖较新值，迟到的旧 401 也不得清理新 revision。响应 header 与自定义 Token 提取结果按不可信有界字符串校验，并验证浏览器 Headers 编码；不把 `Response`、body 或全量 headers 保存进状态。
 
@@ -363,7 +369,7 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 8. RxJS 首次接入至少覆盖有效/无效事件映射、单来源失败隔离、重试停止与取消、监听/连接数量和最后一个订阅退出后的 teardown。
 9. 使用 `share` 或 replay 时覆盖共享底层订阅、error/complete/refCount reset、晚订阅结果、缓冲边界与清理；多来源更新还要覆盖重复、乱序和旧版本拒绝。
 10. 事件投影至少证明 Query/Jotai 各自只有一个状态所有者；Extension 还要覆盖非法 sender/message、Port 断开、页面卸载和 service worker 重启后的重建。涉及后台行为或权限时进入完整候选验收并在真实 Chrome 和 Firefox 分别验证。
-11. 日常变更运行 `pnpm env:validate`、`pnpm harness validate` 与本次受影响的相关非空测试；lint/typecheck 只在本次变化需要或用户明确要求时追加。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才取得当次 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`；候选需验证 client 只读 `APP_CONFIG`、日志符合脱敏边界，且 Release 产物不包含开发/测试 BaseURL、Token/continuation fixture 或敏感数据。真实服务、CORS、登录导航、浏览器与权限场景未执行时写为 `Unverified`。
+11. 日常变更按工程规则只运行本次受影响的相关非空测试或相称最小替代检查；本次确实改变环境或 Harness 结构合同时才运行对应 `pnpm env:validate` 或 `pnpm harness validate`，lint/typecheck 同样只按实际变化需要或明确请求追加。只有用户明确要求最终候选/完整验收，或产品、安全、权限、渠道存在真实候选硬要求时，才取得当次 E2E 选择并运行唯一 `pnpm build -- --e2e=enabled|disabled`；候选需验证 client 只读 `APP_CONFIG`、日志符合脱敏边界，且 Release 产物不包含开发/测试 BaseURL、Token/continuation fixture 或敏感数据。真实服务、CORS、登录导航、浏览器与权限场景未执行时写为 `Unverified`。
 
 新增认证与反馈测试覆盖：显式 setter 非法输入及旧响应/旧 handler 竞态、403 保留会话、错误观察器故障、Query 中间失败后成功不残留提示、最终失败重试上限、mutation 不重放、同语义并发清理权、未知异常去重、双语言以及 Web/Extension Router 的分类与恢复。真实 endpoint、浏览器 CORS/权限和最终候选验证仍由各自事件触发。
 
@@ -374,22 +380,22 @@ Service worker 的监听器必须按 Chrome 生命周期要求注册，进程内
 - [MDN：Web Storage API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API)
 - [js-cookie](https://github.com/js-cookie/js-cookie)
 - [idb](https://github.com/jakearchibald/idb)
-- [GraphQL Subscriptions](https://graphql.org/learn/subscriptions/)
+- [GraphQL 订阅](https://graphql.org/learn/subscriptions/)
 - [graphql-ws](https://the-guild.dev/graphql/ws)
 - [graphql-sse](https://the-guild.dev/graphql/sse)
 - [openapi-fetch](https://openapi-ts.dev/openapi-fetch/)
 - [graphql-request](https://github.com/graffle-js/graffle/tree/graphql-request)
-- [GraphQL Code Generator client preset](https://the-guild.dev/graphql/codegen/plugins/presets/preset-client)
-- [Apollo Client caching overview](https://www.apollographql.com/docs/react/caching/overview)
-- [MDN: Using server-sent events](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
+- [GraphQL Code Generator 客户端预设](https://the-guild.dev/graphql/codegen/plugins/presets/preset-client)
+- [Apollo Client 缓存概览](https://www.apollographql.com/docs/react/caching/overview)
+- [MDN：使用服务端发送事件](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events)
 - [eventsource-client](https://github.com/rexxars/eventsource-client)
 - [Fetch Event Source](https://github.com/Azure/fetch-event-source)
-- [Chrome Extension cross-origin network requests](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)
-- [Chrome Extension message passing](https://developer.chrome.com/docs/extensions/develop/concepts/messaging)
-- [Chrome Extension service worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
-- [RxJS overview](https://rxjs.dev/guide/overview)
+- [Chrome 扩展跨源网络请求](https://developer.chrome.com/docs/extensions/develop/concepts/network-requests)
+- [Chrome 扩展消息传递](https://developer.chrome.com/docs/extensions/develop/concepts/messaging)
+- [Chrome 扩展 service worker 生命周期](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
+- [RxJS 概览](https://rxjs.dev/guide/overview)
 - [RxJS `share`](https://rxjs.dev/api/operators/share)
-- [TanStack Query important defaults](https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults)
+- [TanStack Query 重要默认值](https://tanstack.com/query/latest/docs/framework/react/guides/important-defaults)
 - [TanStack QueryClient：命令式缓存读取](https://tanstack.com/query/latest/docs/framework/react/reference/classes/QueryClient)
 - [TanStack Query options：共享查询定义](https://tanstack.com/query/latest/docs/framework/react/guides/query-options)
 - [TanStack Query query cancellation](https://tanstack.com/query/latest/docs/framework/react/guides/query-cancellation)

@@ -251,7 +251,9 @@ describe("upgrade command-line contract", () => {
       )
       await expect(readFile(forbiddenOutput)).rejects.toMatchObject({ code: "ENOENT" })
     }
-    await expect(runUpgradeCli(["plan", "--unknown", "value"])).rejects.toThrow(/Unexpected option/)
+    await expect(runUpgradeCli(["plan", "--unknown", "value"])).rejects.toThrow(
+      /未知或不适用的选项/
+    )
 
     // 保存真实参数失败，验证 stderr 是单个稳定 JSON 且使用同一安全失败码。
     const invalidExecution = await execFileAsync(
@@ -274,7 +276,7 @@ describe("upgrade command-line contract", () => {
     expect(invalidExecution.code).toBe(2)
     expect(invalidExecution.stdout).toBe("")
     expect(JSON.parse(invalidExecution.stderr)).toEqual({
-      error: "Unexpected option: --unknown",
+      error: "未知或不适用的选项： --unknown",
       ok: false
     })
   }, 20_000)

@@ -47,12 +47,12 @@ description: 为单 package React Web 下游创建、修改、重构或审查重
 
 ## 实施步骤
 
-1. 完整读取 [offset-list-pattern.md](references/offset-list-pattern.md) 与 [checklist.md](references/checklist.md)；使用 Mantine Table/Pagination 时再读 [mantine-api.md](references/mantine-api.md)。
+1. 读取 [offset-list-pattern.md](references/offset-list-pattern.md) 的服务端排序、Router、Query 与页码章节，以及 [checklist.md](references/checklist.md) 的适用性清单；选择与列偏好章节仅在相应能力启用时读取，资产章节只在适配资产时读取。使用 Mantine Table/Pagination 时再读 [mantine-api.md](references/mantine-api.md)。
 2. 确认下游实际为 React Web，并满足 React 19.2+、`@mantine/core >=9.6.1 <10`、`@tanstack/react-query >=5.102.8 <6`。版本不满足时先按项目依赖规则升级，或实现并测试等价 fallback。
-3. 需要 URL/session 恢复、响应校验、选择裁剪或列迁移时，从 `assets/listPageState.ts`、`assets/listColumnPreferences.ts` 与 `assets/listPageStorage.ts` 选取并适配到一个项目级共享列表模块；运行 `assets/ListPage.contracts.test.ts` 作为纯函数起点。持久化 parser/迁移放 `src/data/storage/` 的具名领域模块，纯列表状态保留原职责；保持相关具名导出与实际相对 import。资产只接收 `ListStorage` 注入，由消费端经 `src/data/storage/webStorage.ts` 的 `getWebStorage("session"|"local")` 取得浏览器对象，不直接访问 Window Storage。资产不是必须整份复制的 UI 模板，也不替代产品测试。
+3. 需要 URL/session 恢复、响应校验、选择裁剪或列迁移时，从 `assets/listPageState.ts`、`assets/listColumnPreferences.ts` 与 `assets/listPageStorage.ts` 选取并适配到一个项目级共享列表模块；运行 `assets/ListPage.contracts.test.ts` 作为纯函数起点。存储访问/迁移委托 `$web-implement-browser-storage` 并传入本 Skill 的 key、payload 与 Router 恢复合同；持久化 parser/迁移放 `src/data/storage/` 的具名领域模块，纯列表状态保留原职责；保持相关具名导出与实际相对 import。资产只接收 `ListStorage` 注入，由消费端经 `src/data/storage/webStorage.ts` 的 `getWebStorage("session"|"local")` 取得浏览器对象，不直接访问 Window Storage。资产不是必须整份复制的 UI 模板，也不替代产品测试。
 4. 授权包含真实服务接入或 Mock 迁移时，将域 API 部分委托 `$web-connect-http-service`，列表状态与交互契约仍由本 Skill 验收。先接类型化 Router adapter 与服务端稳定排序，再接 Query/四态/分页，最后只按真实需求接选择和列偏好；不留下假按钮、占位 endpoint 或不可达分支。
 5. 更新相关非空 Vitest/Testing Library 测试；同时运行适配后的可执行契约。普通实现不因此自动构建、E2E 或完整验收。
 
 ## 交付判定
 
-按 [checklist.md](references/checklist.md) 逐项记录 `Pass`、`Fail` 或带证据的 `N/A`。Required 或已触发 Conditional 失败时不能声称列表页通过；纯审查只报告证据，不修改实现。
+按 [checklist.md](references/checklist.md) 逐项记录“通过（Pass）”“失败（Fail）”或带证据的“不适用（N/A）”。必需项或已触发的条件项失败时不能声称列表页通过；纯审查只报告证据，不修改实现。

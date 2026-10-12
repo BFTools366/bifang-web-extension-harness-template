@@ -25,12 +25,12 @@
 | 运行时入口           | `src/config/environment.ts`        | `src/config/environment.ts`        |
 | 类型与边界校验       | `src/config/environment.schema.ts` | `src/config/environment.schema.ts` |
 
-业务代码只读取冻结的 `APP_CONFIG`，不得在组件、route、service 或扩展入口中散落 `import.meta.env`、`process.env` 或任意字符串 URL。Vite 内置的 `import.meta.env.BASE_URL` 表示页面部署 base path，不是 API BaseURL；API 端点统一使用 `APP_CONFIG.apiBaseUrl`。
+业务代码只读取冻结的 `APP_CONFIG`，不得在组件、路由、服务模块 或扩展入口中散落 `import.meta.env`、`process.env` 或任意字符串 URL。Vite 内置的 `import.meta.env.BASE_URL` 表示页面部署基础路径，不是 API BaseURL；API 端点统一使用 `APP_CONFIG.apiBaseUrl`。
 
 ## 3. 字段与校验
 
 - `APP_ENV` 必须与文件代表的逻辑环境完全一致，只接受 `development`、`test`、`release`。
-- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置；该服务的数据流向详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、query 或 fragment；末尾 `/` 在解析时规范化。已填 `release` 地址始终必须使用 `https`，正式发布前及活动 Release 校验必须非空。
+- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置；该服务的数据流向详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、查询参数或片段；末尾 `/` 在解析时规范化。已填 `release` 地址始终必须使用 `https`，正式发布前及活动 Release 校验必须非空。
 - `LOG_LEVEL` 只接受 `debug`、`info`、`warn`、`error`；`release` 只接受 `warn` 或 `error`。
 - `REQUEST_TIMEOUT_MS` 必须是 `1000`–`120000` 的正整数；初始化默认写入 `10000`。
 
@@ -47,13 +47,13 @@ pnpm instantiate -- /absolute/path/example-web --type web --web-type tool-site \
   --name "示例 Web" --id example-web --policy-mode 预设
 ```
 
-命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建首轮收集尚未明确的基础字段与策略模式，自定义策略此后每轮只询问一个缺失字段；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
+命令形态为 `pnpm instantiate -- <absolute-target-outside-harness> ...`。交互式创建按依赖顺序逐项引导尚未明确的基础字段与策略模式，自定义策略每轮只询问一个缺失或非法字段，并给可靠建议默认值；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
 
 初始化器为当前唯一宿主生成并直接校验三份配置、类型化 schema、运行时 adapter、非空测试与统一 logger。它还生成只读取 `APP_CONFIG` 的Ky HTTP 基础 client，但不生成真实 endpoint 或请求调用，Ky 声明为运行时依赖，其他传输或协议依赖按需加入。语言、分页、continuation 与认证 Token 是运行时状态，不得加入公开环境文件；其存储和安全边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md)。创建期不执行最终构建；后续 `pnpm build` 仍在其他门禁之前重新验证三份文件与活动 Release profile。
 
 ### 4.1 用户要求真实联网时的 BaseURL 收集
 
-只有用户明确提出需要真实联网时，才在已初始化下游收集相关地址：先读取三份受管配置并复用有效值，再一次汇总询问缺失的 development、test、release BaseURL 及当前功能实际使用的服务 target。用户已明确提供的值不重复询问；暂不使用的环境或服务可继续留空，不编造默认值，正式发布仍须补齐 HTTPS 正式地址。
+只有用户明确提出需要真实联网时，才在已初始化下游收集相关地址：先读取三份受管配置并复用有效值，再按工程规则“渐进式交互引导”逐项补问本次操作依赖的环境与服务 BaseURL/target。每轮优先一个阻断问题，不要求一次提供 development、test、release 的全部地址。用户已明确提供的值不重复询问；暂不使用的环境或服务可继续留空或待定，不编造默认地址，正式发布仍须补齐 HTTPS 正式地址。
 
 按当前唯一宿主前缀写入对应 `.env.development`、`.env.test`、`.env.production` 并校验。多个服务只在确有消费者时扩展类型化只读 target registry、对应 schema 与环境键白名单，不临时绕过未知公开键门禁。业务代码继续只读 `APP_CONFIG`。地址配置通过后，按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 迁移对应 API；仅填写地址不代表已经迁移或验证服务可达。Web CORS、认证以及 Extension 最小网络权限继续按实际集成处理。
 

@@ -70,7 +70,7 @@ function parseCli(argv: readonly string[]): UpgradeCliOptions {
     commandInput !== "record" &&
     commandInput !== "migrate-ownership"
   ) {
-    throw new Error("Usage: harness-upgrade <plan|apply|record|migrate-ownership> [options]")
+    throw new Error("用法：harness-upgrade <plan|apply|record|migrate-ownership> [参数]")
   }
   const command = commandInput
   const values = new Map<string, string>()
@@ -79,38 +79,39 @@ function parseCli(argv: readonly string[]): UpgradeCliOptions {
   for (let index = 0; index < tokens.length; index += 1) {
     const option = tokens[index]
     if (option === "--bootstrap") {
-      if (command !== "record" || bootstrap) throw new Error(`Unexpected or duplicate ${option}`)
+      if (command !== "record" || bootstrap)
+        throw new Error(`选项不适用于当前命令或重复提供：${option}`)
       bootstrap = true
       continue
     }
     if (option === "--resolved-manual") {
-      if (command !== "record") throw new Error(`Unexpected ${option}`)
+      if (command !== "record") throw new Error(`选项不适用于当前命令：${option}`)
       const value = tokens[index + 1]
       if (value === undefined || value.startsWith("--")) {
-        throw new Error(`${option} requires one path`)
+        throw new Error(`${option} 需要一个路径`)
       }
       resolvedManual.push(value)
       index += 1
       continue
     }
     if (option === undefined || !VALUE_OPTIONS[command].has(option as never)) {
-      throw new Error(`Unexpected option: ${option ?? "<missing>"}`)
+      throw new Error(`未知或不适用的选项： ${option ?? "<missing>"}`)
     }
-    if (values.has(option)) throw new Error(`Duplicate option: ${option}`)
+    if (values.has(option)) throw new Error(`选项重复：${option}`)
     const value = tokens[index + 1]
-    if (value === undefined || value.startsWith("--")) throw new Error(`${option} requires a value`)
+    if (value === undefined || value.startsWith("--")) throw new Error(`${option} 需要提供值`)
     values.set(option, value)
     index += 1
   }
   const missing = requiredOptions(command).filter((option) => !values.has(option))
-  if (missing.length > 0) throw new Error(`Missing required options: ${missing.join(", ")}`)
+  if (missing.length > 0) throw new Error(`缺少必需选项： ${missing.join(", ")}`)
   return { command, values, resolvedManual, bootstrap }
 }
 
 /** 读取已经由严格解析证明存在的单值选项。 */
 function value(options: UpgradeCliOptions, name: string): string {
   const result = options.values.get(name)
-  if (result === undefined) throw new Error(`Missing required option: ${name}`)
+  if (result === undefined) throw new Error(`缺少必需选项： ${name}`)
   return result
 }
 

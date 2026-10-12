@@ -20,105 +20,68 @@ import {
 describe("terminal Web initialization", () => {
   /** 验证 creates a terminal Web project with synchronized identity and scaled assets 场景。 */
   test("creates a terminal Web project with synchronized identity and scaled assets", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "web"))
 
-    // 保存 master 变量供当前逻辑使用。
     const master = await sharp(path.join(root, ".harness/brand/logo-1024.png")).metadata()
-    // 保存 logo 变量供当前逻辑使用。
     const logo = await sharp(path.join(root, "public/logo.png")).metadata()
-    // 保存 favicon 变量供当前逻辑使用。
     const favicon = await sharp(path.join(root, "public/favicon.png")).metadata()
     expect([master.width, master.height]).toEqual([1024, 1024])
     expect([logo.width, logo.height]).toEqual([512, 512])
     expect([favicon.width, favicon.height]).toEqual([64, 64])
 
-    // 保存 index 变量供当前逻辑使用。
     const index = await readFile(path.join(root, "index.html"), "utf8")
-    // 保存 landing 变量供当前逻辑使用。
     const landing = await readFile(path.join(root, "src/features/welcome/WelcomePage.tsx"), "utf8")
-    // 保存 indexRoute 变量供当前逻辑使用。
     const indexRoute = await readFile(path.join(root, "src/routes/index.tsx"), "utf8")
-    // 保存 rootRoute 变量供当前逻辑使用。
     const rootRoute = await readFile(path.join(root, "src/routes/__root.tsx"), "utf8")
-    // 保存 router 变量供当前逻辑使用。
     const router = await readFile(path.join(root, "src/app/router.tsx"), "utf8")
-    // 保存 viteConfig 变量供当前逻辑使用。
     const viteConfig = await readFile(path.join(root, "vite.config.ts"), "utf8")
-    // 保存 i18n 变量供当前逻辑使用。
     const i18n = await readFile(path.join(root, "src/i18n/index.ts"), "utf8")
-    // 保存 englishLocale 变量供当前逻辑使用。
     const englishLocale = await readFile(path.join(root, "src/i18n/locales/en.ts"), "utf8")
-    // 保存 chineseLocale 变量供当前逻辑使用。
     const chineseLocale = await readFile(path.join(root, "src/i18n/locales/zh.ts"), "utf8")
-    // 保存 language 变量供当前逻辑使用。
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
-    // 保存 httpClient 变量供当前逻辑使用。
     const httpClient = await readFile(path.join(root, "src/data/api/client/httpClient.ts"), "utf8")
     const httpContracts = await readFile(
       path.join(root, "src/data/api/client/httpContracts.ts"),
       "utf8"
     )
-    // 保存 apiBoundary 变量供当前逻辑使用。
     const apiBoundary = await readFile(path.join(root, "src/data/api/README.md"), "utf8")
-    // 保存 gitignore 变量供当前逻辑使用。
     const gitignore = await readFile(path.join(root, ".gitignore"), "utf8")
-    // 保存 dataAccess 变量供当前逻辑使用。
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
-    // 保存 engineeringRules 变量供当前逻辑使用。
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
-    // 保存 mantineUiGuidelines 变量供当前逻辑使用。
     const mantineUiGuidelines = await readFile(
       path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
       "utf8"
     )
-    // 保存 developmentEnvironment 变量供当前逻辑使用。
     const developmentEnvironment = await readFile(path.join(root, ".env.development"), "utf8")
-    // 保存 testEnvironment 变量供当前逻辑使用。
     const testEnvironment = await readFile(path.join(root, ".env.test"), "utf8")
-    // 保存 releaseEnvironment 变量供当前逻辑使用。
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
-    // 保存 logger 变量供当前逻辑使用。
     const logger = await readFile(path.join(root, "src/observability/logger.ts"), "utf8")
-    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(
       path.join(root, "src/pagination/useSessionPagination.ts"),
       "utf8"
     )
-    // 保存 paginationControls 变量供当前逻辑使用。
     const paginationControls = await readFile(
       path.join(root, "src/pagination/PaginationControls.tsx"),
       "utf8"
     )
-    // 保存 queryClient 变量供当前逻辑使用。
     const queryClient = await readFile(path.join(root, "src/app/queryClient.ts"), "utf8")
-    // 保存 providers 变量供当前逻辑使用。
     const providers = await readFile(path.join(root, "src/app/AppProviders.tsx"), "utf8")
-    // 保存 theme 变量供当前逻辑使用。
     const theme = await readFile(path.join(root, "src/app/theme.ts"), "utf8")
-    // 保存 colorSchemeControl 变量供双主题入口断言使用。
     const colorSchemeControl = await readFile(
       path.join(root, "src/theme/ColorSchemeControl.tsx"),
       "utf8"
     )
-    // 保存 brandScale 变量供品牌色阶断言使用。
     const brandScale = await readFile(path.join(root, "src/theme/brandScale.ts"), "utf8")
-    // 保存 styles 变量供当前逻辑使用。
     const styles = await readFile(path.join(root, "src/styles.css"), "utf8")
-    // 保存 main 变量供当前逻辑使用。
     const main = await readFile(path.join(root, "src/main.tsx"), "utf8")
     // 核对真实 Web 根入口绑定安全的 React 错误上报，而非只生成未消费文件。
     const reactRoot = await readFile(path.join(root, "src/observability/reactRoot.ts"), "utf8")
-    // 保存 buildVersion 变量供 Web 构建版本契约断言使用。
     const buildVersion = await readFile(path.join(root, "src/buildVersion.ts"), "utf8")
-    // 保存 buildTooling 变量供统一构建入口断言使用。
     const buildTooling = await readFile(path.join(root, ".harness/tooling/build.ts"), "utf8")
-    // 保存 tsconfig 变量供当前逻辑使用。
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
     }
-    // 保存 terminalConfig 变量供当前逻辑使用。
     const terminalConfig = await readFile(path.join(root, ".harness/tooling/config.ts"), "utf8")
     // 保存 webRouteEntries 变量，锁定中性 Web 不继承桌面赞助页或关于页。
     const webRouteEntries = (await readdir(path.join(root, "src/routes"))).sort()
@@ -178,15 +141,14 @@ describe("terminal Web initialization", () => {
     expect(viteConfig).toContain("rolldownOptions")
     expect(viteConfig).not.toContain("esbuild:")
     expect(viteConfig).toContain("sourcemap: false")
-    expect(apiBoundary).toContain("Do not add placeholder requests")
-    expect(apiBoundary).toContain("TanStack Query owns REST/GraphQL cache lookup")
-    expect(apiBoundary).toContain("Cache parsed, validated domain data")
+    expect(apiBoundary).toContain("不增加占位请求")
+    expect(apiBoundary).toContain("TanStack Query 负责 REST/GraphQL 缓存查询")
+    expect(apiBoundary).toContain("缓存已解析校验的领域数据")
     expect(gitignore.split(/\r?\n/)).toContain("src/routeTree.gen.ts")
     await expect(readFile(path.join(root, "src/routeTree.gen.ts"), "utf8")).rejects.toThrow()
     expect(i18n).toContain("initializeLanguage")
     expect(i18n).toContain('fallbackLng: "en"')
     expect(i18n).toContain("zh: { translation: zh }")
-    // 保存 key 变量供当前逻辑使用。
     for (const key of PAGINATION_I18N_KEYS) {
       expect(englishLocale).toContain(`${key}:`)
       expect(chineseLocale).toContain(`${key}:`)
@@ -223,7 +185,7 @@ describe("terminal Web initialization", () => {
     expect(engineeringRules).toContain("src/routeTree.gen.ts")
     expect(engineeringRules).toContain("route 级自动拆包")
     expect(engineeringRules).toContain("docs/MANTINE_UI_GUIDELINES.md")
-    expect(mantineUiGuidelines).toContain("## 3. Theme 与设计令牌")
+    expect(mantineUiGuidelines).toContain("## 3. 主题与设计令牌")
     expect(mantineUiGuidelines).toContain("### 5.4 React Web 重复记录视图")
     expect(mantineUiGuidelines).toContain("$web-implement-list-view")
     expect(mantineUiGuidelines).toContain("## 8. Web 宿主规范")
@@ -278,12 +240,10 @@ describe("terminal Web initialization", () => {
     expect(main).not.toContain("IS_RELEASE_BUILD")
     expect(tsconfig.include).not.toContain(".plasmo/index.d.ts")
     expect(terminalConfig).toContain("export const HARNESS_ONLY_PATHS")
-    // 保存 sourceOnlyPath 变量供当前逻辑使用。
     for (const sourceOnlyPath of HARNESS_ONLY_PATHS) {
       expect(terminalConfig).toContain(JSON.stringify(sourceOnlyPath))
     }
 
-    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
       scripts: Record<string, string>
       dependencies: Record<string, string>
@@ -314,7 +274,6 @@ describe("terminal Web initialization", () => {
     expect(manifest.scripts.typecheck).toContain("pnpm routes:generate")
     expect(manifest.scripts.test).toBe("vitest run")
     expect(manifest.scripts["test:related"]).toBe("vitest related --run")
-    // 保存 webInstalledPackages 变量供列表页条件依赖不得预装的回归使用。
     const webInstalledPackages = { ...manifest.dependencies, ...manifest.devDependencies }
     expect(webInstalledPackages).not.toHaveProperty("@dnd-kit/core")
     expect(webInstalledPackages).not.toHaveProperty("@dnd-kit/sortable")
@@ -324,15 +283,11 @@ describe("terminal Web initialization", () => {
     expect(manifest.scripts).not.toHaveProperty("instantiate")
     await expect(readFile(path.join(root, ".harness/tooling/init.ts"), "utf8")).rejects.toThrow()
     await expect(readFile(path.join(root, "scripts/instantiate.ts"), "utf8")).rejects.toThrow()
-    // 保存 prettierConfig 变量供动态输出格式回归使用。
     const prettierConfig = (await resolveConfig(path.join(root, "package.json"))) ?? {}
     // 保存 formattedPaths 变量覆盖 TypeScript 与 Markdown 动态输出。
     const formattedPaths = ["src/i18n/language.ts", "docs/RUNTIME_CONFIGURATION.md"]
-    // 保存 relativePath 变量供逐文件格式断言使用。
     for (const relativePath of formattedPaths) {
-      // 保存 absolutePath 变量供 Prettier parser 选择使用。
       const absolutePath = path.join(root, relativePath)
-      // 保存 source 变量供格式稳定性比较使用。
       const source = await readFile(absolutePath, "utf8")
       expect(await format(source, { ...prettierConfig, filepath: absolutePath })).toBe(source)
     }

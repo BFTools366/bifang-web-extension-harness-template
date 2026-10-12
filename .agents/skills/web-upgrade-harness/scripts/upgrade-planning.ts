@@ -33,9 +33,30 @@ const PROJECT_CONFIG_RELATIVE_PATH = ".harness/project.json"
 
 /** 本地保存宿主专用 Skill 根，保持旧 policy 与新 planner 可共同启动。 */
 const HOST_SPECIFIC_SKILL_ROOTS = {
-  web: [".agents/skills/web-implement-list-view"],
+  web: [
+    ".agents/skills/web-implement-list-view",
+    ".agents/skills/web-implement-saas-auth",
+    ".agents/skills/web-implement-saas-admin",
+    ".agents/skills/web-implement-saas-commerce"
+  ],
   extension: [".agents/skills/web-review-extension-compatibility"]
 } as const
+
+/** 枚举源中宿主专用 Skill 的全部文件，保证候选精确传播而不依赖手写清单。 */
+async function hostSkillSourcePaths(
+  sourceRoot: string,
+  roots: readonly string[]
+): Promise<string[]> {
+  const listings = await Promise.all(
+    roots.map(async (root) => {
+      const inventory = await inventoryTree(path.join(sourceRoot, root), false).catch(
+        () => undefined
+      )
+      return [...(inventory?.files.keys() ?? [])].map((file) => `${root}/${file}`)
+    })
+  )
+  return listings.flat()
+}
 
 /** 按所有权和三方事实生成一个稳定分类。 */
 export function classifyEntry(
@@ -52,63 +73,63 @@ export function classifyEntry(
     return {
       ...entry,
       classification: "blocked",
-      reason: "related path is not a safe regular file"
+      reason: "相关路径不是安全的普通文件"
     }
   if ((ownership === "protected" || ownership === "tombstone") && candidate !== undefined) {
     return {
       ...entry,
       classification: "blocked",
-      reason: `candidate must not contain ${ownership} path`
+      reason: `候选不得包含 ${ownership} 路径`
     }
   }
   if (ownership === "tombstone" && target !== undefined) {
     return {
       ...entry,
       classification: "blocked",
-      reason: "terminal target contains a tombstoned source-only path"
+      reason: "终端目标包含已禁止恢复的源专属路径"
     }
   }
   if (ownership === "protected" || ownership === "tombstone") {
     return {
       ...entry,
       classification: "unchanged",
-      reason: `${ownership} boundary is satisfied`
+      reason: `满足 ${ownership} 边界`
     }
   }
   const automatic = ownership === "managed" || ownership === "managed-self"
   if (!automatic) {
     if (baseline === undefined) {
       if (candidate === undefined) {
-        return { ...entry, classification: "preserve_local", reason: "candidate is absent" }
+        return { ...entry, classification: "preserve_local", reason: "候选不存在" }
       }
       if (sameSnapshot(candidate, target)) {
-        return { ...entry, classification: "converged", reason: "candidate and target match" }
+        return { ...entry, classification: "converged", reason: "候选与目标一致" }
       }
       return {
         ...entry,
         classification: target === undefined ? "manual_add" : "manual_merge",
-        reason: "mixed path requires a reviewed target-specific merge"
+        reason: "混合路径需要经过评审、针对当前目标的合并"
       }
     }
     if (sameSnapshot(candidate, baseline.candidate)) {
       return {
         ...entry,
         classification: sameSnapshot(target, baseline.target) ? "unchanged" : "preserve_local",
-        reason: "upstream mixed path is unchanged"
+        reason: "上游混合路径未变化"
       }
     }
     if (sameSnapshot(candidate, target)) {
-      return { ...entry, classification: "converged", reason: "candidate and target match" }
+      return { ...entry, classification: "converged", reason: "候选与目标一致" }
     }
     return {
       ...entry,
       classification: "manual_merge",
-      reason: "upstream mixed path changed and requires reviewed merge"
+      reason: "上游混合路径已变化，需要评审后合并"
     }
   }
   if (baseline === undefined) {
     if (candidate !== undefined && target === undefined) {
-      return { ...entry, classification: "add", reason: "candidate path is new" }
+      return { ...entry, classification: "add", reason: "候选路径为新增路径" }
     }
     if (candidate !== undefined && target !== undefined) {
       return {
@@ -118,12 +139,10 @@ export function classifyEntry(
           : sameSnapshot(candidate, target)
             ? "converged"
             : "collision",
-        reason: bootstrap
-          ? "first baseline requires explicit convergence review"
-          : "untracked target path collides with the candidate"
+        reason: bootstrap ? "首次基线需要明确的收敛评审" : "未记录基线的目标路径与候选冲突"
       }
     }
-    return { ...entry, classification: "preserve_local", reason: "candidate is absent" }
+    return { ...entry, classification: "preserve_local", reason: "候选不存在" }
   }
   const candidateChanged = !sameSnapshot(candidate, baseline.candidate)
   const targetChanged = !sameSnapshot(target, baseline.target)
@@ -131,26 +150,26 @@ export function classifyEntry(
     return {
       ...entry,
       classification: sameSnapshot(candidate, target) ? "converged" : "conflict",
-      reason: "upstream and target both changed from their recorded baselines"
+      reason: "上游与目标均已偏离各自记录的基线"
     }
   }
   if (targetChanged) {
-    return { ...entry, classification: "preserve_local", reason: "only target changed locally" }
+    return { ...entry, classification: "preserve_local", reason: "仅目标存在本地变化" }
   }
   if (!candidateChanged) {
-    return { ...entry, classification: "unchanged", reason: "neither side changed" }
+    return { ...entry, classification: "unchanged", reason: "双方均未变化" }
   }
   if (candidate === undefined) {
-    return { ...entry, classification: "delete", reason: "upstream removed the managed path" }
+    return { ...entry, classification: "delete", reason: "上游已移除受管路径" }
   }
   if (target === undefined && baseline.target !== undefined) {
     return {
       ...entry,
       classification: "conflict",
-      reason: "target deleted an upstream update path"
+      reason: "目标已删除上游待更新的路径"
     }
   }
-  return { ...entry, classification: "update", reason: "only upstream candidate changed" }
+  return { ...entry, classification: "update", reason: "仅上游候选发生变化" }
 }
 
 /** 从 Version.md 提取唯一当前版本并与声明匹配。 */
@@ -225,7 +244,6 @@ export async function createUpgradePlan(
   ) {
     throw new Error("Target project identity changed while planning")
   }
-  // 保存 lock 变量供分类使用，同时单独把原始 lock 快照写入计划 provenance。
   const lock = loadedLock?.value
   const paths = new Set<string>([
     PROJECT_CONFIG_RELATIVE_PATH,
@@ -263,11 +281,7 @@ export async function createUpgradePlan(
           (root) => relativePath === root || relativePath.startsWith(`${root}/`)
         )
       ) {
-        block(
-          relativePath,
-          "conditional",
-          `Skill is not allowed for target projectType=${projectType}`
-        )
+        block(relativePath, "conditional", `目标 projectType=${projectType} 不允许此 Skill`)
       }
     }
   }
@@ -278,7 +292,7 @@ export async function createUpgradePlan(
       !candidateInventory.files.has(rule.pattern) &&
       !candidateInventory.unsafe.has(rule.pattern)
     ) {
-      block(rule.pattern, rule.mode, "required candidate path is missing")
+      block(rule.pattern, rule.mode, "缺少必需的候选路径")
     }
   }
   const requiredSourcePaths = [
@@ -286,7 +300,9 @@ export async function createUpgradePlan(
     ...HOST_SPECIFIC_SKILL_ROOTS[projectType].flatMap((root) => [
       `${root}/SKILL.md`,
       `${root}/agents/openai.yaml`
-    ])
+    ]),
+    // 宿主专用 Skill 的全部源文件只要求对应宿主候选精确传播，不能向另一宿主注入。
+    ...(await hostSkillSourcePaths(sourceRoot, HOST_SPECIFIC_SKILL_ROOTS[projectType]))
   ]
   for (const relativePath of requiredSourcePaths) {
     const sourceSnapshot = await optionalSourceSnapshot(sourceRoot, relativePath)
@@ -297,23 +313,19 @@ export async function createUpgradePlan(
       block(
         relativePath,
         ownershipRuleForNode(relativePath, ownership.manifest, false)?.mode ?? "managed",
-        "candidate does not exactly propagate required source file"
+        "候选未精确传播必需源文件"
       )
     }
   }
   for (const relativePath of candidateInventory.directories) {
     const mode = ownershipRuleForNode(relativePath, ownership.manifest, true)?.mode
     if (mode === "protected" || mode === "tombstone") {
-      block(relativePath, mode, `candidate contains forbidden ${mode} directory`)
+      block(relativePath, mode, `候选包含禁止的 ${mode} 目录`)
     }
   }
   for (const relativePath of new Set([...targetInventory.directories, ...targetInventory.unsafe])) {
     if (ownershipRuleForNode(relativePath, ownership.manifest, true)?.mode === "tombstone") {
-      block(
-        relativePath,
-        "tombstone",
-        "terminal target contains a tombstoned source-only directory"
-      )
+      block(relativePath, "tombstone", "终端目标包含已禁止恢复的源专属目录")
     }
   }
   for (const relativePath of [...paths].sort()) {
@@ -329,7 +341,7 @@ export async function createUpgradePlan(
         classification: "blocked",
         candidate: candidateInventory.files.get(relativePath),
         target: targetInventory.files.get(relativePath),
-        reason: "candidate path has no ownership rule"
+        reason: "候选路径没有所有权规则"
       })
       continue
     }
@@ -342,7 +354,7 @@ export async function createUpgradePlan(
         baseline: baselineEntry,
         candidate: candidateInventory.files.get(relativePath),
         target: targetInventory.files.get(relativePath),
-        reason: "ownership mode drifted from recorded baseline"
+        reason: "所有权模式已偏离记录的基线"
       })
       continue
     }

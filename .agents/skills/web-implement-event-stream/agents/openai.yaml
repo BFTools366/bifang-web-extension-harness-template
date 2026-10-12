@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施持续事件流"
+  short_description: "按真实推送协议实现事件适配、连接清理、恢复与单一状态投影"
+  default_prompt: "使用 $web-implement-event-stream 按当前真实事件协议实现或修复连接生命周期、取消恢复、事件校验和状态投影，仅按需采用 RxJS。"

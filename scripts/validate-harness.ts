@@ -55,7 +55,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
         `${violation.file}:${violation.line}:${violation.column} ${violation.kind} ${violation.name}: ${violation.message}`
     )
   )
-  if (errors.length > 0) throw new Error(`Harness validation failed:\n- ${errors.join("\n- ")}`)
+  if (errors.length > 0) throw new Error(`Harness 校验失败：\n- ${errors.join("\n- ")}`)
   return { files: files.length, skills, markdownLinks }
 }
 
@@ -65,7 +65,7 @@ if (executed === import.meta.url) {
   validateHarness(process.cwd())
     .then((report) => {
       console.log(
-        `Harness validation passed (${report.skills.length} skills, ${report.markdownLinks} local links)`
+        `Harness 校验通过（${report.skills.length} 个 Skills，${report.markdownLinks} 个本地链接）`
       )
     })
     .catch((error: unknown) => {

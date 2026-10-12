@@ -4,21 +4,18 @@ import { refreshBrand } from "./brand.ts"
 import { assertProjectType } from "./config.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
-  isInteractiveTerminal,
-  parsePolicyMode,
   assertWebCreationAvailable,
+  parsePolicyMode,
   parseWebCreationType,
-  promptForIdentity,
-  type WebCreationType,
   type PromptDefaults,
-  type PromptedIdentity
-} from "./prompts.ts"
+  type WebCreationType
+} from "./initialization-input.ts"
+import { isInteractiveTerminal, promptForIdentity, type PromptedIdentity } from "./prompts.ts"
 import { recommendedAgentPolicy } from "./agent-policy.ts"
 import type { AgentPolicyChoice, AgentPolicySelection, InitOptions, ParsedArgs } from "./types.ts"
 import { validateProject } from "./validate.ts"
 import { isMainModule } from "./files.ts"
 
-// 保存 INIT_OPTIONS 变量供当前逻辑使用。
 const INIT_OPTIONS = [
   "type",
   "web-type",
@@ -44,22 +41,22 @@ const INIT_OPTIONS = [
 function usage(): string {
   return `Bifang Web Harness
 
-Project creation (the target must be outside this Harness repository):
+创建项目（目标必须位于本 Harness 仓库之外）：
   pnpm instantiate -- <absolute-target> --type web|extension --name <name> --id <id> \\
-    [--web-type tool-site|saas-client|saas-admin (required for web)] \\
+    [--web-type tool-site|saas-client|saas-admin（Web 必填）] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
-    [--description <description> (required for extension)] [--identity-i18n <json>] \\
+    [--description <description>（Extension 必填）] [--identity-i18n <json>] \\
     [--superpowers enabled|disabled] [--user-owned-tasks enabled|disabled] \\
     [--parallel-worktree-subagents enabled|disabled] \\
     [--acceptance-smoke enabled|disabled] [--e2e-hint enabled|disabled] \\
     [--brand-color <#RRGGBB>] [--logo <path>]
 
-Maintenance commands:
+维护命令：
   pnpm harness brand refresh [--logo <path>] [--brand-color <#RRGGBB>]
   pnpm harness validate
 
-In-place initialization is forbidden. Project creation requires exactly one type.
+禁止原地初始化；创建项目必须且只能选择一种宿主类型。
 Web 类型：1.工具站点（现有流程）；2.SaaS客户端、3.SaaS大后台（选项预留，流程暂未开放）。
 `
 }
@@ -76,7 +73,7 @@ export interface InitOptionsResolutionRuntime {
 /** 将非交互能力参数约束为 enabled 或 disabled。 */
 function policyChoice(value: string | undefined, label: string): AgentPolicyChoice {
   if (value === "enabled" || value === "disabled") return value
-  throw new Error(`${label} must be exactly enabled or disabled`)
+  throw new Error(`${label} 必须精确为 enabled 或 disabled`)
 }
 
 /** 从非交互参数完全解析推荐或自定义 Agent policy。 */
@@ -99,7 +96,7 @@ function nonInteractiveAgentPolicy(supplied: {
       supplied.acceptanceSmoke !== undefined ||
       supplied.e2eHint !== undefined
     ) {
-      throw new Error("Recommended policy mode does not accept individual policy overrides")
+      throw new Error("预设策略模式不接受单项策略覆盖")
     }
     return recommendedAgentPolicy(confirmedBy)
   }
@@ -146,11 +143,8 @@ export async function resolveInitOptions(
   runtime: InitOptionsResolutionRuntime = {}
 ): Promise<InitOptions & { webType?: WebCreationType }> {
   assertKnownOptions(args, INIT_OPTIONS)
-  // 保存 interactive 变量供当前逻辑使用。
   const interactive = runtime.interactive ?? isInteractiveTerminal()
-  // 保存 suppliedBrandColor 变量供当前逻辑使用。
   const suppliedBrandColor = readStringOption(args, "brand-color")
-  // 保存 supplied 变量供当前逻辑使用。
   const supplied = {
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
@@ -171,7 +165,6 @@ export async function resolveInitOptions(
     acceptanceSmoke: readStringOption(args, "acceptance-smoke"),
     e2eHint: readStringOption(args, "e2e-hint")
   }
-  // 保存 required 变量供当前逻辑使用。
   const required = [
     ["<absolute-target>", supplied.targetRoot],
     ["--type", supplied.projectType],
@@ -180,21 +173,25 @@ export async function resolveInitOptions(
     ["--id", supplied.id],
     ["--policy-mode", supplied.policyMode]
   ] as const
-  // 保存 missing 变量供当前逻辑使用。
   const missing = required
     .filter(/* 执行 当前声明 函数的处理逻辑。 */ ([, value]) => value === undefined)
     .map(/* 执行 当前声明 函数的处理逻辑。 */ ([flag]) => flag)
 
-  // 保存 identity 变量供当前逻辑使用。
   let identity:
     | (typeof supplied & { agentPolicy?: AgentPolicySelection })
     | Awaited<ReturnType<typeof promptForIdentity>> = supplied
   if (interactive) {
     identity = await (runtime.promptIdentity ?? promptForIdentity)(supplied)
-  } else if (missing.length > 0) {
-    throw new Error(
-      `Non-interactive initialization is missing required option(s): ${missing.join(", ")}`
-    )
+  } else {
+    // 明确选择的 Web 预留流程优先结束，不要求补齐不会被采用的基础字段。
+    if (supplied.projectType === "web" && supplied.webType !== undefined) {
+      assertWebCreationAvailable("web", supplied.webType)
+    }
+    if (missing.length > 0) {
+      throw new Error(
+        `Non-interactive initialization is missing required option(s): ${missing.join(", ")}`
+      )
+    }
   }
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
@@ -230,34 +227,29 @@ export async function resolveInitOptions(
 
 // 执行 runBrand 函数的处理逻辑。
 async function runBrand(argv: string[], root: string): Promise<void> {
-  // 保存 args 变量供当前逻辑使用。
   const args = parseArgs(argv)
   assertKnownOptions(args, ["logo", "brand-color"])
   if (args.positionals.length !== 1 || args.positionals[0] !== "refresh") {
-    throw new Error("Usage: pnpm harness brand refresh [--logo <path>] [--brand-color <color>]")
+    throw new Error("用法：pnpm harness brand refresh [--logo <path>] [--brand-color <color>]")
   }
-  // 保存 config 变量供当前逻辑使用。
   const config = await refreshBrand(root, {
     logoPath: readStringOption(args, "logo"),
     brandColor: readStringOption(args, "brand-color")
   })
-  console.log(`Refreshed brand assets for ${config.name}`)
+  console.log(`已刷新品牌资产：${config.name}`)
 }
 
 // 执行 runValidate 函数的处理逻辑。
 async function runValidate(argv: string[], root: string): Promise<void> {
-  // 保存 args 变量供当前逻辑使用。
   const args = parseArgs(argv)
   assertKnownOptions(args, [])
-  if (args.positionals.length > 0) throw new Error("validate does not accept positional arguments")
-  // 保存 checked 变量供当前逻辑使用。
+  if (args.positionals.length > 0) throw new Error("validate 不接受位置参数")
   const checked = await validateProject(root)
-  console.log(`Project validation passed (${checked.join(", ")})`)
+  console.log(`项目校验通过 (${checked.join(", ")})`)
 }
 
 // 执行 runCli 函数的处理逻辑。
 export async function runCli(argv = process.argv.slice(2), root = process.cwd()): Promise<void> {
-  // 保存 [command, ...rest] 变量供当前逻辑使用。
   const [command, ...rest] = argv
   if (command === "init") return rejectInPlaceInitialization()
   if (command === "brand") return runBrand(rest, root)
@@ -266,14 +258,12 @@ export async function runCli(argv = process.argv.slice(2), root = process.cwd())
     console.log(usage())
     return
   }
-  throw new Error(`Unknown Harness command: ${command}\n\n${usage()}`)
+  throw new Error(`未知的 Harness 命令：${command}\n\n${usage()}`)
 }
 
 if (isMainModule(import.meta.url)) {
-  runCli().catch(
-    /* 执行 当前声明 函数的处理逻辑。 */ (error: unknown) => {
-      console.error(error instanceof Error ? error.message : String(error))
-      process.exitCode = 1
-    }
-  )
+  runCli().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
 }

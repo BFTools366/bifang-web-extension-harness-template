@@ -50,9 +50,7 @@ async function expectPrototypeWorkflowDistributed(root: string): Promise<void> {
   )
   expect(reviewCli.status).toBe(1)
   expect(reviewCli.stderr).toContain("No prototype review")
-  expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(
-    "Wait for explicit user selection"
-  )
+  expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("等待用户明确选择")
 }
 
 /** 验证两宿主仅隔离未配置的远端 API，本地能力仍真实实现且不要求地址。 */
@@ -70,13 +68,16 @@ async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void>
   expect(dataAccess).toContain("Mock API 不调用 HTTP client、不触发 Fetch")
   expect(dataAccess).toContain("禁止失败后自动回落 Mock")
   expect(runtimeRules).toContain("DATA_ACCESS.md")
-  expect(runtimeRules).toContain("缺失的 development、test、release BaseURL")
+  expect(runtimeRules).toContain("逐项补问本次操作依赖的环境与服务 BaseURL/target")
   expect(implementationSkill).toContain("$web-connect-http-service")
   const connectionSkill = await readFile(
     path.join(root, ".agents/skills/web-connect-http-service/SKILL.md"),
     "utf8"
   )
-  expect(connectionSkill).toContain("只汇总询问必要缺项")
+  expect(connectionSkill).toContain("逐项补问阻断缺项")
+  const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+  expect(engineeringRules).toContain("## 渐进式交互引导")
+  expect(engineeringRules).toContain("沉默、超时或预选项不算批准")
   expect(connectionSkill).toContain("真实请求失败不得回落 Mock")
   expect(connectionSkill).toContain("本地实现继续真实运行，不纳入 Mock 迁移")
   expect(implementationSkill).toContain("Mock 是当前远端 API 契约的完整实现")
@@ -92,7 +93,7 @@ async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void>
   }
   for (const relative of ["AGENTS.md", "src/data/api/README.md"]) {
     const source = await readFile(path.join(root, relative), "utf8")
-    expect(source).toContain("Local capabilities use real implementations without a BaseURL")
+    expect(source).toContain("本地能力无需 BaseURL，直接真实实现")
   }
 }
 
@@ -100,9 +101,7 @@ async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void>
 describe("single-package Harness initialization", () => {
   /** 验证 uses the stable color default and keeps E2E outside initialization 场景。 */
   test("uses the stable color default and keeps E2E outside initialization", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
-    // 保存 resolved 变量供当前逻辑使用。
     const resolved = await resolveInitOptions(
       parseArgs([
         "--type",
@@ -165,35 +164,43 @@ describe("single-package Harness initialization", () => {
     })
   })
 
-  /** 验证首轮可主动提供工具站点选择，无需说明、地址与确认来源。 */
+  /** 验证逐项普通回答与建议值可完成初始化，可选字段无需补问。 */
   test("collects only required identity and Chinese preset fields", async () => {
     const questions: string[] = []
+    const answers = [
+      "web",
+      "1",
+      "Simple Web",
+      "",
+      path.join(repositoryRoot, "..", "simple-web"),
+      ""
+    ]
     const resolved = await collectPromptedIdentity({ confirmedBy: " " }, async (question) => {
       questions.push(question)
-      return JSON.stringify({
-        targetRoot: path.join(repositoryRoot, "..", "simple-web"),
-        projectType: "web",
-        webType: "tool-site",
-        name: "Simple Web",
-        id: "simple-web",
-        policyMode: "预设"
-      })
+      const answer = answers.shift()
+      if (answer === undefined) throw new Error("Unexpected extra initialization question")
+      return answer
     })
-    expect(questions).toHaveLength(1)
-    expect(questions[0]?.match(/JSON key:/g)).toHaveLength(5)
-    for (const key of ["projectType", "name", "id", "targetRoot", "policyMode"]) {
-      expect(questions[0]).toContain(`JSON key: ${key}`)
+    const fields = ["projectType", "webType", "name", "id", "targetRoot", "policyMode"]
+    expect(questions).toHaveLength(fields.length)
+    for (const [index, field] of fields.entries()) {
+      expect(questions[index]).toContain(`字段： ${field}`)
+      expect(questions[index]?.match(/字段：/g)).toHaveLength(1)
     }
-    expect(questions[0]).not.toContain("JSON key: brandColor")
+    expect(questions[3]).toContain("建议/默认：simple-web；回车采用")
+    expect(questions[5]).toContain("建议/默认：预设；回车采用")
     for (const key of [
       "description",
+      "identityI18n",
+      "brandColor",
       "developmentBaseUrl",
       "testBaseUrl",
       "releaseBaseUrl",
       "confirmedBy"
     ]) {
-      expect(questions[0]).not.toContain(`JSON key: ${key}`)
+      expect(questions.join("\n")).not.toContain(`字段： ${key}`)
     }
+    expect(answers).toEqual([])
     expect(resolved).toMatchObject({
       description: "Simple Web",
       developmentBaseUrl: "",
@@ -201,7 +208,12 @@ describe("single-package Harness initialization", () => {
       releaseBaseUrl: "",
       policyMode: "recommended",
       agentPolicy: { confirmedBy: "当前用户" },
-      inputSources: { description: "默认使用显示名称", confirmedBy: "当前用户（自动记录）" }
+      inputSources: {
+        id: "交互接受默认值",
+        policyMode: "交互接受默认值",
+        description: "默认使用显示名称",
+        confirmedBy: "当前用户（自动记录）"
+      }
     })
   })
 
@@ -271,7 +283,6 @@ describe("single-package Harness initialization", () => {
 
   /** 验证 reuses a preflighted uploaded Logo without reopening its source 场景。 */
   test("reuses a preflighted uploaded Logo without reopening its source", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供预处理 Logo 复用测试使用。
     const root = await seedTemplateRoot()
     // 保存 preparedLogo 变量模拟源 Harness 已完成的单次上传压缩结果。
     const preparedLogo = await sharp({

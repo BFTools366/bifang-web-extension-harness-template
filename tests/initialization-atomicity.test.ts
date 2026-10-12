@@ -27,7 +27,6 @@ import {
 describe("failure-safe initialization", () => {
   /** 验证 preflights missing downstream documentation before the first internal staged write 场景。 */
   test("preflights missing downstream documentation before the first internal staged write", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await temporaryDirectory("harness-atomic-init-")
     await mkdir(path.join(root, "docs"))
     await writeFile(
@@ -54,7 +53,10 @@ describe("failure-safe initialization", () => {
       path.join(root, "docs/AGENT_POLICY.md"),
       await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
     )
-    // 保存 before 变量供当前逻辑使用。
+    await writeFile(
+      path.join(root, "docs/ENGINEERING_RULES.md"),
+      await readFile(path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"), "utf8")
+    )
     const before = await snapshotTree(root)
 
     await expect(
@@ -66,23 +68,16 @@ describe("failure-safe initialization", () => {
 
   /** 验证 removes only sibling staging data when copied initialization fails 场景。 */
   test("removes only sibling staging data when copied initialization fails", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 sourceRoot 变量供当前逻辑使用。
     const sourceRoot = await temporaryDirectory("harness-atomic-source-")
     await mkdir(path.join(sourceRoot, "docs"))
     await writeFile(path.join(sourceRoot, "docs/copied-marker.txt"), "copied before failure\n")
-    // 保存 targetParent 变量供当前逻辑使用。
     const targetParent = await temporaryDirectory("harness-atomic-target-")
-    // 保存 canonicalTargetParent 变量供当前逻辑使用。
     const canonicalTargetParent = await realpath(targetParent)
 
-    // 保存 targetExisted 变量供当前逻辑使用。
     for (const targetExisted of [false, true]) {
-      // 保存 id 变量供当前逻辑使用。
       const id = targetExisted ? "existing-empty-target" : "absent-target"
-      // 保存 targetRoot 变量供当前逻辑使用。
       const targetRoot = path.join(targetParent, id)
       if (targetExisted) await mkdir(targetRoot)
-      // 保存 { root: ignoredRoot, ...init } 变量供当前逻辑使用。
       const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", id)
       void ignoredRoot
 
@@ -93,7 +88,6 @@ describe("failure-safe initialization", () => {
             targetRoot,
             init
           },
-          // 执行 当前声明 函数的处理逻辑。
           async (stagedOptions) => {
             expect(stagedOptions.root).not.toBe(targetRoot)
             expect(path.dirname(stagedOptions.root)).toBe(canonicalTargetParent)
@@ -111,9 +105,7 @@ describe("failure-safe initialization", () => {
         await expect(lstat(targetRoot)).rejects.toMatchObject({ code: "ENOENT" })
       }
       expect(
-        (await readdir(targetParent)).filter(
-          /* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.startsWith(`.${id}.harness-stage-`)
-        )
+        (await readdir(targetParent)).filter((entry) => entry.startsWith(`.${id}.harness-stage-`))
       ).toEqual([])
     }
   })

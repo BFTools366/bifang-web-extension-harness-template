@@ -22,6 +22,20 @@ import {
 } from "./harness-upgrade-fixture.ts"
 
 const REQUIRED_SOURCE_FILES = [
+  ".agents/skills/web-review-api-contract/SKILL.md",
+  ".agents/skills/web-review-api-contract/agents/openai.yaml",
+  ".agents/skills/web-review-module-boundaries/SKILL.md",
+  ".agents/skills/web-review-module-boundaries/agents/openai.yaml",
+  ".agents/skills/web-implement-access-control/SKILL.md",
+  ".agents/skills/web-implement-access-control/agents/openai.yaml",
+  ".agents/skills/web-implement-write-recovery/SKILL.md",
+  ".agents/skills/web-implement-write-recovery/agents/openai.yaml",
+  ".agents/skills/web-implement-browser-storage/SKILL.md",
+  ".agents/skills/web-implement-browser-storage/agents/openai.yaml",
+  ".agents/skills/web-implement-event-stream/SKILL.md",
+  ".agents/skills/web-implement-event-stream/agents/openai.yaml",
+  ".agents/skills/web-manage-user-tasks/SKILL.md",
+  ".agents/skills/web-manage-user-tasks/agents/openai.yaml",
   ".agents/skills/web-audit-worktrees/SKILL.md",
   ".agents/skills/web-audit-worktrees/agents/openai.yaml",
   ".agents/skills/web-audit-worktrees/references/inspection-contract.md",
@@ -39,89 +53,114 @@ const REQUIRED_SOURCE_FILES = [
   ".agents/skills/web-design-prototype/scripts/prototype-review.ts"
 ]
 
-/** 验证 upgrade ownership protection 的完整回归场景。 */
+/** 升级所有权、精确传播与迁移反例共用同一冻结计划边界，保留在此内聚测试模块。 */
 describe("upgrade ownership protection", () => {
   /** 验证两宿主的候选注入和目标独有残留（含空目录、符号链接）都阻断升级写入。 */
-  test.each(["web", "extension"] as const)(
-    "blocks wrong-host skill residue for %s",
-    async (projectType) => {
-      const fixture = await upgradeFixture()
-      await writeFile(
-        path.join(fixture.target, ".harness/project.json"),
-        JSON.stringify({ projectType })
-      )
-      const forbidden =
-        projectType === "web" ? "web-review-extension-compatibility" : "web-implement-list-view"
-      const relativeRoot = `.agents/skills/${forbidden}`
-      for (const root of [fixture.candidate, fixture.target]) {
-        const skillRoot = path.join(root, relativeRoot)
-        await mkdir(skillRoot, { recursive: true })
-        let plan = await planFor(fixture)
-        expect(plan.entries).toContainEqual(
-          expect.objectContaining({ path: relativeRoot, classification: "blocked" })
-        )
-        await writeFile(path.join(skillRoot, "SKILL.md"), "wrong host\n")
-        plan = await planFor(fixture)
-        expect(plan.entries).toContainEqual(
-          expect.objectContaining({ path: `${relativeRoot}/SKILL.md`, classification: "blocked" })
-        )
-        const planPath = await persistPlan(
-          fixture,
-          `${projectType}-${root === fixture.target ? "target" : "candidate"}`
-        )
-        await expect(
-          applyUpgradePath({
-            planPath,
-            path: ".harness/tooling/comment-policy.ts",
-            approval: "apply-managed-changes"
-          })
-        ).rejects.toThrow(/blocked by/)
-        await expect(
-          recordUpgradeBaseline({
-            planPath,
-            sourceVersion: "202609090101",
-            sourceCommit: fixture.sourceCommit,
-            bootstrap: true,
-            approval: "bootstrap-verified-baseline",
-            resolvedManual: []
-          })
-        ).rejects.toThrow(/not converged/)
-        await rm(skillRoot, { recursive: true })
-        await symlink(
-          fixture.evidence,
-          skillRoot,
-          process.platform === "win32" ? "junction" : "dir"
-        )
-        expect((await planFor(fixture)).entries).toContainEqual(
-          expect.objectContaining({ path: relativeRoot, classification: "blocked" })
-        )
-        await rm(skillRoot)
-      }
-      expect(
-        (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
-      ).toEqual([])
-    }
-  )
-
-  /** 验证 Extension 关键审查文件缺失或陈旧阻断，Web 合法缺席不阻断。 */
-  test("propagates compatibility review only to Extension candidates", async () => {
+  test.each([
+    ["web", "web-review-extension-compatibility"],
+    ["extension", "web-implement-list-view"],
+    ["extension", "web-implement-saas-auth"],
+    ["extension", "web-implement-saas-commerce"],
+    ["extension", "web-implement-saas-admin"]
+  ] as const)("blocks wrong-host skill residue for %s: %s", async (projectType, forbidden) => {
     const fixture = await upgradeFixture()
-    const files = ["SKILL.md", "agents/openai.yaml"].map(
-      (file) => `.agents/skills/web-review-extension-compatibility/${file}`
+    await writeFile(
+      path.join(fixture.target, ".harness/project.json"),
+      JSON.stringify({ projectType })
     )
+    const relativeRoot = `.agents/skills/${forbidden}`
+    for (const root of [fixture.candidate, fixture.target]) {
+      const skillRoot = path.join(root, relativeRoot)
+      await mkdir(skillRoot, { recursive: true })
+      let plan = await planFor(fixture)
+      expect(plan.entries).toContainEqual(
+        expect.objectContaining({ path: relativeRoot, classification: "blocked" })
+      )
+      await writeFile(path.join(skillRoot, "SKILL.md"), "wrong host\n")
+      plan = await planFor(fixture)
+      expect(plan.entries).toContainEqual(
+        expect.objectContaining({ path: `${relativeRoot}/SKILL.md`, classification: "blocked" })
+      )
+      const planPath = await persistPlan(
+        fixture,
+        `${projectType}-${root === fixture.target ? "target" : "candidate"}`
+      )
+      await expect(
+        applyUpgradePath({
+          planPath,
+          path: ".harness/tooling/comment-policy.ts",
+          approval: "apply-managed-changes"
+        })
+      ).rejects.toThrow(/blocked by/)
+      await expect(
+        recordUpgradeBaseline({
+          planPath,
+          sourceVersion: "202609090101",
+          sourceCommit: fixture.sourceCommit,
+          bootstrap: true,
+          approval: "bootstrap-verified-baseline",
+          resolvedManual: []
+        })
+      ).rejects.toThrow(/not converged/)
+      await rm(skillRoot, { recursive: true })
+      await symlink(fixture.evidence, skillRoot, process.platform === "win32" ? "junction" : "dir")
+      expect((await planFor(fixture)).entries).toContainEqual(
+        expect.objectContaining({ path: relativeRoot, classification: "blocked" })
+      )
+      await rm(skillRoot)
+    }
+    expect(
+      (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
+    ).toEqual([])
+  })
+
+  /** 验证宿主专用 Skill 缺失或陈旧阻断，另一宿主合法缺席不阻断。 */
+  test.each([
+    ["extension", "web", "web-review-extension-compatibility"],
+    ["web", "extension", "web-implement-saas-auth"],
+    ["web", "extension", "web-implement-saas-commerce"],
+    ["web", "extension", "web-implement-saas-admin"]
+  ] as const)("propagates %s host skill %s: %s", async (host, otherHost, skill) => {
+    const fixture = await upgradeFixture()
+    const files = [
+      "SKILL.md",
+      "agents/openai.yaml",
+      ...(skill === "web-implement-saas-auth"
+        ? ["references/requirements-and-sop.md", "references/session-contract.md"]
+        : skill === "web-implement-saas-admin"
+          ? [
+              "references/pages-and-sop.md",
+              "references/management-contract.md",
+              "references/neutral-ui-design.md"
+            ]
+          : skill === "web-implement-saas-commerce"
+            ? [
+                "references/requirements-and-sop.md",
+                "references/order-and-wallet-contract.md",
+                "references/neutral-ui-design.md",
+                "assets/commerce-reference.html",
+                "assets/commerce-reference.css",
+                "assets/commerce-reference.js"
+              ]
+            : [])
+    ].map((file) => `.agents/skills/${skill}/${file}`)
     for (const file of files) {
       await mkdir(path.dirname(path.join(fixture.source, file)), { recursive: true })
       await writeFile(path.join(fixture.source, file), "current review contract\n")
     }
     await git(fixture.source, ["add", "."])
-    await git(fixture.source, ["commit", "-m", "test: add compatibility review"])
+    await git(fixture.source, ["commit", "-m", "test: 添加宿主专用 Skill 合同"])
     fixture.sourceCommit = await git(fixture.source, ["rev-parse", "HEAD"])
+    await writeFile(
+      path.join(fixture.target, ".harness/project.json"),
+      JSON.stringify({ projectType: otherHost })
+    )
     expect(
       (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
     ).toEqual([])
     await writeFile(
       path.join(fixture.target, ".harness/project.json"),
-      '{"projectType":"extension"}\n'
+      JSON.stringify({ projectType: host })
     )
     for (const file of files) {
       expect((await planFor(fixture)).entries).toContainEqual(
@@ -138,7 +177,10 @@ describe("upgrade ownership protection", () => {
       (await planFor(fixture)).entries.filter((entry) => entry.classification === "blocked")
     ).toEqual([])
     const planPath = await persistPlan(fixture, "identity-bound")
-    await writeFile(path.join(fixture.target, ".harness/project.json"), '{"projectType":"web"}\n')
+    await writeFile(
+      path.join(fixture.target, ".harness/project.json"),
+      JSON.stringify({ projectType: otherHost })
+    )
     await expect(
       applyUpgradePath({
         planPath,
@@ -172,7 +214,7 @@ describe("upgrade ownership protection", () => {
           expect.objectContaining({
             path: requiredPath,
             classification: "blocked",
-            reason: "candidate does not exactly propagate required source file"
+            reason: "候选未精确传播必需源文件"
           })
         )
         await mkdir(path.dirname(path.join(fixture.candidate, requiredPath)), { recursive: true })
@@ -230,6 +272,13 @@ describe("upgrade ownership protection", () => {
       rules: Array<{ pattern: string; mode: string; required?: boolean }>
     }
     const absent = new Set([
+      ".agents/skills/web-review-api-contract/**",
+      ".agents/skills/web-review-module-boundaries/**",
+      ".agents/skills/web-implement-access-control/**",
+      ".agents/skills/web-implement-write-recovery/**",
+      ".agents/skills/web-implement-browser-storage/**",
+      ".agents/skills/web-implement-event-stream/**",
+      ".agents/skills/web-manage-user-tasks/**",
       ".agents/skills/web-design-prototype/**",
       "docs/prototypes/**",
       ".agents/skills/web-document-api/**",
@@ -319,11 +368,10 @@ describe("upgrade ownership protection", () => {
           path: "unowned.txt",
           ownership: "protected",
           classification: "blocked",
-          reason: "candidate path has no ownership rule"
+          reason: "候选路径没有所有权规则"
         })
       ])
     )
-    // 保存 manifest 变量供复核混合文档与默认保护契约。
     const manifest = JSON.parse(await readFile(ownershipPath, "utf8")) as {
       defaultMode: string
       rules: Array<{ pattern: string; mode: string }>
@@ -385,9 +433,14 @@ describe("upgrade ownership protection", () => {
     }
   })
 
-  /** 验证 Web-only 列表页 Skill 通过 conditional 规则参与升级而不弱化宿主边界。 */
-  test("keeps the list-view skill conditional in both ownership policies", async () => {
-    const conditionalPattern = ".agents/skills/web-implement-list-view/**"
+  /** 验证 Web-only Skill 通过 conditional 规则参与升级而不弱化宿主边界。 */
+  test.each([
+    "web-implement-list-view",
+    "web-implement-saas-auth",
+    "web-implement-saas-commerce",
+    "web-implement-saas-admin"
+  ])("keeps %s conditional in both ownership policies", async (skill) => {
+    const conditionalPattern = `.agents/skills/${skill}/**`
     const manifest = JSON.parse(await readFile(ownershipPath, "utf8")) as {
       rules: Array<{ pattern: string; mode: string }>
     }

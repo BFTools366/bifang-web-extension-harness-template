@@ -43,6 +43,34 @@
       "mode": "managed"
     },
     {
+      "pattern": ".agents/skills/web-implement-access-control/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-implement-browser-storage/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-implement-event-stream/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-implement-write-recovery/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-manage-user-tasks/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-review-api-contract/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-review-module-boundaries/**",
+      "mode": "managed"
+    },
+    {
       "pattern": ".agents/skills/web-review-extension-compatibility/**",
       "mode": "conditional"
     },
@@ -65,6 +93,18 @@
     {
       "pattern": ".agents/skills/web-implement-change/**",
       "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/web-implement-saas-auth/**",
+      "mode": "conditional"
+    },
+    {
+      "pattern": ".agents/skills/web-implement-saas-admin/**",
+      "mode": "conditional"
+    },
+    {
+      "pattern": ".agents/skills/web-implement-saas-commerce/**",
+      "mode": "conditional"
     },
     {
       "pattern": ".agents/skills/web-implement-list-view/**",
@@ -458,6 +498,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": ".harness/tooling/initialization-input.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": ".harness/tooling/source-snapshot.ts",
       "mode": "tombstone"
     },
@@ -499,6 +543,10 @@
     },
     {
       "pattern": "tests/harness-initialization.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/initialization-guidance.test.ts",
       "mode": "tombstone"
     },
     {
@@ -583,6 +631,10 @@
     },
     {
       "pattern": "tests/harness-skill-validation.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/harness-saas-commerce-reference.test.ts",
       "mode": "tombstone"
     },
     {

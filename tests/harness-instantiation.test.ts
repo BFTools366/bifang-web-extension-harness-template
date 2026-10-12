@@ -67,6 +67,39 @@ describe("minimal public instantiation inputs", () => {
       expect(await readFile(path.join(targetRoot, "docs/API.md"), "utf8")).toBe(apiContract)
       expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")
       expect(await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")).toContain("docs/API.md")
+      // 两宿主都分发共同 PRD 合同；只有 Web 入口暴露三类业务导航，链接必须能解析。
+      const prdOutline = ".agents/skills/web-design-prototype/references/prd-outline.md"
+      expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toBe(
+        await readFile(path.join(repositoryRoot, prdOutline), "utf8")
+      )
+      expect(config).not.toHaveProperty("webType")
+      for (const relativePath of ["README.md", "docs/README.md", "AGENTS.md"]) {
+        const entryPath = path.join(targetRoot, relativePath)
+        const entry = await readFile(entryPath, "utf8")
+        expect(entry).toContain("$web-document-api")
+        if (projectType === "web") {
+          expect(entry).toContain("prd-outline.md#web-类型与可选能力")
+          for (const skill of ["auth", "commerce", "admin"]) {
+            await expect(
+              readFile(
+                path.join(targetRoot, `.agents/skills/web-implement-saas-${skill}/SKILL.md`),
+                "utf8"
+              )
+            ).resolves.not.toBe("")
+          }
+        } else {
+          expect(entry).not.toContain("web-implement-saas-")
+          expect(entry).not.toContain("prd-outline.md#web-类型与可选能力")
+        }
+        for (const [, destination] of entry.matchAll(/\]\(([^)]+)\)/g)) {
+          if (!destination || /^(?:https?:|#)/.test(destination)) continue
+          const [linkedPath] = destination.split("#")
+          if (!linkedPath) throw new Error(`Missing local link target in ${relativePath}`)
+          await expect(
+            readFile(path.resolve(path.dirname(entryPath), linkedPath), "utf8")
+          ).resolves.not.toBe("")
+        }
+      }
       const prefix = projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
       for (const filename of [".env.development", ".env.test", ".env.production"]) {
         expect(await readFile(path.join(targetRoot, filename), "utf8")).toContain(
@@ -128,9 +161,64 @@ describe("minimal public instantiation inputs", () => {
 
 /** 验证 safe template instantiation 的完整回归场景。 */
 describe("safe template instantiation", () => {
+  /** 验证两类宿主继承同一模块合同、支持跨平台换行，并拒绝缺失或空章节。 */
+  test.each(["web", "extension"] as const)(
+    "derives module structure from canonical engineering rules for %s",
+    async (projectType) => {
+      const config: ProjectConfig = {
+        schemaVersion: 1,
+        projectType,
+        name: "Module Contract",
+        id: "module-contract",
+        description: "Module contract fixture.",
+        brand: {
+          primaryColor: "#4C6EF5",
+          logoSource: "generated",
+          masterLogo: ".harness/brand/logo-1024.png"
+        },
+        initializedAt: "2026-10-12T00:00:00.000Z"
+      }
+      const [dataAccess, uiGuidelines, engineeringRules] = await Promise.all([
+        readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8"),
+        readFile(path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"), "utf8"),
+        readFile(path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"), "utf8")
+      ])
+      const start = "### 3.2 文件结构与模块依赖"
+      const end = "## 4. 文件规模"
+      const updatedRules = engineeringRules.replace(start, `${start}\n\n- 源章节增量传播标记。`)
+      const expectedSection = updatedRules.split(`${start}\n`)[1]?.split(end)[0]?.trim()
+      expect(expectedSection).toBeTruthy()
+      for (const newline of ["\n", "\r\n"]) {
+        const files = downstreamGovernanceFiles(config, {
+          dataAccess,
+          mantineUiGuidelines: uiGuidelines,
+          engineeringRules: updatedRules.replace(/\r?\n/g, newline)
+        })
+        const section = files
+          .get("docs/ENGINEERING_RULES.md")
+          ?.split("## 文件结构与模块依赖\n")[1]
+          ?.split("## 当前宿主规则")[0]
+          ?.trim()
+        expect(section).toBe(expectedSection)
+      }
+      for (const invalidRules of [
+        engineeringRules.replace(start, ""),
+        engineeringRules.replace(end, ""),
+        `${start}\n\n${end}\n`
+      ]) {
+        expect(() =>
+          downstreamGovernanceFiles(config, {
+            dataAccess,
+            mantineUiGuidelines: uiGuidelines,
+            engineeringRules: invalidRules
+          })
+        ).toThrow(/ENGINEERING_RULES\.md.*module structure/)
+      }
+    }
+  )
+
   /** 验证 keeps the Extension package inspection as a hard candidate gate 场景。 */
   test("keeps the Extension package inspection as a hard candidate gate", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 config 变量供当前逻辑使用。
     const config: ProjectConfig = {
       schemaVersion: 1,
       projectType: "extension",
@@ -144,13 +232,17 @@ describe("safe template instantiation", () => {
       },
       initializedAt: "2026-08-12T00:00:00.000Z"
     }
-    // 保存 files 变量供当前逻辑使用。
-    const files = downstreamGovernanceFiles(
-      config,
-      await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8"),
-      await readFile(path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"), "utf8")
-    )
-    // 保存 release 变量供当前逻辑使用。
+    const files = downstreamGovernanceFiles(config, {
+      dataAccess: await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8"),
+      mantineUiGuidelines: await readFile(
+        path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"),
+        "utf8"
+      ),
+      engineeringRules: await readFile(
+        path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"),
+        "utf8"
+      )
+    })
     const release = files.get("docs/RELEASE.md")
 
     expect(release).toContain("`pnpm package`")
@@ -207,13 +299,9 @@ describe("safe template instantiation", () => {
 
   /** 验证 preflights environment failures before creating the target 场景。 */
   test("preflights environment failures before creating the target", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 sourceRoot 变量供当前逻辑使用。
     const sourceRoot = await seedTemplateRoot()
-    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-preflight-")
-    // 保存 invalidTarget 变量供当前逻辑使用。
     const invalidTarget = path.join(parent, "invalid-environment")
-    // 保存 { root: invalidRoot, ...invalidInit } 变量供当前逻辑使用。
     const { root: invalidRoot, ...invalidInit } = options(invalidTarget, "web")
     void invalidRoot
     await expect(
@@ -230,9 +318,7 @@ describe("safe template instantiation", () => {
     await expect(readdir(invalidTarget)).rejects.toThrow()
 
     await writeFile(path.join(sourceRoot, ".env.local"), "VITE_API_TOKEN=do-not-ship\n")
-    // 保存 hiddenTarget 变量供当前逻辑使用。
     const hiddenTarget = path.join(parent, "hidden-environment")
-    // 保存 { root: hiddenRoot, ...hiddenInit } 变量供当前逻辑使用。
     const { root: hiddenRoot, ...hiddenInit } = options(hiddenTarget, "web")
     void hiddenRoot
     await expect(
@@ -250,13 +336,9 @@ describe("safe template instantiation", () => {
 
   /** 验证 keeps the target atomic when install or Git initialization fails 场景。 */
   test("keeps the target atomic when install or Git initialization fails", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 failedCommand 变量供两类后置命令失败回归使用。
     for (const failedCommand of ["pnpm", "git"] as const) {
-      // 保存 parent 变量供失败原子性测试使用。
       const parent = await temporaryDirectory(`web-harness-${failedCommand}-failure-`)
-      // 保存 id 变量供目标和 staging 命名使用。
       const id = `${failedCommand}-failure`
-      // 保存 targetRoot 变量供目标零发布断言使用。
       const targetRoot = path.join(parent, id)
       // 保存 { root: ignoredRoot, ...init } 变量构造真实模板初始化输入。
       const { root: ignoredRoot, ...init } = options(targetRoot, "web")
@@ -273,33 +355,22 @@ describe("safe template instantiation", () => {
               skipGit: false
             }
           },
-          // 执行 当前声明 函数的处理逻辑。
           (initOptions, preparedLogo) =>
-            initializeProject(
-              initOptions,
-              preparedLogo,
-              // 执行 当前声明 函数的处理逻辑。
-              async (command) => {
-                if (command === failedCommand) throw new Error(`${command} failed`)
-              }
-            )
+            initializeProject(initOptions, preparedLogo, async (command) => {
+              if (command === failedCommand) throw new Error(`${command} failed`)
+            })
         )
       ).rejects.toThrow(`${failedCommand} failed`)
       await expect(readdir(targetRoot)).rejects.toThrow()
       expect(
-        (await readdir(parent)).filter(
-          // 执行 当前声明 函数的处理逻辑。
-          (entry) => entry.startsWith(`.${id}.harness-stage-`)
-        )
+        (await readdir(parent)).filter((entry) => entry.startsWith(`.${id}.harness-stage-`))
       ).toEqual([])
     }
   })
 
   /** 验证 rejects a non-empty target 场景。 */
   test("rejects a non-empty target", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-target-")
-    // 保存 targetRoot 变量供当前逻辑使用。
     const targetRoot = path.join(parent, "aurora-notes")
     await mkdir(targetRoot)
     await writeFile(path.join(targetRoot, "keep.txt"), "user data")
@@ -325,9 +396,7 @@ describe("safe template instantiation", () => {
 
   /** 验证目标目录名必须与项目 id 一致。 */
   test("requires target basename to match id", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 parent 变量供当前逻辑使用。
     const parent = await temporaryDirectory("web-harness-path-")
-    // 保存 wrongTarget 变量供当前逻辑使用。
     const wrongTarget = path.join(parent, "wrong-name")
     await expect(
       instantiateProject({
@@ -351,9 +420,7 @@ describe("safe template instantiation", () => {
   /** 验证符号链接目标不会被当作可写项目目录。 */
   test("rejects symlink targets", async (context) => {
     const parent = await temporaryDirectory("web-harness-path-link-")
-    // 保存 realTarget 变量供当前逻辑使用。
     const realTarget = path.join(parent, "real-target")
-    // 保存 linkTarget 变量供当前逻辑使用。
     const linkTarget = path.join(parent, "linked-project")
     await mkdir(realTarget)
     await createSymlinkOrSkip(context, realTarget, linkTarget, "dir")

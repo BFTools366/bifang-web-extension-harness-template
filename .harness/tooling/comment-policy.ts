@@ -546,7 +546,7 @@ async function assertProjectChineseComments(rootInput: string): Promise<void> {
   if (report.ok) return
   throw new Error(
     [
-      "Chinese comment policy failed:",
+      "中文注释检查失败：",
       ...report.errors.map((error) => `- ${error}`),
       ...report.violations.map(
         (violation) =>
@@ -560,10 +560,10 @@ async function assertProjectChineseComments(rootInput: string): Promise<void> {
 async function runCli(): Promise<void> {
   const command = process.argv[2]
   if (command !== "check" || process.argv.length > 3) {
-    throw new Error("Usage: tsx .harness/tooling/comment-policy.ts check")
+    throw new Error("用法：tsx .harness/tooling/comment-policy.ts check")
   }
   await assertProjectChineseComments(process.cwd())
-  console.log("Chinese comment policy passed")
+  console.log("中文注释检查通过")
 }
 
 if (isMainModule(import.meta.url)) {

@@ -55,7 +55,7 @@
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
 - Query key、请求前缓存、新鲜度、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target、语言与非敏感 scope。REST/GraphQL 有限查询统一复用当前上下文的 QueryClient 与 feature Query options，缓存已解析校验的领域数据；Ky/client 不再建立结果缓存，不缓存可消耗的 Response。详细入口和新鲜度语义见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.7。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
 - React 组件负责呈现和交互编排；可复用的纯逻辑放在当前单包内有业务名称的模块或 hook 中。不要为假想复用建立跨包抽象。
-- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言与分页经 `data/storage/webStorage.ts` 访问原生 Storage；外观偏好经 `data/storage/colorScheme.ts` 复用 Mantine manager。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 只留在当前执行上下文内存，不得写入环境或任一持久存储。REST 负责主要交互与写入，GraphQL 负责复杂查询与 Subscription；IndexedDB 默认用 Dexie，其他存储保持原生语义，详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3。
+- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言与分页经 `data/storage/webStorage.ts` 访问原生 Storage；外观偏好经 `data/storage/colorScheme.ts` 复用 Mantine manager。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 默认只留在当前执行上下文内存，不得写入环境或任一持久存储；明确采用 SaaS 认证的 Web 仅会话凭据按 `DATA_ACCESS.md` §1.3 的范围例外进入 LocalStorage，continuation 与 Extension 不适用。REST 负责主要交互与写入，GraphQL 负责复杂查询与 Subscription；IndexedDB 默认用 Dexie，其他存储保持原生语义，详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3。
 - 运行时配置集中在 `src/config/`，业务代码只读冻结的 `APP_CONFIG`；组件、route、feature、service 与扩展入口不得直接散落 `import.meta.env`、`process.env` 或硬编码服务 URL。字段、前缀和三环境映射见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 - 应用日志集中在 `src/observability/logger.ts`。产品代码不得直接使用 `console.*`；只允许 logger 默认 sink、测试替身或工具脚本在明确边界使用 console。事件字段、级别、Release allowlist 与脱敏规则见 [`LOGGING.md`](LOGGING.md)。
 - Promise 必须被等待、返回或显式处理；用户触发的异步操作需要加载、成功与失败反馈，取消或卸载后不得更新失效 UI。
@@ -71,6 +71,17 @@
 - “紧邻”只接受声明正上方没有空行或其他 token 隔开的注释，或语法允许位置中直接置于声明前的块注释/JSDoc。与声明不邻接的文件头注释、隔空注释、纯英文注释、字符串中的中文、前一声明的行尾注释或关联到其他节点的注释均不能代替当前声明。
 - 排除范围只包括精确文件 `src/routeTree.gen.ts`，以及路径任一目录段为 `.plasmo`、`build`、`dist`、`coverage`、`node_modules` 或 `.git` 的内容。不得用 `*.gen.ts`、`*.generated.ts`、名称包含 `gen` 或笼统“生成目录”等 blanket 规则扩大排除；例如 `src/nested/routeTree.gen.ts`、`src/feature.gen.ts` 与 `src/plasmo.d.ts` 仍受门禁。
 - 根 Harness 与两类下游的 `pnpm lint` 都必须在 ESLint 后运行该 AST 门禁；`comments:check` 可用于直接诊断，但不能替代 `lint`。Harness validator 与下游 `pnpm harness validate` 必须锁定策略模块、脚本接线、精确排除和当前源码通过状态，删除注释或绕过接线都应失败。
+
+### 3.2 文件结构与模块依赖
+
+- **按功能拆解模块**：以真实业务能力或工具职责划分模块，同一功能的组件、hooks、局部状态、纯逻辑、样式和测试就近组织，子目录只随真实职责出现。跨功能的变更应能明确归属，不能仅按文件后缀把全部业务堆入全局 `components/`、`hooks/`、`services/` 或 `types/`。API 与存储仍遵循既有 `data/api/<domain>/`、`data/storage/` 边界，功能模块负责消费和编排，不另建一套访问层。
+- **高内聚与单一职责**：一个模块服务一个明确功能，一个文件承担一个主要职责，按共同数据、状态生命周期和变化原因判断归属；独立变化的渲染、业务规则、传输与存储职责应拆开。单一职责不要求一文件一个函数，也不以文件数、行数或目录对称代替设计判断；低于规模阈值但职责混杂仍需在当前范围内拆解。
+- **依赖单向且无环**：模块依赖必须构成有向无环图。常见方向为 `入口/路由与宿主装配 → 功能编排与展示 → API/存储域边界 → 客户端与基础能力`；箭头表达责任方向，允许直接依赖所需的稳定下层契约，不要求逐层转发。纯领域规则和稳定共享契约可被多个上层消费；同层功能依赖也须明确方向且无环，不能相互引用。
+- **下层不依赖上层**：传输、存储与基础模块不得导入具体 feature、route 或宿主装配；纯计算不得隐式读写 React 状态、网络、DOM 或 Storage。需要路由跳转、401 处理、日志反馈或宿主能力时，由上层装配并注入当前所需的窄契约或回调；不为依赖方向新增通用容器、转发壳或空接口。
+- **跨模块只消费明确契约**：优先从具体文件具名导入真实稳定公共能力，不越过边界引用另一功能的内部组件、私有 hook 或 atom。只有存在真实稳定公共 API 时才使用 `index.ts`，禁止用 `export *` 掩盖来源。类型依赖同样有归属和方向，`import type` 不能成为相互依赖的理由；共享类型放在实际拥有该契约的模块。
+- **共享由真实复用驱动**：先在所属功能内实现，只有已存在的多个消费者共享稳定语义时才提取到职责明确、有业务或能力名称的模块。禁止无边界的 `utils`、`common`、`helpers`、`misc` 兜底层，以及为假想扩展创建多包、共享 core、空目录或第二套框架；功能私有状态不得为了方便跨模块访问提升为全局状态。
+- **按当前宿主落地**：规则同时适用于 Harness 工具、React Web 和 Extension，保留当前单包、入口及宿主生命周期，不强制照搬 Web 目录。网络、Storage、事件订阅等副作用各有明确拥有者，取消、销毁和失败处理留在同一职责边界。
+- **变更时核对结构**：新增或修改模块时，核对主要职责、相关代码归属、依赖方向、循环、公共入口与状态/副作用拥有者；只处理本次范围，发现范围外问题按技术债机制记录，不自动重构全仓。行数、注释或类型检查通过不能证明高内聚、单一职责或不存在循环依赖。
 
 ## 4. 文件规模
 
@@ -125,10 +136,12 @@
 
 ## 7. 文档与单一事实来源
 
+- 人工维护及生成的文档、标题、注释、帮助和提示优先使用准确自然的中文；没有合适中文表达的术语保留英文。代码标识符、命令、路径、配置键、协议字段和工具读取的状态值保持原文；英文语言资源、用户提供的身份文本、许可证与第三方或导入来源原文不因语言整理改写。
+
 - 文档中的命令、路径、依赖和能力必须来自真实仓库。计划中的能力标记为“计划”，未执行检查写“未执行”。
 - 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 只拒绝形如 `候选状态：已验收`、`发布就绪：ready`、`Candidate status: accepted` 的行首结论，其他措辞靠评审。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
-- 下游需求澄清、PRD、原型选择的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：Product Spec 是唯一 PRD，`docs/prototypes/` 只保存评审产物与版本选择证据。初始化只分发能力，不执行业务流程；新产品/页面及显著交互改版选定原型后才开发，日常小修复不强制重走。
+- 下游需求澄清、PRD、原型选择的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与版本选择证据。初始化只分发能力，不执行业务流程；新产品/页面及显著交互改版选定原型后才开发，日常小修复不强制重走。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`；Harness 源版本采用上海时间 `YYYYMMDDHHMM`，Web 候选页面版本采用上海时间 `YYMMDDHHMMSS`，Extension 候选使用 `package.json.version` 的稳定 SemVer。
 - 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。
@@ -149,13 +162,29 @@
 | `docs/TECH_DEBT.md`             | 当前范围外的已观察问题                                  |
 | `docs/HARNESS_ENGINEERING.md`   | Harness 方法与生命周期入口                              |
 
+### 7.1 渐进式交互引导
+
+- 先复用当前请求、会话与工程中已明确且有效的事实；各流程的检查清单用于 Agent 自查，不是要求用户一次填写全部信息的问卷。只补当前下一步真正依赖的缺项，不重问已有答案。
+- 每轮优先提出一个关键问题，确有共同依赖时才合并少量问题。用“是否先采用……？建议/默认……，因为……”引导，给简短选项与实际影响；没有可靠默认值时直接说明需要明确选择，不强凑建议。
+- 对可逆、低影响的可选项给出默认方案；非阻断未知项可明确记录为建议或待定并继续独立工作。用户选择后沿用；改变已有明确决定需要新指令，不用新的默认值覆盖。
+- 默认值只降低输入负担，不代替用户同意。必需的范围确认、功能启用、原型选择及外部副作用授权仍须取得明确答案；沉默、超时或预选项不算批准。CLI 只有在题面明确写出“回车采用”的普通配置项上，才把用户实际提交的空回答记为接受默认值；最终创建确认空回答仍取消。
+- 不从建议值编造项目类型、服务地址、endpoint、凭据、权限码、资金归属或支付契约；只追问本次操作及其最小依赖链。完整范围确定后给一次可审阅汇总，不在每个阶段重复索要同一份资料。
+
+### 7.2 Skill 职责、复用与渐进披露
+
+- 一个 Skill 对应可独立触发的职责与可观察结果。按真实复用拆分，不把每个步骤、页面或命令包装成 Skill；同一结果的分支放在条件章节或参考资料中。发现描述说明何时使用及边界，入口正文保留必要约束、输入事实、流程与交付。
+- 完整读取命中的 `SKILL.md`，参考资料按当前阶段、宿主、协议或能力条件读取。入口给出“触发条件 → 所需章节/资料 → 所需证据”，不要求一次读取所有同类 Skills、长文档、历史或模式资料。长文档按语义标题引用，避免源与下游章节号漂移。
+- 组合采用“当前编排入口 → 领域合同/独立叶子 → 返回当前入口”。调用方传递已确认范围、当前阶段、事实来源和已有验证；被调用方只完成分配职责，不反向重启需求、原型、实现、接入或验收，不重复索取已有信息。同一源码状态可复用证据，相关修改后才重读或重验。
+- 规范事实仍归唯一权威文档，领域不变量仍归领域合同；Skill 负责执行与消费，不复制整套规则或竞争记录。只读审查不修改业务、不证明实现通过；叶子完成不代表产品或候选完成。
+- 分发能力不等于启用功能或授予权限。拆分不得扩大授权、依赖、持久计划、测试、浏览器或发布范围；源/运行时门禁为防共同弱化而独立维护的合同继续保留。
+
 ## 8. 依赖与安全
 
 - Harness 自有工具与 Skill helper 统一使用项目本地 Node.js/TypeScript 和标准库；不引入 Python 解释器、Python 文件或执行入口。已有声明依赖按当前工程规则使用，新增第三方运行时依赖仍需说明必要性并按授权规则处理。`pnpm validate:harness` 拒绝自有 Python 文件、shebang、指向 Python 的 package 脚本/bin，以及可静态识别的启动 Python 解释器的 child_process 调用，其他子进程不在该门禁范围；第三方依赖与原样隔离的 vendor 不重写。
 
 - 只安装当前单包真实使用的依赖。生成的基础 client 使用 Ky 的浏览器 Fetch 传输并声明运行时依赖；Axios、OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - pnpm 12 的依赖构建许可保存在根 `pnpm-workspace.yaml` 的 `allowBuilds` 中；该文件不得声明 `packages`。不再使用 `package.json` 的 `pnpm.onlyBuiltDependencies`。TypeScript 暂固定在 6.0.3：受管 AST 工具依赖其 JavaScript API，且当前 `typescript-eslint` 的 TypeScript peer 范围不支持 7.x；升级前须先解决这两处兼容性。
-- 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 不得写入 localStorage/sessionStorage。
+- 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 默认不得写入 localStorage/sessionStorage；仅 Web SaaS 会话凭据适用 `DATA_ACCESS.md` §1.3 的明确例外，continuation 始终不持久化。
 - 外部 URL、HTML、消息、Storage 与网络响应均视为不可信输入；验证并编码后再使用。
 - Extension 权限、content script 匹配范围和 Web 可访问资源必须最小化。Web 的第三方脚本、CSP 与跨域配置也需要显式安全评估。
 - pnpm 生命周期脚本和第三方生成器属于供应链执行边界；升级时审阅差异并运行完整相关门禁。

@@ -2,19 +2,15 @@ import type { ProjectConfig } from "../types.ts"
 
 // 执行 terminalBuildSource 函数，生成只包含当前宿主的构建编排器。
 function terminalBuildSource(config: ProjectConfig): string {
-  // 保存 targetType 变量供当前宿主动作类型生成使用。
   const targetType = config.projectType === "web" ? '"build"' : '"build" | "package"'
-  // 保存 targetGuard 变量供当前宿主动作校验生成使用。
   const targetGuard =
     config.projectType === "web"
       ? 'target !== "build"'
       : 'target !== "build" && target !== "package"'
-  // 保存 usage 变量供当前宿主帮助文本生成使用。
   const usage =
     config.projectType === "web"
       ? "pnpm build -- --e2e=enabled|disabled"
       : "pnpm build -- --e2e=enabled|disabled or pnpm package -- --e2e=enabled|disabled"
-  // 保存 hostCommand 变量供当前宿主命令生成使用。
   const hostCommand =
     config.projectType === "web"
       ? `return [{
@@ -28,12 +24,10 @@ function terminalBuildSource(config: ProjectConfig): string {
     args.push("--target=" + browser.target, "--tag=prod", "--build-path=build", "--src-path=src", "--env=.env.production")
     return { command: "pnpm", args, env: { PLASMO_PUBLIC_BUILD_VERSION: buildVersion } }
   })`
-  // 保存 versionImport 变量供当前宿主版本校验依赖生成使用。
   const versionImport =
     config.projectType === "web"
       ? 'import { WEB_BUILD_VERSION_PATTERN as BUILD_VERSION_PATTERN } from "./version.ts"'
       : 'import { isValidExtensionVersion } from "./version.ts"'
-  // 保存 versionSource 变量供当前宿主版本解析函数生成使用。
   const versionSource =
     config.projectType === "web"
       ? `const BUILD_TIME_ZONE = "Asia/Shanghai" as const
@@ -72,7 +66,6 @@ export async function readExtensionBuildVersion(root: string): Promise<string> {
   }
   return version
 }`
-  // 保存 versionError 变量供当前宿主错误文案生成使用。
   const versionError =
     config.projectType === "web"
       ? "Web build version must use YYMMDDHHMMSS"
@@ -183,7 +176,7 @@ export async function resolveE2eSelection(
   if (explicit !== undefined) return explicit
   if (interactive) return promptForE2eSelection()
   throw new Error(
-    "Non-interactive builds require --e2e=enabled or --e2e=disabled; reuse the current release selection."
+    "非交互构建必须传入 --e2e=enabled 或 --e2e=disabled；复用当前发布的 E2E 选择。"
   )
 }
 
@@ -196,9 +189,9 @@ async function runCommand(specification: BuildCommand, root: string): Promise<vo
   })
   const [code, signal] = (await once(child, "exit")) as [number | null, NodeJS.Signals | null]
   if (code === 0) return
-  const suffix = signal === null ? "exit code " + String(code) : "signal " + signal
+  const suffix = signal === null ? "退出码 " + String(code) : "信号 " + signal
   throw new Error(
-    specification.command + " " + specification.args.join(" ") + " failed with " + suffix
+    specification.command + " " + specification.args.join(" ") + " 执行失败：" + suffix
   )
 }
 
@@ -211,17 +204,17 @@ export async function runBuild(
   const root = path.resolve(rootInput)
   const project = await loadProjectConfig(root)
   if (project.projectType !== PROJECT_TYPE) {
-    throw new Error("Build tooling does not match .harness/project.json projectType")
+    throw new Error("构建工具与 .harness/project.json 的 projectType 不一致")
   }
   const e2e = await resolveE2eSelection(args.e2e, interactive)
   const buildVersion = ${config.projectType === "web" ? "formatBuildVersion(now)" : "await readExtensionBuildVersion(root)"}
   for (const command of createBuildCommandPlan(args.target, buildVersion)) {
     await runCommand(command, root)
   }
-  console.log("Build " + buildVersion + " passed with E2E " + e2e + ".")
+  console.log("构建 " + buildVersion + " 通过；E2E 选择：" + e2e + "。")
   if (e2e === "enabled") {
     console.log(
-      "E2E is requested and remains pending: run $web-test-final-artifact-e2e against this exact artifact."
+      "已选择 E2E，尚待执行：对本次精确产物运行 $web-test-final-artifact-e2e。"
     )
   }
   return { buildVersion, e2e }
@@ -246,9 +239,7 @@ if (executedPath === import.meta.url) void runCli()
 
 // 执行 terminalBuildTest 函数，生成当前宿主的构建编排回归测试。
 function terminalBuildTest(config: ProjectConfig): string {
-  // 保存 buildVersion 变量供当前宿主构建命令断言使用。
   const buildVersion = config.projectType === "web" ? "260824123459" : "1.2.3"
-  // 保存 hostAssertions 变量供当前宿主命令断言生成使用。
   const hostAssertions =
     config.projectType === "web"
       ? `expect(commands[6]).toMatchObject({
@@ -263,7 +254,6 @@ function terminalBuildTest(config: ProjectConfig): string {
     const packaged = createBuildCommandPlan("package", "${buildVersion}")
     expect(packaged[index + 6]?.args).toEqual(["exec", "plasmo", "build", "--zip", "--target=" + browser, "--tag=prod", "--build-path=build", "--src-path=src", "--env=.env.production"])
   }`
-  // 保存 versionTest 变量供当前宿主版本来源与格式回归使用。
   const versionTest =
     config.projectType === "web"
       ? `/** 验证上海时间的秒级 Web 版本并拒绝旧格式。 */
@@ -305,7 +295,7 @@ describe("release build orchestration", () => {
   /** 验证当前场景的核心成功或风险边界。 */
   test("requires an E2E decision outside an interactive terminal", async () => {
     await expect(resolveE2eSelection(undefined, false)).rejects.toThrow(
-      /Non-interactive builds require/
+      /非交互构建必须传入/
     )
     for (const selection of ["enabled", "disabled"] as const) {
       await expect(resolveE2eSelection(selection, false)).resolves.toBe(selection)

@@ -4,6 +4,14 @@
 
 ## Added
 
+- 新增两宿主共用的七项独立能力：API 契约核对、模块边界审查、访问控制、写入恢复、浏览器存储、持续事件流及用户可见 Task 管理。当前入口、职责与调用关系见 [Skill 职责与组合](../harness_engineering/skill_composition.md)；源/终端发现、关键边界、升级所有权与精确文件传播同步。
+
+- 新增 Web-only `$web-implement-saas-admin`，为明确采用 SaaS 大后台的下游提供商品/分类、组织/成员、订单与配套钱包支付查询、平台访问控制、操作审计的页面/SOP、领域合同和中性设计。保留历史订单，分离管理员与目标组织身份，管理写入要求服务权限、版本/恢复及审计；默认不增加资金动作。分发、宿主裁剪和完整参考升级门禁同步，不改变源创建预留状态。
+
+- 新增 Web-only `$web-implement-saas-commerce`：默认关闭，仅 SaaS 客户端明确选中后应用商品购买、订单查询与钱包管理。提供树形分类、服务端钱包支付选项、原订单续付、支付后账户刷新及用户/组织隔离 SOP，附无网络的中性交互参考；不默认加入充值、提现或额外支付渠道。分发、Extension 裁剪、升级所有权和全部参考资源校验同步，源不生成产品交易实现。
+
+- 新增 Web-only `$web-implement-saas-auth`，记录 SaaS 客户端/大后台认证需求、用户 SOP 与会话合同：客户端含邮箱验证码注册和组织切换，后台不含两者；共用登录/退出/找回、当前用户、权限码与导航校验。Web SaaS 会话凭据按用户要求采用限定 LocalStorage 例外，continuation 仍只内存；分发、Extension 裁剪与条件升级同步。创建期 SaaS 选项仍预留，不生成产品实现。
+
 - 新增 `$web-document-api`，从下游当前 API 实现、类型与相关测试反向整理 `docs/api/`，每个模块独立成文并提供索引，区分 Mock、真实 HTTP 与未确认行为。两宿主同步分发与发现；模块文档受升级保护，初始化不生成业务接口文档。
 
 - 抽取 `$web-connect-http-service` 与 Extension-only `$web-review-extension-compatibility`：实施、列表与重构入口按事件委托；独立定义接入写入和兼容只读边界。源/下游发现、宿主裁剪和升级所有权同步；升级预演拒绝候选或目标的错宿主 Skill 残留。第二批抽取 `$web-audit-worktrees` 与 `$web-preview-harness-upgrade`，原并行与升级流程委托只读部分，helper 位置保持稳定；审计/预演状态查询关闭 Git optional locks，计划报告拒绝写入三棵冻结树。当前 Skill 数量见根 AGENTS.md。
@@ -28,6 +36,10 @@
 - 源仓库增加 `.gitattributes`，让规则、模板和脚本在跨平台检出时保持 LF，二进制品牌资产不转换换行。
 
 ## Changed
+
+- 编排按当前事件单向委托独立 Skill 并复用已确认事实和证据；参考资料按阶段、宿主与协议条件读取。有限 HTTP 与持续流分流，数据访问的日常检查范围与工程规则对齐；Task 环境遵守用户已有选择，Local 冻结当前项目分支/HEAD，不增加持久策略字段。
+
+- 工程规则新增功能模块结构合同，明确高内聚、单一职责、单向无环依赖、公共入口和真实共享边界；实施/重构 Skill 与宿主摘要同步。Web/Extension 从唯一源章节原文派生，缺失或空章节在初始化写入前失败；保留现有 API/存储职责，不自动重排源码。
 
 - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入生成项目 src/data；HTTP imports 与校验路径同步，语言、分页、外观存储入口集中且保留既有键和格式。REST/Ky 负责主要交互与写入，GraphQL 负责复杂查询和 Subscription；Dexie 仅用于按需 IndexedDB，订阅按真实协议使用 graphql-ws/graphql-sse，未预装无消费者依赖。REST/GraphQL 请求前缓存统一由 TanStack Query 管理，feature options 与同一 QueryClient 贯通组件/loader/命令式读取，Extension 导出现有实例；明确新鲜度、去重、失效与上下文边界，Ky/client 不再增加结果缓存。
 

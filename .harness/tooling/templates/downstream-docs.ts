@@ -28,14 +28,48 @@ function buildVersionSource(config: ProjectConfig): string {
     : "`package.json.version` 的稳定 SemVer（`X.Y.Z`）"
 }
 
-// 执行 engineeringRules 函数的处理逻辑。
-function engineeringRules(config: ProjectConfig): string {
-  // 保存 hostRules 变量供当前逻辑使用。
+// 提取两个标题行之间的章节正文，缺失时用统一错误阻断。
+function extractSection(
+  source: string,
+  label: string,
+  startHeading: string,
+  endHeading: string
+): string {
+  const start = source.indexOf(`\n${startHeading}\n`)
+  const bodyStart = start < 0 ? -1 : start + startHeading.length + 2
+  const end = bodyStart < 0 ? -1 : source.indexOf(`\n${endHeading}\n`, bodyStart - 1)
+  const body = end < 0 ? "" : source.slice(bodyStart, end).trim()
+  if (!body) {
+    throw new Error(`Canonical ENGINEERING_RULES.md has invalid ${label} section markers`)
+  }
+  return body
+}
+
+// 派生当前宿主工程规则，模块结构合同直接继承唯一源章节。
+function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: string): string {
+  const source = canonicalEngineeringRules.replace(/\r\n?/g, "\n")
+  const moduleStructure = extractSection(
+    source,
+    "module structure",
+    "### 3.2 文件结构与模块依赖",
+    "## 4. 文件规模"
+  )
+  const interactionGuidance = extractSection(
+    source,
+    "interaction guidance",
+    "### 7.1 渐进式交互引导",
+    "### 7.2 Skill 职责、复用与渐进披露"
+  )
+  const skillComposition = extractSection(
+    source,
+    "Skill composition",
+    "### 7.2 Skill 职责、复用与渐进披露",
+    "## 8. 依赖与安全"
+  )
   const hostRules =
     config.projectType === "web"
-      ? `- Web 按 \`app → routes → features → data\` 组织；\`data/api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
+      ? `- Web 的 \`app → routes → features → data\` 表达责任方向，按本文“文件结构与模块依赖”允许消费所需稳定下层契约，不要求逐层转发；\`data/api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
       : `- Extension 固定维护 Chrome MV3 与 Firefox MV2，仍是一个单包。宿主边界变更或重构调用 \`$web-review-extension-compatibility\` 做只读审查，修复及必要测试由调用方负责。执行 Agent 在每次开发中自行核对并保证两目标的 API、callback/Promise、消息、权限、后台、CSP/资源及 URL 差异；按真实消费者使用能力检测、类型化 adapter 或 Plasmo 目标入口，补充受影响目标的成功/失败测试，一个目标通过不能推断另一个。\n- 最终 manifest 由 Plasmo 动态生成，共享 package.json.manifest 不固定 manifest_version；专有 override 按 manifest.overrides.chrome/firefox 浅合并，值使用目标最终协议，不能期待自动转换任意手写后台/action；pnpm dev 默认 Chrome，pnpm dev:firefox 使用 Firefox，build/package 默认完成两目标与统一检查。\n- Popup 与 Options 是独立 Plasmo 入口，各自挂载 TanStack Router；Popup 使用 memory history，Options 使用 hash history。 \`src/extension-router.tsx\` 用代码声明路由，不使用 Web 文件路由生成器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Chrome MV3 使用可回收 service worker，Firefox MV2 使用后台 scripts/page；监听器及时注册，状态可恢复，不把后台页持久运行当作共同前提；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化浏览器消息或 Port。`
-  // 保存 routeTreeExclusion 变量供当前逻辑使用。
   const routeTreeExclusion = config.projectType === "web" ? " src/routeTree.gen.ts、" : " "
 
   return `# 工程规则
@@ -67,9 +101,25 @@ function engineeringRules(config: ProjectConfig): string {
 - 只精确排除第三方或构建生成物${routeTreeExclusion}.plasmo/**、build/**、dist/**、coverage/**、node_modules/** 与 .git/**；不得用 *.gen.ts 等宽泛模式隐藏维护源码。注释应说明声明职责，不能用字符串、英文注释、尾随前一语句或隔空文件头冒充；pnpm lint 会自动运行 pnpm comments:check。
 - 人工维护代码不超过 500 行为默认目标；501–600 行必须复核业务高内聚与单一职责并记录保留理由，601 行起必须按业务逻辑拆分。拆分文件留在原功能或工具模块目录，不建立跨模块 \`utils\`/\`common\` 兜底层，也不得压缩格式规避；生成文件与人工维护文件保持清晰边界。源码体积门禁额外排除 GraphQL codegen 等 \`generated/**\` 输出目录，因为该类文件不受业务内聚拆分约束。
 
+## 文件结构与模块依赖
+
+${moduleStructure}
+
 ## 当前宿主规则
 
 ${hostRules}
+
+## 渐进式交互引导
+
+${interactionGuidance}
+
+## Skill 职责、复用与渐进披露
+
+${skillComposition}
+
+## 文档语言
+
+- 人工维护及生成的文档、标题、注释、帮助和提示优先使用准确自然的中文；没有合适中文表达的术语保留英文。代码标识符、命令、路径、配置键、协议字段和工具读取的状态值保持原文；英文语言资源、用户提供的身份文本、许可证与第三方或导入来源原文不因语言整理改写。
 
 ## 品牌与身份
 
@@ -90,7 +140,6 @@ ${hostRules}
 
 // 执行 releaseRules 函数的处理逻辑。
 function releaseRules(config: ProjectConfig): string {
-  // 保存 artifactChecks 变量供当前逻辑使用。
   const artifactChecks =
     config.projectType === "web"
       ? "检查 `dist/index.html`、静态资源、Logo/favicon、路由回退与部署配置。"
@@ -123,7 +172,6 @@ function releaseRules(config: ProjectConfig): string {
 
 // 执行 runtimeConfiguration 函数的处理逻辑。
 function runtimeConfiguration(config: ProjectConfig): string {
-  // 保存 prefix 变量供当前逻辑使用。
   const prefix = config.projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
   return `# 运行配置与环境
 
@@ -152,7 +200,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 ## 用户要求真实联网时
 
-先读取三份受管配置并复用有效值，再汇总询问缺失的 development、test、release BaseURL 及当前功能实际使用的远端服务 target。用户已提供的值不重复询问；暂不使用的环境或服务可留空，正式发布仍须补齐 HTTPS 正式地址。初始化、本地能力开发与普通 Mock 开发不提前收集这些地址。
+先读取三份受管配置并复用有效值，再按工程规则“渐进式交互引导”逐项补问本次操作依赖的环境与服务 BaseURL/target，每轮优先一个阻断问题，不要求一次提供全部环境。用户已提供的值不重复询问；暂不使用的环境或服务可留空或待定，不编造默认地址，正式发布仍须补齐 HTTPS 正式地址。初始化、本地能力开发与普通 Mock 开发不提前收集这些地址。
 
 使用当前宿主的 \`${prefix}\` 前缀更新对应受管环境文件并校验；多服务仅在确有消费者时扩展类型化只读 target registry、schema 与公开键白名单。配置通过后按 \`docs/DATA_ACCESS.md\` §3.1 迁移对应 API；仅填写地址不代表服务已接通。Web CORS、认证和 Extension 网络权限按真实消费者单独处理。
 
@@ -216,38 +264,44 @@ function technicalDebt(config: ProjectConfig): string {
 
 // 执行 dataAccess 函数的处理逻辑。
 function dataAccess(config: ProjectConfig, canonical: string): string {
-  // 保存 sectionMarker 变量供当前逻辑使用。
   const sectionMarker = "## 1. 选型结论"
-  // 保存 webListMarker 与 httpMarker 变量供 Extension 裁掉 Web-only 列表数据契约使用。
   const webListMarker = "### 2.5 React Web 路由列表契约"
   const queryMarker = "### 2.6 Query 重试、mutation 与缓存生命周期"
   const httpMarker = "## 3. HTTP、认证与 REST/OpenAPI"
-  // 保存 deliveryMarker 变量供当前逻辑使用。
   const deliveryMarker = "## 7. 落地与测试门禁"
-  // 保存 sectionStart 变量供当前逻辑使用。
   const sectionStart = canonical.indexOf(sectionMarker)
   if (sectionStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${sectionMarker}`)
-  // 保存 allCanonicalSections 变量供验证并按宿主裁剪规范使用。
   const allCanonicalSections = canonical.slice(sectionStart).trim()
-  // 保存 webListStart 与 httpStart 变量供验证 Web-only 章节边界使用。
-  const webListStart = allCanonicalSections.indexOf(webListMarker)
-  const queryStart = allCanonicalSections.indexOf(queryMarker)
-  const httpStart = allCanonicalSections.indexOf(httpMarker)
+  // SaaS 持久认证是 Web 专用例外；Extension 仅继承其原有内存会话规则。
+  const saasMarker = "### 1.3.1 Web SaaS 会话凭据持久化例外"
+  const commonMarker = "## 2. 共同边界与统一分页"
+  const saasStart = allCanonicalSections.indexOf(saasMarker)
+  const commonStart = allCanonicalSections.indexOf(commonMarker)
+  if (saasStart < 0 || commonStart <= saasStart) {
+    throw new Error("Canonical DATA_ACCESS.md has invalid Web SaaS section markers")
+  }
+  const hostCanonicalSections =
+    config.projectType === "web"
+      ? allCanonicalSections
+      : `${allCanonicalSections.slice(0, saasStart).trimEnd()}\n\n${allCanonicalSections
+          .slice(commonStart)
+          .trimStart()}`
+  const webListStart = hostCanonicalSections.indexOf(webListMarker)
+  const queryStart = hostCanonicalSections.indexOf(queryMarker)
+  const httpStart = hostCanonicalSections.indexOf(httpMarker)
   if (webListStart < 0 || queryStart <= webListStart || httpStart <= queryStart) {
     throw new Error("Canonical DATA_ACCESS.md has invalid Web list section markers")
   }
   // 保存 canonicalSections 变量；Extension 删除只适用于 React Web 的列表正向契约。
   const canonicalSections =
     config.projectType === "web"
-      ? allCanonicalSections
-      : `${allCanonicalSections.slice(0, webListStart).trimEnd()}\n\n${allCanonicalSections
+      ? hostCanonicalSections
+      : `${hostCanonicalSections.slice(0, webListStart).trimEnd()}\n\n${hostCanonicalSections
           .slice(queryStart)
           .trimStart()}`
-  // 保存 deliveryStart 变量供当前逻辑使用。
   const deliveryStart = canonicalSections.indexOf(deliveryMarker)
   if (deliveryStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${deliveryMarker}`)
 
-  // 保存 hostRules 变量供当前逻辑使用。
   const hostRules =
     config.projectType === "web"
       ? `## 当前 Web 宿主补充
@@ -260,7 +314,6 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
 - 类型化 endpoint registry 必须与已批准的 manifest origin 一致，并覆盖权限未授予或被撤销的失败路径。
 - Popup/Options 关闭时清理连接；MV3 service worker 可能被回收，不能承诺把持久 SSE 长连接托管在 service worker。`
 
-  // 保存 derivedSections 变量供当前逻辑使用。
   const derivedSections = `${canonicalSections.slice(0, deliveryStart).trimEnd()}
 
 ${hostRules}
@@ -277,27 +330,17 @@ ${derivedSections}
 
 // 执行 mantineUiGuidelines 函数的处理逻辑。
 function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
-  // 保存 sharedMarker 变量供当前逻辑使用。
   const sharedMarker = "## 1. 规范等级与使用方式"
-  // 保存 webListMarker 与 feedbackMarker 变量供 Extension 裁掉 Web-only 列表规范使用。
   const webListMarker = "### 5.4 React Web 重复记录视图"
   const feedbackMarker = "## 6. 状态与反馈"
-  // 保存 webMarker 变量供当前逻辑使用。
   const webMarker = "## 8. Web 宿主规范"
-  // 保存 extensionMarker 变量供当前逻辑使用。
   const extensionMarker = "## 9. Extension 宿主规范"
-  // 保存 deliveryMarker 变量供当前逻辑使用。
   const deliveryMarker = "## 10. 交付检查"
-  // 保存 sharedStart 变量供当前逻辑使用。
   const sharedStart = canonical.indexOf(sharedMarker)
-  // 保存 webListStart 与 feedbackStart 变量供验证 Web-only 章节边界使用。
   const webListStart = canonical.indexOf(webListMarker)
   const feedbackStart = canonical.indexOf(feedbackMarker)
-  // 保存 webStart 变量供当前逻辑使用。
   const webStart = canonical.indexOf(webMarker)
-  // 保存 extensionStart 变量供当前逻辑使用。
   const extensionStart = canonical.indexOf(extensionMarker)
-  // 保存 deliveryStart 变量供当前逻辑使用。
   const deliveryStart = canonical.indexOf(deliveryMarker)
   if (
     sharedStart < 0 ||
@@ -318,7 +361,6 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
       : `${canonical.slice(sharedStart, webListStart).trimEnd()}\n\n${canonical
           .slice(feedbackStart, webStart)
           .trimStart()}`
-  // 保存 hostSection 变量供当前逻辑使用。
   const hostSection =
     config.projectType === "web"
       ? canonical.slice(webStart, extensionStart).trim()
@@ -326,7 +368,6 @@ function mantineUiGuidelines(config: ProjectConfig, canonical: string): string {
           .slice(extensionStart, deliveryStart)
           .trim()
           .replace(extensionMarker, "## 8. Extension 宿主规范")
-  // 保存 delivery 变量供当前逻辑使用。
   const delivery = canonical
     .slice(deliveryStart)
     .trim()
@@ -366,23 +407,32 @@ function docsReadme(config: ProjectConfig): string {
 | [\`RELEASE.md\`](RELEASE.md)                     | 准备版本、候选或发布                 |
 | [\`TECH_DEBT.md\`](TECH_DEBT.md)                 | 记录当前范围外的已知限制             |
 
-按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。
+按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。独立契约/模块审查、访问控制、写入恢复、存储、持续事件与左侧 Task 入口见 \`AGENTS.md\` 的 Skills 地图。组合与参考资料按需读取遵循 \`ENGINEERING_RULES.md\`，不因分发 Skill 自动启用功能。
 
-需要从当前代码整理 API 文档时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 生成索引与每个模块的独立文档；\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。
+${config.projectType === "web" ? "Web 业务类型与可选能力以唯一 PRD 为准，遵循 [统一记录与流程关联](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。工具站点沿用通用流程；SaaS 客户端使用认证及明确选中的购买能力；SaaS 大后台使用认证与管理能力。创建期 SaaS 仍是预留流程。真实服务接入前核对 [SaaS API 关联与契约缺口](API.md#saas-能力与-api-关联)。\n\n" : ""}需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 按接口名称、接口说明、请求路径、请求方法、请求头、请求与响应数据展示，JSON 数据使用字段表；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。
 `
+}
+
+/** 描述派生下游治理文档所依赖的唯一源文档正文。 */
+export interface CanonicalGovernanceDocs {
+  dataAccess: string
+  mantineUiGuidelines: string
+  engineeringRules: string
 }
 
 // 执行 downstreamGovernanceFiles 函数的处理逻辑。
 export function downstreamGovernanceFiles(
   config: ProjectConfig,
-  canonicalDataAccess: string,
-  canonicalMantineUiGuidelines: string
+  canonicalDocs: CanonicalGovernanceDocs
 ): Map<string, string> {
   return new Map([
     ["docs/README.md", docsReadme(config)],
-    ["docs/ENGINEERING_RULES.md", engineeringRules(config)],
-    ["docs/MANTINE_UI_GUIDELINES.md", mantineUiGuidelines(config, canonicalMantineUiGuidelines)],
-    ["docs/DATA_ACCESS.md", dataAccess(config, canonicalDataAccess)],
+    ["docs/ENGINEERING_RULES.md", engineeringRules(config, canonicalDocs.engineeringRules)],
+    [
+      "docs/MANTINE_UI_GUIDELINES.md",
+      mantineUiGuidelines(config, canonicalDocs.mantineUiGuidelines)
+    ],
+    ["docs/DATA_ACCESS.md", dataAccess(config, canonicalDocs.dataAccess)],
     ["docs/RUNTIME_CONFIGURATION.md", runtimeConfiguration(config)],
     ["docs/LOGGING.md", loggingRules(config)],
     ["docs/RELEASE.md", releaseRules(config)],

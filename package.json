@@ -2,7 +2,7 @@
   "name": "bifang-web-harness-template",
   "version": "0.1.0",
   "private": true,
-  "description": "A TypeScript Harness template for either a React web app or a Plasmo Chrome MV3 / Firefox MV2 extension.",
+  "description": "以智能体为首要使用者的 TypeScript Harness 模板，生成 React Web 或 Plasmo Chrome MV3 / Firefox MV2 扩展。",
   "type": "module",
   "engines": {
     "node": ">=26.10.0",

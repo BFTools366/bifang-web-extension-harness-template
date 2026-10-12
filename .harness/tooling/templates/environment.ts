@@ -1,7 +1,6 @@
 import { validateBaseUrls } from "../environment.ts"
 import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 
-// 保存 ENVIRONMENT_SCHEMA 变量供当前逻辑使用。
 const ENVIRONMENT_SCHEMA = `export const APPLICATION_ENVIRONMENTS = ["development", "test", "release"] as const
 /** 说明 LOG_LEVELS 的稳定结构与职责边界。 */
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const
@@ -88,10 +87,9 @@ function environmentFile(
   environment: "development" | "test" | "release",
   baseUrl: string
 ): string {
-  // 保存 logLevel 变量供当前逻辑使用。
   const logLevel =
     environment === "development" ? "debug" : environment === "test" ? "info" : "warn"
-  return `# Public browser configuration. Never place secrets, tokens, cookies, or passwords here.
+  return `# 浏览器公开配置；不得填写密钥、令牌、Cookie 或密码。
 ${prefix}APP_ENV=${environment}
 ${prefix}API_BASE_URL=${baseUrl}
 ${prefix}LOG_LEVEL=${logLevel}
@@ -131,7 +129,6 @@ export const APP_CONFIG = createAppConfig({
 `
 }
 
-// 保存 ENVIRONMENT_TEST 变量供当前逻辑使用。
 const ENVIRONMENT_TEST = `import { describe, expect, test } from "vitest"
 import { createAppConfig } from "./environment.schema"
 
@@ -182,9 +179,7 @@ export function environmentFiles(
   config: ProjectConfig,
   suppliedBaseUrls: EnvironmentBaseUrls
 ): Map<string, string> {
-  // 保存 baseUrls 变量供当前逻辑使用。
   const baseUrls = validateBaseUrls(suppliedBaseUrls)
-  // 保存 prefix 变量供当前逻辑使用。
   const prefix = config.projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
   return new Map([
     [".env.development", environmentFile(prefix, "development", baseUrls.developmentBaseUrl)],

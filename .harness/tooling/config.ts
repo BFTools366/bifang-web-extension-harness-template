@@ -3,13 +3,10 @@ import { assertExtensionIdentity, validateIdentityI18n } from "./identity.ts"
 import { readJson } from "./files.ts"
 import { PROJECT_TYPES, type InitOptions, type ProjectConfig, type ProjectType } from "./types.ts"
 
-// 保存 PROJECT_CONFIG_PATH 变量供当前逻辑使用。
 export const PROJECT_CONFIG_PATH = ".harness/project.json" as const
-// 保存 MASTER_LOGO_PATH 变量供当前逻辑使用。
 export const MASTER_LOGO_PATH = ".harness/brand/logo-1024.png" as const
 
 // Source-only project-creation paths that every terminal project must keep absent.
-// 保存 HARNESS_ONLY_PATHS 变量供当前逻辑使用。
 export const HARNESS_ONLY_PATHS = [
   ".agents/skills/initialize-web-project",
   ".agents/skills/instantiate-project",
@@ -23,6 +20,7 @@ export const HARNESS_ONLY_PATHS = [
   ".harness/tooling/manifest.ts",
   ".harness/tooling/process.ts",
   ".harness/tooling/prompts.ts",
+  ".harness/tooling/initialization-input.ts",
   ".harness/tooling/source-snapshot.ts",
   ".harness/tooling/templates",
   ".harness/tooling/finalize.ts",
@@ -34,6 +32,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/harness-agents-entrypoint.test.ts",
   "tests/harness-governance.test.ts",
   "tests/harness-initialization.test.ts",
+  "tests/initialization-guidance.test.ts",
   "tests/identity-localization.test.ts",
   "tests/http-foundation.test.ts",
   "tests/harness-http-governance.test.ts",
@@ -59,6 +58,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/harness-instantiation-terminal.test.ts",
   "tests/harness-validator-fixture.ts",
   "tests/harness-skill-validation.test.ts",
+  "tests/harness-saas-commerce-reference.test.ts",
   "tests/project-memory-compatibility.test.ts",
   "tests/initialization-atomicity-fixture.ts",
   "tests/initialization-source-boundary.test.ts",
@@ -80,12 +80,9 @@ export const INSTANTIATION_ONLY_EXCLUDED_PATHS = [
 
 // 执行 normalizeColor 函数的处理逻辑。
 export function normalizeColor(value: string): string {
-  // 保存 trimmed 变量供当前逻辑使用。
   const trimmed = value.trim()
-  // 保存 short 变量供当前逻辑使用。
   const short = /^#([0-9a-f]{3})$/i.exec(trimmed)
   if (short !== null) {
-    // 保存 chars 变量供当前逻辑使用。
     const chars = short[1]
     if (chars === undefined) throw new Error("Invalid brand color")
     return `#${chars
@@ -124,7 +121,6 @@ export function createProjectConfig(
   >
 ): ProjectConfig {
   assertProjectType(options.projectType)
-  // 保存 id 变量供当前逻辑使用。
   const id = requireText(options.id, "Project id")
   if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) {
     throw new Error("Project id must be a lowercase kebab-case package id")
@@ -154,14 +150,12 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error("Invalid .harness/project.json: expected an object")
   }
-  // 保存 candidate 变量供当前逻辑使用。
   const candidate = value as Partial<ProjectConfig>
   assertProjectType(candidate.projectType)
   if (candidate.schemaVersion !== 1) throw new Error("Unsupported project config schema")
   if (candidate.brand === undefined || typeof candidate.brand !== "object") {
     throw new Error("Invalid project config brand")
   }
-  // 保存 config 变量供当前逻辑使用。
   const config = createProjectConfig({
     projectType: candidate.projectType,
     name: requireText(candidate.name, "Project name"),
@@ -185,7 +179,6 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
 
 // 执行 loadProjectConfig 函数的处理逻辑。
 export async function loadProjectConfig(root: string): Promise<ProjectConfig> {
-  // 保存 raw 变量供当前逻辑使用。
   const raw = await readJson<unknown>(path.join(root, PROJECT_CONFIG_PATH))
   return validateProjectConfig(raw)
 }

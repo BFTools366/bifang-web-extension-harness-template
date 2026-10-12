@@ -19,11 +19,8 @@ import { downstreamGovernanceFiles } from "../.harness/tooling/templates/downstr
 import type { InitOptions, ProjectConfig } from "../.harness/tooling/types.ts"
 import { validateProject } from "../.harness/tooling/validate.ts"
 
-// 保存 temporaryRoots 变量供当前逻辑使用。
 const temporaryRoots: string[] = []
-// 保存 repositoryRoot 变量供当前逻辑使用。
 const repositoryRoot = path.resolve(import.meta.dirname, "..")
-// 保存 TEST_BASE_URLS 变量供当前逻辑使用。
 const TEST_BASE_URLS = {
   developmentBaseUrl: "http://localhost:3000/api",
   testBaseUrl: "https://test-api.example.com/v1",
@@ -39,7 +36,6 @@ const TEST_AGENT_POLICY = {
   acceptanceSmoke: "enabled",
   e2eHint: "disabled"
 } as const
-// 保存 OPTIONAL_INTEGRATION_PACKAGES 变量供当前逻辑使用。
 const OPTIONAL_INTEGRATION_PACKAGES = [
   "dexie",
   "js-cookie",
@@ -57,7 +53,6 @@ const OPTIONAL_INTEGRATION_PACKAGES = [
   "@microsoft/fetch-event-source",
   "rxjs"
 ] as const
-// 保存 PAGINATION_I18N_KEYS 变量供当前逻辑使用。
 const PAGINATION_I18N_KEYS = [
   "paginationNavigation",
   "paginationPage",
@@ -71,9 +66,7 @@ function expectOptionalIntegrationPackagesNotInstalled(manifest: {
   dependencies?: Record<string, string>
   devDependencies?: Record<string, string>
 }): void {
-  // 保存 installed 变量供当前逻辑使用。
   const installed = { ...manifest.dependencies, ...manifest.devDependencies }
-  // 保存 dependency 变量供当前逻辑使用。
   for (const dependency of OPTIONAL_INTEGRATION_PACKAGES) {
     expect(installed).not.toHaveProperty(dependency)
   }
@@ -81,7 +74,6 @@ function expectOptionalIntegrationPackagesNotInstalled(manifest: {
 
 // 执行 temporaryDirectory 函数的处理逻辑。
 async function temporaryDirectory(prefix: string): Promise<string> {
-  // 保存 directory 变量供当前逻辑使用。
   const directory = await mkdtemp(path.join(os.tmpdir(), prefix))
   temporaryRoots.push(directory)
   return directory
@@ -89,7 +81,6 @@ async function temporaryDirectory(prefix: string): Promise<string> {
 
 // 执行 seedTemplateRoot 函数的处理逻辑。
 async function seedTemplateRoot(): Promise<string> {
-  // 保存 root 变量供当前逻辑使用。
   const root = await temporaryDirectory("web-harness-test-")
   await mkdir(path.join(root, "docs"))
   await mkdir(path.join(root, "tests"))
@@ -109,6 +100,10 @@ async function seedTemplateRoot(): Promise<string> {
     await readFile(path.join(repositoryRoot, ".gitignore"), "utf8")
   )
   await cp(path.join(repositoryRoot, "docs/API.md"), path.join(root, "docs/API.md"))
+  await cp(
+    path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"),
+    path.join(root, "docs/ENGINEERING_RULES.md")
+  )
   await writeFile(
     path.join(root, "docs/DATA_ACCESS.md"),
     await readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8")
@@ -214,17 +209,11 @@ function options(root: string, projectType: "web" | "extension"): InitOptions {
   }
 }
 
-afterEach(
-  /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    await Promise.all(
-      temporaryRoots
-        .splice(0)
-        .map(
-          /* 执行 当前声明 函数的处理逻辑。 */ (root) => rm(root, { recursive: true, force: true })
-        )
-    )
-  }
-)
+afterEach(async () => {
+  await Promise.all(
+    temporaryRoots.splice(0).map((root) => rm(root, { recursive: true, force: true }))
+  )
+})
 
 export {
   HARNESS_ONLY_PATHS,

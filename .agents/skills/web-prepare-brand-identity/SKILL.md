@@ -20,8 +20,8 @@ description: 为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 / 
 ## 生成与同步
 
 1. 先创建或更新 1024×1024 无损 PNG 母版 `.harness/brand/logo-1024.png`；使用图像检查能力确认尺寸、透明度、边缘、安全留白和小尺寸可辨识度。
-2. 首次实例化由 initializer 写入品牌事实并派生资产，不在源中写项目配置或提前写目标。已初始化下游将已确认的名称、说明、`identityI18n` 默认语言/翻译、品牌色和 Logo 来源写入 `.harness/project.json`。只更新已确认字段，保留用户的其他项目事实。
-3. 首次实例化复用 initializer 的一次派生；已初始化下游运行唯一派生命令：
+2. 首次实例化由 初始化器 写入品牌事实并派生资产，不在源中写项目配置或提前写目标。已初始化下游将已确认的名称、说明、`identityI18n` 默认语言/翻译、品牌色和 Logo 来源写入 `.harness/project.json`。只更新已确认字段，保留用户的其他项目事实。
+3. 首次实例化复用 初始化器 的一次派生；已初始化下游运行唯一派生命令：
 
    ```text
    pnpm harness brand refresh

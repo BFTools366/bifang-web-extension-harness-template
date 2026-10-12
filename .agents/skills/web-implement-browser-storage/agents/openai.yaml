@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施浏览器存储"
+  short_description: "为真实本地功能实现存储校验、迁移和失败处理，保持生命周期与数据归属"
+  default_prompt: "使用 $web-implement-browser-storage 为当前真实功能实施或修复浏览器存储访问、校验、兼容迁移和失败反馈，保持既有领域与凭据边界。"

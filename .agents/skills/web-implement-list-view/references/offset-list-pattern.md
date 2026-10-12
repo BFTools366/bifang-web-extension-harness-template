@@ -8,7 +8,7 @@
 
 成功响应进入 UI 前验证 items 数组、非负安全 total、行数不超过 pageSize/total/当前剩余范围、可信有效页的数据一致性和业务 key 唯一；矛盾响应属于契约错误。
 
-## 2. 类型化 Router adapter
+## 2. 类型化 Router 适配层
 
 TanStack Router 的 `validateSearch` 可能已经补默认值，因此“URL 是否显式含 owned key”必须读取原始 search，而不能从补默认后的对象猜测。
 
@@ -21,11 +21,11 @@ TanStack Router 的 `validateSearch` 可能已经补默认值，因此“URL 是
 
 只有已应用的搜索/筛选进入 URL/session；输入草稿留在局部状态。Token、秘密、PII、长文本或一次性值不得持久化。后续状态只由 Router 驱动，sessionStorage 是快照，不是第二个可写权威。
 
-## 3. Query 与 placeholder
+## 3. Query 与占位数据
 
 query key 使用稳定 listId、非 PII scope、规范化 filters、sort、pageSize、page，以及影响结果的语言/target。业务行和 total 不复制到 Jotai、Storage 或组件外数组。
 
-placeholder 只用于 base query 完全相同的纯 page 变化。新页 error 后展示目标页错误；同 key background refresh error 才保留当前数据。placeholder 内容 inert，选择、分页、批量和行内动作禁用。
+占位数据只用于基础查询条件完全相同、仅页码变化的情况。换页失败时展示目标页错误；同一查询键的后台刷新失败才保留当前数据。占位内容不可交互，禁用选择、分页、批量和行内操作。
 
 ## 4. 页码纠正与状态
 

@@ -24,80 +24,54 @@ import {
 describe("terminal dual-browser Extension initialization", () => {
   /** 验证 creates a terminal dual-browser extension with local Router and no unused permissions 场景。 */
   test("creates a terminal dual-browser extension with local Router and no unused permissions", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    // 保存 root 变量供当前逻辑使用。
     const root = await seedTemplateRoot()
     await initializeProject(options(root, "extension"))
 
-    // 保存 icon 变量供当前逻辑使用。
     const icon = await sharp(path.join(root, "assets/icon.png")).metadata()
     expect([icon.width, icon.height]).toEqual([1024, 1024])
-    // 保存 popup 变量供当前逻辑使用。
     const popup = await readFile(path.join(root, "src/popup.tsx"), "utf8")
-    // 保存 optionsEntry 变量供独立入口路由断言使用。
     const optionsEntry = await readFile(path.join(root, "src/options.tsx"), "utf8")
-    // 保存 extensionRouter 变量供路由历史策略断言使用。
     const extensionRouter = await readFile(path.join(root, "src/extension-router.tsx"), "utf8")
-    // 保存 extensionBrand 变量供当前逻辑使用。
     const extensionBrand = await readFile(path.join(root, "src/brand.ts"), "utf8")
-    // 保存 i18n 变量供当前逻辑使用。
     const i18n = await readFile(path.join(root, "src/i18n.ts"), "utf8")
-    // 保存 language 变量供当前逻辑使用。
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
-    // 保存 httpClient 变量供当前逻辑使用。
     const httpClient = await readFile(path.join(root, "src/data/api/client/httpClient.ts"), "utf8")
     const httpContracts = await readFile(
       path.join(root, "src/data/api/client/httpContracts.ts"),
       "utf8"
     )
-    // 保存 dataAccess 变量供当前逻辑使用。
     const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
-    // 保存 engineeringRules 变量供当前逻辑使用。
     const engineeringRules = await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
-    // 保存 releaseRules 变量供 Extension 版本事实断言使用。
+    expect(engineeringRules).toContain("文档、标题、注释、帮助和提示优先使用准确自然的中文")
     const releaseRules = await readFile(path.join(root, "docs/RELEASE.md"), "utf8")
-    // 保存 mantineUiGuidelines 变量供当前逻辑使用。
     const mantineUiGuidelines = await readFile(
       path.join(root, "docs/MANTINE_UI_GUIDELINES.md"),
       "utf8"
     )
-    // 保存 developmentEnvironment 变量供当前逻辑使用。
     const developmentEnvironment = await readFile(path.join(root, ".env.development"), "utf8")
-    // 保存 releaseEnvironment 变量供当前逻辑使用。
     const releaseEnvironment = await readFile(path.join(root, ".env.production"), "utf8")
-    // 保存 extensionShell 变量供当前逻辑使用。
     const extensionShell = await readFile(path.join(root, "src/ExtensionShell.tsx"), "utf8")
-    // 保存 buildVersion 变量供 Extension 构建版本契约断言使用。
     const buildVersion = await readFile(path.join(root, "src/buildVersion.ts"), "utf8")
-    // 保存 buildTooling 变量供 Extension 单宿主构建断言使用。
     const buildTooling = await readFile(path.join(root, ".harness/tooling/build.ts"), "utf8")
-    // 保存 providers 变量供当前逻辑使用。
     const providers = await readFile(path.join(root, "src/providers.tsx"), "utf8")
-    // 保存 extensionColorSchemeControl 变量供暗色切换断言使用。
     const extensionColorSchemeControl = await readFile(
       path.join(root, "src/theme/ColorSchemeControl.tsx"),
       "utf8"
     )
-    // 保存 logger 变量供当前逻辑使用。
     const logger = await readFile(path.join(root, "src/observability/logger.ts"), "utf8")
-    // 保存 pagination 变量供当前逻辑使用。
     const pagination = await readFile(
       path.join(root, "src/pagination/useSessionPagination.ts"),
       "utf8"
     )
-    // 保存 paginationControls 变量供当前逻辑使用。
     const paginationControls = await readFile(
       path.join(root, "src/pagination/PaginationControls.tsx"),
       "utf8"
     )
-    // 保存 tsconfig 变量供当前逻辑使用。
     const tsconfig = JSON.parse(await readFile(path.join(root, "tsconfig.json"), "utf8")) as {
       include: string[]
     }
-    // 保存 extensionStylePath 变量供初始化 CSS 格式稳定性回归使用。
     const extensionStylePath = path.join(root, "src/style.css")
-    // 保存 extensionStyle 变量供初始化 CSS 格式稳定性比较使用。
     const extensionStyle = await readFile(extensionStylePath, "utf8")
-    // 保存 prettierConfig 变量供初始化 CSS 使用目标仓库正式格式配置。
     const prettierConfig = (await resolveConfig(path.join(root, "package.json"))) ?? {}
     expect(popup).toContain("data-base64:../assets/icon.png")
     expect(popup).toContain('createExtensionRouter("popup", iconUrl)')
@@ -107,7 +81,6 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(extensionRouter).toContain("createHashHistory")
     expect(extensionBrand).toContain("Aurora Clipper")
     expect(i18n).toContain("initializeLanguage")
-    // 保存 key 变量供当前逻辑使用。
     for (const key of PAGINATION_I18N_KEYS) {
       expect(i18n.split(`${key}:`)).toHaveLength(3)
     }
@@ -129,13 +102,15 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(dataAccess).toContain("requestHttpQuery")
     expect(dataAccess).not.toContain("React Web 路由列表契约")
     expect(dataAccess).not.toContain("$web-implement-list-view")
+    expect(dataAccess).not.toContain("$web-implement-saas-auth")
+    expect(dataAccess).not.toContain("### 1.3.1 Web SaaS")
     expect(engineeringRules).toContain("执行 Agent 在每次开发中自行核对并保证两目标")
     expect(engineeringRules).toContain("最终 manifest 由 Plasmo 动态生成")
     expect(releaseRules).toContain("Chrome MV3 / Firefox MV2")
     expect(engineeringRules).toContain("RxJS 只能编排当前执行上下文内的事件")
     expect(engineeringRules).not.toContain("src/routeTree.gen.ts")
     expect(engineeringRules).toContain("docs/MANTINE_UI_GUIDELINES.md")
-    expect(mantineUiGuidelines).toContain("## 3. Theme 与设计令牌")
+    expect(mantineUiGuidelines).toContain("## 3. 主题与设计令牌")
     expect(mantineUiGuidelines).not.toContain("React Web 重复记录视图")
     expect(mantineUiGuidelines).toContain("## 8. Extension 宿主规范")
     expect(mantineUiGuidelines).not.toContain("## 8. Web 宿主规范")
@@ -206,7 +181,6 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(extensionStyle).toContain("var(--mantine-spacing-md)")
     expect(extensionStyle).not.toContain("font-family")
 
-    // 保存 manifest 变量供当前逻辑使用。
     const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8")) as {
       displayName: string
       manifest: Record<string, unknown>
@@ -255,7 +229,6 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(manifest.devDependencies).not.toHaveProperty("@tanstack/router-cli")
     expect(manifest.devDependencies).not.toHaveProperty("@tanstack/router-plugin")
     expect(manifest).not.toHaveProperty("scripts.routes:generate")
-    // 保存 extensionInstalledPackages 变量供 Extension 不继承列表页条件依赖。
     const extensionInstalledPackages = { ...manifest.dependencies, ...manifest.devDependencies }
     expect(extensionInstalledPackages).not.toHaveProperty("@dnd-kit/core")
     expect(extensionInstalledPackages).not.toHaveProperty("@dnd-kit/sortable")
@@ -268,7 +241,6 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(manifest.scripts["build:release"]).toBe("tsx .harness/tooling/build.ts build")
     expect(manifest.scripts.package).toBe("tsx .harness/tooling/build.ts package")
     expect(Object.values(manifest.scripts).join("\n")).not.toContain("env:validate -- --profile")
-    // 保存 extensionSkills 变量供终端 Skill 集合与 Web-only Skill 裁剪回归使用。
     const extensionSkills = (
       await readdir(path.join(root, ".agents/skills"), {
         withFileTypes: true
@@ -277,8 +249,15 @@ describe("terminal dual-browser Extension initialization", () => {
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
       .sort()
-    expect(extensionSkills).toHaveLength(21)
+    expect(extensionSkills).toHaveLength(28)
     expect(extensionSkills).toContain("design-taste-frontend")
+    expect(extensionSkills).toContain("web-review-api-contract")
+    expect(extensionSkills).toContain("web-review-module-boundaries")
+    expect(extensionSkills).toContain("web-implement-access-control")
+    expect(extensionSkills).toContain("web-implement-write-recovery")
+    expect(extensionSkills).toContain("web-implement-browser-storage")
+    expect(extensionSkills).toContain("web-implement-event-stream")
+    expect(extensionSkills).toContain("web-manage-user-tasks")
     expect(extensionSkills).toContain("web-design-prototype")
     expect(extensionSkills).toContain("web-document-api")
     expect(extensionSkills).toContain("web-audit-worktrees")
@@ -286,6 +265,9 @@ describe("terminal dual-browser Extension initialization", () => {
     expect(extensionSkills).toContain("web-connect-http-service")
     expect(extensionSkills).toContain("web-review-extension-compatibility")
     expect(extensionSkills).not.toContain("web-implement-list-view")
+    expect(extensionSkills).not.toContain("web-implement-saas-auth")
+    expect(extensionSkills).not.toContain("web-implement-saas-commerce")
+    expect(extensionSkills).not.toContain("web-implement-saas-admin")
     await expect(
       readFile(path.join(root, ".agents/skills/web-implement-list-view/SKILL.md"), "utf8")
     ).rejects.toThrow()

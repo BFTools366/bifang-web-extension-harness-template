@@ -7,88 +7,88 @@
 ```text
 <type>(<scope>): <summary>
 
-Why:
+原因：
 - 为什么要做这次修改；缺陷修复说明根因
 
-Changes:
+变更：
 - 完成了什么行为或契约变化，不要只罗列文件
 
-Impact:
-- 对功能、API、数据、性能或兼容性的影响；没有时写 None
+影响：
+- 对功能、API、数据、性能或兼容性的影响；没有时写“无”
 
-Test:
-- 实际执行的命令、场景和结果；未执行时写 Not run: <原因>
+验证：
+- 实际执行的命令、场景和结果；未执行时写 未执行： <原因>
 ```
 
 `scope` 可省略。只有已取得对外契约变化批准时，才可使用 `<type>(<scope>)!: <summary>` 或 `BREAKING CHANGE:` footer，并说明迁移影响；不得用 `!` 或 footer 代替产品范围、兼容契约或发布授权。
 
-## Type
+## 提交类型
 
-| Type       | 用途                           | Web Harness 示例                                    |
-| ---------- | ------------------------------ | --------------------------------------------------- |
-| `feat`     | 新增用户或维护者可用能力       | `feat(pagination): persist collection page state`   |
-| `fix`      | 修复可复现缺陷                 | `fix(auth): prevent duplicate 401 replay`           |
-| `refactor` | 不改变可观察行为的结构调整     | `refactor(http): separate language header handling` |
-| `perf`     | 具有真实证据的性能优化         | `perf(routes): reduce initial route bundle size`    |
-| `ui`       | UI 或交互调整                  | `ui(options): clarify save feedback`                |
-| `style`    | 不影响语义的格式或代码风格变化 | `style: apply prettier`                             |
-| `docs`     | 文档变化                       | `docs(api): add pagination examples`                |
-| `test`     | 测试或测试基础设施变化         | `test(http): cover timeout recovery`                |
-| `build`    | 构建系统、依赖或工具链变化     | `build: update Vite compatibility range`            |
-| `ci`       | CI/CD 工作流变化               | `ci: run Web checks on pull requests`               |
-| `chore`    | 其他明确的工程维护             | `chore: remove unused assets`                       |
-| `revert`   | 明确回滚既有提交               | `revert: revert pagination persistence`             |
+| 类型       | 用途                           | Web Harness 示例                       |
+| ---------- | ------------------------------ | -------------------------------------- |
+| `feat`     | 新增用户或维护者可用能力       | `feat(pagination): 持久化列表页码状态` |
+| `fix`      | 修复可复现缺陷                 | `fix(auth): 防止并发认证失效重复处理`  |
+| `refactor` | 不改变可观察行为的结构调整     | `refactor(http): 拆分语言请求头处理`   |
+| `perf`     | 具有真实证据的性能优化         | `perf(routes): 减少首屏路由包体积`     |
+| `ui`       | UI 或交互调整                  | `ui(options): 明确保存反馈`            |
+| `style`    | 不影响语义的格式或代码风格变化 | `style: 统一代码格式`                  |
+| `docs`     | 文档变化                       | `docs(api): 补充分页示例`              |
+| `test`     | 测试或测试基础设施变化         | `test(http): 覆盖超时恢复`             |
+| `build`    | 构建系统、依赖或工具链变化     | `build: 更新 Vite 兼容范围`            |
+| `ci`       | CI/CD 工作流变化               | `ci: 在合并请求中运行 Web 检查`        |
+| `chore`    | 其他明确的工程维护             | `chore: 移除未使用资产`                |
+| `revert`   | 明确回滚既有提交               | `revert: 回滚分页持久化`               |
 
 工具生成的 merge、revert、fixup 或 squash 消息应保留 Git 必要语义；不要为了套模板破坏自动合并、定向回滚或交互式 rebase 流程。
 
-## Summary 与正文
+## 主题摘要与正文
 
-Summary 回答“这次提交完成了什么有意义的变化”，而不是“改了哪些文件”。使用清晰动词，保持单行、具体、可在日志中独立理解；不以 `update`、`fix bug`、`modify file` 等模糊措辞代替结果。
+主题摘要回答“这次提交完成了什么有意义的变化”，而不是“改了哪些文件”。使用清晰动词，保持单行、具体、可在日志中独立理解；不以 `update`、`fix bug`、`modify file` 等模糊措辞代替结果。
 
-- `Why` 保留动机、约束或根因，这些信息无法从 diff 恢复。
-- `Changes` 描述行为、状态转换或契约，不复制文件清单。
-- `Impact` 明确兼容性、数据、性能、API 和用户体验；无明显影响时写 `None`。
-- `Test` 只陈述真实执行；未执行必须说明原因，不能把计划写成已通过。
-- 关联问题、迁移提示或已批准的 `BREAKING CHANGE:` 可作为 footer；正文不得出现凭据、个人数据或敏感载荷。
+- `原因` 保留动机、约束或根因，这些信息无法从 diff 恢复。
+- `变更` 描述行为、状态转换或契约，不复制文件清单。
+- `影响` 明确兼容性、数据、性能、API 和用户体验；无明显影响时写 `无`。
+- `验证` 只陈述真实执行；未执行必须说明原因，不能把计划写成已通过。
+- 关联问题、迁移提示或已批准的 `BREAKING CHANGE:` 可作为 footer；主题摘要与正文使用中文；技术标识符及必要 Git 语义可以保留。正文不得出现凭据、个人数据或敏感载荷。
 
 ## 完整示例
 
 ```text
-feat(pagination): persist collection page state
+feat(pagination): 持久化列表页码状态
 
-Why:
+原因：
 - 用户返回集合页面时会丢失当前页码
 - 不同项目和集合需要相互隔离
 
-Changes:
-- 按项目与集合 scope 持久化 1-based 页码
-- 只在当前请求成功且空页时回退到前一页
+变更：
+- 按项目与集合范围持久化从 1 开始的页码
+- 只在当前请求成功且空页时回退到第一页
 
-Impact:
+影响：
 - 改善返回列表时的定位稳定性
 - 不改变服务端 API
 
-Test:
+验证：
 - `pnpm test:related src/pagination/useSessionPagination.ts` 通过
-- 空页回退与 scope 隔离回归通过
+- 空页回退与 作用域隔离回归通过
 ```
 
 ```text
-fix(auth): prevent duplicate 401 replay
+fix(auth): 防止并发认证失效重复处理
 
-Why:
+原因：
 - 多个并发请求返回 401 时可能重复触发登录处理
-- 根因是请求失败路径没有共享单一重放所有者
+- 根因是请求失败路径没有共享单一认证失效处理者
 
-Changes:
-- 同一认证失效窗口内只调用一次登录 handler
+变更：
+- 同一认证失效窗口内只调用一次登录处理器
 - 每个请求仍保留自己的错误结果
 
-Impact:
-- 消除重复登录导航，不修改 token 格式
+影响：
+- 消除重复登录导航，不修改凭据格式
 
-Test:
-- 并发 401 场景下 handler 恰好调用一次
+验证：
+- 并发 401 场景下处理器恰好调用一次
 ```
 
 ## 简单提交
@@ -96,9 +96,9 @@ Test:
 非常简单且意图明确的变化可以只写主题，不要为了形式制造空洞正文：
 
 ```text
-fix(ui): prevent progress text overflow
-docs(readme): clarify installation steps
-chore: remove unused dependencies
+fix(ui): 防止进度文字溢出
+docs(readme): 明确安装步骤
+chore: 移除未使用依赖
 ```
 
 ## 原子性
@@ -107,10 +107,10 @@ chore: remove unused dependencies
 
 提交前确认：
 
-1. 提交只表达一个主要目的，checkout 后仓库处于合理状态。
-2. Summary 在半年后仍能说明结果。
-3. `Why` 解释动机；缺陷修复解释根因。
-4. `Changes` 描述行为，不是文件清单。
-5. `Impact` 与真实兼容/数据/性能/API 影响一致。
-6. `Test` 只记录实际执行，没有把未运行写成通过。
+1. 提交只表达一个主要目的，检出后仓库处于合理状态。
+2. 主题摘要在半年后仍能说明结果。
+3. `原因` 解释动机；缺陷修复解释根因。
+4. `变更` 描述行为，不是文件清单。
+5. `影响` 与真实兼容/数据/性能/API 影响一致。
+6. `验证` 只记录实际执行，没有把未运行写成通过。
 7. 没有混入无关格式化、调试代码、秘密、缓存或临时文件。

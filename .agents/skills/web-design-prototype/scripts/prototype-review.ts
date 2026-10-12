@@ -146,17 +146,18 @@ function isApprovedPrd(source: string): boolean {
 /** 校验 PRD 位置及确认状态；源模板的批准事实不能替代下游需求确认。 */
 async function confirmedPrd(root: string, relative: string): Promise<Artifact> {
   if (!/^docs\/product_spec\/\d{8}_product_spec\.md$/u.test(relative)) {
-    throw new Error("PRD must be the current dated Product Spec")
+    throw new Error("PRD 必须是当前按日期命名的产品规格")
   }
-  const { artifact: result, bytes } = await readArtifact(root, relative)
-  const specs = (await readdir(path.join(root, "docs/product_spec")))
-    .filter((name) => /^\d{8}_product_spec\.md$/u.test(name))
-    .sort()
+  const [{ artifact: result, bytes }, names] = await Promise.all([
+    readArtifact(root, relative),
+    readdir(path.join(root, "docs/product_spec"))
+  ])
+  const specs = names.filter((name) => /^\d{8}_product_spec\.md$/u.test(name)).sort()
   if (path.posix.basename(relative) !== specs.at(-1)) {
-    throw new Error("PRD must be the latest Product Spec; request selection for the current scope")
+    throw new Error("PRD 必须是最新产品规格；请针对当前范围重新取得选择")
   }
   if (!isApprovedPrd(bytes.toString("utf8"))) {
-    throw new Error("Confirm the PRD with the user before preparing prototypes")
+    throw new Error("准备原型前须由用户确认 PRD")
   }
   return result
 }
@@ -207,7 +208,7 @@ async function readReview(
   }
   const prd = artifact(raw.prd)
   if ((await confirmedPrd(root, prd.path)).sha256 !== prd.sha256) {
-    throw new Error("PRD changed; prepare and request user selection again")
+    throw new Error("PRD 已变化；请重新准备原型并取得用户选择")
   }
   const candidates: PrototypeReview["candidates"] = []
   for (const value of raw.candidates) {
@@ -225,7 +226,7 @@ async function readReview(
   }
   const current = await Promise.all(candidates.map((item) => fingerprint(root, item.path)))
   if (current.some((item, index) => item.sha256 !== candidates[index]?.sha256)) {
-    throw new Error("Prototype changed; prepare and request user selection again")
+    throw new Error("原型已变化；请重新准备并取得用户选择")
   }
   const review: PrototypeReview = {
     ...reviewHeader(config, scope, raw.revision),
@@ -262,21 +263,21 @@ export async function runPrototypeReview(
 ): Promise<PrototypeReview> {
   const [command, scope, ...args] = argv
   if (scope === undefined)
-    throw new Error("Usage: prototype-review.ts prepare|select|check <scope> ...")
+    throw new Error("用法：prototype-review.ts prepare|select|check <scope> ...")
   assertScope(scope)
   // 在读取任何业务文件或创建目录前验证下游身份，初始化不得调用本工具。
   const config = await loadProjectConfig(root)
   if (command === "prepare") {
     const [prdPath, ...paths] = args
     if (prdPath === undefined || paths.length < 1 || paths.length > 3)
-      throw new Error("prepare requires PRD and 1–3 HTML candidates")
+      throw new Error("prepare 需要 PRD 和 1–3 个 HTML 候选方案")
     const prd = await confirmedPrd(root, prdPath)
     const identities = paths.map((file) => candidateIdentity(scope, file))
     if (
       new Set(identities.map((item) => item.revision)).size !== 1 ||
       new Set(identities.map((item) => item.id)).size !== paths.length
     ) {
-      throw new Error("Candidates must have unique IDs and share one revision")
+      throw new Error("候选方案必须具有唯一 ID，且属于同一版本")
     }
     const candidates = await Promise.all(
       paths.map(async (file, index) => ({
@@ -293,12 +294,9 @@ export async function runPrototypeReview(
     await save(root, review)
     return review
   }
-  if (command !== "select" && command !== "check")
-    throw new Error("Unknown prototype review command")
+  if (command !== "select" && command !== "check") throw new Error("未知的原型评审命令")
   if ((command === "check" && args.length !== 0) || (command === "select" && args.length !== 2)) {
-    throw new Error(
-      "check takes no extra arguments; select requires candidate ID and user confirmation"
-    )
+    throw new Error("check 不接受额外参数；select 需要候选 ID 和用户确认")
   }
   const review = await readReview(root, scope, config)
   if (command === "select") {
@@ -308,13 +306,13 @@ export async function runPrototypeReview(
       !review.candidates.some((item) => item.id === id) ||
       !hasConfirmation(confirmation)
     ) {
-      throw new Error("Select an existing candidate with the user's explicit confirmation")
+      throw new Error("须根据用户明确确认选择已有候选方案")
     }
     review.state = "selected"
     review.selection = { candidateId: id, confirmation, confirmedAt: new Date().toISOString() }
     await save(root, review)
   } else if (review.state !== "selected") {
-    throw new Error("Awaiting user selection; do not start development")
+    throw new Error("等待用户选择，暂不开始开发")
   }
   return review
 }

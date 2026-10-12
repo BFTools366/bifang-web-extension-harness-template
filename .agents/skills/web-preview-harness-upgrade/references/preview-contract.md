@@ -6,11 +6,11 @@
 
 候选只包含 `managed`、`managed-self`、`merge-sections`、`conditional` 允许的路径；混合文件仍需人工合并，不授权覆盖目标产品值。产品源码、测试、品牌、项目身份、Agent Policy、项目记忆、许可证、未登记本地文件及 `design-taste-frontend` 设计支持不进入投影。源实例化、源验证、源记忆治理、另一宿主模板等 tombstone 不能进入候选或目标。
 
-固定目标 `.harness/project.json.projectType`；Web 只包含 `$web-implement-list-view`，Extension 只包含 `$web-review-extension-compatibility`。错宿主 Skill、required 缺失/陈旧、所有权漂移、符号链接、特殊文件/权限或越界会阻断。候选必须由真实渲染流程提供；本 CLI 没有 render 子命令，本 Skill 不创建或修正候选。
+固定目标 `.harness/project.json.projectType`；Web 的宿主专用 Skills 包含 `$web-implement-list-view`、`$web-implement-saas-auth`、`$web-implement-saas-commerce` 与 `$web-implement-saas-admin`，Extension 只包含 `$web-review-extension-compatibility`。分发购买 Skill 不启用可选业务。错宿主 Skill、required 缺失/陈旧、所有权漂移、符号链接、特殊文件/权限或越界会阻断。候选必须由真实渲染流程提供；本 CLI 没有 render 子命令，本 Skill 不创建或修正候选。
 
 ## 冻结与命令
 
-source、candidate、target 必须是互不嵌套、无符号链接的真实绝对目录。source 和 target 分别等于自己的 Git 顶层；source clean 且精确匹配已冻结的 source commit。记录 source 验证结果与 `Version.md` 的 12 位版本；目标可 dirty，计划绑定其真实状态。
+源工程、候选和目标必须是互不嵌套、无符号链接的真实绝对目录。源工程和目标分别等于自己的 Git 顶层；源工作区必须干净，且精确匹配已冻结的源提交。记录源验证结果与 `Version.md` 的 12 位版本；目标可存在未提交修改，计划绑定其真实状态。
 
 复用目标内既有 helper。无报告文件的默认命令为：
 
@@ -25,9 +25,9 @@ pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts plan
   --lock <absolute-target>/.harness/upstream-lock.json
 ```
 
-`--lock` 参数必传，文件可以不存在。计划冻结 source 版本/HEAD、source 与 target Git 状态、候选散列、目标项目标记、所有权清单、lock 快照、三方文件散列与权限；必需 source 文件同时检查候选传播。Git 查询关闭 optional locks，避免状态查询刷新索引。事实变化后必须重新规划；候选、所有权、已批准路径及副作用范围未变时，可复用本次已有精确路径批准。意外漂移或批准范围变化才重新审查或补充授权，旧 plan 不能继续使用。
+`--lock` 参数必传，文件可以不存在。计划冻结源版本/HEAD、源与目标的 Git 状态、候选散列、目标项目标记、所有权清单、lock 快照、三方文件散列与权限；必需源文件同时检查候选传播。Git 查询关闭 optional locks，避免状态查询刷新索引。事实变化后必须重新规划；候选、所有权、已批准路径及副作用范围未变时，可复用本次已有精确路径批准。意外漂移或批准范围变化才重新审查或补充授权，旧 plan 不能继续使用。
 
-需要保存可审查证据时才追加 `--output <absolute-external-evidence>/plan-001.json`。输出必须位于 source、candidate、target 三棵树之外，父目录已存在且文件预先不存在；helper 以 `wx`、0600 独占创建，不覆盖旧文件。该选项是显式外部报告写入，不是完全零写入。每轮用全新路径，不创建父目录。
+需要保存可审查证据时才追加 `--output <absolute-external-evidence>/plan-001.json`。输出必须位于源工程、候选、目标三棵树之外，父目录已存在且文件预先不存在；helper 以 `wx`、0600 独占创建，不覆盖旧文件。该选项是显式外部报告写入，不是完全零写入。每轮用全新路径，不创建父目录。
 
 ## 分类与交接
 

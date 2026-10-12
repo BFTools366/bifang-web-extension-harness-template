@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施访问控制"
+  short_description: "按已确认的权限契约统一菜单、路由和动作控制，处理撤权与作用域变化"
+  default_prompt: "使用 $web-implement-access-control 按已有服务端权限契约实现或修复受影响入口的访问控制，保持统一判定、默认拒绝和撤权隔离。"

@@ -8,12 +8,16 @@ import {
 } from "./agent-policy.ts"
 import { HARNESS_ONLY_PATHS, INSTANTIATION_ONLY_EXCLUDED_PATHS } from "./config.ts"
 import { lstatIfPresent, writeAtomic } from "./files.ts"
+import {
+  EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS,
+  EXPECTED_WEB_ONLY_TERMINAL_SKILLS
+} from "./skill-validation.ts"
 import { downstreamAgents } from "./templates/downstream-agents.ts"
+import { downstreamReadme } from "./templates/downstream-readme.ts"
 import { buildToolingFiles } from "./templates/build.ts"
 import { downstreamGovernanceFiles } from "./templates/downstream-docs.ts"
 import type { AgentPolicySelection, ProjectConfig } from "./types.ts"
 
-// 保存 TERMINAL_CLI 变量供当前逻辑使用。
 const TERMINAL_CLI = `import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
@@ -22,9 +26,9 @@ import { validateProject } from "./validate.ts"
 
 /** 说明 usage 的稳定结构与职责边界。 */
 function usage(): string {
-  return \`Project Harness
+  return \`项目 Harness
 
-Commands:
+命令：
   pnpm harness brand refresh [--logo <path>] [--brand-color <#RRGGBB>]
   pnpm harness validate
 \`
@@ -37,28 +41,28 @@ export async function runCli(argv = process.argv.slice(2), root = process.cwd())
     const args = parseArgs(rest)
     assertKnownOptions(args, ["logo", "brand-color"])
     if (args.positionals.length !== 1 || args.positionals[0] !== "refresh") {
-      throw new Error("Usage: pnpm harness brand refresh [--logo <path>] [--brand-color <color>]")
+      throw new Error("用法：pnpm harness brand refresh [--logo <path>] [--brand-color <color>]")
     }
     const config = await refreshBrand(root, {
       logoPath: readStringOption(args, "logo"),
       brandColor: readStringOption(args, "brand-color")
     })
-    console.log(\`Refreshed brand assets for \${config.name}\`)
+    console.log(\`已刷新品牌资产：\${config.name}\`)
     return
   }
   if (command === "validate") {
     const args = parseArgs(rest)
     assertKnownOptions(args, [])
-    if (args.positionals.length > 0) throw new Error("validate does not accept positional arguments")
+    if (args.positionals.length > 0) throw new Error("validate 不接受位置参数")
     const checked = await validateProject(root)
-    console.log(\`Project validation passed (\${checked.join(", ")})\`)
+    console.log(\`项目校验通过 (\${checked.join(", ")})\`)
     return
   }
   if (command === "help" || command === "--help" || command === "-h" || command === undefined) {
     console.log(usage())
     return
   }
-  throw new Error(\`Unknown project Harness command: \${command}\`)
+  throw new Error(\`未知的项目 Harness 命令：\${command}\`)
 }
 
 const executed = process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
@@ -70,7 +74,6 @@ if (executed === import.meta.url) {
 }
 `
 
-// 保存 TERMINAL_BRAND 变量供当前逻辑使用。
 const TERMINAL_BRAND = `import path from "node:path"
 import { extensionIdentityManifest, renderIdentityBrand, synchronizeIdentityLocales } from "./identity.ts"
 import { createLogo, deriveLogoAssets, readLogo } from "./logo.ts"
@@ -158,7 +161,6 @@ export async function refreshBrand(root: string, options: BrandRefreshOptions = 
 }
 `
 
-// 保存 TERMINAL_TYPES 变量供当前逻辑使用。
 const TERMINAL_TYPES = `import type { IdentityI18n } from "./identity.ts"
 
 /** 说明 ProjectType 的唯一前端宿主类型。 */
@@ -212,7 +214,6 @@ export interface ParsedArgs {
 }
 `
 
-// 保存 TERMINAL_CONFIG 变量供当前逻辑使用。
 const TERMINAL_CONFIG = `import path from "node:path"
 import { assertExtensionIdentity, validateIdentityI18n } from "./identity.ts"
 import { readJson } from "./files.ts"
@@ -281,73 +282,11 @@ export async function loadProjectConfig(root: string): Promise<ProjectConfig> {
 }
 `
 
-// 执行 downstreamReadme 函数的处理逻辑。
-function downstreamReadme(config: ProjectConfig): string {
-  // 保存 stack 变量供当前逻辑使用。
-  const stack =
-    config.projectType === "web"
-      ? "React, Vite, Mantine, TanStack Router file routing, TanStack Query, Jotai, and i18next"
-      : "Plasmo (Chrome MV3 / Firefox MV2), React, Mantine, TanStack Router code routing, TanStack Query, Jotai, and i18next"
-  // 保存 routeCommand 变量供当前逻辑使用。
-  const routeCommand =
-    config.projectType === "web"
-      ? "- `pnpm routes:generate` — regenerate the Git-ignored TanStack route tree.\n"
-      : ""
-  // 保存 versionDescription 变量供当前宿主版本说明使用。
-  const versionDescription =
-    config.projectType === "web"
-      ? "the Shanghai `YYMMDDHHMMSS` version"
-      : "stable SemVer (`X.Y.Z`) from `package.json.version`"
-  return `# ${config.name}
-
-${config.description}
-
-This is a terminal, flat, single-package **${config.projectType}** project.
-
-## Selected stack
-
-${stack}.
-
-The generated Ky HTTP and pagination foundations standardize request headers, validated Token writes, 401/403 handling, localized Router/UI feedback, bounded Query reads, language persistence, and per-list session state without inventing a business endpoint. Ky is the default Fetch transport; optional OpenAPI, GraphQL, SSE, and RxJS integrations remain on demand; their rules live in \`docs/DATA_ACCESS.md\`.
-
-Mantine theme, tokens, layout, component hierarchy, interaction states, responsive behavior, accessibility, and host-specific UI rules live in \`docs/MANTINE_UI_GUIDELINES.md\`. The generated appearance control follows the system setting by default and lets users choose light or dark mode.
-
-Project-local \`.agents/skills/design-taste-frontend/\` provides optional visual guidance for landing pages, portfolios, and redesigns. It is installed automatically when missing; valid existing files are preserved. Read the applicability rules in \`docs/MANTINE_UI_GUIDELINES.md\` before using it. For product work, use \`$web-define-product\` to clarify and record the PRD in \`docs/product_spec/\`, then \`$web-design-prototype\` to present 2–3 interactive HTML alternatives. Select a specific revision before \`$web-implement-change\` starts development. Initialization only distributes these project-local Skills; it does not run this workflow or create business records.
-
-## Identity and brand
-
-- \`.harness/project.json\` is the identity and brand source of truth.
-- \`.harness/brand/logo-1024.png\` is the canonical logo.
-- Run \`pnpm harness brand refresh\` after changing the project name, id, description, identityI18n, color, or logo source.
-- Optional identityI18n selects defaultLocale (en or zh_CN) and translations of the other language. Root name/description remain the default identity; missing translations fall back to them.
-${config.projectType === "extension" ? "- Browser identity uses manifest __MSG_projectName__/__MSG_projectDescription__, explicit default_locale, and root locales/{en,zh_CN}/messages.json. Plasmo outputs _locales. Both Chrome MV3 and Firefox MV2 are required build/package targets. Plasmo dynamically generates each manifest; shared overrides do not pin manifest_version. Future development must handle browser API, permissions, messaging and background lifecycle differences; see docs/ENGINEERING_RULES.md.\n" : ""}
-- \`.env.development\`, \`.env.test\`, and \`.env.production\` are the complete governed public runtime profiles; see \`docs/RUNTIME_CONFIGURATION.md\`.
-
-## Commands
-
-- \`pnpm dev\` — start development.
-${config.projectType === "extension" ? "- `pnpm dev:firefox` — develop Firefox MV2; build/package produce both browser targets.\n" : ""}
-${routeCommand}- \`pnpm env:validate\` — validate all three runtime profiles.
-- \`pnpm build\` / \`pnpm build:release\` — the single Release artifact entry point; the build reuses the E2E selection already confirmed for this release, runs environment, Harness, format, lint, type, and full test gates, injects ${versionDescription} into the UI, and inspects the artifact. Non-interactive runs pass \`--e2e=enabled|disabled\`. Development and test profiles never produce a final artifact.
-- \`pnpm release:inspect\` — rescan the existing Release artifact for configuration or source leakage.
-- \`pnpm test\` — run the full test suite.
-- \`pnpm test:related <changed-source...>\` — run only tests related to changed sources, for daily work.
-- \`pnpm lint\` and \`pnpm typecheck\` — run static checks.
-- \`pnpm harness brand refresh\` — regenerate brand assets from \`.harness/project.json\`.
-- \`pnpm harness validate\` — validate project identity, layout, and assets.
-
-## Validation scopes
-
-Daily work runs only the related non-empty tests or smallest substitute checks needed by the change, usually through \`pnpm test:related\`; a zero-test batch is not evidence, so fall back to the owning test file. Do not automatically add format, lint, typecheck, repository-wide checks, or builds. Behavior-preserving refactors run the full \`pnpm test\`. Any final artifact goes through \`pnpm build\`, which already owns the full environment/Harness/format/lint/type/test/inspect chain — do not re-run those gates manually around it.
-`
-}
-
 // 执行 prepareLicenseFiles 函数的处理逻辑。
 async function prepareLicenseFiles(
   root: string,
   config: ProjectConfig
 ): Promise<Map<string, string>> {
-  // 保存 replacements 变量供当前逻辑使用。
   const replacements = [
     [
       "LICENSE.en.md",
@@ -360,24 +299,17 @@ async function prepareLicenseFiles(
       `适用项目名称：${config.name}。`
     ]
   ] as const
-  // 保存 contentsByFile 变量供当前逻辑使用。
   const contentsByFile = await Promise.all(
-    replacements.map(
-      /* 执行 当前声明 函数的处理逻辑。 */ ([file]) => readFile(path.join(root, file), "utf8")
-    )
+    replacements.map(([file]) => readFile(path.join(root, file), "utf8"))
   )
-  // 保存 files 变量供当前逻辑使用。
   const files = new Map<string, string>()
-  replacements.forEach(
-    /* 执行 当前声明 函数的处理逻辑。 */ ([file, before, after], index) => {
-      // 保存 contents 变量供当前逻辑使用。
-      const contents = contentsByFile[index]
-      if (contents === undefined || contents.split(before).length !== 2) {
-        throw new Error(`Cannot safely replace project name in ${file}`)
-      }
-      files.set(file, contents.replace(before, after))
+  replacements.forEach(([file, before, after], index) => {
+    const contents = contentsByFile[index]
+    if (contents === undefined || contents.split(before).length !== 2) {
+      throw new Error(`Cannot safely replace project name in ${file}`)
     }
-  )
+    files.set(file, contents.replace(before, after))
+  })
   return files
 }
 
@@ -398,13 +330,18 @@ export async function prepareDownstreamFinalization(
   config: ProjectConfig,
   agentPolicy: AgentPolicySelection
 ): Promise<DownstreamFinalizationPlan> {
-  // 保存 [canonicalDataAccess, canonicalMantineUiGuidelines, canonicalAgentPolicy] 变量供当前逻辑使用。
-  const [canonicalDataAccess, canonicalMantineUiGuidelines, canonicalAgentPolicy] =
-    await Promise.all([
-      readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8"),
-      readFile(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"), "utf8"),
-      readFile(path.join(root, "docs/AGENT_POLICY.md"), "utf8")
-    ])
+  // 预检唯一源文档，任何派生合同缺失均在写入前失败。
+  const [
+    canonicalDataAccess,
+    canonicalMantineUiGuidelines,
+    canonicalAgentPolicy,
+    canonicalEngineeringRules
+  ] = await Promise.all([
+    readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8"),
+    readFile(path.join(root, "docs/MANTINE_UI_GUIDELINES.md"), "utf8"),
+    readFile(path.join(root, "docs/AGENT_POLICY.md"), "utf8"),
+    readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")
+  ])
   const canonicalPolicyErrors = [
     ...validateAgentPolicyDocument(canonicalAgentPolicy, {
       allowPending: true,
@@ -426,7 +363,6 @@ export async function prepareDownstreamFinalization(
   if (downstreamPolicyErrors.length > 0) {
     throw new Error(`Invalid downstream Agent policy:\n- ${downstreamPolicyErrors.join("\n- ")}`)
   }
-  // 保存 files 变量供当前逻辑使用。
   const files = new Map<string, string>([
     [".harness/tooling/cli.ts", TERMINAL_CLI],
     [".harness/tooling/brand.ts", TERMINAL_BRAND],
@@ -436,32 +372,26 @@ export async function prepareDownstreamFinalization(
     ["AGENTS.md", downstreamAgents(config)],
     ["docs/AGENT_POLICY.md", downstreamAgentPolicy]
   ])
-  // 保存 [relativePath, contents] 变量供当前逻辑使用。
-  for (const [relativePath, contents] of downstreamGovernanceFiles(
-    config,
-    canonicalDataAccess,
-    canonicalMantineUiGuidelines
-  )) {
+  for (const [relativePath, contents] of downstreamGovernanceFiles(config, {
+    dataAccess: canonicalDataAccess,
+    mantineUiGuidelines: canonicalMantineUiGuidelines,
+    engineeringRules: canonicalEngineeringRules
+  })) {
     files.set(relativePath, contents)
   }
-  // 保存 [relativePath, contents] 变量供当前宿主构建器终端化使用。
   for (const [relativePath, contents] of buildToolingFiles(config)) {
     files.set(relativePath, contents)
   }
-  // 保存 [relativePath, contents] 变量供当前逻辑使用。
   for (const [relativePath, contents] of await prepareLicenseFiles(root, config)) {
     files.set(relativePath, contents)
   }
   await Promise.all(
-    [...files.keys()].map(
-      /* 执行 当前声明 函数的处理逻辑。 */ async (relativePath) => {
-        // 保存 existing 变量供当前逻辑使用。
-        const existing = await lstatIfPresent(path.join(root, relativePath))
-        if (existing !== undefined && !existing.isFile()) {
-          throw new Error(`Downstream output path must be a regular file: ${relativePath}`)
-        }
+    [...files.keys()].map(async (relativePath) => {
+      const existing = await lstatIfPresent(path.join(root, relativePath))
+      if (existing !== undefined && !existing.isFile()) {
+        throw new Error(`Downstream output path must be a regular file: ${relativePath}`)
       }
-    )
+    })
   )
   return { files }
 }
@@ -473,12 +403,10 @@ export async function finalizeDownstream(
   agentPolicy: AgentPolicySelection,
   plan?: DownstreamFinalizationPlan
 ): Promise<void> {
-  // 保存 prepared 变量供当前逻辑使用。
   const prepared = plan ?? (await prepareDownstreamFinalization(root, config, agentPolicy))
   await Promise.all(
-    [...prepared.files].map(
-      /* 执行 当前声明 函数的处理逻辑。 */ ([relativePath, contents]) =>
-        writeAtomic(path.join(root, relativePath), contents)
+    [...prepared.files].map(([relativePath, contents]) =>
+      writeAtomic(path.join(root, relativePath), contents)
     )
   )
 
@@ -488,20 +416,17 @@ export async function finalizeDownstream(
   ]
   await Promise.all(
     terminalizationExcludedPaths
-      .filter(
-        // 执行 当前声明 函数的处理逻辑。
-        (relativePath) => relativePath !== ".harness/tooling/finalize.ts"
-      )
-      .map(
-        /* 执行 当前声明 函数的处理逻辑。 */ (relativePath) => removeIfPresent(root, relativePath)
-      )
+      .filter((relativePath) => relativePath !== ".harness/tooling/finalize.ts")
+      .map((relativePath) => removeIfPresent(root, relativePath))
   )
-  if (config.projectType === "extension") {
-    await removeIfPresent(root, ".agents/skills/web-implement-list-view")
-  } else {
-    await removeIfPresent(root, ".agents/skills/web-review-extension-compatibility")
+  // 删除另一宿主专属的 Skill，名单与验证器共用同一来源。
+  const foreignSkills =
+    config.projectType === "extension"
+      ? EXPECTED_WEB_ONLY_TERMINAL_SKILLS
+      : EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS
+  for (const skillName of foreignSkills) {
+    await removeIfPresent(root, `.agents/skills/${skillName}`)
   }
-  // 保存 scriptsPath 变量供当前逻辑使用。
   const scriptsPath = path.join(root, "scripts")
   if (
     await readdir(scriptsPath)

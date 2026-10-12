@@ -17,7 +17,8 @@ import {
   resolveInitOptions
 } from "../.harness/tooling/cli.ts"
 import { parseArgs } from "../.harness/tooling/args.ts"
-import { collectPromptedIdentity, parsePolicyMode } from "../.harness/tooling/prompts.ts"
+import { parsePolicyMode } from "../.harness/tooling/initialization-input.ts"
+import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
 import { repositoryRoot } from "./harness-tooling-support.ts"
 
 /** 生成已解析下游策略文档，便于逐项篡改边界。 */
@@ -322,7 +323,6 @@ e2e_hint: pending
 
   /** 验证并行正文必须同时锁定当前请求与已启用的持久策略。 */
   test("locks both write-parallel preconditions in the policy body", async () => {
-    // 保存 source 变量供正文原值和削弱变体校验使用。
     const source = await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
     expect(validateAgentPolicyBody(source)).toEqual([])
     // 保存 weakened 变量，模拟删除持久 enabled 合取条件。
@@ -368,7 +368,6 @@ e2e_hint: pending
 
   /** 验证用户可见 Task 开关、标题与内部结构不得占用序号的关键段落不能删除。 */
   test("locks the complete user-owned Task lifecycle template", async () => {
-    // 保存 source 变量供逐项删除关键通用契约使用。
     const source = await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
     expect(source).toContain("`user_owned_tasks: disabled` 是默认状态")
     expect(source).toContain("内部 Subagent 不使用本标题合同、不占用 Task 序号")

@@ -252,8 +252,8 @@ describe("repository-local Git commit configuration", () => {
       "utf8"
     )
 
-    expect(template).toContain("# Impact:")
-    expect(template).toContain("# Test:")
+    expect(template).toContain("# 影响：")
+    expect(template).toContain("# 验证：")
     expect(template).toContain(
       "feat | fix | refactor | perf | ui | style | docs | test | build | ci | chore | revert"
     )

@@ -49,24 +49,26 @@ e2e_hint: pending
 
 每个项目同一时间只允许一个写入型 active 用户可见 Task；Task0 可以协调和派发，但不得代替实施 Task 写入。`parallel_worktree_subagents` 只控制当前 Task 内部按用户明确要求创建的 Subagent Worktree，既不创建用户可见 Task，也不改变本节开关或粒度。
 
+Task 环境优先采用用户已记录的 `task_worktrees` 选择：`enabled` 为独立 Worktree，`disabled` 为保存项目的 Local；非 Git 始终 Local。没有该选择时本项目默认 Git Worktree，不推断应用开关，也不向本文件 YAML 增加字段。环境派发时冻结，后续绑定按该实际环境核对。
+
 ### 创建状态机
 
-1. **RESOLVED**：依次调用 `list_projects` 和 `list_threads`。按规范化完整路径精确锁定项目名称、`projectId`、Git 状态与保存路径，确认本项目没有另一个写入型 active Task，并清点当前与归档标题分配序号。Git 项目固定选择 `target.type = project`、精确 `projectId` 和 `environment.type = worktree`；非 Git 项目固定使用同一 project target 与 `environment.type = local`。不得使用 projectless、其他项目或普通 Worktree 代替 user-owned Task。
+1. **RESOLVED**：依次调用 `list_projects` 和 `list_threads`。按规范化完整路径精确锁定项目名称、`projectId`、Git 状态与保存路径，确认本项目没有另一个写入型 active Task，并清点当前与归档标题分配序号。所有 Task 固定选择 `target.type = project` 与精确 `projectId`；`environment.type` 按上述实际选择使用 `worktree|local`，非 Git 使用 `local`。不得使用 projectless、其他项目或普通 Worktree 代替 user-owned Task。
 2. **DISPATCHED**：对一个结果只调用一次 user-owned `create_thread`，显式传入 `title="Task {序号} | 已分配 | {单一结果}"`。返回真实 `threadId` 才能继续；只返回 `clientThreadId` 表示仍在 setup，必须报告 queued 并保持零实现，不得声称 Ready、把它传给要求 `threadId` 的工具、重复创建或在当前 Task/plan/Subagent 中代做。`SETUP_PENDING` 不是失败。
 3. **VERIFIED**：取得真实 `threadId` 后立即用 `list_threads` 精确核对该 id 的标题、`projectId`、cwd 和状态。目标 Task 可以已经合法进入 `运行中`，但 Task 编号与单一结果必须保持不变。左侧不可见、字段为空/错误、标题不合规或候选有歧义都立即阻断，禁止创建重复 Task 碰运气。
-4. **BOUND**：首次写入前核对工作区干净及起始提交正确。Git Task 分别在保存项目和 Task Worktree 执行 `git rev-parse --path-format=absolute --git-common-dir`，确认两者 Git common dir 相同，并用 `git worktree list --porcelain` 确认当前顶层已登记；非 Git Task 的 cwd 必须等于保存项目完整路径。任一绑定、工作区或基线不符时保持零实现，不退化为 plan、Subagent、Local Git checkout 或普通 Worktree。
+4. **BOUND**：首次写入前核对工作区干净及起始提交正确。Git Worktree Task 分别在保存项目和 Task Worktree 执行 `git rev-parse --path-format=absolute --git-common-dir`，确认两者 Git common dir 相同，并用 `git worktree list --porcelain` 确认当前顶层已登记；Git Local Task 核对 cwd/顶层等于保存项目完整路径、common-dir 和冻结分支/HEAD，不要求独立 Worktree；非 Git Task 的 cwd 必须等于保存项目完整路径。任一绑定、工作区或基线不符时保持零实现，不绕过冻结环境退化为 plan、Subagent 或普通 Worktree。
 
 ### 命名、基线与分支
 
 - 用户可见 Task 遵守 `Task {序号} | {当前进度} | {单一结果}`。创建后以真实 id、标题和 `projectId` 对账，标题不承担身份判断；`threadId`/`clientThreadId` 不生成序号。
 - Task 描述记录稳定 Task 编号、单一结果、实施范围、禁止范围、完成条件、独立 ASCII `task-slug`、目标 `projectId`、保存项目完整路径、Git repository identity 和起始分支/提交。显示标题与 Git 摘要互不推导。
-- 所有 Git Task 无论只读、Harness 维护或下游产品写入，都必须从派发前选定并记录的精确已提交 OID 创建。用户明确指定 branch/ref 时解析其完整 commit OID；否则冻结保存项目默认分支当时的 HEAD，不硬编码 `main`/`master`，也不主动 fetch/pull。创建后必须复核 Task 起始 HEAD 与记录 OID 精确一致；缺少提交、ref/OID 漂移、分叉或存在需要携带的未提交状态时停止创建，不使用 `working-tree` 起点，也不把未提交修改复制进新 Task。
-- Git Task 在自己的已登记 Worktree 建立唯一 `codex/task-<task-slug>`；Ready Task 可能从 detached HEAD 开始，首次编辑前必须确认真实 Git 顶层、common dir 与登记关系，再创建并切换该分支。不复用别的 Task Worktree 或分支。`task-slug` 只服务安全分支命名，不是显示标题。非 Git Local Task 不执行 Git 分支步骤。
+- 所有 Git Task 无论只读、Harness 维护或下游产品写入，都必须从派发前选定并记录的精确已提交 OID 创建。用户明确指定 branch/ref 时解析其完整 commit OID；未指定时 Git Worktree 冻结保存项目默认分支当时的 HEAD，Git Local 冻结保存项目当前分支及 HEAD，不硬编码 `main`/`master`，也不主动 fetch/pull。Local 的显式 ref 与当前分支/HEAD 不匹配时先按已有授权处理，不偷偷切换或带入未提交状态。创建后必须复核 Task 起始 HEAD 与记录 OID 精确一致；缺少提交、ref/OID 漂移、分叉或存在需要携带的未提交状态时停止创建，不使用 `working-tree` 起点，也不把未提交修改复制进新 Task。
+- Git Worktree Task 在自己的已登记 Worktree 建立唯一 `codex/task-<task-slug>`；Ready Task 可能从 detached HEAD 开始，首次编辑前必须确认真实 Git 顶层、common dir 与登记关系，再创建并切换该分支。不复用别的 Task Worktree 或分支。`task-slug` 只服务安全分支命名，不是显示标题。Git Local Task 复用已冻结的项目分支并串行，不擅自切换分支；非 Git Local Task 不执行 Git 分支步骤。
 
 ### 执行、提交与边界
 
-- Git Task 只在自己的独立 Worktree 修改文件，不直接编辑 Local 主工作目录，也不进入、清理或复用其他 Task 的 Worktree。非 Git Task 只在绑定的 Local 项目目录修改。两者都保护已有修改且不得扩大固定范围。
-- 每完成一个能够独立说明结果的逻辑闭环就提交一次。提交前按 `$web-configure-git-commits` 检查仓库本地身份和受管模板；简单变化可只写主题，非简单变化保留 Why/Changes/Impact/Test，未运行测试明确写 `Not run` 原因。忽略生成物不得加入提交。
+- Git Worktree Task 只在自己的独立 Worktree 修改文件，不直接编辑 Local 主工作目录，也不进入、清理或复用其他 Task 的 Worktree；Git Local 与非 Git Task 只在已绑定项目的 Local 目录按单一写入占用执行。两者都保护已有修改且不得扩大固定范围。
+- 每完成一个能够独立说明结果的逻辑闭环就提交一次。提交前按 `$web-configure-git-commits` 检查仓库本地身份和受管模板；简单变化可只写主题，主题摘要和正文使用中文，非简单变化保留“原因、变更、影响、验证”，未运行测试明确写 `未执行` 原因。忽略生成物不得加入提交。
 - Task 不自行合并默认/集成分支，不删除其他 Worktree，不执行推送、发布、部署、上传或其他未在任务描述中明确授权的外部副作用。
 - 最终交付前必须确认任务要求的测试已经执行、相关权威文档已经同步、全部任务改动已经提交，并且工作区干净。适用目标必须编译并验证真实目标行为；任务没有可编译产物或完整候选不在范围内时，必须把该项明确报告为 `Not applicable` 或 `Not run`，不得伪造通过，也不得因此自动扩大为构建/E2E/完整验收。
 
@@ -94,7 +96,7 @@ Task 绑定：
 
 工作方式：
 
-- Git 项目使用独立且已登记的 Codex Worktree；非 Git 项目使用绑定项目的 Local 环境。
+- 填写本次冻结的 Worktree/Local 及其选择来源；Git Worktree 必须独立且已登记，Local 必须绑定保存项目目录。
 - 同一项目不得与另一写入型 active 用户可见 Task 并发。
 - 先读取 `AGENTS.md`、`docs/AGENT_POLICY.md` 与本目标精确命中的事实来源。
 - 保护已有修改，不扩大范围。
@@ -134,8 +136,8 @@ Task 绑定：
 
 ## 初始化与持久化
 
-- `$web-instantiate-project` 首轮一次收集尚未明确的项目类型、名称、id、目标路径和策略模式；策略以中文“预设”（推荐）或“自定义”提示。项目类型不得有默认值；推荐预设必须显式确认。Web 说明默认使用显示名称；Extension 说明必须非空且询问缺失值。身份默认语言与翻译可通过初始化本地化输入提供，品牌生成/导入及预览按 `$web-prepare-brand-identity` 执行。三环境 BaseURL 可留空，开发地址可主动提供或后续配置，测试/正式地址不在首轮询问；正式发布前必须补齐 HTTPS 正式地址。品牌输入可选，确认来源不作为用户必填项。
-- 选择自定义后，`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint` 每轮只询问一个当前缺失字段；用户一次主动提供多个合法字段时全部复用。`user_owned_tasks` 的推荐/default 值都是 `disabled`。
+- `$web-instantiate-project` 按依赖顺序逐项引导尚未明确的项目类型、名称、id、目标路径和策略模式，每轮优先问一个问题并复用已有合法答案；不要求一次交齐。项目类型和适用的 Web 类型不得有默认值；可靠的 id 推导可作建议，策略以中文“预设”（推荐）或“自定义”提示。CLI 题面明确“回车采用”后可接受配置建议，最终创建仍须明确确认。Web 说明默认使用显示名称；Extension 说明必须非空且询问缺失值。身份默认语言与翻译可通过初始化本地化输入提供，品牌生成/导入及预览按 `$web-prepare-brand-identity` 执行。三环境 BaseURL 可留空，开发地址可主动提供或后续配置，测试/正式地址不在首轮询问；正式发布前必须补齐 HTTPS 正式地址。品牌输入可选，确认来源不作为用户必填项。
+- 选择自定义后，`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint` 每轮只询问一个当前缺失或非法字段，并以同名预设值为建议默认值；CLI 明确提示后回车表示采用，用户一次主动提供多个合法字段时全部复用。`user_owned_tasks` 的推荐/default 值都是 `disabled`。
 - 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: disabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。默认关闭的内部并行只限制当前 Task 的 `codex/unit-*` 写入单元，不影响用户明确创建的左侧 Git Task；预设只是输入捷径，不新增持久字段，也不得在用户未确认时静默采用其他值。
 - 五项值全部解析后才以 `schema_version: 3` 一次原子写入本文件；`confirmed_by` 自动记录为“当前用户”，已明确提供合法来源时复用，`confirmed_at` 记录最终收齐日期。内部初始化链只验证并复用，不重复询问。
 - `pending` 只允许存在于源 Harness 或未完成 staging。最终下游任何 `pending`、空确认来源或非法确认日期都阻断原子发布。

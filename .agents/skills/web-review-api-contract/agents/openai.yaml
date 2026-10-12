@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：核对 API 契约"
+  short_description: "只读核对接口契约与 API 实现的关联、差异和当前操作的阻断缺口"
+  default_prompt: "使用 $web-review-api-contract 为当前操作核对可信接口契约与 API 实现，返回来源、关联、差异和待确认项，不联网或修改实现。"

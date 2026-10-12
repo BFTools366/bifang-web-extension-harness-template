@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施写操作恢复"
+  short_description: "处理重复提交、并发冲突、超时未知结果及写入成功后的精确刷新恢复"
+  default_prompt: "使用 $web-implement-write-recovery 按当前写操作的真实契约完善幂等、未知结果查询、冲突和成功后刷新恢复，避免重复副作用。"

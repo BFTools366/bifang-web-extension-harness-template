@@ -11,14 +11,15 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 
 1. 仅在已初始化下游运行：先确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，在分析或记录业务需求前停止，要求切换到下游后重提。Harness 自身维护本 Skill 不受此限制。
 2. 初始化仅分发 Skills，不执行需求澄清、PRD、原型或选择，不增加初始化问题，也不读写全局 Skills。
-3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；按 [PRD 结构](references/prd-outline.md) 补齐当前范围。
+3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；按 [PRD 结构](references/prd-outline.md) 补齐当前范围。按工程规则“渐进式交互引导”只逐项澄清影响当前方案的关键缺口，并给可靠建议默认值；非阻断技术未知明确标注，不为补齐所有 PRD 栏目重启问卷。具体原型版本仍须用户明确选定。
 4. Product Spec 就是唯一 PRD 正文，不另建重复的 `docs/prd/`。需求状态 `Approved` 只证明需求已确认，不能代替用户选择原型。选择证据只在对应 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。
+5. Web 按 [Web 类型与可选能力](references/prd-outline.md#web-类型与可选能力) 继承 PRD 的业务类型、购买开关与相关 SaaS 合同。同一批候选只改变视觉/交互组织：购买关闭时不增加购买菜单或流程，后台管理目标组织不模拟为切换操作者身份。Extension 跳过本节业务类型规则。
 
 ## 产出与自查
 
 1. 为本轮范围分配稳定 kebab-case `scope`，如 `account-settings`；新增版本目录 `docs/prototypes/<scope>/v1/`，后续修订递增且保留旧版本。每个候选使用独立 `a.html`、`b.html`、可选 `c.html`，并保持同一份需求范围，不能让某个方案偷偷增加功能。
 2. 每个候选是可离线打开的独立 HTML，内联 CSS/JS 与所需小型资源，不引用 CDN、远程脚本或真实接口，不新增依赖。涵盖本轮主线、明确的按钮目的地，以及相关的加载、空、成功、错误、禁用与恢复交互；示例数据和模拟结果有清楚标识。不要做只有截图或失效按钮的原型。
-3. 遵循现有品牌、Mantine 令牌与宿主尺寸。HTML 是评审媒介，实际开发仍用现有 React/Mantine/TypeScript/i18n。Web 覆盖所需桌面/移动布局；Extension 明确 Popup/Options 等 surface，不把 HTML 模拟当成浏览器权限/API 或 Chrome/Firefox 兼容证据。`design-taste-frontend` 仅按现有 UI 规范的适用边界调用。
+3. 遵循现有品牌、Mantine 令牌与宿主尺寸。HTML 是评审媒介，实际开发仍用现有 React/Mantine/TypeScript/i18n。Web 覆盖所需桌面/移动布局；Extension 明确 弹出页（Popup）、选项页（Options）等界面，不把 HTML 模拟当成浏览器权限/API 或 Chrome/Firefox 兼容证据。`design-taste-frontend` 仅按现有 UI 规范的适用边界调用。
 4. 展示前检查主线、跳转、关键状态、键盘/焦点、标签、溢出和响应式；按当前范围记录证据、问题与未执行项到版本目录的 `review.md`。有浏览器能力时打开原型走查；没有时保留可打开文件并明确浏览器未检查。此检查不触发发布构建、候选验收或 E2E。
 5. 将影响规则、数据、状态和验收的原型发现回写 PRD，与用户确认实质需求变化，消除阻断未决项后再登记候选。仅有视觉组织差异不改业务范围。
 6. 在下游根运行项目本地命令，参数用实际路径替换：

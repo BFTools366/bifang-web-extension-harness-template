@@ -37,7 +37,6 @@ function normalizeRelativePath(relativePath: string): string {
 
 /** 判断文件是否属于明确排除的生成物或外部内容。 */
 export function isSourceSizePolicyExcluded(relativePath: string): boolean {
-  // 保存 normalized 变量供当前逻辑使用。
   const normalized = normalizeRelativePath(relativePath)
   if (EXACT_EXCLUDED_FILES.has(normalized)) return true
   return normalized
@@ -48,14 +47,12 @@ export function isSourceSizePolicyExcluded(relativePath: string): boolean {
 /** 计算源码文本的物理行数，不把末尾换行计为额外空行。 */
 export function countSourceLines(source: string): number {
   if (source.length === 0) return 0
-  // 保存 normalized 变量供当前逻辑使用。
   const normalized = source.replace(/\r\n?/gu, "\n")
   return normalized.split("\n").length - (normalized.endsWith("\n") ? 1 : 0)
 }
 
 /** 根据行数返回建议复核或强制失败结果。 */
 export function inspectSourceSize(file: string, source: string): SourceSizeFinding | undefined {
-  // 保存 lines 变量供当前逻辑使用。
   const lines = countSourceLines(source)
   if (lines > SOURCE_SIZE_HARD_LIMIT) return { file, lines, severity: "error" }
   if (lines > SOURCE_SIZE_REVIEW_LIMIT) return { file, lines, severity: "review" }
@@ -84,64 +81,41 @@ const SOURCE_CODE_SUFFIXES = new Set([
 
 /** 扫描项目内全部人工维护的前端和 Node 工具代码。 */
 export async function inspectProjectSourceSizes(rootInput: string): Promise<SourceSizeFinding[]> {
-  // 保存 root 变量供当前逻辑使用。
   const root = path.resolve(rootInput)
-  // 保存 files 变量供当前逻辑使用。
   const files = await walkFiles(root, {
-    // 执行 当前声明 函数的处理逻辑。
     exclude: (name) => EXCLUDED_DIRECTORIES.has(name),
-    // 执行 当前声明 函数的处理逻辑。
     filter: (name) => SOURCE_CODE_SUFFIXES.has(path.extname(name).toLowerCase())
   })
-  // 保存 findings 变量供当前逻辑使用。
   const findings = await Promise.all(
-    files.map(
-      /* 执行 当前声明 函数的处理逻辑。 */ async (absolutePath) => {
-        // 保存 relativePath 变量供当前逻辑使用。
-        const relativePath = normalizeRelativePath(path.relative(root, absolutePath))
-        if (isSourceSizePolicyExcluded(relativePath)) return undefined
-        // 保存 source 变量供当前逻辑使用。
-        const source = await readFile(absolutePath, "utf8")
-        return inspectSourceSize(relativePath, source)
-      }
-    )
+    files.map(async (absolutePath) => {
+      const relativePath = normalizeRelativePath(path.relative(root, absolutePath))
+      if (isSourceSizePolicyExcluded(relativePath)) return undefined
+      const source = await readFile(absolutePath, "utf8")
+      return inspectSourceSize(relativePath, source)
+    })
   )
   return findings
-    .filter(
-      /* 执行 当前声明 函数的处理逻辑。 */ (finding): finding is SourceSizeFinding =>
-        finding !== undefined
-    )
+    .filter((finding): finding is SourceSizeFinding => finding !== undefined)
     .sort(/* 执行 当前声明 函数的处理逻辑。 */ (left, right) => left.file.localeCompare(right.file))
 }
 
 /** 执行源码体积门禁并输出建议项。 */
 async function assertProjectSourceSizes(rootInput: string): Promise<void> {
-  // 保存 findings 变量供当前逻辑使用。
   const findings = await inspectProjectSourceSizes(rootInput)
-  // 保存 reviews 变量供当前逻辑使用。
-  const reviews = findings.filter(
-    /* 执行 当前声明 函数的处理逻辑。 */ (finding) => finding.severity === "review"
-  )
-  // 保存 errors 变量供当前逻辑使用。
-  const errors = findings.filter(
-    /* 执行 当前声明 函数的处理逻辑。 */ (finding) => finding.severity === "error"
-  )
+  const reviews = findings.filter((finding) => finding.severity === "review")
+  const errors = findings.filter((finding) => finding.severity === "error")
   if (reviews.length > 0) {
     console.warn(
-      `Source size review recommended:\n${reviews
-        .map(
-          /* 执行 当前声明 函数的处理逻辑。 */ (finding) =>
-            `- ${finding.file}: ${finding.lines} lines; review business cohesion and single responsibility`
-        )
+      `建议复核文件规模：\n${reviews
+        .map((finding) => `- ${finding.file}: ${finding.lines} 行；请复核业务内聚性与单一职责`)
         .join("\n")}`
     )
   }
   if (errors.length > 0) {
     throw new Error(
-      `Source size policy failed:\n${errors
+      `文件规模检查失败：\n${errors
         .map(
-          /* 执行 当前声明 函数的处理逻辑。 */ (finding) =>
-            `- ${finding.file}: ${finding.lines} lines; split by business responsibility within the same module directory`
+          (finding) => `- ${finding.file}: ${finding.lines} 行；请在同一模块目录内按业务职责拆分`
         )
         .join("\n")}`
     )
@@ -150,20 +124,17 @@ async function assertProjectSourceSizes(rootInput: string): Promise<void> {
 
 /** 执行源码体积检查命令行入口。 */
 async function runCli(): Promise<void> {
-  // 保存 command 变量供当前逻辑使用。
   const command = process.argv[2]
   if (command !== "check" || process.argv.length > 3) {
-    throw new Error("Usage: tsx .harness/tooling/source-size-policy.ts check")
+    throw new Error("用法：tsx .harness/tooling/source-size-policy.ts check")
   }
   await assertProjectSourceSizes(process.cwd())
-  console.log("Source size policy passed")
+  console.log("文件规模检查通过")
 }
 
 if (isMainModule(import.meta.url)) {
-  runCli().catch(
-    /* 执行 当前声明 函数的处理逻辑。 */ (error: unknown) => {
-      console.error(error instanceof Error ? error.message : String(error))
-      process.exitCode = 1
-    }
-  )
+  runCli().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
 }
