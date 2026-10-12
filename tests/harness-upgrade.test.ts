@@ -66,6 +66,39 @@ describe("three-way Harness upgrade", () => {
     }
   )
 
+  /** 验证真实规模的计划与基线超过管道缓冲区后仍能完整读取并继续规划。 */
+  test("replans a baseline larger than the child stdout buffer", async () => {
+    const fixture = await upgradeFixture()
+    const relativeRoot = ".agents/skills/web-define-product/references"
+    await Promise.all(
+      [fixture.target, fixture.candidate].map(async (root) => {
+        const directory = path.join(root, relativeRoot)
+        await mkdir(directory, { recursive: true })
+        await Promise.all(
+          Array.from({ length: 220 }, (_, index) =>
+            writeFile(path.join(directory, `contract-${index}.md`), "# Shared contract\n")
+          )
+        )
+      })
+    )
+    const planPath = await persistPlan(fixture, "large-bootstrap")
+    await recordUpgradeBaseline({
+      planPath,
+      sourceVersion: "202609090101",
+      sourceCommit: fixture.sourceCommit,
+      bootstrap: true,
+      approval: "bootstrap-verified-baseline",
+      resolvedManual: []
+    })
+    expect((await readFile(fixture.lock)).length).toBeGreaterThan(64 * 1024)
+    expect(await planFor(fixture)).toMatchObject({
+      bootstrap: false,
+      blocked: false,
+      manualRequired: false,
+      problems: []
+    })
+  })
+
   /** 验证 bootstrap、单路径 managed 更新、重规划和基线记录闭环。 */
   test("applies one reviewed managed update and records a converged baseline", async () => {
     const fixture = await upgradeFixture()

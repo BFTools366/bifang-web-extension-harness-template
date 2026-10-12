@@ -129,91 +129,95 @@ const emitRead = (observed) => {
         snapshot: observed.value
       }))
 }
-const rootStatus = fs.statSync(".", { bigint: true })
-if (!rootStatus.isDirectory() || !sameIdentity(rootStatus, instruction.rootDev, instruction.rootIno)) {
-  fail("bound root directory changed before traversal")
-}
-const lexicalRoot = fs.realpathSync(instruction.root)
-if (lexicalRoot !== instruction.root) fail("bound root path is no longer canonical")
-const rootLstat = fs.lstatSync(instruction.root, { bigint: true })
-if (rootLstat.isSymbolicLink() || !rootLstat.isDirectory() || !sameIdentity(rootLstat, instruction.rootDev, instruction.rootIno)) {
-  fail("bound root path changed before traversal")
-}
-visited.push({ absolute: instruction.root, dev: instruction.rootDev, ino: instruction.rootIno })
-const segments = instruction.relativePath.split("/")
-let lexical = instruction.root
-for (const segment of segments.slice(0, -1)) {
-  let before
-  try {
-    before = fs.lstatSync(segment, { bigint: true })
-  } catch (error) {
-    if (instruction.operation === "read" && instruction.allowMissing && error && error.code === "ENOENT") {
-      verifyVisited()
-      emitRead(null)
-      process.exit(0)
+// 以自然退出等待 stdout 管道写完，读取早退不进入写入分支。
+function executeInstruction() {
+  const rootStatus = fs.statSync(".", { bigint: true })
+  if (!rootStatus.isDirectory() || !sameIdentity(rootStatus, instruction.rootDev, instruction.rootIno)) {
+    fail("bound root directory changed before traversal")
+  }
+  const lexicalRoot = fs.realpathSync(instruction.root)
+  if (lexicalRoot !== instruction.root) fail("bound root path is no longer canonical")
+  const rootLstat = fs.lstatSync(instruction.root, { bigint: true })
+  if (rootLstat.isSymbolicLink() || !rootLstat.isDirectory() || !sameIdentity(rootLstat, instruction.rootDev, instruction.rootIno)) {
+    fail("bound root path changed before traversal")
+  }
+  visited.push({ absolute: instruction.root, dev: instruction.rootDev, ino: instruction.rootIno })
+  const segments = instruction.relativePath.split("/")
+  let lexical = instruction.root
+  for (const segment of segments.slice(0, -1)) {
+    let before
+    try {
+      before = fs.lstatSync(segment, { bigint: true })
+    } catch (error) {
+      if (instruction.operation === "read" && instruction.allowMissing && error && error.code === "ENOENT") {
+        verifyVisited()
+        emitRead(null)
+        return
+      }
+      throw error
     }
-    throw error
+    if (before.isSymbolicLink() || !before.isDirectory()) fail("bound path parent is not a real directory")
+    process.chdir(segment)
+    const current = fs.statSync(".", { bigint: true })
+    if (!current.isDirectory() || !sameIdentity(current, String(before.dev), String(before.ino))) {
+      fail("bound path parent changed during traversal")
+    }
+    lexical = path.join(lexical, segment)
+    visited.push({ absolute: lexical, dev: String(before.dev), ino: String(before.ino) })
+    verifyVisited()
   }
-  if (before.isSymbolicLink() || !before.isDirectory()) fail("bound path parent is not a real directory")
-  process.chdir(segment)
-  const current = fs.statSync(".", { bigint: true })
-  if (!current.isDirectory() || !sameIdentity(current, String(before.dev), String(before.ino))) {
-    fail("bound path parent changed during traversal")
+  const leaf = segments.at(-1)
+  if (!leaf || leaf.includes("/") || leaf.includes("\\")) fail("bound file leaf is invalid")
+  if (instruction.operation === "read") {
+    const observed = snapshot(leaf, instruction.allowMissing)
+    verifyVisited()
+    if (instruction.enforceExpected && !sameSnapshot(observed === null ? null : observed.value, instruction.expected)) {
+      fail("bound file changed after plan verification")
+    }
+    emitRead(observed)
+    return
   }
-  lexical = path.join(lexical, segment)
-  visited.push({ absolute: lexical, dev: String(before.dev), ino: String(before.ino) })
-  verifyVisited()
-}
-const leaf = segments.at(-1)
-if (!leaf || leaf.includes("/") || leaf.includes("\\")) fail("bound file leaf is invalid")
-if (instruction.operation === "read") {
-  const observed = snapshot(leaf, instruction.allowMissing)
-  verifyVisited()
-  if (instruction.enforceExpected && !sameSnapshot(observed === null ? null : observed.value, instruction.expected)) {
-    fail("bound file changed after plan verification")
-  }
-  emitRead(observed)
-  process.exit(0)
-}
-let temporaryCreated = false
-try {
-  const observed = snapshot(leaf, instruction.expected === null)
-  if (!sameSnapshot(observed === null ? null : observed.value, instruction.expected)) {
-    fail("bound target changed before mutation")
-  }
-  const digest = crypto.createHash("sha256").update(payload).digest("hex")
-  if (digest !== instruction.sha256) fail("replacement payload digest is invalid")
-  const writeFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollow
-  const descriptor = fs.openSync(instruction.temporary, writeFlags, instruction.mode)
-  temporaryCreated = true
+  let temporaryCreated = false
   try {
-    let offset = 0
-    while (offset < payload.length) offset += fs.writeSync(descriptor, payload, offset)
-    fs.fchmodSync(descriptor, instruction.mode)
-    fs.fsyncSync(descriptor)
+    const observed = snapshot(leaf, instruction.expected === null)
+    if (!sameSnapshot(observed === null ? null : observed.value, instruction.expected)) {
+      fail("bound target changed before mutation")
+    }
+    const digest = crypto.createHash("sha256").update(payload).digest("hex")
+    if (digest !== instruction.sha256) fail("replacement payload digest is invalid")
+    const writeFlags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | noFollow
+    const descriptor = fs.openSync(instruction.temporary, writeFlags, instruction.mode)
+    temporaryCreated = true
+    try {
+      let offset = 0
+      while (offset < payload.length) offset += fs.writeSync(descriptor, payload, offset)
+      fs.fchmodSync(descriptor, instruction.mode)
+      fs.fsyncSync(descriptor)
+    } finally {
+      fs.closeSync(descriptor)
+    }
+    verifyVisited()
+    const beforeReplace = snapshot(leaf, instruction.expected === null)
+    if (!sameSnapshot(beforeReplace === null ? null : beforeReplace.value, instruction.expected)) {
+      fail("bound target changed before replacement")
+    }
+    fs.renameSync(instruction.temporary, leaf)
+    temporaryCreated = false
+    const replacement = snapshot(leaf, false)
+    if (replacement === null || !sameSnapshot(replacement.value, { sha256: instruction.sha256, mode: instruction.mode })) {
+      fail("replacement verification failed")
+    }
+    if (process.platform !== "win32") {
+      const directoryDescriptor = fs.openSync(".", fs.constants.O_RDONLY)
+      try { fs.fsyncSync(directoryDescriptor) } finally { fs.closeSync(directoryDescriptor) }
+    }
   } finally {
-    fs.closeSync(descriptor)
-  }
-  verifyVisited()
-  const beforeReplace = snapshot(leaf, instruction.expected === null)
-  if (!sameSnapshot(beforeReplace === null ? null : beforeReplace.value, instruction.expected)) {
-    fail("bound target changed before replacement")
-  }
-  fs.renameSync(instruction.temporary, leaf)
-  temporaryCreated = false
-  const replacement = snapshot(leaf, false)
-  if (replacement === null || !sameSnapshot(replacement.value, { sha256: instruction.sha256, mode: instruction.mode })) {
-    fail("replacement verification failed")
-  }
-  if (process.platform !== "win32") {
-    const directoryDescriptor = fs.openSync(".", fs.constants.O_RDONLY)
-    try { fs.fsyncSync(directoryDescriptor) } finally { fs.closeSync(directoryDescriptor) }
-  }
-} finally {
-  if (temporaryCreated) {
-    try { fs.unlinkSync(instruction.temporary) } catch {}
+    if (temporaryCreated) {
+      try { fs.unlinkSync(instruction.temporary) } catch {}
+    }
   }
 }
+executeInstruction()
 `
 
 /** 校验一个规范、安全且非根的 POSIX 相对文件路径。 */
