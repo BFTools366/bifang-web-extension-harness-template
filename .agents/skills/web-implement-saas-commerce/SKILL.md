@@ -5,7 +5,7 @@ description: 在已初始化 React Web 的 SaaS 客户端中设计或实施明�
 
 # Web Harness：设计与实施可选 SaaS 购买
 
-维护可复用的商品购买、订单查询与钱包管理需求、用户 SOP 和中性设计。源 Harness 只分发本 Skill 及参考资产，不生成产品页面、不连接支付服务，也不开放预留的 SaaS 创建选项。
+维护可复用的商品购买、订单查询与钱包管理需求、用户 SOP 和中性设计。源 Harness 只分发本 Skill 及参考资产，不生成产品页面、不连接支付服务，创建时选 SaaS 客户端也不自动启用购买；创建后的范围确认见 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop)。
 
 ## 启用边界
 

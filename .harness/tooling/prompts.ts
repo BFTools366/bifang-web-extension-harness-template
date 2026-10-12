@@ -8,7 +8,8 @@ import type {
   AgentPolicyMode,
   AgentPolicySelection,
   InitOptions,
-  ProjectType
+  ProjectType,
+  WebCreationType
 } from "./types.ts"
 
 import {
@@ -18,11 +19,7 @@ import {
   requiredText,
   WEB_TYPE_LABELS
 } from "./initialization-input.ts"
-import type {
-  InteractiveQuestion,
-  PromptDefaults,
-  WebCreationType
-} from "./initialization-input.ts"
+import type { InteractiveQuestion, PromptDefaults } from "./initialization-input.ts"
 
 /** 描述基础表单解析完成后的项目身份与 Agent 策略。 */
 export interface PromptedIdentity {

@@ -12,7 +12,7 @@ pnpm instantiate -- <absolute-target-outside-harness> ...
 
 需要两个宿主时建立两个仓库。相同技术选型不等于共享业务源码；下游不保留添加/删除宿主、workspace、`apps/`、`packages/` 或共享 core。
 
-Web 创建类型选择及 SaaS 预留选项的停止边界见 [`../TS_WEB_TEMPLATE.md`](../TS_WEB_TEMPLATE.md) §2；分类不增加宿主。
+三种 Web 创建类型选择及下游交接边界见 [`../TS_WEB_TEMPLATE.md`](../TS_WEB_TEMPLATE.md) §2；分类不增加宿主。
 
 ## Extension 双浏览器兼容
 

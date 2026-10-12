@@ -7,7 +7,7 @@
 - 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-target-outside-harness> ...`；目标必须位于源 Harness 之外。
 - 源 Harness 不提供 `pnpm harness:init` script；`pnpm harness init` 明确拒绝原地初始化。底层 initializer 只作为 `instantiate` 在目标同级 同级暂存目录 中调用的内部步骤。
 - 非交互 CLI 必须传入 `--type web` 或 `--type extension`；交互式 TTY 必须提示用户选择且不得提供默认类型。
-- 选择 Web 后必须显式选择 `webType`，不设默认值；工具站点沿用现有流程，两个 SaaS 选项仅预留，流程暂未开放。该选择不增加宿主或改变 `.harness/project.json` 的 Schema。
+- 选择 Web 后必须显式选择 `webType`，不设默认值；工具站点、SaaS 客户端和大后台均可创建中性 Web 工程，并交接对应开发 SOP。该选择不增加宿主或改变 `.harness/project.json` 的 Schema。
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
 - 不支持 `both`，不提供默认类型，也不提供下游 target add/remove。
 - Web 与 Extension 是两个独立模板；它们不在同一仓库共存，不共享源码、状态、测试、品牌派生或构建产物。
@@ -34,7 +34,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 目标必须位于源 Harness 目录之外、不存在或为空，并且 basename 与 `--id` 完全相同。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
 - `--name` 是用户可见名称。
-- `--web-type` 仅用于 Web，必填且无默认值：`tool-site`（1.工具站点）沿用现有流程；`saas-client`（2.SaaS客户端）和 `saas-admin`（3.SaaS大后台）是合法预留选项，选择后在任何初始化写入前报告“创建流程暂未开放”并停止，不套用工具站点流程。交互字段为 `webType`，接受编号、中文名称或稳定值；已提供的选择直接复用，明确 Web 后优先逐项补问。Extension 不接受该字段。选择仅用于创建解析和汇总，不写入下游身份配置。
+- `--web-type` 仅用于 Web，必填且无默认值：`tool-site`（1.工具站点）、`saas-client`（2.SaaS客户端）和 `saas-admin`（3.SaaS大后台）均沿用中性 Web 工程初始化事务，不生成产品页面或业务 PRD。交互字段为 `webType`，接受编号、中文名称或稳定值；已提供的选择直接复用，明确 Web 后优先逐项补问。Extension 不接受该字段。明确选择保留在下游 README 创建交接，首次需求直接复用，不写入下游身份配置。
 - `--id` 是包名和确定性品牌生成使用的稳定标识，必须是小写 kebab-case，并通过生成器的跨平台安全校验。
 - 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
@@ -53,7 +53,7 @@ pnpm instantiate -- /absolute/path/example-extension --type extension \
 
 ### Web 业务类型与创建选项的区别
 
-创建期 `webType` 只用于解析与汇总；工具站点可创建，两个 SaaS 类型在补问后续基础字段或写入前停止，不新增身份 Schema 字段。已初始化 Web 的业务模式另在下游唯一 PRD 中明确采用 `tool-site|saas-client|saas-admin`，客户端购买默认关闭，选择依据与日期一并记录。需求、原型、实施、服务接入和模块文档统一遵循 [Web 类型与可选能力](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)；通用能力分发不代表产品模式已采用或真实服务已接入。
+三种创建期 `webType` 均可生成 Web 工程，选择保留在下游 README 的“创建交接”；不新增身份 Schema 字段或预建业务记录。首次需求复用明确选择，已有已确认 PRD 时以其当前模式为准。创建后的阶段与模式 SOP 统一见 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop)。已初始化 Web 的业务模式另在下游唯一 PRD 中明确采用 `tool-site|saas-client|saas-admin`，客户端购买默认关闭，选择依据与日期一并记录。需求、原型、实施、服务接入和模块文档统一遵循 [Web 类型与可选能力](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)；通用能力分发不代表产品模式已采用或真实服务已接入。
 
 ### 3.1 单一事实源
 
@@ -167,7 +167,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 | 路由            | TanStack Router 文件路由                       | Vite plugin 生成路由树并自动 route 拆包                                                 |
 | 异步数据        | TanStack Query                                 | 负责远端数据、缓存、重试和失效                                                          |
 | HTTP 与分页     | Ky HTTP + 统一分页基础                         | 生成 client/测试但不生成业务 endpoint                                                   |
-| SaaS 认证       | `$web-implement-saas-auth`                     | 仅已初始化 Web 明确选择客户端/大后台时触发；初始化只分发，创建期 SaaS 仍预留            |
+| SaaS 认证       | `$web-implement-saas-auth`                     | 仅已初始化 Web 明确选择客户端/大后台时触发；初始化只分发，成功下游复用创建选择进入 SOP  |
 | 可选 SaaS 购买  | `$web-implement-saas-commerce`                 | 默认关闭，仅已初始化 Web SaaS 客户端明确选中后应用；提供购买、订单与钱包 SOP 和中性参考 |
 | SaaS 大后台管理 | `$web-implement-saas-admin`                    | 仅已初始化 Web 明确采用大后台时应用；提供商品分类、组织成员、订单与权限审计 SOP         |
 | 列表页          | `$web-implement-list-view`                     | 仅真实重复记录页触发；不强制 Table/DnD，不在初始化中生成业务 UI                         |
@@ -429,7 +429,7 @@ pnpm harness validate
 
 初始化只有同时满足以下条件才算完成：
 
-1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；Web 已显式选择工具站点，预留 SaaS 选项不会生成项目。
+1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；Web 已显式选择三种合法类型之一，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。

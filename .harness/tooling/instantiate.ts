@@ -4,6 +4,7 @@ import path from "node:path"
 import { promisify } from "node:util"
 import { checkCommitConfiguration } from "../../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { normalizeAgentPolicy } from "./agent-policy.ts"
+import { assertWebCreationType } from "./initialization-input.ts"
 import { createProjectConfig, INSTANTIATION_ONLY_EXCLUDED_PATHS } from "./config.ts"
 import { ENVIRONMENT_FILES, FORBIDDEN_ENVIRONMENT_FILES, validateBaseUrls } from "./environment.ts"
 import { initializeProject } from "./init.ts"
@@ -121,6 +122,9 @@ export async function instantiateProject(
   options: InstantiateOptions,
   initialize: ProjectInitializer = initializeProject
 ): Promise<ProjectConfig> {
+  if (options.init.webType !== undefined) {
+    assertWebCreationType(options.init.projectType, options.init.webType)
+  }
   // 保存 requestedSourceRoot 变量，在 realpath 前拒绝符号链接源根。
   const requestedSourceRoot = path.resolve(options.sourceRoot)
   const sourceStatus = await lstat(requestedSourceRoot)

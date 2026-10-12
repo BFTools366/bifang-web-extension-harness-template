@@ -17,7 +17,7 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 2. 要求 `.harness/project.json` 存在且有效，读取其身份与唯一类型；缺失时不得伪造下游身份或继续产品分析。再读取存在时最新 Product Spec，以及与当前问题直接相关的 Status、ADR 和现有 UI；初始化脚手架不是产品意图证据。
 3. 确认固定 `projectType`，不得切换或增加第二类型。若需要另一项目，回到源 Harness 只完成固定初始化表单；新下游建立后由用户在该项目根重新提出产品需求，不能把本轮产品内容带回模板源。
 4. 先从现有事实提取目标用户、主要场景、输入、输出、痛点、数据边界和成功结果。以下是 Agent 按当前范围检查的维度，不是一次性用户问卷：
-   - Web 按 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力) 复用或确认业务类型、购买选择及采用依据，记录在唯一 PRD；明确路由/页面范围、访问方式、浏览器支持、development/test/release 远端服务与隐私边界。仅对本轮已采用的 SaaS 范围读取对应认证、购买或后台 Skill 合同；不把创建期预留选项或安装 Skill 视为采用事实。
+   - Web 按 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力) 复用或确认业务类型、购买选择及采用依据，记录在唯一 PRD；明确路由/页面范围、访问方式、浏览器支持、development/test/release 远端服务与隐私边界。仅对本轮已采用的 SaaS 范围读取对应认证、购买或后台 Skill 合同；首次需求读取 README 创建交接并复用用户明确选择的类型，不重复询问；已有已确认 PRD 时以其当前模式为准，不把安装 Skill 视为功能启用或权限。创建后的步骤按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 关联。
    - Extension 明确 popup/options/content/background 场景、三环境远端服务、站点匹配、Chrome MV3 / Firefox MV2 的权限、API/消息/后台差异、数据存储和宿主限制，既定两目标兼容由执行 Agent 自行保证。
    - 两种类型按真实接入需要确认单一 BaseURL 是否足够或需要多个受控远端基地址；Release 日志细节到接入或发布需要时补齐，不阻断最小 PRD。浏览器公开配置不能被定义为秘密存储。
 5. 按 [下游 PRD 结构](../web-design-prototype/references/prd-outline.md) 将聚焦结果的目标、`包含`、`不包含`、假设、约束、可靠性/无障碍要求和可观察成功标准记录到唯一 Product Spec（PRD）。给本轮范围和需求稳定 ID；按真实复杂度补数据模型、主线、状态及异常恢复，不为简单需求强制套全部框架。只有缺失会破坏最小完整闭环或安全性时才扩大当前范围。

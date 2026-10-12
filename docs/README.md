@@ -23,7 +23,7 @@
 
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3 为准。
 
-已初始化 React Web 的 SaaS 客户端/大后台认证需求、用户 SOP 与实施合同见 [`$web-implement-saas-auth`](../.agents/skills/web-implement-saas-auth/SKILL.md)。源只维护通用能力；不会生成产品页面或开放预留创建流程。
+已初始化 React Web 的 SaaS 客户端/大后台认证需求、用户 SOP 与实施合同见 [`$web-implement-saas-auth`](../.agents/skills/web-implement-saas-auth/SKILL.md)。源只维护通用能力；三种 Web 类型均可创建中性工程，产品页面在成功下游按 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 完成。
 
 可选 SaaS 客户端购买能力见 [`$web-implement-saas-commerce`](../.agents/skills/web-implement-saas-commerce/SKILL.md)：默认关闭，明确选中后才应用树形分类、商品、钱包支付、原订单续付和账户刷新；附[中性设计说明](../.agents/skills/web-implement-saas-commerce/references/neutral-ui-design.md)与[离线交互示例](../.agents/skills/web-implement-saas-commerce/assets/commerce-reference.html)。
 

@@ -4,11 +4,10 @@ import { refreshBrand } from "./brand.ts"
 import { assertProjectType } from "./config.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
-  assertWebCreationAvailable,
+  assertWebCreationType,
   parsePolicyMode,
   parseWebCreationType,
-  type PromptDefaults,
-  type WebCreationType
+  type PromptDefaults
 } from "./initialization-input.ts"
 import { isInteractiveTerminal, promptForIdentity, type PromptedIdentity } from "./prompts.ts"
 import { recommendedAgentPolicy } from "./agent-policy.ts"
@@ -57,7 +56,7 @@ function usage(): string {
   pnpm harness validate
 
 禁止原地初始化；创建项目必须且只能选择一种宿主类型。
-Web 类型：1.工具站点（现有流程）；2.SaaS客户端、3.SaaS大后台（选项预留，流程暂未开放）。
+Web 类型：1.工具站点；2.SaaS客户端；3.SaaS大后台，均创建中性 Web 工程并交接对应开发 SOP。
 `
 }
 
@@ -141,7 +140,7 @@ export async function resolveInitOptions(
   args: ParsedArgs,
   root: string,
   runtime: InitOptionsResolutionRuntime = {}
-): Promise<InitOptions & { webType?: WebCreationType }> {
+): Promise<InitOptions> {
   assertKnownOptions(args, INIT_OPTIONS)
   const interactive = runtime.interactive ?? isInteractiveTerminal()
   const suppliedBrandColor = readStringOption(args, "brand-color")
@@ -183,10 +182,6 @@ export async function resolveInitOptions(
   if (interactive) {
     identity = await (runtime.promptIdentity ?? promptForIdentity)(supplied)
   } else {
-    // 明确选择的 Web 预留流程优先结束，不要求补齐不会被采用的基础字段。
-    if (supplied.projectType === "web" && supplied.webType !== undefined) {
-      assertWebCreationAvailable("web", supplied.webType)
-    }
     if (missing.length > 0) {
       throw new Error(
         `Non-interactive initialization is missing required option(s): ${missing.join(", ")}`
@@ -196,7 +191,7 @@ export async function resolveInitOptions(
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
   assertProjectType(identity.projectType)
-  assertWebCreationAvailable(identity.projectType, identity.webType)
+  assertWebCreationType(identity.projectType, identity.webType)
   const agentPolicy =
     "agentPolicy" in identity && identity.agentPolicy !== undefined
       ? identity.agentPolicy

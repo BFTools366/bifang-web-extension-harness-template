@@ -16,11 +16,11 @@ export function downstreamAgents(config: ProjectConfig): string {
       : "`package.json.version` 的稳定 SemVer（`X.Y.Z`）"
   const hostMinimumReading =
     config.projectType === "web"
-      ? `Web 业务工作按 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力) 复用已确认 PRD 的业务模式和可选能力。宿主身份保持 \`web\`，创建期选择不持久化；需求、原型、实施与 HTTP 接入复用同一事实。读取领域 Skill 只补充当前阶段的合同，随后返回调用方，不重新启动整套流程。
+      ? `Web 业务工作按 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力) 复用已确认 PRD 的业务模式和可选能力。宿主身份保持 \`web\`；首次需求读取 README 的“创建交接”并复用明确类型，已有已确认 PRD 时以其当前模式为准，不重复询问。按 [创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 交接；需求、原型、实施与 HTTP 接入复用同一事实。读取领域 Skill 只补充当前阶段的合同，随后返回调用方，不重新启动整套流程。
 
 列表、数据表格、后台列表或搜索结果任务读取 \`docs/MANTINE_UI_GUIDELINES.md\` 与 \`docs/DATA_ACCESS.md\`，并在实施流程中调用 \`$web-implement-list-view\`。
 
-明确采用 SaaS 客户端或大后台认证时，调用 \`$web-implement-saas-auth\`，复用用户操作流程和限定范围的 LocalStorage 凭据例外；这不开放 SaaS 创建流程，也不为普通站点自动增加认证。
+明确采用 SaaS 客户端或大后台认证时，调用 \`$web-implement-saas-auth\`，复用用户操作流程和限定范围的 LocalStorage 凭据例外；工程创建只提供中性基线，不为普通站点自动增加认证。
 
 明确选中 SaaS 客户端可选购买能力时，调用 \`$web-implement-saas-commerce\`。购买默认关闭，功能选择不授予权限。复用服务端钱包支付选项，重试支付前恢复原订单，确认成功后刷新账户数据；该能力不适用于 SaaS 大后台。
 

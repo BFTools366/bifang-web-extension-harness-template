@@ -19,18 +19,18 @@
 
 你可以随提示词一起提供以下信息，也可以让 Agent 逐项引导。每次优先问一个关键问题，有可靠默认值时给出建议；已有答案直接复用，无需一次填写整份表格：
 
-| 信息       | 如何填写                                                                              |
-| ---------- | ------------------------------------------------------------------------------------- |
-| 项目类型   | `web`（React Web）或 `extension`（Chrome MV3 / Firefox MV2 扩展），每个项目只选一种   |
-| Web 类型   | 选择 Web 后必选：1.工具站点（现有流程）；2.SaaS客户端；3.SaaS大后台，后两项流程待开放 |
-| 项目名称   | 页面或扩展中显示的名称                                                                |
-| 项目标识   | 以小写字母开头，使用小写字母与数字，单个连字符分隔非空片段，例如 `example-web`        |
-| 目标目录   | 模板目录之外的绝对路径；目录不存在或为空，目录名与项目标识一致                        |
-| Agent 策略 | 选择“预设”（推荐）或“自定义”                                                          |
+| 信息       | 如何填写                                                                            |
+| ---------- | ----------------------------------------------------------------------------------- |
+| 项目类型   | `web`（React Web）或 `extension`（Chrome MV3 / Firefox MV2 扩展），每个项目只选一种 |
+| Web 类型   | 选择 Web 后必选：1.工具站点；2.SaaS客户端；3.SaaS大后台，三种均可创建               |
+| 项目名称   | 页面或扩展中显示的名称                                                              |
+| 项目标识   | 以小写字母开头，使用小写字母与数字，单个连字符分隔非空片段，例如 `example-web`      |
+| 目标目录   | 模板目录之外的绝对路径；目录不存在或为空，目录名与项目标识一致                      |
+| Agent 策略 | 选择“预设”（推荐）或“自定义”                                                        |
 
 开发 API 地址可选，可在创建时提供或后续配置；测试和正式 API 地址无需在初始化时填写。三份配置仍会生成，未提供的地址留空，正式发布前必须补齐 HTTPS 正式地址。已提供的地址必须是无凭据、查询参数或片段的绝对 HTTP(S) URL。Web 说明可默认使用显示名称；Extension 必须提供非空简短说明（`--description`），交互时只询问缺失值。不询问确认来源。Logo 和品牌色可以同时提供；Agent 创建流程先完成 Logo 生成/导入与预览，CLI 未提供 `--logo` 时使用离线确定性生成器。创建汇总和结果均列出母版及当前宿主的派生图标。名称与说明的本地化输入见 [初始化契约](docs/TS_WEB_TEMPLATE.md#34-extension-品牌同步)。
 
-Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md)汇总创建参数，并在确认后执行创建。Web 类型不设默认值；工具站点沿用现有初始化逻辑，选择 SaaS客户端或 SaaS大后台时提示流程暂未开放，并在创建目录、安装依赖和初始化 Git 前停止。非交互 Web 命令必须显式传入 `--web-type tool-site`。本地需要 Git、Node.js `>=26.10.0` 和 pnpm `12.8.1`；Agent 会检查创建环境，工具缺失或需要升级时再指导你准备。
+Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md)汇总创建参数，并在确认后执行创建。Web 类型不设默认值；工具站点、SaaS 客户端和大后台均沿用安全的中性工程初始化事务。非交互 Web 命令必须显式传入 `--web-type tool-site|saas-client|saas-admin`。创建选择保留在下游 README 的“创建交接”，成功后切换到下游按 [创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 继续。本地需要 Git、Node.js `>=26.10.0` 和 pnpm `12.8.1`；Agent 会检查创建环境，工具缺失或需要升级时再指导你准备。
 
 ### 创建后会得到什么
 
@@ -49,13 +49,13 @@ Agent 会复用已提供的合法信息，按[初始化表单](.agents/skills/we
 
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`docs/DATA_ACCESS.md`](docs/DATA_ACCESS.md) §1.1–1.3 为准。
 
-已初始化 Web 需要 SaaS 认证时，使用独立 [`$web-implement-saas-auth`](.agents/skills/web-implement-saas-auth/SKILL.md) 完善登录、退出、注册/找回、组织切换、路由与权限 SOP；大后台不含注册和组织切换。Skill 只分发通用能力，创建期 SaaS 选项仍待开放，具体需求在下游记录。
+已初始化 Web 需要 SaaS 认证时，使用独立 [`$web-implement-saas-auth`](.agents/skills/web-implement-saas-auth/SKILL.md) 完善登录、退出、注册/找回、组织切换、路由与权限 SOP；大后台不含注册和组织切换。初始化分发通用能力，具体需求、原型及认证页面在下游按所选模式完成。
 
 SaaS 客户端可明确选中独立 [`$web-implement-saas-commerce`](.agents/skills/web-implement-saas-commerce/SKILL.md)；默认关闭，选中后才应用商品购买、订单查询与钱包管理。它包含树形分类、服务端钱包支付选项、原订单续付及支付后账户刷新 SOP，并附[离线中性界面参考](.agents/skills/web-implement-saas-commerce/assets/commerce-reference.html)。源只分发能力与示例，不创建产品订单或开通真实支付。
 
 SaaS 大后台管理使用 [`$web-implement-saas-admin`](.agents/skills/web-implement-saas-admin/SKILL.md)：提供商品与树形分类、组织与成员、订单管理，补齐钱包/支付查询、平台访问控制和操作审计的页面与 SOP。管理目标组织不切换登录身份，改价保留历史订单快照，钱包默认只读；具体服务能力在已初始化下游采用。
 
-工具站点、SaaS 客户端与 SaaS 大后台统一遵循 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)：创建期选择不持久化，下游业务模式与购买选择由唯一 PRD 记录；需求、原型、实现和真实接入复用同一事实。创建期 SaaS 仍保持预留，不因安装 Skill 而启用。
+工具站点、SaaS 客户端与 SaaS 大后台统一遵循 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)：创建选择仅作为 README 交接输入，首次需求直接复用；下游当前业务模式与购买选择由唯一 PRD 记录，需求、原型、实现和真实接入复用同一事实。安装 Skill 不自动实现产品功能。
 
 三项 SaaS 能力共用 [API 关联表](docs/API.md#saas-能力与-api-关联)：映射已有认证操作、协议与字段，列明组织切换/权限、购买及后台管理的服务契约缺口。需要整理接口文档或公开 API 实际变化时，在下游调用 [`$web-document-api`](.agents/skills/web-document-api/SKILL.md)，依据当前 API 实现、类型与相关测试写入 `docs/api/`：每个模块一份文档，并生成索引；实现/接入流程仅同步受影响模块。REST 展示接口名称、接口说明、请求路径、请求方法、请求头、请求与响应数据，JSON 数据使用字段表；GraphQL 展示接口名称、接口说明与有来源的 Schema。初始化只分发 Skill，不生成业务接口文档。
 

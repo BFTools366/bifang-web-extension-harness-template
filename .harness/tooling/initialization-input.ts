@@ -2,10 +2,7 @@ import path from "node:path"
 import { parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
-import type { AgentPolicyMode, ProjectType } from "./types.ts"
-
-/** 枚举创建 Web 时的三个产品形态，仅工具站点已开放流程。 */
-export type WebCreationType = "tool-site" | "saas-client" | "saas-admin"
+import type { AgentPolicyMode, ProjectType, WebCreationType } from "./types.ts"
 
 /** 保存创建表单与汇总共用的 Web 类型名称。 */
 export const WEB_TYPE_LABELS: Record<WebCreationType, string> = {
@@ -23,20 +20,17 @@ export function parseWebCreationType(value: string): WebCreationType {
   )
   if (selected !== undefined) return selected
   throw new Error(
-    "Web 类型必须选择：1.工具站点（tool-site）/ 2.SaaS客户端（saas-client，流程待开放）/ 3.SaaS大后台（saas-admin，流程待开放）"
+    "Web 类型必须选择：1.工具站点（tool-site）/ 2.SaaS客户端（saas-client）/ 3.SaaS大后台（saas-admin）"
   )
 }
 
-/** 在初始化写入和策略补问前拒绝不适用字段及尚未开放的 SaaS 流程。 */
-export function assertWebCreationAvailable(projectType: ProjectType, value?: string): void {
+/** 校验显式 Web 类型，并拒绝 Extension 混入不适用的字段。 */
+export function assertWebCreationType(projectType: ProjectType, value?: string): void {
   if (projectType === "extension") {
     if (value?.trim()) throw new Error("--web-type / webType 仅适用于 Web 项目")
     return
   }
-  const type = parseWebCreationType(value ?? "")
-  if (type !== "tool-site") {
-    throw new Error(`${WEB_TYPE_LABELS[type]}创建流程暂未开放；当前仅工具站点可沿用现有流程创建`)
-  }
+  parseWebCreationType(value ?? "")
 }
 
 /** 将中文初始化策略选项与命令行模式统一为稳定内部值。 */
@@ -115,7 +109,7 @@ const BASIC_FIELDS: ReadonlyArray<{
     key: "webType",
     label: "Web 类型",
     constraint:
-      "1.工具站点（tool-site，现有流程）/ 2.SaaS客户端（saas-client，流程待开放）/ 3.SaaS大后台（saas-admin，流程待开放），不设默认值"
+      "1.工具站点（tool-site）/ 2.SaaS客户端（saas-client）/ 3.SaaS大后台（saas-admin），不设默认值"
   },
   { key: "name", label: "项目显示名称", constraint: "非空文本" },
   { key: "id", label: "项目标识", constraint: "小写字母、数字和连字符，例如 my-project" },
@@ -370,7 +364,7 @@ export async function collectBasicFields(
     if (!issues.has("projectType") && !issues.has("webType")) {
       const projectType = normalized.projectType
       if (projectType === "web" || projectType === "extension")
-        assertWebCreationAvailable(projectType, normalized.webType)
+        assertWebCreationType(projectType, normalized.webType)
     }
     if (issues.size === 0) {
       if (normalized.projectType === "extension") inputSources.webType = "不适用"

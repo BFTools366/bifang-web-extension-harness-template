@@ -81,7 +81,7 @@ Dexie 只封装 IndexedDB，不能替换 Cookie、LocalStorage 或 SessionStorag
 
 仅 `projectType=web` 且明确采用 SaaS 客户端或 SaaS 大后台认证时，按用户要求将服务端会话凭据写入 LocalStorage。由认证 feature 经 `src/data/storage/` 维护版本化、项目/模式/环境隔离的必要记录，并恢复到受管 client；默认基础 client、普通站点和 Extension 不启用此行为，continuation 始终只留内存。此段是上文 Token 默认禁持久化规则的限定例外。
 
-使用 `$web-implement-saas-auth`；需求/SOP 与会话实施合同分别位于其 `references/requirements-and-sop.md` 和 `references/session-contract.md`。后者规定写入/删除失败、轮换、跨标签页、XSS 风险和恢复条件；用户/权限不持久化，密码/验证码/日志/URL 不携带凭据。凭据校验操作返回错误时退出，network/timeout 无 HTTP 响应时保留凭据但不新增授权；普通业务 403 仍保留会话。此策略仅在真实 SaaS feature 中装配，不改下文基础 client 默认行为，不开放预留的 SaaS 创建流程。
+使用 `$web-implement-saas-auth`；需求/SOP 与会话实施合同分别位于其 `references/requirements-and-sop.md` 和 `references/session-contract.md`。后者规定写入/删除失败、轮换、跨标签页、XSS 风险和恢复条件；用户/权限不持久化，密码/验证码/日志/URL 不携带凭据。凭据校验操作返回错误时退出，network/timeout 无 HTTP 响应时保留凭据但不新增授权；普通业务 403 仍保留会话。此策略仅在真实 SaaS feature 中装配，不改下文基础 client 默认行为，创建为 SaaS 类型也不代表本地认证或真实服务已实现。
 
 ## 2. 共同边界与统一分页
 

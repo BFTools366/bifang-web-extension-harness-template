@@ -134,7 +134,7 @@ export const SKILL_CONTRACTS = {
   },
   "web-implement-saas-auth": {
     description:
-      "在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension 或自动开放源实例化选项。",
+      "在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension，初始化不生成认证页面。",
     title: "# Web Harness：规范与实施 SaaS 认证",
     displayName: "Web Harness：规范与实施 SaaS 认证",
     shortDescription: "完善 SaaS 客户端与大后台认证 SOP，统一持久会话、路由及权限控制",

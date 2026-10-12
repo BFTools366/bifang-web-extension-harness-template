@@ -31,95 +31,123 @@ import {
 /** 验证 minimal public instantiation inputs 的完整回归场景。 */
 describe("minimal public instantiation inputs", () => {
   /** 验证公开入口凭基础信息与宿主条件选择生成项目，未提供地址保持空值。 */
-  test.each(["web", "extension"] as const)(
-    "creates %s with only required public inputs",
-    async (projectType) => {
-      const parent = await temporaryDirectory("harness-minimal-public-")
-      const id = `minimal-${projectType}`
-      const targetRoot = path.join(parent, id)
-      const config = await runInstantiateCli(
-        [
-          targetRoot,
-          "--type",
-          projectType,
-          ...(projectType === "web" ? ["--web-type", "tool-site"] : []),
-          "--name",
-          "Minimal Project",
-          "--id",
-          id,
-          "--policy-mode",
-          "预设",
-          ...(projectType === "extension" ? ["--description", "Minimal Project"] : [])
-        ],
-        {
-          sourceRoot: repositoryRoot,
-          interactive: false,
-          output: () => undefined,
-          instantiate: (supplied) =>
-            instantiateProject({
-              ...supplied,
-              init: { ...supplied.init, skipInstall: true, skipGit: true }
-            })
-        }
+  test.each([
+    ["web", "tool-site"],
+    ["web", "saas-client"],
+    ["web", "saas-admin"],
+    ["extension", undefined]
+  ] as const)("creates %s %s with only required public inputs", async (projectType, webType) => {
+    const parent = await temporaryDirectory("harness-minimal-public-")
+    const id = `minimal-${projectType}`
+    const targetRoot = path.join(parent, id)
+    const config = await runInstantiateCli(
+      [
+        targetRoot,
+        "--type",
+        projectType,
+        ...(webType === undefined ? [] : ["--web-type", webType]),
+        "--name",
+        "Minimal Project",
+        "--id",
+        id,
+        "--policy-mode",
+        "预设",
+        ...(projectType === "extension" ? ["--description", "Minimal Project"] : [])
+      ],
+      {
+        sourceRoot: repositoryRoot,
+        interactive: false,
+        output: () => undefined,
+        instantiate: (supplied) =>
+          instantiateProject({
+            ...supplied,
+            init: { ...supplied.init, skipInstall: true, skipGit: true }
+          })
+      }
+    )
+    expect(config.description).toBe("Minimal Project")
+    const apiContract = await readFile(path.join(repositoryRoot, "docs/API.md"), "utf8")
+    expect(await readFile(path.join(targetRoot, "docs/API.md"), "utf8")).toBe(apiContract)
+    expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")
+    expect(await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")).toContain("docs/API.md")
+    // 两宿主都分发共同 PRD 合同；只有 Web 入口暴露三类业务导航，链接必须能解析。
+    const prdOutline = ".agents/skills/web-design-prototype/references/prd-outline.md"
+    expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toBe(
+      await readFile(path.join(repositoryRoot, prdOutline), "utf8")
+    )
+    expect(config).not.toHaveProperty("webType")
+    const identity = JSON.parse(
+      await readFile(path.join(targetRoot, ".harness/project.json"), "utf8")
+    )
+    expect(identity).not.toHaveProperty("webType")
+    const readme = await readFile(path.join(targetRoot, "README.md"), "utf8")
+    if (webType !== undefined) {
+      expect(readme).toContain(`创建时明确选择：\`${webType}\``)
+      expect(readme).toContain("来源：本次创建输入")
+      expect(readme).toContain("首次需求工作直接复用此选择")
+      expect(readme).toContain("prd-outline.md#创建与开发-sop")
+      expect((await readdir(path.join(targetRoot, "src/routes"))).sort()).toEqual([
+        "__root.tsx",
+        "index.tsx"
+      ])
+      expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toContain(
+        "### 创建与开发 SOP"
       )
-      expect(config.description).toBe("Minimal Project")
-      const apiContract = await readFile(path.join(repositoryRoot, "docs/API.md"), "utf8")
-      expect(await readFile(path.join(targetRoot, "docs/API.md"), "utf8")).toBe(apiContract)
-      expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")
-      expect(await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")).toContain("docs/API.md")
-      // 两宿主都分发共同 PRD 合同；只有 Web 入口暴露三类业务导航，链接必须能解析。
-      const prdOutline = ".agents/skills/web-design-prototype/references/prd-outline.md"
-      expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toBe(
-        await readFile(path.join(repositoryRoot, prdOutline), "utf8")
-      )
-      expect(config).not.toHaveProperty("webType")
-      for (const relativePath of ["README.md", "docs/README.md", "AGENTS.md"]) {
-        const entryPath = path.join(targetRoot, relativePath)
-        const entry = await readFile(entryPath, "utf8")
-        expect(entry).toContain("$web-document-api")
-        if (projectType === "web") {
-          expect(entry).toContain("prd-outline.md#web-类型与可选能力")
-          for (const skill of ["auth", "commerce", "admin"]) {
-            await expect(
-              readFile(
-                path.join(targetRoot, `.agents/skills/web-implement-saas-${skill}/SKILL.md`),
-                "utf8"
-              )
-            ).resolves.not.toBe("")
-          }
-        } else {
-          expect(entry).not.toContain("web-implement-saas-")
-          expect(entry).not.toContain("prd-outline.md#web-类型与可选能力")
-        }
-        for (const [, destination] of entry.matchAll(/\]\(([^)]+)\)/g)) {
-          if (!destination || /^(?:https?:|#)/.test(destination)) continue
-          const [linkedPath] = destination.split("#")
-          if (!linkedPath) throw new Error(`Missing local link target in ${relativePath}`)
+    } else {
+      expect(readme).not.toContain("## 创建交接")
+    }
+    for (const directory of ["product_spec", "prototypes"]) {
+      await expect(readdir(path.join(targetRoot, "docs", directory))).rejects.toMatchObject({
+        code: "ENOENT"
+      })
+    }
+    for (const relativePath of ["README.md", "docs/README.md", "AGENTS.md"]) {
+      const entryPath = path.join(targetRoot, relativePath)
+      const entry = await readFile(entryPath, "utf8")
+      expect(entry).not.toMatch(/SaaS.*(?:预留|暂未开放|待开放|不开放)/)
+      expect(entry).toContain("$web-document-api")
+      if (projectType === "web") {
+        expect(entry).toContain("prd-outline.md#web-类型与可选能力")
+        for (const skill of ["auth", "commerce", "admin"]) {
           await expect(
-            readFile(path.resolve(path.dirname(entryPath), linkedPath), "utf8")
+            readFile(
+              path.join(targetRoot, `.agents/skills/web-implement-saas-${skill}/SKILL.md`),
+              "utf8"
+            )
           ).resolves.not.toBe("")
         }
+      } else {
+        expect(entry).not.toContain("web-implement-saas-")
+        expect(entry).not.toContain("prd-outline.md#web-类型与可选能力")
       }
-      const prefix = projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
-      for (const filename of [".env.development", ".env.test", ".env.production"]) {
-        expect(await readFile(path.join(targetRoot, filename), "utf8")).toContain(
-          `${prefix}API_BASE_URL=\n`
-        )
+      for (const [, destination] of entry.matchAll(/\]\(([^)]+)\)/g)) {
+        if (!destination || /^(?:https?:|#)/.test(destination)) continue
+        const [linkedPath] = destination.split("#")
+        if (!linkedPath) throw new Error(`Missing local link target in ${relativePath}`)
+        await expect(
+          readFile(path.resolve(path.dirname(entryPath), linkedPath), "utf8")
+        ).resolves.not.toBe("")
       }
-      expect(await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")).toContain(
-        "confirmed_by: 当前用户"
-      )
-      expect(await readdir(targetRoot)).not.toContain("dist")
-      expect(await readdir(targetRoot)).not.toContain("build")
-      const terminalPolicy = await readFile(
-        path.join(targetRoot, ".harness/tooling/agent-policy.ts"),
-        "utf8"
-      )
-      expect(terminalPolicy).not.toContain("AgentPolicyMode")
-      expect(terminalPolicy).not.toContain("parsePolicyMode")
-      expect(terminalPolicy).toContain("validateAgentPolicyDocument")
     }
-  )
+    const prefix = projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
+    for (const filename of [".env.development", ".env.test", ".env.production"]) {
+      expect(await readFile(path.join(targetRoot, filename), "utf8")).toContain(
+        `${prefix}API_BASE_URL=\n`
+      )
+    }
+    expect(await readFile(path.join(targetRoot, "docs/AGENT_POLICY.md"), "utf8")).toContain(
+      "confirmed_by: 当前用户"
+    )
+    expect(await readdir(targetRoot)).not.toContain("dist")
+    expect(await readdir(targetRoot)).not.toContain("build")
+    const terminalPolicy = await readFile(
+      path.join(targetRoot, ".harness/tooling/agent-policy.ts"),
+      "utf8"
+    )
+    expect(terminalPolicy).not.toContain("AgentPolicyMode")
+    expect(terminalPolicy).not.toContain("parsePolicyMode")
+    expect(terminalPolicy).toContain("validateAgentPolicyDocument")
+  })
 
   /** 验证暂存提交模板异常在原子发布前失败，保留缺席或空目标。 */
   test.each([false, true])(

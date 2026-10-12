@@ -1,6 +1,6 @@
 ---
 name: web-implement-saas-auth
-description: 在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension 或自动开放源实例化选项。
+description: 在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension，初始化不生成认证页面。
 ---
 
 # Web Harness：规范与实施 SaaS 认证
@@ -9,9 +9,9 @@ description: 在已初始化 React Web 下游中完善或实施 SaaS 客户端�
 
 ## 适用范围
 
-- 源 Harness 只维护和分发本通用 Skill，不记录具体产品 PRD、服务地址、账号或凭据，不生成认证页面。本 Skill 的存在不开放创建期预留的 SaaS 选项。
+- 源 Harness 只维护和分发本通用 Skill，不记录具体产品 PRD、服务地址、账号或凭据，不生成认证页面。三种 Web 类型均可经源创建入口生成中性工程；本 Skill 只在成功下游的对应需求、原型或实施阶段消费。
 - 产品需求记录、原型或实施只在 `.harness/project.json.projectType=web` 的已初始化下游进行；Extension 不分发也不调用本 Skill。工具站点不自动增加 SaaS 认证。
-- 模式使用 `saas-client`（SaaS 客户端）或 `saas-admin`（SaaS 大后台），统一遵循 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力)。复用当前用户明确选择和 PRD；不从页面名称、目录或创建期临时 `webType` 推断持久模式，不新增身份 Schema 字段。只有当前工作依赖而模式确实缺失时才询问。
+- 模式使用 `saas-client`（SaaS 客户端）或 `saas-admin`（SaaS 大后台），统一遵循 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力)。复用已确认 PRD；首次需求可复用 README 创建交接中用户明确选择的类型，不重问已有选择，不从页面名称或目录推断持久模式，不新增身份 Schema 字段。只有当前工作依赖而模式确实缺失时才询问。
 - 本次只要求需求/SOP 时完成记录，不自动开发页面、接入服务或运行候选验收。实施仍使用 `$web-implement-change` 的工程与检查流程。
 
 ## 按当前任务执行

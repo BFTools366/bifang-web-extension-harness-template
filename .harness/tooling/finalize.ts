@@ -16,7 +16,7 @@ import { downstreamAgents } from "./templates/downstream-agents.ts"
 import { downstreamReadme } from "./templates/downstream-readme.ts"
 import { buildToolingFiles } from "./templates/build.ts"
 import { downstreamGovernanceFiles } from "./templates/downstream-docs.ts"
-import type { AgentPolicySelection, ProjectConfig } from "./types.ts"
+import type { AgentPolicySelection, ProjectConfig, WebCreationType } from "./types.ts"
 
 const TERMINAL_CLI = `import path from "node:path"
 import { pathToFileURL } from "node:url"
@@ -328,7 +328,8 @@ export interface DownstreamFinalizationPlan {
 export async function prepareDownstreamFinalization(
   root: string,
   config: ProjectConfig,
-  agentPolicy: AgentPolicySelection
+  agentPolicy: AgentPolicySelection,
+  webType?: WebCreationType
 ): Promise<DownstreamFinalizationPlan> {
   // 预检唯一源文档，任何派生合同缺失均在写入前失败。
   const [
@@ -368,7 +369,7 @@ export async function prepareDownstreamFinalization(
     [".harness/tooling/brand.ts", TERMINAL_BRAND],
     [".harness/tooling/types.ts", TERMINAL_TYPES],
     [".harness/tooling/config.ts", TERMINAL_CONFIG],
-    ["README.md", downstreamReadme(config)],
+    ["README.md", downstreamReadme(config, webType)],
     ["AGENTS.md", downstreamAgents(config)],
     ["docs/AGENT_POLICY.md", downstreamAgentPolicy]
   ])

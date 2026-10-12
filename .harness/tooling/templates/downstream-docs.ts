@@ -409,7 +409,7 @@ function docsReadme(config: ProjectConfig): string {
 
 按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。独立契约/模块审查、访问控制、写入恢复、存储、持续事件与左侧 Task 入口见 \`AGENTS.md\` 的 Skills 地图。组合与参考资料按需读取遵循 \`ENGINEERING_RULES.md\`，不因分发 Skill 自动启用功能。
 
-${config.projectType === "web" ? "Web 业务类型与可选能力以唯一 PRD 为准，遵循 [统一记录与流程关联](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。工具站点沿用通用流程；SaaS 客户端使用认证及明确选中的购买能力；SaaS 大后台使用认证与管理能力。创建期 SaaS 仍是预留流程。真实服务接入前核对 [SaaS API 关联与契约缺口](API.md#saas-能力与-api-关联)。\n\n" : ""}需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 按接口名称、接口说明、请求路径、请求方法、请求头、请求与响应数据展示，JSON 数据使用字段表；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。
+${config.projectType === "web" ? "Web 业务类型与可选能力以唯一 PRD 为准，遵循 [统一记录与流程关联](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。工具站点沿用通用流程；SaaS 客户端使用认证及明确选中的购买能力；SaaS 大后台使用认证与管理能力。首次需求复用 [README 创建交接](../README.md#创建交接) 的明确类型，再按 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 进入唯一 PRD、原型与实施。真实服务接入前核对 [SaaS API 关联与契约缺口](API.md#saas-能力与-api-关联)。\n\n" : ""}需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 按接口名称、接口说明、请求路径、请求方法、请求头、请求与响应数据展示，JSON 数据使用字段表；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。
 `
 }
 

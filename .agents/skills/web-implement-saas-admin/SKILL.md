@@ -5,7 +5,7 @@ description: 在已初始化 React Web 的 SaaS 大后台中设计或实施商�
 
 # Web Harness：设计与实施 SaaS 大后台管理
 
-为 SaaS 客户端的账户、组织与购买流程提供相应管理能力，保留历史交易和平台权限边界。源 Harness 只维护并分发通用规范，不实现具体产品或开放预留创建流程。
+为 SaaS 客户端的账户、组织与购买流程提供相应管理能力，保留历史交易和平台权限边界。源 Harness 只维护并分发通用规范，不实现具体产品；SaaS 创建成功后按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 在下游采用本合同。
 
 ## 适用边界
 

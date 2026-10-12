@@ -1,7 +1,7 @@
-import type { ProjectConfig } from "../types.ts"
+import type { ProjectConfig, WebCreationType } from "../types.ts"
 
 /** 按当前宿主生成终端 README。 */
-export function downstreamReadme(config: ProjectConfig): string {
+export function downstreamReadme(config: ProjectConfig, webType?: WebCreationType): string {
   const stack =
     config.projectType === "web"
       ? "React、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai 与 i18next"
@@ -14,12 +14,18 @@ export function downstreamReadme(config: ProjectConfig): string {
     config.projectType === "web"
       ? "上海时区 `YYMMDDHHMMSS` 版本"
       : "来自 `package.json.version` 的稳定 SemVer（`X.Y.Z`）版本"
-  // Web 业务导航只分发能力，类型与购买选择由下游唯一 PRD 确认。
+  // 保留明确的创建输入；业务范围与后续模式变更仍由唯一 PRD 管理。
   const webCapabilities =
     config.projectType === "web"
-      ? `## Web 业务类型
+      ? `## 创建交接
 
-当前业务类型与可选能力由已确认 PRD 记录，遵循 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。创建期选择不写入身份字段，SaaS 创建仍是预留流程；安装 Skill 不启用功能，也不授予权限。
+${webType === undefined ? "未记录创建时的 Web 类型；首次涉及业务类型的需求工作再确认，不从已安装 Skill 推断。" : `创建时明确选择：\`${webType}\`。来源：本次创建输入；初始化时间：${config.initializedAt}。首次需求工作直接复用此选择，不重复询问业务类型。`}
+
+本段只保留初始化输入，不是产品规格；已有已确认 PRD 时，以其当前业务类型与范围为准。切换到本项目后，按 [创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 完成需求确认 → 原型选择 → 实施。初始化未实现登录或管理页面、未接入业务服务。
+
+## Web 业务类型
+
+当前业务类型与可选能力由已确认 PRD 记录，遵循 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。三种 Web 类型均可创建；创建选择只保留在上面的交接段，不写入身份字段。安装 Skill 不启用功能，也不授予权限。
 
 | 业务类型 | 适用流程 |
 | --- | --- |

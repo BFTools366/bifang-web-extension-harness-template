@@ -5,6 +5,8 @@ export const PROJECT_TYPES = ["web", "extension"] as const
 
 /** 枚举 Harness 支持且互斥的终端项目类型。 */
 export type ProjectType = (typeof PROJECT_TYPES)[number]
+/** 枚举创建 Web 时明确选择的业务起点，不属于项目身份 Schema。 */
+export type WebCreationType = "tool-site" | "saas-client" | "saas-admin"
 // 定义 E2eSelection 类型约束单次构建选择。
 export type E2eSelection = "enabled" | "disabled"
 /** 枚举初始化时可选择的 Agent 策略模式。 */
@@ -76,6 +78,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   root: string
   // 描述 projectType 接口成员的结构契约。
   projectType: ProjectType
+  // 保存创建期选择，仅用于下游 README 交接，不写入 ProjectConfig。
+  webType?: WebCreationType
   // 描述 name 接口成员的结构契约。
   name: string
   // 描述 id 接口成员的结构契约。

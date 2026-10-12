@@ -2,6 +2,7 @@ import { describe, test } from "vitest"
 import { realpath } from "node:fs/promises"
 import { collectPromptedIdentity, confirmInstantiation } from "../.harness/tooling/prompts.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
+import { createProjectConfig } from "../.harness/tooling/config.ts"
 import {
   TEST_BASE_URLS,
   expect,
@@ -49,7 +50,7 @@ describe("single-package Harness validation and governance", () => {
       expect(question).toContain("1.工具站点")
       expect(question).toContain("2.SaaS客户端")
       expect(question).toContain("3.SaaS大后台")
-      expect(question).toContain("流程待开放")
+      expect(question).not.toContain("流程待开放")
     }
     expect(identity).toMatchObject({
       webType: "tool-site",
@@ -57,107 +58,138 @@ describe("single-package Harness validation and governance", () => {
     })
   })
 
-  /** 验证 SaaS 选项在交互及非交互入口均停止，且缺席或空目标无任何写入。 */
+  /** 验证两种 SaaS 类型都通过公开入口，并准确确认及透传已选模式。 */
   test.each([
-    ["saas-client", "2", "SaaS客户端"],
-    ["saas-admin", "3", "SaaS大后台"]
-  ])("keeps the reserved %s flow closed before writes", async (webType, number, label) => {
+    ["saas-client", "2"],
+    ["saas-admin", "3"]
+  ])("accepts %s in interactive and non-interactive creation", async (webType, number) => {
     for (const interactive of [false, true]) {
-      for (const exists of [false, true]) {
-        const parent = await temporaryDirectory("harness-reserved-web-")
-        const targetRoot = path.join(parent, "reserved-web")
-        if (exists) await mkdir(targetRoot)
-        let instantiated = false
-        let confirmed = false
-        let questions = 0
-        await expect(
-          runInstantiateCli(
-            [
-              targetRoot,
-              "--type",
-              "web",
-              "--name",
-              "Reserved Web",
-              "--id",
-              "reserved-web",
-              "--policy-mode",
-              "自定义",
-              ...(interactive ? [] : ["--web-type", webType])
-            ],
-            {
-              sourceRoot: repositoryRoot,
-              interactive,
-              promptIdentity: (defaults) =>
-                collectPromptedIdentity(defaults, async (question) => {
-                  questions += 1
-                  expect(question).toContain("字段： webType")
-                  return JSON.stringify({ webType: number })
-                }),
-              confirm: async () => {
-                confirmed = true
-                return true
-              },
-              instantiate: async () => {
-                instantiated = true
-                throw new Error("Must not instantiate")
-              }
-            }
-          )
-        ).rejects.toThrow(`${label}创建流程暂未开放`)
-        expect(questions).toBe(interactive ? 1 : 0)
-        expect(confirmed).toBe(false)
-        expect(instantiated).toBe(false)
-        if (exists) expect(await readdir(targetRoot)).toEqual([])
-        else await expect(readdir(targetRoot)).rejects.toMatchObject({ code: "ENOENT" })
-        expect(await readdir(parent)).toEqual(exists ? ["reserved-web"] : [])
-      }
+      const parent = await temporaryDirectory("harness-saas-web-")
+      const targetRoot = path.join(parent, "saas-web")
+      let instantiated = false
+      let confirmed = false
+      let questions = 0
+      const output: string[] = []
+      await runInstantiateCli(
+        [
+          targetRoot,
+          "--type",
+          "web",
+          "--name",
+          "SaaS Web",
+          "--id",
+          "saas-web",
+          "--policy-mode",
+          "预设",
+          ...(interactive ? [] : ["--web-type", webType])
+        ],
+        {
+          sourceRoot: repositoryRoot,
+          interactive,
+          output: (message) => output.push(message),
+          promptIdentity: (defaults) =>
+            collectPromptedIdentity(defaults, async (question) => {
+              questions += 1
+              expect(question).toContain("字段： webType")
+              return JSON.stringify({ webType: number })
+            }),
+          confirm: async (summary) => {
+            confirmed = true
+            expect(summary.init.webType).toBe(webType)
+            expect(summary.inputSources.webType).toBe("交互表单")
+            return true
+          },
+          instantiate: async (supplied) => {
+            instantiated = true
+            expect(supplied.init.webType).toBe(webType)
+            expect(supplied.init.projectType).toBe("web")
+            return createProjectConfig(supplied.init)
+          }
+        }
+      )
+      expect(questions).toBe(interactive ? 1 : 0)
+      expect(confirmed).toBe(interactive)
+      expect(instantiated).toBe(true)
+      expect(output.join("\n")).toContain(webType)
+      expect(output.join("\n")).toContain("需求确认 → 原型选择 → 实施")
     }
   })
 
-  /** 验证交互与公开非交互入口选中预留 SaaS 后立即结束，不收集其他字段或写入目标。 */
-  test.each(["saas-client", "saas-admin"])(
-    "stops %s even when other basic fields are missing",
-    async (webType) => {
-      let questions = 0
+  /** 验证 SaaS 选择继续补齐缺项，既有合法模式不会被重复询问。 */
+  test.each(["saas-client", "saas-admin"])("collects remaining basics for %s", async (webType) => {
+    const parent = await temporaryDirectory("harness-saas-basics-")
+    const targetRoot = path.join(parent, "saas-basics")
+    const answers = [
+      JSON.stringify({ projectType: "web", webType }),
+      "SaaS Basics",
+      "saas-basics",
+      targetRoot,
+      "预设"
+    ]
+    const questions: string[] = []
+    const identity = await collectPromptedIdentity({}, async (question) => {
+      questions.push(question)
+      const answer = answers.shift()
+      if (answer === undefined) throw new Error("Unexpected extra initialization question")
+      return answer
+    })
+    expect(identity.webType).toBe(webType)
+    expect(questions).toHaveLength(5)
+    expect(questions.slice(1).every((question) => !question.includes("字段： webType"))).toBe(true)
+    await expect(
+      runInstantiateCli([targetRoot, "--type", "web", "--web-type", webType], {
+        sourceRoot: repositoryRoot,
+        interactive: false,
+        instantiate: async () => {
+          throw new Error("Must not write with missing basics")
+        }
+      })
+    ).rejects.toThrow(/missing required option/)
+    expect(await readdir(parent)).toEqual([])
+  })
+
+  /** 验证两种 SaaS 仍在最终确认取消时保护缺席或已存在空目标。 */
+  test.each(["saas-client", "saas-admin"])("cancels %s before writes", async (webType) => {
+    for (const exists of [false, true]) {
+      const parent = await temporaryDirectory("harness-saas-cancel-")
+      const targetRoot = path.join(parent, "saas-cancel")
+      if (exists) await mkdir(targetRoot)
       await expect(
-        collectPromptedIdentity({}, async () => {
-          questions += 1
-          if (questions > 1) throw new Error("Must not collect more fields for a reserved flow")
-          return JSON.stringify({ projectType: "web", webType })
-        })
-      ).rejects.toThrow(/创建流程暂未开放/)
-      expect(questions).toBe(1)
-      await expect(
-        collectPromptedIdentity({ projectType: "web", webType }, async () => {
-          throw new Error("Must stop before asking for any missing basic field")
-        })
-      ).rejects.toThrow(/创建流程暂未开放/)
-      for (const exists of [false, true]) {
-        // 缺少名称、标识和策略仍应返回预留类型原因，并保持公开入口零写入。
-        const parent = await temporaryDirectory("harness-reserved-incomplete-")
-        const targetRoot = path.join(parent, "reserved-incomplete")
-        if (exists) await mkdir(targetRoot)
-        await expect(
-          runInstantiateCli([targetRoot, "--type", "web", "--web-type", webType], {
+        runInstantiateCli(
+          [
+            targetRoot,
+            "--type",
+            "web",
+            "--web-type",
+            webType,
+            "--name",
+            "SaaS Cancel",
+            "--id",
+            "saas-cancel",
+            "--policy-mode",
+            "预设"
+          ],
+          {
             sourceRoot: repositoryRoot,
-            interactive: false,
-            promptIdentity: async () => {
-              throw new Error("Must not prompt for a reserved non-interactive flow")
-            },
-            confirm: async () => {
-              throw new Error("Must not confirm a reserved flow")
+            interactive: true,
+            promptIdentity: (defaults) =>
+              collectPromptedIdentity(defaults, async () => {
+                throw new Error("Must reuse all supplied fields")
+              }),
+            confirm: async (summary) => {
+              expect(summary.init.webType).toBe(webType)
+              return false
             },
             instantiate: async () => {
-              throw new Error("Must not instantiate a reserved flow")
+              throw new Error("Must not instantiate after cancellation")
             }
-          })
-        ).rejects.toThrow(/创建流程暂未开放/)
-        if (exists) expect(await readdir(targetRoot)).toEqual([])
-        else await expect(readdir(targetRoot)).rejects.toMatchObject({ code: "ENOENT" })
-        expect(await readdir(parent)).toEqual(exists ? ["reserved-incomplete"] : [])
-      }
+          }
+        )
+      ).rejects.toThrow(/cancelled before any target write/)
+      expect(await readdir(parent)).toEqual(exists ? ["saas-cancel"] : [])
+      if (exists) expect(await readdir(targetRoot)).toEqual([])
     }
-  )
+  })
 
   /** 验证非交互 Web 必须提供分类，Extension 拒绝混入该字段。 */
   test("requires an explicit CLI Web type and rejects it for Extension", async () => {
