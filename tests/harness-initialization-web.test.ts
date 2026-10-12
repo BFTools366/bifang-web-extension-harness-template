@@ -131,7 +131,7 @@ describe("terminal Web initialization", () => {
     expect(englishLocale).toContain('routeRetry: "Retry page"')
     expect(chineseLocale).toContain('routeRetry: "重新加载页面"')
     expect(styles).toContain("overflow-wrap: anywhere")
-    expect(mantineUiGuidelines).toContain("### 8.2 页面标题、焦点与滚动")
+    expect(mantineUiGuidelines).toContain("### 8.3 页面标题、焦点与滚动")
     expect(dataAccess).toContain("### 2.6 Query 重试、mutation 与缓存生命周期")
     expect(viteConfig).toContain("@tanstack/router-plugin/vite")
     expect(viteConfig.indexOf("tanstackRouter(")).toBeLessThan(viteConfig.indexOf("react()"))

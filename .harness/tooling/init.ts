@@ -30,6 +30,7 @@ import { runCommand } from "./process.ts"
 import { finalizeDownstream, prepareDownstreamFinalization } from "./finalize.ts"
 import { prepareDesignSkillInstallation } from "./install-design-skill.ts"
 import { inspectDesignSkill } from "./design-skill.ts"
+import { resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { assertWebCreationType } from "./initialization-input.ts"
 import { extensionFiles } from "./templates/extension.ts"
 import { webFiles } from "./templates/web.ts"
@@ -230,6 +231,7 @@ export async function initializeProject(
   const root = path.resolve(options.root)
   await assertDownstreamInitializationRoot(root)
   if (options.webType !== undefined) assertWebCreationType(options.projectType, options.webType)
+  resolveSaasCommerceChoice(options.projectType, options.webType, options.saasCommerce)
   const resolvedOptions = { ...options, ...validateBaseUrls(options), root }
   const config = createProjectConfig(resolvedOptions)
   await assertSinglePackageRoot(root)
@@ -268,7 +270,8 @@ export async function initializeProject(
       root,
       config,
       resolvedOptions.agentPolicy,
-      resolvedOptions.webType
+      resolvedOptions.webType,
+      resolvedOptions.saasCommerce
     ),
     prepareDesignSkillInstallation(root)
   ])

@@ -1,3 +1,4 @@
+import { resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
 import { parseIdentityI18n } from "./identity.ts"
 import { refreshBrand } from "./brand.ts"
@@ -20,6 +21,7 @@ import { isMainModule } from "./files.ts"
 const INIT_OPTIONS = [
   "type",
   "web-type",
+  "saas-commerce",
   "name",
   "english-name",
   "id",
@@ -47,6 +49,7 @@ function usage(): string {
   pnpm instantiate -- <absolute-parent> --type web|extension --name <name> \\
     [--english-name <English translation>] [--id <id>] \\
     [--web-type tool-site|saas-client|saas-admin（Web 必填）] \\
+    [--saas-commerce enabled|disabled（SaaS 客户端必填）] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
     [--description <description>（Extension 必填）] [--identity-i18n <json>] \\
@@ -153,6 +156,7 @@ export async function resolveInitOptions(
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
     webType: readStringOption(args, "web-type"),
+    saasCommerce: readStringOption(args, "saas-commerce"),
     name: readStringOption(args, "name"),
     englishName: readStringOption(args, "english-name"),
     id: readStringOption(args, "id"),
@@ -199,6 +203,8 @@ export async function resolveInitOptions(
   if (identity.projectType === undefined) throw new Error("Project type is required")
   const projectType = parseProjectType(identity.projectType)
   assertWebCreationType(projectType, identity.webType)
+  const webType = projectType === "web" ? parseWebCreationType(identity.webType ?? "") : undefined
+  const saasCommerce = resolveSaasCommerceChoice(projectType, webType, identity.saasCommerce)
   const id = identity.id ?? deriveProjectId(identity.name, identity.englishName)
   if (id === undefined) {
     throw new Error("无法从项目名称生成标识，请提供项目名称的英文翻译（--english-name）或显式 --id")
@@ -217,7 +223,8 @@ export async function resolveInitOptions(
   return {
     root: identity.targetRoot ?? root,
     projectType,
-    webType: projectType === "web" ? parseWebCreationType(identity.webType ?? "") : undefined,
+    webType,
+    saasCommerce,
     name: identity.name ?? "",
     englishName: identity.englishName,
     id,

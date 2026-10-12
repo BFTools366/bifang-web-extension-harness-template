@@ -1,3 +1,4 @@
+import { resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
@@ -28,6 +29,7 @@ export interface PromptedIdentity {
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
   webType?: WebCreationType
+  saasCommerce?: InitOptions["saasCommerce"]
   name: string
   englishName?: string
   id: string
@@ -52,6 +54,7 @@ export interface InstantiationSummary {
   init: Pick<
     InitOptions,
     | "projectType"
+    | "saasCommerce"
     | "name"
     | "englishName"
     | "id"
@@ -169,6 +172,7 @@ export async function collectPromptedIdentity(
     inputSources: { ...collected.inputSources, ...policySources },
     projectType,
     webType: projectType === "web" ? parseWebCreationType(basic.webType ?? "") : undefined,
+    saasCommerce: resolveSaasCommerceChoice(projectType, basic.webType, basic.saasCommerce),
     name: requiredText(basic.name, "项目名称"),
     englishName: basic.englishName || undefined,
     id: requiredText(basic.id, "项目标识"),
@@ -207,7 +211,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}${summary.init.webType === undefined ? "" : `\n- Web 类型：${WEB_TYPE_LABELS[summary.init.webType]}（${summary.init.webType}）`}
-- 展示名称：${summary.init.name}
+${summary.init.saasCommerce === undefined ? "" : `- 商品购买模块：${summary.init.saasCommerce}（商品选择、订单管理、钱包管理）\n`}- 展示名称：${summary.init.name}
 - 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}
 - 项目说明：${summary.init.description}

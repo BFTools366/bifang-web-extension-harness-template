@@ -83,7 +83,8 @@ describe("single-package Harness validation and governance", () => {
           "saas-web",
           "--policy-mode",
           "预设",
-          ...(interactive ? [] : ["--web-type", webType])
+          ...(interactive ? [] : ["--web-type", webType]),
+          ...(webType === "saas-client" ? ["--saas-commerce", "disabled"] : [])
         ],
         {
           sourceRoot: repositoryRoot,
@@ -123,7 +124,11 @@ describe("single-package Harness validation and governance", () => {
     const parent = await temporaryDirectory("harness-saas-basics-")
     const targetRoot = path.join(parent, "saas-basics")
     const answers = [
-      JSON.stringify({ projectType: "web", webType }),
+      JSON.stringify({
+        projectType: "web",
+        webType,
+        ...(webType === "saas-client" ? { saasCommerce: "disabled" } : {})
+      }),
       "SaaS Basics",
       targetRoot,
       "预设"
@@ -164,6 +169,7 @@ describe("single-package Harness validation and governance", () => {
             "web",
             "--web-type",
             webType,
+            ...(webType === "saas-client" ? ["--saas-commerce", "disabled"] : []),
             "--name",
             "SaaS Cancel",
             "--id",

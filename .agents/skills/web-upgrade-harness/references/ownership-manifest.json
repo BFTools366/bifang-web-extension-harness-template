@@ -502,6 +502,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": ".harness/tooling/saas-commerce-choice.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": ".harness/tooling/source-snapshot.ts",
       "mode": "tombstone"
     },
@@ -547,6 +551,14 @@
     },
     {
       "pattern": "tests/initialization-guidance.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/saas-foundation-guidance.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/saas-creation.test.ts",
       "mode": "tombstone"
     },
     {

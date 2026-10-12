@@ -1,4 +1,5 @@
 import path from "node:path"
+import { parseSaasCommerceChoice, resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
@@ -73,6 +74,7 @@ export interface PromptDefaults {
   targetRoot?: string
   projectType?: string
   webType?: string
+  saasCommerce?: string
   name?: string
   englishName?: string
   id?: string
@@ -99,6 +101,7 @@ type BasicField =
   | "targetRoot"
   | "projectType"
   | "webType"
+  | "saasCommerce"
   | "name"
   | "englishName"
   | "id"
@@ -140,6 +143,11 @@ const BASIC_FIELDS: ReadonlyArray<{
     label: "Web 类型",
     constraint:
       "1.工具站点（tool-site）/ 2.SaaS客户端（saas-client）/ 3.SaaS大后台（saas-admin），不设默认值"
+  },
+  {
+    key: "saasCommerce",
+    label: "商品购买模块",
+    constraint: "enabled 启用 / disabled 关闭；包含商品选择、订单管理和钱包管理，仅 SaaS 客户端适用"
   },
   { key: "name", label: "项目显示名称", constraint: "非空文本" },
   {
@@ -187,6 +195,7 @@ const BASIC_FIELDS: ReadonlyArray<{
 /** 保存无需主动询问、但可提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
   "webType",
+  "saasCommerce",
   "englishName",
   "description",
   "identityI18n",
@@ -230,6 +239,12 @@ function normalizeBasicField(
   if (field === "webType") {
     return ["web", "1"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
       ? parseWebCreationType(requiredText(value, "Web 类型（--web-type）"))
+      : (value?.trim() ?? "")
+  }
+  if (field === "saasCommerce") {
+    return ["web", "1"].includes(allValues.projectType?.trim().toLowerCase() ?? "") &&
+      ["saas-client", "2", "saas客户端"].includes(allValues.webType?.trim().toLowerCase() ?? "")
+      ? parseSaasCommerceChoice(value ?? "")
       : (value?.trim() ?? "")
   }
   if (field === "id") {
@@ -276,6 +291,7 @@ function normalizeBasicField(
 
 /** 从已知身份推荐可接受的默认值，不猜项目类型、路径或服务地址。 */
 function suggestedBasicValue(field: BasicField, values: PromptDefaults): string | undefined {
+  if (field === "saasCommerce") return "disabled"
   if (field === "policyMode") {
     return [
       values.superpowers,
@@ -345,11 +361,13 @@ function basicQuestion(
   if (definition === undefined) throw new Error(`未知初始化字段：${field}`)
   const value = field === "policyMode" ? (suggested === "custom" ? "自定义" : "预设") : suggested
   const reason =
-    field === "id"
-      ? "由项目名称的英文翻译生成。"
-      : suggested === "custom"
-        ? "已有单项策略，使用自定义可保留这些决定。"
-        : "沿用仓库五项预设，减少逐项配置。"
+    field === "saasCommerce"
+      ? "购买能力可选，关闭时不生成商品选择、订单管理或钱包管理；需要时明确开启。"
+      : field === "id"
+        ? "由项目名称的英文翻译生成。"
+        : suggested === "custom"
+          ? "已有单项策略，使用自定义可保留这些决定。"
+          : "沿用仓库五项预设，减少逐项配置。"
   const guidance =
     suggested === undefined
       ? `${definition.label}希望使用什么值？请直接输入回答。`
@@ -404,11 +422,16 @@ export async function collectBasicFields(
     }
     if (!issues.has("projectType") && !issues.has("webType")) {
       const projectType = normalized.projectType
-      if (projectType === "web" || projectType === "extension")
+      if (projectType === "web" || projectType === "extension") {
         assertWebCreationType(projectType, normalized.webType)
+        if (!issues.has("saasCommerce"))
+          resolveSaasCommerceChoice(projectType, normalized.webType, normalized.saasCommerce)
+      }
     }
     if (issues.size === 0) {
       if (normalized.projectType === "extension") inputSources.webType = "不适用"
+      if (normalized.projectType !== "web" || normalized.webType !== "saas-client")
+        inputSources.saasCommerce = "不适用"
       if (!values.description?.trim()) inputSources.description = "默认使用显示名称"
       for (const key of ["developmentBaseUrl", "testBaseUrl", "releaseBaseUrl"] as const) {
         if (normalized[key] === "") inputSources[key] = "未配置（可后续补齐）"

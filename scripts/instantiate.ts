@@ -11,12 +11,13 @@ import {
   type InstantiationSummary,
   type PromptedIdentity
 } from "../.harness/tooling/prompts.ts"
-import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/types.ts"
+import type { InitOptions, InstantiateOptions, ProjectConfig } from "../.harness/tooling/types.ts"
 
 /** 保存唯一公开创建入口允许的参数。 */
 const INSTANTIATE_OPTIONS = [
   "type",
   "web-type",
+  "saas-commerce",
   "name",
   "english-name",
   "id",
@@ -52,7 +53,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） [--web-type tool-site|saas-client|saas-admin （Web 必填）] --name <name> [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
+  return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） [--web-type tool-site|saas-client|saas-admin （Web 必填）] [--saas-commerce enabled|disabled （SaaS 客户端必填）] --name <name> [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -110,6 +111,7 @@ function inputSources(
   policyMode: "recommended" | "custom",
   projectType: ProjectConfig["projectType"],
   targetWasPositional: boolean,
+  webType?: InitOptions["webType"],
   resolvedInteractiveSources?: Readonly<Record<string, string>>
 ): Record<string, string> {
   const source = (option: string): string =>
@@ -126,6 +128,7 @@ function inputSources(
     targetRoot: "命令行绝对位置参数",
     projectType: source("type"),
     webType: projectType === "web" ? source("web-type") : "不适用",
+    saasCommerce: webType === "saas-client" ? source("saas-commerce") : "不适用",
     name: source("name"),
     englishName: optionNames.has("english-name") ? "命令行参数" : "未单独提供",
     id: optionNames.has("id") ? "命令行参数" : "英文名称自动生成",
@@ -222,6 +225,7 @@ export async function runInstantiateCli(
         policyMode,
         init.projectType,
         positionalParentRoot !== undefined,
+        init.webType,
         resolvedInteractiveSources
       ),
       init
@@ -237,6 +241,7 @@ export async function runInstantiateCli(
     init: {
       projectType: init.projectType,
       webType: init.webType,
+      saasCommerce: init.saasCommerce,
       name: init.name,
       id: init.id,
       description: init.description,
@@ -253,6 +258,8 @@ export async function runInstantiateCli(
   output(`已创建 ${config.projectType} 项目：${targetRoot}`)
   if (init.webType !== undefined) {
     output(`Web 类型：${init.webType}；已记录在 README.md 的“创建交接”中。`)
+    if (init.saasCommerce !== undefined)
+      output(`商品购买模块：${init.saasCommerce}（商品选择、订单管理、钱包管理）；首次 PRD 沿用。`)
     output(
       "下一步：切换到新项目，复用创建选择执行需求确认 → 原型选择 → 实施；SOP 见项目 README.md。"
     )

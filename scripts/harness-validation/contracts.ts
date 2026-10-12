@@ -47,6 +47,7 @@ export const REQUIRED_FILES = [
   ".harness/tooling/source-snapshot.ts",
   ".harness/tooling/init.ts",
   ".harness/tooling/initialization-input.ts",
+  ".harness/tooling/saas-commerce-choice.ts",
   ".harness/tooling/instantiate.ts",
   ".harness/tooling/project-memory.ts",
   ".harness/tooling/pnpm-policy.ts",

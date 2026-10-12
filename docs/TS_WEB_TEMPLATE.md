@@ -2,6 +2,12 @@
 
 本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：一次初始化只选择 `web` 或 `extension`，生成一个独立、平铺、可直接开发和发布的 pnpm 单包。
 
+## SaaS 基础设计与创建选择
+
+SaaS 客户端和大后台共用 [UI 基础设计](MANTINE_UI_GUIDELINES.md)：未登录默认登录、表单内紧凑偏好、完整工作区侧栏与账号菜单、底部身份/作用域、窄屏等价导航和可恢复状态。需求、可交互原型、实施复用同一 SOP；营销首页独立确认，客户端注册/组织切换与后台管理目标严格区分。
+
+创建 `web + saas-client` 必须明确询问商品购买模块，包含商品选择、订单管理和钱包管理。交互建议关闭但等待实际回答；非交互必须传 `--saas-commerce enabled|disabled`。显式值复用，其他模式拒绝该参数。选择、来源与日期保留在 README 创建交接，首次 PRD 沿用；初始化仍不生成业务页面、PRD 或支付调用。
+
 ## 1. 不变量
 
 - 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-parent-outside-harness> ...`；在用户提供的源外父目录下，以项目标识创建子目录。

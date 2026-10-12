@@ -1,7 +1,11 @@
-import type { ProjectConfig, WebCreationType } from "../types.ts"
+import type { InitOptions, ProjectConfig, WebCreationType } from "../types.ts"
 
 /** 按当前宿主生成终端 README。 */
-export function downstreamReadme(config: ProjectConfig, webType?: WebCreationType): string {
+export function downstreamReadme(
+  config: ProjectConfig,
+  webType?: WebCreationType,
+  saasCommerce?: InitOptions["saasCommerce"]
+): string {
   const stack =
     config.projectType === "web"
       ? "React、Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai 与 i18next"
@@ -21,6 +25,8 @@ export function downstreamReadme(config: ProjectConfig, webType?: WebCreationTyp
 
 ${webType === undefined ? "未记录创建时的 Web 类型；首次涉及业务类型的需求工作再确认，不从已安装 Skill 推断。" : `创建时明确选择：\`${webType}\`。来源：本次创建输入；初始化时间：${config.initializedAt}。首次需求工作直接复用此选择，不重复询问业务类型。`}
 
+${webType !== "saas-client" ? "" : saasCommerce === undefined ? "商品购买模块：未记录创建选择；首次 PRD 需要明确商品选择、订单管理、钱包管理是否启用，不补造历史确认。" : `商品购买模块：\`saas-commerce: ${saasCommerce}\`（商品选择、订单管理、钱包管理）。来源：本次创建输入；初始化时间：${config.initializedAt}。首次 PRD 沿用此选择，记录来源和日期；初始化不生成购买业务。`}
+
 本段只保留初始化输入，不是产品规格；已有已确认 PRD 时，以其当前业务类型与范围为准。切换到本项目后，按 [创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 完成需求确认 → 原型选择 → 实施。初始化未实现登录或管理页面、未接入业务服务。
 
 ## Web 业务类型
@@ -32,6 +38,8 @@ ${webType === undefined ? "未记录创建时的 Web 类型；首次涉及业务
 | \`tool-site\` 工具站点 | 通用产品流程，不自动启用 SaaS 认证或购买。 |
 | \`saas-client\` SaaS 客户端 | [认证操作流程](.agents/skills/web-implement-saas-auth/SKILL.md)；[购买操作流程](.agents/skills/web-implement-saas-commerce/SKILL.md)默认关闭，明确选中后才应用。 |
 | \`saas-admin\` SaaS 大后台 | [认证操作流程](.agents/skills/web-implement-saas-auth/SKILL.md)不含公开注册或组织切换；[管理操作流程](.agents/skills/web-implement-saas-admin/SKILL.md)仅应用于已授权范围。 |
+
+SaaS 基础设计统一遵循 [UI 规范](docs/MANTINE_UI_GUIDELINES.md)：未登录默认进入登录页，语言与外观在表单内紧凑切换，登录后使用完整工作区布局；公开营销首页仅在明确需要时增加。客户端与大后台复用布局基础，注册和组织操作按各自认证合同执行。
 
 接入真实服务前读取 [API 关联与契约缺口](docs/API.md#saas-能力与-api-关联)。原型、实施、HTTP 接入与模块文档复用同一 PRD 事实。
 

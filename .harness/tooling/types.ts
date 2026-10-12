@@ -80,6 +80,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   projectType: ProjectType
   // 保存创建期选择，仅用于下游 README 交接，不写入 ProjectConfig。
   webType?: WebCreationType
+  // 保存客户端购买选择，仅交接给唯一 PRD，不写入身份或策略。
+  saasCommerce?: "enabled" | "disabled"
   // 描述 name 接口成员的结构契约。
   name: string
   // 保存创建期英文译名，仅用于标识生成与确认，不写入 ProjectConfig。
