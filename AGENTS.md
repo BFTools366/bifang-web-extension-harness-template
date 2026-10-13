@@ -25,7 +25,7 @@
 | SaaS 大后台商品分类、组织成员与订单管理       | 管理 Skill 的页面/SOP、领域合同与中性设计；真实服务能力                                          | `$web-implement-saas-admin`；仅已初始化 Web 明确采用大后台时应用，源只维护通用能力                 |
 | UI、页面、Popup、Options、响应式或无障碍      | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                                   | `$web-implement-change`                                                                            |
 | 下游真实 HTTP 接入或 Mock 迁移                | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约                      | `$web-connect-http-service`；实施与列表流程按接入事件委托                                          |
-| 从当前 API 代码整理模块文档                   | 当前 API 实现、类型、相关测试与既有模块文档                                                      | `$web-document-api`；在下游写入 `docs/api/`，每个模块独立成文                                      |
+| 结合实现与服务契约完善模块文档                | 当前实现、业务需求、已选服务契约与既有模块文档                                                   | `$web-document-api`；在下游写入 `docs/api/`，每个模块独立成文                                      |
 | Extension 宿主边界兼容审查                    | 当前下游工程规则、受影响消费者与双目标证据                                                       | `$web-review-extension-compatibility`；仅 Extension，只读                                          |
 | 环境、数据、认证、基础 API 契约、事件流或日志 | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`；基础契约另读 `docs/API.md` | `$web-implement-change`                                                                            |
 | API 契约核对或漂移审查                        | 当前操作的可信来源、API 实现/类型/消费者/测试；相关数据章节                                      | `$web-review-api-contract`，只读                                                                   |

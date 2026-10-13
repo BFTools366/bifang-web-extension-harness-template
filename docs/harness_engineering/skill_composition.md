@@ -21,7 +21,7 @@
 | 实施与重构 | `web-implement-change`、`web-refactor-code`                                                    | 授权行为变化与行为保持重构分别验证；按事件调用叶子                   |
 | 模块审查   | [`web-review-module-boundaries`](../../.agents/skills/web-review-module-boundaries/SKILL.md)   | 只读职责、依赖和状态拥有者地图；不自动重构                           |
 | 接口契约   | [`web-review-api-contract`](../../.agents/skills/web-review-api-contract/SKILL.md)             | 只读当前操作的来源/实现关联与差异；不联网、不写模块文档              |
-| 服务与文档 | `web-connect-http-service`、`web-document-api`                                                 | 已授权真实接入与代码派生文档分别负责；参考契约不冒充已实现           |
+| 服务与文档 | `web-connect-http-service`、`web-document-api`                                                 | 已授权真实接入与合同/实现文档分别负责；设计与 Mock 不冒充已联调      |
 | 访问控制   | [`web-implement-access-control`](../../.agents/skills/web-implement-access-control/SKILL.md)   | 菜单、路由和动作的一致判断与撤权；身份/权限获取仍归认证              |
 | 写入恢复   | [`web-implement-write-recovery`](../../.agents/skills/web-implement-write-recovery/SKILL.md)   | 当前操作的防重复、未知查询、冲突和成功后刷新；允许状态仍归领域       |
 | 本地存储   | [`web-implement-browser-storage`](../../.agents/skills/web-implement-browser-storage/SKILL.md) | 真实存储访问、校验、迁移与失败语义；凭据例外和列表 key 仍归领域      |
@@ -59,7 +59,7 @@ flowchart TD
 ## 继续保持内聚的部分
 
 - 登录、注册、找回与退出共享会话生命周期，保留同一认证 Skill，用参考文件区分 SOP 与实施合同。
-- REST 与 GraphQL 文档共同交付一个模块文档，使用格式分支；不另建相互竞争的生成入口。
+- REST、GraphQL 与公共工具说明由同一文档 Skill 按模块边界整理；REST 导出、GraphQL 文档和工具说明分别交付，不混排，也不另建相互竞争的生成入口。
 - 初始化与环境、Worktree 审计与执行、升级预演与应用、候选与验收已有独立结果，不再按每个命令拆转发壳。
 - 渐进式提问和默认建议是通用工程约定，保留在工程规则，不新增每次必读的交互 Skill。
 

@@ -203,7 +203,7 @@ Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定�
 - UI 组合层：`httpErrors` 只输出固定本地化键、分类和恢复能力，`HttpErrorView` 处理局部/路由失败，根 Provider 的 `HttpFeedback` 处理直接请求和最终 Query/mutation 失败。
 - API 领域模块：拥有类型化远端数据函数、未配置对应 BaseURL 时的远端 API Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。本地业务逻辑与真实存储访问按前述分工实现，不伪装成未接入的远端 API。
 
-### 3.2 三个标准请求头与语言
+### 3.2 现有基础 client 的三个请求头与语言
 
 每次真正 dispatch 时动态读取上下文，只有值通过校验且非空时才设置 header：
 
@@ -218,6 +218,25 @@ Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定�
 client 会先移除调用方伪造的三个标准 header，再根据当前受控状态写入。自动更新只来自同一受控 API 边界的 2xx 响应；真实认证协议确认登录成功后也可调用 `applicationHttp.setAuthToken(token)` 显式建立会话。每次 dispatch 分配单调 sequence，并让 Token 更新/显式登录产生新的 revision；迟到的旧响应不得覆盖较新值，迟到的旧 401 也不得清理新 revision。响应 header 与自定义 Token 提取结果按不可信有界字符串校验，并验证浏览器 Headers 编码；不把 `Response`、body 或全量 headers 保存进状态。
 
 显式 setter 要求非空、有界、无控制字符且可编码的字符串；非法输入在改变状态前拒绝，不泄漏值或原始编码异常。合法 setter 清理旧 continuation、提高 revision/sequence 门槛并重置认证失效 latch，下一请求自动携带新 Token。登录响应若在 body，先按真实 Schema 校验，再调用 setter；或由只读 `extractAuthToken(response.clone())` 返回已校验值。提取器不得消费原始 body、写 Storage、导航或自行修改会话。登出调用 `clearSession()`；真实认证 feature 同时取消旧 scope 请求并移除其私有 Query cache，不能只清 Token 而保留旧用户数据。
+
+### 3.2.1 已选服务的通用 HTTP 合同
+
+调用和文档先分清请求 Header、请求业务参数、响应 Header 与响应 JSON。`docs/API.md` 中基础服务的合同按下表采用；Header 名大小写不敏感，文档统一使用下列拼写，不另造 `RequestID`、`X-LANG` 等业务字段。
+
+| 信息     | 请求位置                                                              | 响应位置及处理                                                                              |
+| -------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 语言     | `X-Lang: en/zh`；客户端每次按当前语言设置                             | `Content-Language` 与 `Vary` 属于响应 Header；不改写语言偏好                                |
+| 单次追踪 | 每次 dispatch 新建 `X-Request-Id`，只放请求 Header                    | 同名响应 Header 回显；REST 成功/错误 JSON 保留 `request_id`，与本次请求关联                 |
+| 访问凭据 | 仅受保护请求使用 `Authorization: Bearer <access_token>`               | 登录/刷新结果仍从 JSON `data.token` 读取并校验 TokenPair，不假定响应有 Authorization Header |
+| 内容类型 | 有 JSON 请求体时设置 `Content-Type: application/json`；无体不机械添加 | 响应 Content-Type 按实际内容类型；纯文本探针不伪造 JSON                                     |
+
+采用这套服务时，语言、请求追踪与访问鉴权通过 Header 携带，不重复序列化到业务 body、路径或 query。服务允许 X-Lang、X-Request-Id 省略并自行回退/生成，不代表客户端不发送；服务原有 Accept-Language 或 query 语言回退保持来源事实。公开登录、注册、验证码、找回和匿名刷新隔离旧访问凭据及受保护会话的 401 副作用。刷新操作的 `refresh_token` 按合同在请求 JSON 中提交，不与访问鉴权混淆；本规则不自动启用刷新或重放。
+
+基础 client 的 §3.2 仍是现有 X-AUTH-TOKEN / X-Http-Request 协议。接入 Bearer 服务须实施明确的服务专用请求适配和公开请求隔离，不能只设置 BaseURL、换 Token extractor 或把 continuation 重命名为 RequestID。单次 RequestID 不持久化、不复用于后续请求、不作为幂等键、会话版本或权限证据；迟到响应不能污染当前追踪或会话。
+
+以下 envelope、JSON request_id、异常与分页仅适用于已选基础服务的 REST JSON 合同；GraphQL 沿用自身 data/errors[] 与 extensions.code，不额外注入这些字段。统一 REST 响应按原始模型记录：单对象 `{model,data,request_id}`、HTTP 200 的 `{model:"empty",request_id}`、数据集 `data.set` 和分页 `grid.result`。分页保留 `page:{model,current,size,total,total_page}` 与 `result:{model,datas,total}`，两处 total 一致；请求 current 从 1 开始、size 默认 10 上限 200、order 默认 desc、order_by 按模型白名单。域 API 显式映射内部 page/pageSize/items/total，内部默认 20 不静默改成服务默认 10。尚无列表 endpoint 时仍记录固定模型，不伪造列表功能。
+
+错误 JSON 保留 `model:"errors"`、`errors:{model:"data.set",datas:[{model:"error",code,message}],total}` 与 request_id；按首项稳定 code 和 HTTP 状态处理，不匹配多语言 message。404/405、参数校验与限流同样采用服务错误封装；通用 client 的 ApiError 与服务原始错误分开描述。字符串 ID 不转换为 Number，Unix 秒与 expires_in/resend_after 持续时间分开，可空值与字段缺省分开校验。业务模型、错误码、限流阈值和认证生命周期以实际采用合同为准，不把这套 envelope 强加给其他服务。
 
 ### 3.3 `ApiError`、401/403 与 Router/UI
 
@@ -242,6 +261,8 @@ Web 路由 fallback 与 Extension 两入口 Router 使用相同错误分类；40
 refresh、Cookie/credentials、自动重放与幂等协议由真实产品另行设计，必须只有一个重试/重放 owner，并覆盖 refresh 自身 401、并发、次数上限和写入安全。
 
 ### 3.4 CORS、缓存与 Extension 权限
+
+- CORS 按实际采用协议配置。采用 §3.2.1 的基础服务时，Allow-Headers 覆盖 Authorization、X-Lang、X-Request-Id 及有 JSON 体时的 Content-Type；需要读取追踪/语言响应头时显式 Expose-Headers。按真实语言协商设置 Vary，认证响应遵循 private/no-store；不把响应头序列化进业务 JSON。下列 X-AUTH-TOKEN/continuation 条目仅适用于 §3.2 的现有 client 协议。
 
 - 跨域 Web 服务若接收三个自定义请求 header，预检必须按批准 origin/method 返回覆盖 `X-Http-Request, X-Lang, X-AUTH-TOKEN` 的 `Access-Control-Allow-Headers`；返回 continuation 或 Token 时还必须用 `Access-Control-Expose-Headers` 暴露实际需要读取的 `X-Http-Request, X-AUTH-TOKEN`。使用 credentials 时不得把 `Access-Control-Allow-Origin` 写成 `*`。
 - 动态反射 origin 的响应包含 `Vary: Origin`；按语言生成不同表示的响应包含 `Vary: X-Lang`。认证响应默认使用 `Cache-Control: private, no-store`；若真实架构明确允许缓存依赖 Token 的表示，必须单独评审缓存键，并至少按 `X-AUTH-TOKEN` 区分，不能让共享缓存混用用户响应。缓存预检响应时还必须按 `Origin, Access-Control-Request-Method, Access-Control-Request-Headers` 区分。

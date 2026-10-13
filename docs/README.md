@@ -29,4 +29,4 @@ API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入
 
 SaaS 大后台管理见 [`$web-implement-saas-admin`](../.agents/skills/web-implement-saas-admin/SKILL.md)，页面与 SOP 覆盖商品分类、组织成员、订单，以及钱包支付查询、访问控制和审计；[中性页面设计](../.agents/skills/web-implement-saas-admin/references/neutral-ui-design.md)按真实服务和权限裁剪。
 
-下游需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [`$web-document-api`](../.agents/skills/web-document-api/SKILL.md)，在 `docs/api/` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 按接口名称、接口说明、请求路径、请求方法、请求头、请求与响应数据展示，JSON 数据使用字段表；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。`API.md` 仍是可选基础契约参考，不能替代当前实现证据。
+下游需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [`$web-document-api`](../.agents/skills/web-document-api/SKILL.md)，在 `docs/api/` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。`API.md` 仍是可选基础契约参考，不能替代当前实现证据。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。

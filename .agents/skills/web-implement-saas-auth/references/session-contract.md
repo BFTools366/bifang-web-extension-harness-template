@@ -30,6 +30,7 @@ LocalStorage 可被同源 JavaScript 读取，XSS 可窃取凭据；客户端加
 ## 3. HTTP 与凭据同步
 
 - 每次发送请求时从当前受管会话取 Token；基础请求头为 `X-AUTH-TOKEN`。若真实服务要求 `Authorization: Bearer` 或其他格式，实施明确的服务适配层，保证不会同时发送冲突请求头。仅设置 BaseURL 或 凭据提取器 不会改变默认请求头。
+- 采用已收录基础服务时，X-Lang、每次新建的 X-Request-Id 和受保护请求 Authorization 通过 Header 携带，不放业务 body/query。响应 request_id 与 Header 追踪关联，登录 TokenPair 仍从 data.token 校验；刷新凭据按刷新操作的 JSON 合同处理，不当成访问 Token。不能把现有 continuation 当作 RequestID，公开请求隔离与服务适配必须有运行路径和测试证据。
 - 只有批准的 API target 可以接收凭据；公开登录/注册/验证码/找回操作不带残留旧会话凭据，公开操作自身的认证失败不触发受保护会话的 401 退出 handler。使用可显式隔离认证注入与失效副作用的受控公开请求边界；现有 client 不具备所需能力时在实施中补齐并测试，不能仅传空请求头 假设会覆盖动态注入。不对任意第三方 URL、跳转地址发送 Token。
 - 登录/恢复调用已校验的 `applicationHttp.setAuthToken`；退出调用 `clearSession`。自动提取器保持只读，不写 Storage 或导航。真实服务会轮换 Token 时，先为**已被 client 接受的当前 revision**增加受控同步适配，由唯一协调者持久化；不能将任意 2xx 响应头 或迟到提取结果写入 LocalStorage。当前基础不承诺已有持久化订阅接口。
 - 轮换存储失败必须阻断继续使用未经持久确认的新上下文并进入退出/恢复处理；不保留一个 UI 声称有效、刷新却恢复旧 Token 的半会话。

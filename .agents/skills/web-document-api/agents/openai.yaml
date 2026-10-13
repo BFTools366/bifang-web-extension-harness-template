@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：从代码整理 API 文档"
-  short_description: "依据当前 API 实现反向整理文档，每个模块独立保存到 docs/api"
-  default_prompt: "使用 $web-document-api 根据当前 API 代码整理 docs/api 文档，每个模块独立成文，并核对类型、错误、Mock 边界和源码依据。"
+  short_description: "结合实现与服务契约完善六项 API 文档，独立说明通用异常和分页"
+  default_prompt: "使用 $web-document-api 结合当前实现、业务需求与服务契约完善 API Markdown，合理分析请求头、动作和报文，区分实现、契约与设计建议；REST 保持六项与 JSON 加字段表，通用异常和分页模型独立成文，不混入文件地址。"

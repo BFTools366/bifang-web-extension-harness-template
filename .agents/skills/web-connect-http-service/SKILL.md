@@ -26,11 +26,12 @@ Web 按 [Web 类型与可选能力](../web-design-prototype/references/prd-outli
 
 1. 委托 `$web-review-api-contract` 只核对本次操作与最小依赖链，复用已有且未漂移的证据；缺口先补齐，不从参考或 Mock 生成服务端保证。按环境和服务确定本次迁移范围。配置只通过既有冻结 `APP_CONFIG` 加载；公开变量不承载秘密，不新增隐式环境覆盖。
 2. 保持 UI/Query 消费的领域契约，在 `src/data/api/<domain>/` 替换对应 Mock 或新增真实实现。复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误和认证边界；输入、外部响应和分页字段在 API 层校验、映射。
+   按 DATA_ACCESS 的“已选服务的通用 HTTP 合同”装配真实请求 Header：X-Lang、逐请求 X-Request-Id 和受保护请求的 Authorization: Bearer 不写入业务 JSON/URL；公开请求隔离旧凭据与 401 副作用。现有默认 client 协议不同则先做显式服务适配，不仅替换 extractor。保留响应 Header、REST 合同已定义的 JSON request_id、TokenPair 与刷新请求体各自的方向，逐 endpoint 校验成功/错误 envelope、字符串 ID、秒时间和分页映射。
 3. 已迁移服务移除运行路径中的 Mock 分支和业务样例；未配置地址的远端 API 保持完整 API Mock 并报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。真实请求失败不得回落 Mock，测试样例 留在测试边界内。
 4. 按配置加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，防止样例数据或迟到响应覆盖真实结果。
 5. 复用既有认证及反馈所有者；真实登录入口存在时才装配批准的导航。新增凭据刷新、Cookie、自动重放、跨上下文认证或权限变化交回调用方处理范围和专用门禁。
 6. 网络验证仅使用已授权环境、身份及操作，不扩张生产、付费、凭据或不可逆写入授权。Extension 的 BaseURL 不授予 host 权限；相关兼容审查调用 `$web-review-extension-compatibility`，真实双浏览器硬门禁交回调用方的既有候选验收链。
-7. 真实接入改变公开 API 契约或实现方式后，委托 `$web-document-api` 仅更新本次受影响模块和必要索引，记录实际请求方法、请求路径、请求头、请求与响应数据，或 GraphQL Schema 来源及未验证项。由调用方已同步的同一变更直接复用，不重复全项目生成。
+7. 真实接入改变公开 API 契约或实现方式后，委托 `$web-document-api` 仅更新本次受影响模块和独立索引。REST 纯 Markdown 仅含接口名称、接口说明、请求头、请求动作、请求体、响应体；请求动作合写 HTTP 方法与相对路径，JSON 体均有示例与字段表，不混入文件地址或工程信息。GraphQL 保留有来源的 Schema 与未确认边界。由调用方已同步的同一变更直接复用，不重复全项目生成。
 
 ## 验证与交付
 

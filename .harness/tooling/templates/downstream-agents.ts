@@ -61,7 +61,7 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 - \`src/data/storage/\`：集中的浏览器存储适配，保持独立生命周期并明确处理失败。
 - \`src/data/api/client/\`：不含业务接口的 Ky HTTP、请求上下文、语言、凭据、错误和未授权处理基础。
 - \`docs/API.md\`：完整的可选基础 API 与数据模型参考，包含来源和适配边界；仅按真实需求采用和拆解。
-- \`docs/api/\`：按请求或公开 API 实际变化，由 \`$web-document-api\` 从当前代码生成模块文档与索引。实施/HTTP 流程只传入受影响模块与必要索引；参考合同、Mock 和已实现 HTTP 分别标明。
+- \`docs/api/\`：按请求或公开 API 实际变化，由 \`$web-document-api\` 结合当前实现与服务契约生成模块文档、通用模型与索引。实施/HTTP 流程只传入受影响模块与必要索引；参考合同、Mock 和已实现 HTTP 分别标明。
 - \`docs/DATA_ACCESS.md\`：分页、请求头、认证、数据访问、SSE、可选 RxJS 与状态归属。
 - \`docs/MANTINE_UI_GUIDELINES.md\`：Mantine 主题、令牌、布局、组件语义、交互状态、响应式、无障碍与当前宿主 UI 规范。
 - \`docs/RUNTIME_CONFIGURATION.md\`：三环境、公开配置结构与构建映射。
@@ -77,7 +77,7 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 - \`$web-connect-http-service\`：在已初始化下游接入已批准服务，验证域 API、Mock 退出与缓存切换。
 - \`$web-define-product\`：在下游澄清需求，将范围和验收标准记录为唯一产品规格（PRD）。
 - \`$web-design-prototype\`：在下游产出 2–3 个可交互 HTML 原型，等待用户选定具体版本后交接开发。
-- \`$web-document-api\`：根据当前 API 实现、类型与相关测试整理 \`docs/api/\`，每个模块独立成文并明确 Mock 和未知边界。
+- \`$web-document-api\`：结合当前实现、需求与服务契约整理 \`docs/api/\`，每个模块独立成文并明确 Mock 和未知边界。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-review-api-contract\`：只读核对当前接口来源、实现关联与差异，不联网或写文档。

@@ -215,12 +215,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-document-api": {
     description:
-      "在已初始化 React Web 或 Plasmo Extension 下游中，依据当前 API 实现、类型和相关测试反向生成或更新 docs/api/ 模块文档，每个模块一份独立 Markdown；用于接口文档整理和代码文档同步，不把参考契约或 Mock 当作已实现的服务端接口。",
+      "在已初始化 React Web 或 Plasmo Extension 下游中，结合当前实现、业务需求和已提供服务契约生成或完善 API Markdown；REST 固定六项与 JSON 加字段表，区分已实现、契约未接入和设计建议，独立记录通用异常与分页模型。",
     title: "# Web Harness：从代码整理 API 文档",
     displayName: "Web Harness：从代码整理 API 文档",
-    shortDescription: "依据当前 API 实现反向整理文档，每个模块独立保存到 docs/api",
+    shortDescription: "结合实现与服务契约完善六项 API 文档，独立说明通用异常和分页",
     defaultPrompt:
-      "使用 $web-document-api 根据当前 API 代码整理 docs/api 文档，每个模块独立成文，并核对类型、错误、Mock 边界和源码依据。"
+      "使用 $web-document-api 结合当前实现、业务需求与服务契约完善 API Markdown，合理分析请求头、动作和报文，区分实现、契约与设计建议；REST 保持六项与 JSON 加字段表，通用异常和分页模型独立成文，不混入文件地址。"
   },
   "web-extract-i18n-strings": {
     description:
