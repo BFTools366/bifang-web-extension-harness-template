@@ -16,23 +16,28 @@ import { createLogger } from "../../observability/logger"
 
 const logger = createLogger("router")
 
-/** 呈现慢路由的本地化加载状态，具体数据刷新仍由消费它的 feature 管理。 */
-export function RoutePendingPage() {
+/** 呈现正文插槽内的本地化加载状态，由外层布局拥有主内容 landmark。 */
+export function RoutePendingContent() {
   const { t } = useTranslation()
   return (
-    <main className="page-shell">
+    <section>
       <Container size="sm">
         <Stack align="center" role="status" aria-live="polite" aria-atomic="true">
           <Loader aria-hidden="true" />
           <Text>{t("routeLoading")}</Text>
         </Stack>
       </Container>
-    </main>
+    </section>
   )
 }
 
+/** 为独立页面提供主内容 landmark，工作区子路由使用 Content 版本。 */
+export function RoutePendingPage() {
+  return <main className="page-shell"><RoutePendingContent /></main>
+}
+
 /** 隐藏原始异常，以显式重试恢复路由和 Query 边界，不重放 mutation。 */
-export function RouteErrorPage({ error }: ErrorComponentProps) {
+export function RouteErrorContent({ error }: ErrorComponentProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const { reset } = useQueryErrorResetBoundary()
@@ -62,14 +67,19 @@ export function RouteErrorPage({ error }: ErrorComponentProps) {
   }
 
   return (
-    <main className="page-shell">
+    <section>
       <Container size="sm">
         <Paper radius="lg" p="xl" withBorder>
           <HttpErrorView error={error} headingOrder={1} onRetry={retry} retrying={retrying} homeLink={<Anchor component={Link} to="/">{t("backHome")}</Anchor>} />
         </Paper>
       </Container>
-    </main>
+    </section>
   )
+}
+
+/** 为独立错误页提供主内容 landmark，不将页面布局嵌入工作区正文。 */
+export function RouteErrorPage(props: ErrorComponentProps) {
+  return <main className="page-shell"><RouteErrorContent {...props} /></main>
 }
 
 /** 默认状态只接管路由加载和渲染，404 保留独立语义，异常统一进入安全日志。 */
@@ -85,12 +95,13 @@ import "../../i18n"
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useQuery } from "@tanstack/react-query"
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router"
+import { createMemoryHistory, createRootRoute, createRoute, createRouter, Link, Outlet, RouterProvider } from "@tanstack/react-router"
+import { useState } from "react"
 import type { ReactElement } from "react"
 import { afterEach, expect, test, vi } from "vitest"
 import { AppProviders } from "../../app/AppProviders"
 import { Route as RootRoute } from "../../routes/__root"
-import { routeStateDefaults } from "./RouteState"
+import { RouteErrorContent, RoutePendingContent, routeStateDefaults } from "./RouteState"
 
 afterEach(() => {
   cleanup()
@@ -125,9 +136,84 @@ test("announces a slow loader and then shows the loaded route", async () => {
   const router = testRouter({ loader: () => pending })
   render(<AppProviders><RouterProvider router={router} /></AppProviders>)
   expect(await screen.findByRole("status")).toHaveTextContent("Loading page")
+  expect(screen.getAllByRole("main")).toHaveLength(1)
   await act(async () => { finish?.(); await pending })
   expect(await screen.findByRole("heading", { name: "Ready route" })).toBeInTheDocument()
   expect(screen.queryByRole("status")).not.toBeInTheDocument()
+})
+
+/** 验证慢子路由守卫只替换正文，并保留父布局节点和局部交互状态。 */
+test("keeps a parent shell mounted while a child guard is pending", async () => {
+  vi.spyOn(console, "error").mockImplementation(() => undefined)
+  let finish: (() => void) | undefined
+  const pending = new Promise<void>((resolve) => { finish = resolve })
+  const beforeLoad = vi.fn(() => pending)
+  const loader = vi.fn().mockRejectedValueOnce(new Error("private child failure"))
+    .mockResolvedValue(undefined)
+  /** 用持久父布局和局部状态验证正文插槽，不预置产品或认证实现。 */
+  function Shell(): ReactElement {
+    const [collapsed, setCollapsed] = useState(false)
+    return (
+      <>
+        <nav aria-label="Workspace navigation">
+          <label><input type="checkbox" checked={collapsed} onChange={(event) => setCollapsed(event.currentTarget.checked)} />Collapse navigation</label>
+          <Link<typeof router, string, "/workspace/first"> to="/workspace/first" preload={false}>First page</Link>
+          <Link<typeof router, string, "/workspace/second"> to="/workspace/second" preload={false}>Second page</Link>
+        </nav>
+        <main><Outlet /></main>
+        <footer aria-label="Layout context">Stable context</footer>
+      </>
+    )
+  }
+  const root = createRootRoute({ component: () => <Outlet /> })
+  const layout = createRoute({ getParentRoute: () => root, path: "workspace", component: Shell })
+  const first = createRoute({ getParentRoute: () => layout, path: "first", component: () => <h1>First content</h1> })
+  const second = createRoute({
+    getParentRoute: () => layout,
+    path: "second",
+    beforeLoad,
+    loader,
+    pendingComponent: RoutePendingContent,
+    errorComponent: RouteErrorContent,
+    component: () => <h1>Second content</h1>
+  })
+  const router = createRouter({
+    ...routeStateDefaults,
+    routeTree: root.addChildren([layout.addChildren([first, second])]),
+    history: createMemoryHistory({ initialEntries: ["/workspace/first"] }),
+    defaultPendingMs: 0,
+    defaultPendingMinMs: 0
+  })
+  const user = userEvent.setup()
+  render(<AppProviders><RouterProvider router={router} /></AppProviders>)
+  await screen.findByRole("heading", { name: "First content" })
+  const navigation = screen.getByRole("navigation", { name: "Workspace navigation" })
+  const context = screen.getByRole("contentinfo", { name: "Layout context" })
+  await user.click(screen.getByRole("checkbox", { name: "Collapse navigation" }))
+  await user.click(screen.getByRole("link", { name: "Second page" }))
+  expect(await screen.findByRole("status")).toHaveTextContent("Loading page")
+  expect(loader).not.toHaveBeenCalled()
+  expect(screen.queryByRole("heading", { name: "Second content" })).not.toBeInTheDocument()
+  expect(screen.getByRole("navigation", { name: "Workspace navigation" })).toBe(navigation)
+  expect(screen.getByRole("contentinfo", { name: "Layout context" })).toBe(context)
+  expect(screen.getByRole("checkbox", { name: "Collapse navigation" })).toBeChecked()
+  expect(screen.getAllByRole("main")).toHaveLength(1)
+  await act(async () => { finish?.(); await pending })
+  expect(await screen.findByRole("alert")).toHaveTextContent("Unable to open this page")
+  expect(screen.queryByText("private child failure")).not.toBeInTheDocument()
+  expect(screen.getAllByRole("main")).toHaveLength(1)
+  expect(screen.getByRole("navigation", { name: "Workspace navigation" })).toBe(navigation)
+  expect(screen.getByRole("contentinfo", { name: "Layout context" })).toBe(context)
+  expect(screen.getByRole("checkbox", { name: "Collapse navigation" })).toBeChecked()
+  await user.click(screen.getByRole("button", { name: "Retry page" }))
+  await screen.findByRole("heading", { name: "Second content" })
+  expect(loader).toHaveBeenCalledTimes(2)
+  expect(router.state.location.pathname).toBe("/workspace/second")
+  expect(screen.getByRole("contentinfo", { name: "Layout context" })).toBe(context)
+  await act(async () => { router.history.back() })
+  await screen.findByRole("heading", { name: "First content" })
+  expect(screen.getByRole("navigation", { name: "Workspace navigation" })).toBe(navigation)
+  expect(screen.getByRole("checkbox", { name: "Collapse navigation" })).toBeChecked()
 })
 
 /** 验证首次加载失败不会暴露异常，重试真正重新执行 loader。 */

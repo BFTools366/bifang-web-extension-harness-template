@@ -234,6 +234,8 @@ src/
 ```
 
 - `app/` 只装配全局 Provider、主题、QueryClient 与 Router；`routes/` 使用 TanStack 文件命名约定声明 URL、loader/search/context 等路由契约；具体业务 UI、hooks、Jotai atom 和测试留在 `features/`。
+- 初始化的 `__root.tsx` 与 `index.tsx` 只是中性起点，产品可用布局和子路由替换首页，不要求永久保留 `index.tsx`。持续 shell、pathless 认证布局、叶页面与正文插槽按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §8.5 实施，不在初始化中生成 SaaS 页面。
+- `src/routes/` 只放路由模块，不使用 `.test.tsx`、`.spec.tsx` 等测试后缀命名生产路由。业务页面需要 `test` URL 段时可用嵌套的 `app/test.tsx`，测试留在对应 feature；中性 Vite 配置也明确忽略测试后缀，防止误收路由。
 - Vite 配置必须把 TanStack Router plugin 放在 React plugin 之前，并显式启用 `autoCodeSplitting`。route 组件按路由边界形成异步 chunk；共享依赖由 Vite/Rollup 根据真实引用处理，不在模板中预设手工 vendor 分组。
 - `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`typecheck` script 先生成它；导入完整应用 Router 的测试先运行 `pnpm routes:generate`，中性页面和路由状态测试不依赖该临时文件。
 - `data/api/client/` 是初始化生成的 Ky HTTP 基础，统一受控 BaseURL、三个 header、timeout/取消、并发 revision、`ApiError`、Token setter 与 401/403 反馈；它不包含真实 endpoint、refresh/replay 或登录地址。真实业务出现后才在 `data/api/` 下增加按域划分的 service；Ky 传输与 OpenAPI adapter 不得复制第二套请求上下文。

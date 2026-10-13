@@ -372,7 +372,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "业务 403",
     "返回调用方"
   ],
-  "web-implement-saas-auth": ["权限差异测试矩阵"],
+  "web-implement-saas-auth": ["权限差异测试矩阵", "导航与会话生命周期分离"],
   "web-document-api": ["客户端控制参数不属于 wire 字段", "HTTP 待确认项"],
   "web-implement-write-recovery": [
     "写操作不自动重放",

@@ -14,6 +14,7 @@ describe("Harness Skill and Agent policy validation", () => {
     ["web-implement-access-control", "已识别但无权限的目标"],
     ["web-implement-access-control", "不依赖被拒绝的业务权限"],
     ["web-implement-saas-auth", "权限差异测试矩阵"],
+    ["web-implement-saas-auth", "导航与会话生命周期分离"],
     ["web-document-api", "客户端控制参数不属于 wire 字段"],
     ["web-document-api", "HTTP 待确认项"],
     ["web-implement-write-recovery", "刷新失败只重试读取"],

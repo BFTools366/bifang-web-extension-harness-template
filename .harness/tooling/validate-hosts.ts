@@ -91,6 +91,29 @@ export async function hasBuildVersionSurface(root: string): Promise<boolean> {
   return false
 }
 
+/** 校验路由目录的生产文件命名，不将初始化首页固定为永久产品入口。 */
+export async function validateWebRouteFiles(root: string, errors: string[]): Promise<void> {
+  const routesRoot = path.join(root, "src/routes")
+  if (!(await pathExists(routesRoot))) return
+  const files = await walkFiles(routesRoot, {
+    exclude: (name) => name.startsWith("-") || name.startsWith("."),
+    filter: (name) => /\.[jt]sx?$/u.test(name) && !name.endsWith(".d.ts")
+  })
+  const candidates = files.filter((file) => {
+    const relative = path.relative(routesRoot, file)
+    if (/\.(test|spec)\.[cm]?[jt]sx?$/u.test(relative)) {
+      errors.push(
+        `Web route filename conflicts with test discovery: src/routes/${relative.split(path.sep).join("/")}; keep tests in features and use a nested route such as app/test.tsx`
+      )
+      return false
+    }
+    return !/^__root\.[jt]sx?$/u.test(relative)
+  })
+  if (candidates.length === 0) {
+    errors.push("Web file routes must contain a non-root route module beyond __root")
+  }
+}
+
 // 执行 validateWeb 函数的处理逻辑。
 export async function validateWeb(
   root: string,
@@ -119,12 +142,12 @@ export async function validateWeb(
       "src/i18n/locales/en.ts",
       "src/i18n/locales/zh.ts",
       "src/routes/__root.tsx",
-      "src/routes/index.tsx",
       "src/observability/logger.ts",
       "src/observability/logger.test.ts"
     ],
     errors
   )
+  await validateWebRouteFiles(root, errors)
   if (
     (await pathExists(path.join(root, "src/popup.tsx"))) ||
     (await pathExists(path.join(root, "src/options.tsx")))

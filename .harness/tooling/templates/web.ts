@@ -69,6 +69,7 @@ export default defineConfig(({ mode }) => ({
       target: "react",
       routesDirectory: "./src/routes",
       generatedRouteTree: "./src/routeTree.gen.ts",
+      routeFileIgnorePattern: "\\\\.(test|spec)\\\\.[cm]?[jt]sx?$",
       autoCodeSplitting: true
     }),
     react()

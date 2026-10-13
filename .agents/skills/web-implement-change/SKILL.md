@@ -32,7 +32,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
    - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一在 `src/data/`；存储访问经 `data/storage/`，REST 主交互、GraphQL 复杂查询/订阅与 Dexie 的 IndexedDB 边界按 `docs/DATA_ACCESS.md` §1.1–1.3 执行。
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
 3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
-4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。
+4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。路由布局、正文插槽、稳定 shell 与类型化 Link 组合按 UI 规范；路由目录只放生产路由，不使用测试后缀命名业务页。源码可读性与类型化组合按工程规则，不以断言或压缩格式规避合同。
 5. Extension 保持同一 Plasmo 单包的 Chrome MV3 / Firefox MV2 合同。已初始化下游的变更触及浏览器 API、消息、Storage、后台、权限、CSP 或资源时调用 `$web-review-extension-compatibility`；调用方负责修复与相关双目标测试，源模板维护按工程事实源核对兼容。最终 manifest 由 Plasmo 动态派生，共享 override 不固定 manifest_version。新增或扩大权限必须取得明确批准，并经既有候选链执行权限、安全及两个真实浏览器专项门禁。
 6. 面向用户的新文案通过既有 `i18next`/`react-i18next` 资源，不引入第二套 i18n 机制。
 7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止隐式环境覆盖，浏览器公开变量不承载秘密。已初始化下游授权包含有限 REST/GraphQL HTTP 接入或 Mock 迁移时，域 API 部分委托 `$web-connect-http-service`；源 Harness 不接收产品地址或接口。

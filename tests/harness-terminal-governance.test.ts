@@ -30,7 +30,7 @@ describe("terminal identity, skills and UI governance", () => {
       )
       const moduleStructure = canonicalRules
         .split("### 3.2 文件结构与模块依赖\n")[1]
-        ?.split("## 4. 文件规模")[0]
+        ?.split("### 3.3 源码可读性与类型化组合")[0]
         ?.trim()
       if (!moduleStructure) throw new Error("Missing canonical module structure contract")
       expect(await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")).toContain(
@@ -71,7 +71,10 @@ describe("terminal identity, skills and UI governance", () => {
         ["web-document-api", "HTTP 待确认项"]
       ]
       if (projectType === "web")
-        accessContracts.push(["web-implement-saas-auth", "权限差异测试矩阵"])
+        accessContracts.push(
+          ["web-implement-saas-auth", "权限差异测试矩阵"],
+          ["web-implement-saas-auth", "导航与会话生命周期分离"]
+        )
       for (const [skill, fragment] of accessContracts) {
         const file = path.join(root, ".agents/skills", skill, "SKILL.md")
         const source = await readFile(file, "utf8")

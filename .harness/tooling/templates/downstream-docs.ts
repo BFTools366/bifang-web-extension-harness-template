@@ -52,6 +52,12 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
     source,
     "module structure",
     "### 3.2 文件结构与模块依赖",
+    "### 3.3 源码可读性与类型化组合"
+  )
+  const sourceStyle = extractSection(
+    source,
+    "source readability",
+    "### 3.3 源码可读性与类型化组合",
     "## 4. 文件规模"
   )
   const interactionGuidance = extractSection(
@@ -68,7 +74,7 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
   )
   const hostRules =
     config.projectType === "web"
-      ? `- Web 的 \`app → routes → features → data\` 表达责任方向，按本文“文件结构与模块依赖”允许消费所需稳定下层契约，不要求逐层转发；\`data/api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
+      ? `- Web 的 \`app → routes → features → data\` 表达责任方向，按本文“文件结构与模块依赖”允许消费所需稳定下层契约，不要求逐层转发；\`data/api/client\` 是受管请求基础，真实 endpoint 与域契约按功能加入，Query key、缓存、mutation 和失效策略留在 feature。不得生成占位请求或第二套 services 层。\n- TanStack Router 使用 \`src/routes/\` 文件路由；route 文件只声明路由契约，业务 UI、hooks、客户端状态和测试留在 \`features/\`。路由目录不使用 .test/.spec 测试后缀命名业务页，业务 test URL 段可用 app/test.tsx；布局父路由、叶页面与正文插槽遵循 UI 规范“路由布局与插槽”，初始化 index.tsx 不要求永久保留。\n- Router 消费 \`features/route-state/RouteState.tsx\` 的统一加载、错误、重试与日志默认值；多页面标题、焦点、滚动和表单交互遵循 \`MANTINE_UI_GUIDELINES.md\`，真实读写的重试/缓存生命周期遵循 \`DATA_ACCESS.md\`。\n- Vite Router plugin 必须位于 React plugin 之前并启用 route 级自动拆包；没有真实 bundle 证据时不预设手工 \`manualChunks\`。\n- \`src/routeTree.gen.ts\` 被 Git、格式化器和 lint 忽略，只能由 \`pnpm routes:generate\`、dev 或 build 动态生成，不得手工编辑。\n- 当前生成结果默认从站点根路径部署。首次真实渠道再明确 base path、路由回退、CSP、跨域、缓存和环境变量边界；子路径需要同时调整 Vite、Router 与公共资源地址。`
       : `- Extension 固定维护 Chrome MV3 与 Firefox MV2，仍是一个单包。宿主边界变更或重构调用 \`$web-review-extension-compatibility\` 做只读审查，修复及必要测试由调用方负责。执行 Agent 在每次开发中自行核对并保证两目标的 API、callback/Promise、消息、权限、后台、CSP/资源及 URL 差异；按真实消费者使用能力检测、类型化 adapter 或 Plasmo 目标入口，补充受影响目标的成功/失败测试，一个目标通过不能推断另一个。\n- 最终 manifest 由 Plasmo 动态生成，共享 package.json.manifest 不固定 manifest_version；专有 override 按 manifest.overrides.chrome/firefox 浅合并，值使用目标最终协议，不能期待自动转换任意手写后台/action；pnpm dev 默认 Chrome，pnpm dev:firefox 使用 Firefox，build/package 默认完成两目标与统一检查。\n- Popup 与 Options 是独立 Plasmo 入口，各自挂载 TanStack Router；Popup 使用 memory history，Options 使用 hash history。 \`src/extension-router.tsx\` 用代码声明路由，不使用 Web 文件路由生成器。\n- \`package.json.targets.default\` 必须使用 browser context 并启用 \`includeNodeModules\`；production JS 不得留下运行时包的 Parcel self-map。\n- 权限、host permissions、content scripts 与 Web accessible resources 必须按真实用途最小化；不得使用远程托管可执行代码。\n- Chrome MV3 使用可回收 service worker，Firefox MV2 使用后台 scripts/page；监听器及时注册，状态可恢复，不把后台页持久运行当作共同前提；外部消息和 Storage 数据进入业务前必须校验。\n- RxJS 只能编排当前执行上下文内的事件；Popup、Options、content script 与 service worker 之间仍使用类型化浏览器消息或 Port。`
   const routeTreeExclusion = config.projectType === "web" ? " src/routeTree.gen.ts、" : " "
 
@@ -104,6 +110,10 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 ## 文件结构与模块依赖
 
 ${moduleStructure}
+
+## 源码可读性与类型化组合
+
+${sourceStyle}
 
 ## 当前宿主规则
 

@@ -73,6 +73,9 @@ describe("minimal public instantiation inputs", () => {
       expect(config).not.toHaveProperty("englishName")
       const apiContract = await readFile(path.join(repositoryRoot, "docs/API.md"), "utf8")
       expect(await readFile(path.join(targetRoot, "docs/API.md"), "utf8")).toBe(apiContract)
+      await expect(
+        readFile(path.join(targetRoot, "tests/web-routing-policy.test.ts"), "utf8")
+      ).rejects.toThrow()
       expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")
       expect(await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")).toContain("docs/API.md")
       // 两宿主都分发共同 PRD 合同；只有 Web 入口暴露三类业务导航，链接必须能解析。
@@ -226,7 +229,7 @@ describe("safe template instantiation", () => {
         readFile(path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"), "utf8")
       ])
       const start = "### 3.2 文件结构与模块依赖"
-      const end = "## 4. 文件规模"
+      const end = "### 3.3 源码可读性与类型化组合"
       const updatedRules = engineeringRules.replace(start, `${start}\n\n- 源章节增量传播标记。`)
       const expectedSection = updatedRules.split(`${start}\n`)[1]?.split(end)[0]?.trim()
       expect(expectedSection).toBeTruthy()
@@ -239,7 +242,7 @@ describe("safe template instantiation", () => {
         const section = files
           .get("docs/ENGINEERING_RULES.md")
           ?.split("## 文件结构与模块依赖\n")[1]
-          ?.split("## 当前宿主规则")[0]
+          ?.split("## 源码可读性与类型化组合")[0]
           ?.trim()
         expect(section).toBe(expectedSection)
       }

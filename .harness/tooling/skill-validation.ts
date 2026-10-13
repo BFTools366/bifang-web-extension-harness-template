@@ -57,7 +57,7 @@ const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]
     "已识别但无权限的目标",
     "不依赖被拒绝的业务权限"
   ],
-  "web-implement-saas-auth": ["权限差异测试矩阵"],
+  "web-implement-saas-auth": ["权限差异测试矩阵", "导航与会话生命周期分离"],
   "web-document-api": ["客户端控制参数不属于 wire 字段", "HTTP 待确认项"],
   "web-implement-write-recovery": ["写操作不自动重放", "未知时先通过已确认"],
   "web-implement-browser-storage": ["本地能力直接真实实现，不要求 BaseURL"],

@@ -192,6 +192,21 @@ for (const projectType of ["web", "extension"] as const) {
             : source
         await writeFile(path.join(root, name), fixtureSource)
       }
+      if (projectType === "web") {
+        // 模拟生产 Router 的全局类型注册，局部测试路径不能依赖未注册时的宽泛 Link 类型。
+        await writeFile(
+          path.join(root, "src/app/registeredRouterFixture.ts"),
+          `import { createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
+const root = createRootRoute()
+const index = createRoute({ getParentRoute: () => root, path: "/" })
+const router = createRouter({ routeTree: root.addChildren([index]) })
+declare module "@tanstack/react-router" {
+  /** 模拟中性生产路由注册，测试局部页面必须使用自己的 Router 类型。 */
+  interface Register { router: typeof router }
+}
+`
+        )
+      }
       await writeFile(
         path.join(root, "src/config/environment.ts"),
         'export const APP_CONFIG = { environment: "test", apiBaseUrl: "", requestTimeoutMs: 1000, logLevel: "error" } as const\n'

@@ -186,6 +186,7 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   "tests/harness-initialization.test.ts": "tombstone",
   "tests/initialization-guidance.test.ts": "tombstone",
   "tests/saas-foundation-guidance.test.ts": "tombstone",
+  "tests/web-routing-policy.test.ts": "tombstone",
   "tests/saas-creation.test.ts": "tombstone",
   "tests/harness-instantiation.test.ts": "tombstone",
   "tests/harness-memory.test.ts": "tombstone",

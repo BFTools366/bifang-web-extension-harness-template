@@ -136,6 +136,7 @@ describe("terminal Web initialization", () => {
     expect(viteConfig).toContain("@tanstack/router-plugin/vite")
     expect(viteConfig.indexOf("tanstackRouter(")).toBeLessThan(viteConfig.indexOf("react()"))
     expect(viteConfig).toContain("autoCodeSplitting: true")
+    expect(viteConfig).toContain('routeFileIgnorePattern: "\\\\.(test|spec)\\\\.[cm]?[jt]sx?$"')
     expect(viteConfig).toContain('manualPureFunctions: ["console.debug", "console.info"]')
     expect(viteConfig).toContain('mode === "production"')
     expect(viteConfig).toContain("rolldownOptions")

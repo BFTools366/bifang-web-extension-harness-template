@@ -124,6 +124,7 @@ export const REQUIRED_FILES = [
   "tests/harness-project-validation.test.ts",
   "tests/harness-terminal-governance.test.ts",
   "tests/harness-initialization-web.test.ts",
+  "tests/web-routing-policy.test.ts",
   "tests/harness-initialization-extension.test.ts",
   "tests/harness-instantiation-fixture.ts",
   "tests/harness-instantiation-terminal.test.ts",

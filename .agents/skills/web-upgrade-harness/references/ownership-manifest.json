@@ -558,6 +558,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/web-routing-policy.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/saas-creation.test.ts",
       "mode": "tombstone"
     },
