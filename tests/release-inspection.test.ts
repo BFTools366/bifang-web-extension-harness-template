@@ -350,6 +350,26 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     ).rejects.toThrow(/must use YYMMDDHHMMSS/)
   })
 
+  /** 验证 Web 元数据、样式和文本中的版本不能替代页面或脚本版本。 */
+  test.each(["metadata.json", "theme.css", "version.txt"])(
+    "rejects Web version only in %s",
+    async (filename) => {
+      const { artifactRoot, root } = await createFixture(baseUrls, "<main>Release</main>\n")
+      const expectedBuildVersion = "261013123459"
+      await writeFile(path.join(artifactRoot, filename), expectedBuildVersion)
+      await expect(inspectReleaseArtifact(root, { expectedBuildVersion })).rejects.toThrow(
+        /does not contain build version/
+      )
+      await writeFile(
+        path.join(artifactRoot, "app.js"),
+        `const buildVersion = "${expectedBuildVersion}";`
+      )
+      await expect(inspectReleaseArtifact(root, { expectedBuildVersion })).resolves.toMatchObject({
+        buildVersion: expectedBuildVersion
+      })
+    }
+  )
+
   /** 验证 Extension 的 package、manifest 与界面版本必须使用同一 SemVer。 */
   test("matches Extension SemVer across package, manifest, and UI", /* 执行当前测试用例的验证逻辑。 */ async () => {
     const { artifactRoot, root } = await createFixture(

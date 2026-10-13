@@ -140,7 +140,7 @@ export async function inspectParallelWorktrees(projectRoot: string, executionRoo
   }
 }
 
-/** 从干净 Task HEAD 创建并登记一个不重叠写入单元。 */
+/** 从干净 Local 或独立 Task HEAD 创建并登记一个不重叠写入单元。 */
 export async function createParallelWorktree(
   options: CreateParallelWorktreeOptions
 ): Promise<ParallelWorktreeUnit> {
@@ -154,7 +154,9 @@ export async function createParallelWorktree(
   assertSlug(options.unit, "unit")
   const repositories = await boundRepositories(options.projectRoot, options.sourceWorktree)
   await assertExecutionRoot(options.executionRoot, repositories.source.topLevel)
-  const sourceBranch = await assertSourceBranch(repositories.source.topLevel, options.task)
+  const local = repositories.source.topLevel === repositories.project.topLevel
+  const sourceKind = local ? "local" : "task-worktree"
+  const sourceBranch = await assertSourceBranch(repositories.source.topLevel, options.task, local)
   await assertClean(repositories.source.topLevel)
   const baseHead = (await git(repositories.source.topLevel, ["rev-parse", "HEAD"])).trim()
   const writeTargets = [
@@ -168,6 +170,11 @@ export async function createParallelWorktree(
   ].sort()
   if (writeTargets.length === 0) throw new Error("Parallel unit requires write targets")
   return withRegistryLock(repositories.project.commonDir, async () => {
+    await assertSourceBranch(repositories.source.topLevel, options.task, local, sourceBranch)
+    await assertClean(repositories.source.topLevel)
+    if ((await git(repositories.source.topLevel, ["rev-parse", "HEAD"])).trim() !== baseHead) {
+      throw new Error("Parallel Worktree source baseline has drifted")
+    }
     const registry = await loadRegistry(repositories.project.commonDir)
     const key = unitKey(options.task, options.unit)
     if (registry.units[key] !== undefined)
@@ -175,7 +182,12 @@ export async function createParallelWorktree(
     const taskUnits = Object.values(registry.units).filter((record) => record.task === options.task)
     if (
       taskUnits.some(
-        (record) => record.baseHead !== baseHead || record.expectedUnits !== options.expectedUnits
+        (record) =>
+          record.baseHead !== baseHead ||
+          record.expectedUnits !== options.expectedUnits ||
+          record.sourceWorktree !== repositories.source.topLevel ||
+          record.sourceBranch !== sourceBranch ||
+          (record.sourceKind ?? "task-worktree") !== sourceKind
       )
     ) {
       throw new Error("Parallel Worktree task batch baseline has drifted")
@@ -236,6 +248,7 @@ export async function createParallelWorktree(
       sourceWorktree: repositories.source.topLevel,
       worktreePath: await realpath(worktreePath),
       sourceBranch,
+      sourceKind,
       branch,
       baseHead,
       writeTargets,
@@ -307,7 +320,10 @@ export async function verifyParallelWorktree(
     if (branch !== record.branch) throw new Error("Parallel unit branch has drifted")
     await actualChangedPaths(record)
     await assertClean(record.worktreePath)
-    record.verifiedHead = (await git(record.worktreePath, ["rev-parse", "HEAD"])).trim()
+    const unitHead = (await git(record.worktreePath, ["rev-parse", "HEAD"])).trim()
+    if (unitHead === record.baseHead)
+      throw new Error("Parallel unit requires at least one reviewable commit")
+    record.verifiedHead = unitHead
     registry.units[unitKey(record.task, record.unit)] = record
     await writeRegistry(registry)
     return record
@@ -322,7 +338,6 @@ export async function removeParallelWorktree(
   return withRegistryLock(repositories.project.commonDir, async () => {
     const { registry, record } = await boundUnit(options)
     await assertExecutionRoot(options.executionRoot, repositories.source.topLevel)
-    await assertSourceBranch(repositories.source.topLevel, options.task)
     if (options.integratedInto !== record.sourceBranch) {
       throw new Error(`--integrated-into must equal ${record.sourceBranch}`)
     }

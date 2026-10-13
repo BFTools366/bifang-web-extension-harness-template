@@ -129,9 +129,6 @@ export async function boundRepositories(
     throw new Error("Project root and source Worktree must share one Git common-dir")
   }
   const registered = await assertPrimaryWorktree(project)
-  if (source.topLevel === project.topLevel) {
-    throw new Error("Source Worktree must be an independent left-side Task Worktree")
-  }
   const registeredPaths = await Promise.all(
     registered.map((record) => comparableWorktreePath(record.worktree))
   )
@@ -151,12 +148,18 @@ export async function assertExecutionRoot(
     throw new Error(`Helper must run from exact Worktree: ${expected}`)
 }
 
-/** 返回 source 当前分支并要求是父 Task 技术分支。 */
-export async function assertSourceBranch(sourceRoot: string, task: string): Promise<string> {
-  const expected = `codex/task-${task}`
+/** 校验独立 Task 分支，或复用并精确核对 Local 源的冻结分支。 */
+export async function assertSourceBranch(
+  sourceRoot: string,
+  task: string,
+  local = false,
+  frozenBranch?: string
+): Promise<string> {
   const actual = (
     await git(sourceRoot, ["symbolic-ref", "--quiet", "--short", "HEAD"], [0, 1])
   ).trim()
+  if (local && actual === "") throw new Error("Local source must use a named branch")
+  const expected = local ? (frozenBranch ?? actual) : `codex/task-${task}`
   if (actual !== expected) throw new Error(`Source branch must equal ${expected}`)
   const registered = await registeredWorktrees(sourceRoot)
   const record = registered.find((candidate) => candidate.worktree === sourceRoot)
@@ -225,15 +228,17 @@ export function assertOwnedPaths(paths: readonly string[], record: ParallelWorkt
   }
 }
 
-/** 收集 base..HEAD 与 staged、unstaged、untracked 的全部实际路径。 */
+/** 收集 base..HEAD 每次提交（含 merge、撤销）与未提交修改的全部路径。 */
 export async function actualChangedPaths(record: ParallelWorktreeUnit): Promise<string[]> {
   await git(record.worktreePath, ["merge-base", "--is-ancestor", record.baseHead, "HEAD"])
   const [committed, pending] = await Promise.all([
     git(record.worktreePath, [
-      "diff",
+      "log",
+      "--format=",
       "--name-status",
       "-z",
       "--find-renames",
+      "--diff-merges=first-parent",
       `${record.baseHead}..HEAD`,
       "--"
     ]),
@@ -253,10 +258,11 @@ export async function boundUnit(options: ParallelWorktreeSelection): Promise<{
   assertSlug(options.task, "task")
   assertSlug(options.unit, "unit")
   const repositories = await boundRepositories(options.projectRoot, options.sourceWorktree)
-  await assertSourceBranch(repositories.source.topLevel, options.task)
   const registry = await loadRegistry(repositories.project.commonDir)
   const record = registry.units[unitKey(options.task, options.unit)]
   if (record === undefined) throw new Error("Parallel Worktree unit is not registered")
+  const local = repositories.source.topLevel === repositories.project.topLevel
+  await assertSourceBranch(repositories.source.topLevel, options.task, local, record.sourceBranch)
   const expectedWorktreePath = path.join(
     path.dirname(repositories.project.topLevel),
     ".codex-worktrees",
@@ -266,12 +272,15 @@ export async function boundUnit(options: ParallelWorktreeSelection): Promise<{
   )
   if (
     record.sourceWorktree !== repositories.source.topLevel ||
-    record.sourceBranch !== `codex/task-${options.task}` ||
+    (record.sourceKind ?? "task-worktree") !== (local ? "local" : "task-worktree") ||
     record.task !== options.task ||
     record.unit !== options.unit ||
     record.worktreePath !== expectedWorktreePath
   ) {
     throw new Error("Parallel Worktree unit source binding has drifted")
+  }
+  if (!(await gitIsAncestor(repositories.source.topLevel, record.baseHead, "HEAD"))) {
+    throw new Error("Parallel Worktree source baseline has drifted")
   }
   return { repositories, registry, record }
 }
@@ -279,5 +288,10 @@ export async function boundUnit(options: ParallelWorktreeSelection): Promise<{
 /** 判断候选路径是否严格位于一个受管目录内。 */
 export function isNestedPath(root: string, candidate: string): boolean {
   const relativePath = path.relative(root, candidate)
-  return relativePath !== "" && !relativePath.startsWith("..") && !path.isAbsolute(relativePath)
+  return (
+    relativePath !== "" &&
+    relativePath !== ".." &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath)
+  )
 }

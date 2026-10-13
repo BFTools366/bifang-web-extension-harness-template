@@ -35,6 +35,81 @@ const identityI18n = {
 } as const
 
 describe("localized identity and visible brand initialization", () => {
+  /** 验证扩展根身份与翻译的超长输入只重问对应字段，保留其他已确认值。 */
+  test.each([
+    { field: "name", value: "N".repeat(76), answer: "Clipper", lateType: false },
+    { field: "description", value: "D".repeat(133), answer: "Clip useful pages.", lateType: false },
+    {
+      field: "identityI18n",
+      value: JSON.stringify({
+        defaultLocale: "en",
+        translations: { zh_CN: { name: "名".repeat(76), description: "说明" } }
+      }),
+      answer: JSON.stringify(identityI18n),
+      lateType: false
+    },
+    {
+      field: "identityI18n",
+      value: JSON.stringify({
+        defaultLocale: "en",
+        translations: { zh_CN: { name: "名称", description: "说".repeat(133) } }
+      }),
+      answer: JSON.stringify(identityI18n),
+      lateType: false
+    },
+    { field: "name", value: "N".repeat(76), answer: "Clipper", lateType: true }
+  ])(
+    "repairs overlong $field with late type=$lateType",
+    async ({ field, value, answer, lateType }) => {
+      const questions: string[] = []
+      const resolved = await collectPromptedIdentity(
+        {
+          targetRoot: path.resolve("..", "clipper"),
+          projectType: lateType ? undefined : "extension",
+          name: "Clipper",
+          id: "clipper",
+          description: "Clip useful pages.",
+          policyMode: "预设",
+          [field]: value
+        },
+        async (question) => {
+          questions.push(question)
+          return question.includes("字段： projectType") ? "extension" : answer
+        }
+      )
+      expect(questions).toHaveLength(lateType ? 2 : 1)
+      expect(questions.at(-1)).toContain(`字段： ${field}`)
+      expect(resolved).toMatchObject({
+        name: "Clipper",
+        id: "clipper",
+        description: "Clip useful pages."
+      })
+      expect(resolved.inputSources[field]).toBe(field === "identityI18n" ? "交互表单" : "交互问答")
+      expect(resolved.inputSources.id).toBe("命令行参数")
+      if (field === "identityI18n") expect(resolved.identityI18n).toBe(JSON.stringify(identityI18n))
+    }
+  )
+
+  /** 验证浏览器身份上限不会错误应用到 Web 身份。 */
+  test("preserves long Web identity without extra questions", async () => {
+    const resolved = await collectPromptedIdentity(
+      {
+        targetRoot: path.resolve("..", "long-web"),
+        projectType: "web",
+        webType: "tool-site",
+        name: "N".repeat(76),
+        id: "long-web",
+        description: "D".repeat(133),
+        policyMode: "预设"
+      },
+      async () => {
+        throw new Error("Web identity must not be re-prompted")
+      }
+    )
+    expect(resolved.name).toHaveLength(76)
+    expect(resolved.description).toHaveLength(133)
+  })
+
   /** 验证 CLI 在创建前拒绝缺失扩展说明，并保留 Web 默认行为。 */
   test("requires extension descriptions before any instantiation write", async () => {
     const args = [

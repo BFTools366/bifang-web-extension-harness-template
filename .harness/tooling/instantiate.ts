@@ -88,7 +88,10 @@ const EXCLUDED_NAMES = new Set([
 function isNestedPath(parent: string, candidate: string): boolean {
   // 保存 relative 变量供当前逻辑使用。
   const relative = path.relative(parent, candidate)
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  )
 }
 
 // 执行 shouldExclude 函数的处理逻辑。

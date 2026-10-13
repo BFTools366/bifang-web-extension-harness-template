@@ -65,6 +65,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/project-memory-compatibility.test.ts",
   "tests/initialization-atomicity-fixture.ts",
   "tests/initialization-source-boundary.test.ts",
+  "tests/path-containment.test.ts",
   "tests/node-tooling.test.ts",
   "tests/prototype-workflow.test.ts"
 ] as const

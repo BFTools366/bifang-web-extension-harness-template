@@ -8,6 +8,8 @@ export interface ParallelWorktreeUnit {
   sourceWorktree: string
   worktreePath: string
   sourceBranch: string
+  /** 区分复用当前分支的 Local 源与独立 Task Worktree；旧登记默认后者。 */
+  sourceKind?: "local" | "task-worktree"
   branch: string
   baseHead: string
   writeTargets: string[]

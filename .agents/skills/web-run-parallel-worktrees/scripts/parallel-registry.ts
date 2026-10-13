@@ -117,7 +117,15 @@ function validateRegistry(value: unknown, commonDir: string): ParallelWorktreeRe
       typeof record.sourceWorktree !== "string" ||
       !path.isAbsolute(record.sourceWorktree) ||
       typeof record.sourceBranch !== "string" ||
-      record.sourceBranch !== `codex/task-${record.task}` ||
+      (record.sourceKind !== undefined &&
+        !["local", "task-worktree"].includes(record.sourceKind)) ||
+      (record.sourceKind === "local"
+        ? record.sourceBranch === "" ||
+          record.sourceBranch.startsWith("-") ||
+          [...record.sourceBranch].some(
+            (character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127
+          )
+        : record.sourceBranch !== `codex/task-${record.task}`) ||
       typeof record.baseHead !== "string" ||
       !OBJECT_ID_PATTERN.test(record.baseHead) ||
       typeof record.branch !== "string" ||

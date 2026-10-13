@@ -36,55 +36,62 @@ describe("registered parallel Worktrees", () => {
   })
 
   /** 验证 guard、postflight、父分支整合与保守清理形成完整闭环。 */
-  test("verifies ownership before and after an integrated unit", async () => {
-    const { root, source } = await taskRepository()
-    const record = await createParallelWorktree({
-      projectRoot: root,
-      sourceWorktree: source,
-      task: "sync-harness",
-      unit: "docs",
-      writeTargets: ["docs"],
-      expectedUnits: 2,
-      userRequested: true,
-      policy: "enabled",
-      executionRoot: source
-    })
-    await guardParallelWorktree({
-      projectRoot: root,
-      sourceWorktree: source,
-      task: "sync-harness",
-      unit: "docs",
-      writeTargets: ["docs/guide.md"],
-      executionRoot: record.worktreePath
-    })
-    await mkdir(path.join(record.worktreePath, "docs"))
-    await writeFile(path.join(record.worktreePath, "docs/guide.md"), "# Guide\n")
-    await git(record.worktreePath, ["add", "docs/guide.md"])
-    await git(record.worktreePath, ["commit", "-m", "docs: add guide"])
-
-    const verified = await verifyParallelWorktree({
-      projectRoot: root,
-      sourceWorktree: source,
-      task: "sync-harness",
-      unit: "docs",
-      executionRoot: record.worktreePath
-    })
-    expect(verified.verifiedHead).toMatch(/^[0-9a-f]{40}$/u)
-    await git(source, ["merge", "--ff-only", record.branch])
-    await expect(
-      removeParallelWorktree({
+  test.each(["task-worktree", "local"] as const)(
+    "verifies an integrated %s unit",
+    async (sourceKind) => {
+      const fixture = await taskRepository()
+      const { root } = fixture
+      const source = sourceKind === "local" ? root : fixture.source
+      const sourceBranch = sourceKind === "local" ? "main" : "codex/task-sync-harness"
+      const record = await createParallelWorktree({
         projectRoot: root,
         sourceWorktree: source,
         task: "sync-harness",
         unit: "docs",
-        integratedInto: "codex/task-sync-harness",
+        writeTargets: ["docs"],
+        expectedUnits: 2,
+        userRequested: true,
+        policy: "enabled",
         executionRoot: source
       })
-    ).resolves.toMatchObject({ branch: record.branch })
-    expect((await inspectParallelWorktrees(root, root)).units).toEqual([])
-    await expect(lstat(record.worktreePath)).rejects.toMatchObject({ code: "ENOENT" })
-    expect(await git(root, ["branch", "--list", record.branch])).toContain(record.branch)
-  })
+      await guardParallelWorktree({
+        projectRoot: root,
+        sourceWorktree: source,
+        task: "sync-harness",
+        unit: "docs",
+        writeTargets: ["docs/guide.md"],
+        executionRoot: record.worktreePath
+      })
+      await mkdir(path.join(record.worktreePath, "docs"))
+      await writeFile(path.join(record.worktreePath, "docs/guide.md"), "# Guide\n")
+      await git(record.worktreePath, ["add", "docs/guide.md"])
+      await git(record.worktreePath, ["commit", "-m", "docs: add guide"])
+
+      const verified = await verifyParallelWorktree({
+        projectRoot: root,
+        sourceWorktree: source,
+        task: "sync-harness",
+        unit: "docs",
+        executionRoot: record.worktreePath
+      })
+      expect(verified.verifiedHead).toMatch(/^[0-9a-f]{40}$/u)
+      await git(source, ["merge", "--ff-only", record.branch])
+      await expect(
+        removeParallelWorktree({
+          projectRoot: root,
+          sourceWorktree: source,
+          task: "sync-harness",
+          unit: "docs",
+          integratedInto: sourceBranch,
+          executionRoot: source
+        })
+      ).resolves.toMatchObject({ branch: record.branch })
+      expect((await inspectParallelWorktrees(root, root)).units).toEqual([])
+      await expect(lstat(record.worktreePath)).rejects.toMatchObject({ code: "ENOENT" })
+      expect(await git(root, ["branch", "--list", record.branch])).toContain(record.branch)
+      expect(await git(source, ["branch", "--show-current"])).toBe(sourceBranch)
+    }
+  )
 
   /** 验证活动单元之间相同或祖先/后代所有权均被拒绝。 */
   test("rejects overlapping active ownership", async () => {
@@ -173,9 +180,10 @@ describe("registered parallel Worktrees", () => {
     ).rejects.toThrow(/outside ownership: README\.md/)
   })
 
-  /** 验证保存项目 primary 不能冒充独立的左侧 Task source。 */
-  test("requires an independent registered source Worktree", async () => {
+  /** 验证 Local 源同样拒绝 detached HEAD，不以自动切分支掩盖。 */
+  test("rejects a detached Local source", async () => {
     const { root } = await taskRepository()
+    await git(root, ["checkout", "--detach"])
 
     await expect(
       createParallelWorktree({
@@ -189,7 +197,7 @@ describe("registered parallel Worktrees", () => {
         policy: "enabled",
         executionRoot: root
       })
-    ).rejects.toThrow(/independent left-side Task Worktree/)
+    ).rejects.toThrow(/Local source must use a named branch/)
   })
 
   /** 验证遗留并发锁会在创建任何分支或 Worktree 前阻断。 */

@@ -231,8 +231,7 @@ async function inspectArtifact(
       return {
         containsBuildVersion:
           expectedBuildVersion !== undefined &&
-          (project.projectType === "web" ||
-            VERSION_SURFACE_EXTENSIONS.has(path.extname(absolute))) &&
+          VERSION_SURFACE_EXTENSIONS.has(path.extname(absolute)) &&
           contents.includes(expectedBuildVersion),
         errors: fileErrors
       }

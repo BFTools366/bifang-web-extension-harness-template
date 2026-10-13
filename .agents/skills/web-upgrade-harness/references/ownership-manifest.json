@@ -658,6 +658,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/path-containment.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/initialization-source-boundary.test.ts",
       "mode": "tombstone"
     },

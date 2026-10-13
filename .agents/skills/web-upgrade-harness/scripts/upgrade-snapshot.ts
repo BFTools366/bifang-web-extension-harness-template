@@ -55,7 +55,10 @@ export function sha256(value: string | Uint8Array): string {
 /** 判断 candidate 是否位于 parent 内或等于 parent。 */
 export function isNested(parent: string, candidate: string): boolean {
   const relative = path.relative(parent, candidate)
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  )
 }
 
 /** 解析拒绝符号链接的真实目录。 */

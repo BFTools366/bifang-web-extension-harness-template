@@ -125,7 +125,8 @@ export async function inspectRepositoryLineLimits(
       continue
     }
     const absolutePath = path.resolve(root, relativePath)
-    if (path.relative(root, absolutePath).startsWith("..")) {
+    const relative = path.relative(root, absolutePath)
+    if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
       report.errors.push(`仓库路径越过项目根: ${relativePath}`)
       continue
     }

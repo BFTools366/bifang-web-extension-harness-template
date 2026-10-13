@@ -132,6 +132,7 @@ Task 绑定：
 - 写入型并行只在用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、Git 基线干净已提交且至少两个写入范围互不重叠时允许；不满足任一条件就保持单 Agent。
 - `disabled` 是写入型并行的禁止值，当前请求也不能覆盖 `disabled`；需要并行时必须先由用户明确修改持久策略。
 - 分支固定使用 `codex/unit-<task-slug>-<unit-slug>`。helper 必须绑定精确 Git common dir、登记 Worktree、起始 OID、允许路径和协调方 cwd；拒绝符号链接逃逸、路径重叠、脏工作树、未整合提交和越权修改。
+- Local 源复用并冻结当前具名分支与 HEAD，不切换分支、不创建左侧 Task；独立 Task Worktree 源继续要求 `codex/task-<task-slug>`。同批次源身份、分支与起始 OID 必须一致，整合后只允许基线祖先关系内的前进。
 - 每个写入单元只能改自己的允许路径，形成可审查提交并保持 clean；协调方按冻结 OID 与祖先关系整合。清理只能作用于本流程登记且已整合的精确 Worktree/ref，不扫描前缀、不删除他人资源。
 
 ## 初始化与持久化

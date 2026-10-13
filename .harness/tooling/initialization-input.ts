@@ -1,6 +1,6 @@
 import path from "node:path"
 import { parseSaasCommerceChoice, resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
-import { parseIdentityI18n } from "./identity.ts"
+import { assertExtensionIdentityText, parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type { AgentPolicyMode, ProjectType, WebCreationType } from "./types.ts"
@@ -219,6 +219,7 @@ function normalizeBasicField(
   value: string | undefined,
   allValues: PromptDefaults
 ): string {
+  const isExtension = ["extension", "2"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
   if (field === "targetRoot") {
     const targetRoot = requiredText(value, "目标目录")
     if (!path.isAbsolute(targetRoot)) throw new Error("必须提供绝对路径")
@@ -227,7 +228,11 @@ function normalizeBasicField(
   if (field === "projectType") {
     return parseProjectType(requiredText(value, "项目类型"))
   }
-  if (field === "name") return requiredText(value, "项目名称")
+  if (field === "name") {
+    const name = requiredText(value, "项目名称")
+    if (isExtension) assertExtensionIdentityText(name, "name")
+    return name
+  }
   if (field === "englishName") {
     if (!value?.trim() && (allValues.id?.trim() || deriveProjectId(allValues.name))) return ""
     const englishName = requiredText(value, "项目名称的英文翻译（--english-name）")
@@ -256,12 +261,20 @@ function normalizeBasicField(
     )
   }
   if (field === "description") {
-    return ["extension", "2"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
+    const description = isExtension
       ? requiredText(value, "Extension 项目说明")
       : (value?.trim() ?? "")
+    if (isExtension) assertExtensionIdentityText(description, "description")
+    return description
   }
   if (field === "identityI18n") {
-    parseIdentityI18n(value)
+    const identity = parseIdentityI18n(value)
+    if (isExtension) {
+      for (const translated of Object.values(identity?.translations ?? {})) {
+        assertExtensionIdentityText(translated.name, "name")
+        assertExtensionIdentityText(translated.description, "description")
+      }
+    }
     return value?.trim() ?? ""
   }
   if (field === "brandColor") return normalizeColor(requiredText(value, "品牌颜色"))

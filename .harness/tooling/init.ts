@@ -109,7 +109,10 @@ async function initializeBaselineRepository(
 // 执行 isSameOrNestedPath 函数的处理逻辑。
 function isSameOrNestedPath(parent: string, candidate: string): boolean {
   const relative = path.relative(parent, candidate)
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))
+  return (
+    relative === "" ||
+    (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+  )
 }
 
 // 执行 rejectInPlaceInitialization 函数的处理逻辑。

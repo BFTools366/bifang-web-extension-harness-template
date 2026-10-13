@@ -212,6 +212,7 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   "tests/project-memory-compatibility.test.ts": "tombstone",
   "tests/initialization-atomicity-fixture.ts": "tombstone",
   "tests/initialization-source-boundary.test.ts": "tombstone",
+  "tests/path-containment.test.ts": "tombstone",
   "tests/node-tooling.test.ts": "tombstone",
   "tests/prototype-workflow.test.ts": "tombstone",
   ".harness/tooling/validate-helpers.ts": "managed",

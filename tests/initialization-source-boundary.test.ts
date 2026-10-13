@@ -1,4 +1,14 @@
-import { chmod, lstat, mkdir, readFile, readdir, unlink, writeFile } from "node:fs/promises"
+import {
+  chmod,
+  lstat,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  unlink,
+  writeFile
+} from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { runCli } from "../.harness/tooling/cli.ts"
@@ -56,6 +66,19 @@ describe("initialization source isolation and snapshot protection", () => {
     await expect(lstat(path.join(repositoryRoot, ".harness/project.json"))).rejects.toMatchObject({
       code: "ENOENT"
     })
+  })
+
+  /** 验证内部初始化器不会把源内双点前缀目录误认为父目录跳转。 */
+  test("blocks initialization in an ordinary dot-prefixed source directory", async () => {
+    const root = await mkdtemp(path.join(repositoryRoot, "..harness-boundary-"))
+    try {
+      await expect(initializeProject(initOptions(root, "web", "blocked-source"))).rejects.toThrow(
+        DOWNSTREAM_ONLY_INITIALIZATION_ERROR
+      )
+      expect(await readdir(root)).toEqual([])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   /** 验证源根的符号链接别名也无法绕过内部初始化门禁。 */

@@ -76,13 +76,19 @@ export function identityLocales(config: ProjectConfig): Record<IdentityLocale, L
   }
 }
 
+/** 按浏览器身份字段复用交互与创建阶段的长度约束。 */
+export function assertExtensionIdentityText(value: string, field: keyof LocalizedIdentity): void {
+  const limit = field === "name" ? 75 : 132
+  if (value.length > limit)
+    throw new Error(`Extension ${field} must be at most ${limit} characters`)
+}
+
 /** 在创建前校验浏览器名称和说明长度，包括所有已提供翻译。 */
 export function assertExtensionIdentity(config: ProjectConfig): void {
   if (config.projectType !== "extension") return
   for (const identity of Object.values(identityLocales(config))) {
-    if (identity.name.length > 75) throw new Error("Extension name must be at most 75 characters")
-    if (identity.description.length > 132)
-      throw new Error("Extension description must be at most 132 characters")
+    assertExtensionIdentityText(identity.name, "name")
+    assertExtensionIdentityText(identity.description, "description")
   }
 }
 

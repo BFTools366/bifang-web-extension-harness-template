@@ -87,7 +87,9 @@ async function preflightConfirmedTarget(
   const relativeToSource = path.relative(canonicalSourceRoot, canonicalTargetRoot)
   if (
     relativeToSource === "" ||
-    (!relativeToSource.startsWith("..") && !path.isAbsolute(relativeToSource))
+    (relativeToSource !== ".." &&
+      !relativeToSource.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relativeToSource))
   ) {
     throw new Error("Target must be outside the Harness template directory")
   }
