@@ -61,7 +61,7 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 - \`src/data/storage/\`：集中的浏览器存储适配，保持独立生命周期并明确处理失败。
 - \`src/data/api/client/\`：不含业务接口的 Ky HTTP、请求上下文、语言、凭据、错误和未授权处理基础。
 - \`docs/API.md\`：完整的可选基础 API 与数据模型参考，包含来源和适配边界；仅按真实需求采用和拆解。
-- \`docs/api/\`：按请求或公开 API 实际变化，由 \`$web-document-api\` 结合当前实现与服务契约生成模块文档、通用模型与索引。实施/HTTP 流程只传入受影响模块与必要索引；参考合同、Mock 和已实现 HTTP 分别标明。
+- \`docs/api/\`：按请求或公开 API 实际变化，由 \`$web-document-api\` 结合当前实现、采用的服务契约与已确认需求生成模块文档、通用模型与索引；全量重生成保留尚未实施的有效设计并标明待确认。实施/HTTP 流程只传入受影响模块与必要索引；参考合同、Mock 和已实现 HTTP 分别标明。
 - \`docs/DATA_ACCESS.md\`：分页、请求头、认证、数据访问、SSE、可选 RxJS 与状态归属。
 - \`docs/MANTINE_UI_GUIDELINES.md\`：Mantine 主题、令牌、布局、组件语义、交互状态、响应式、无障碍与当前宿主 UI 规范。
 - \`docs/RUNTIME_CONFIGURATION.md\`：三环境、公开配置结构与构建映射。

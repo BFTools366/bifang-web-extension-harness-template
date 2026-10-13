@@ -220,7 +220,7 @@ export const SKILL_CONTRACTS = {
     displayName: "Web Harness：从代码整理 API 文档",
     shortDescription: "结合实现与服务契约完善六项 API 文档，独立说明通用异常和分页",
     defaultPrompt:
-      "使用 $web-document-api 结合当前实现、业务需求与服务契约完善 API Markdown，合理分析请求头、动作和报文，区分实现、契约与设计建议；REST 保持六项与 JSON 加字段表，通用异常和分页模型独立成文，不混入文件地址。"
+      "使用 $web-document-api 按当前实现、采用的服务契约与已确认需求完整整理 API Markdown，保留尚未实施的有效设计模块并标明待确认；REST 保持六项与 JSON 加字段表，索引、通用模型和客户端说明分别成文，不混入文件地址。"
   },
   "web-extract-i18n-strings": {
     description:

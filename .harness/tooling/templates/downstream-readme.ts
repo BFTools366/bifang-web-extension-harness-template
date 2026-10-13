@@ -61,7 +61,7 @@ Mantine 主题、令牌、布局、组件层级、交互状态、响应式、无
 
 项目级 \`.agents/skills/design-taste-frontend/\` 提供落地页、作品集与视觉改版的可选风格建议；缺失时自动安装，已有有效文件保留。使用前读取 \`docs/MANTINE_UI_GUIDELINES.md\` 的适用边界。产品工作先由 \`$web-define-product\` 在 \`docs/product_spec/\` 澄清并记录 PRD，再由 \`$web-design-prototype\` 展示 2–3 个可交互 HTML 方案；选定具体版本后才由 \`$web-implement-change\` 开发。初始化只分发项目级 Skills，不运行这套流程或创建业务记录。
 
-${webCapabilities}公开 API 操作或行为变化时，使用 [\`$web-document-api\`](.agents/skills/web-document-api/SKILL.md) 同步受影响模块与必要的 \`docs/api/\` 索引。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 文档展示接口名称、接口说明和有来源的 Schema SDL。参考合同与模拟结果不能证明服务端已实现。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。
+${webCapabilities}公开 API 操作或行为变化时，使用 [\`$web-document-api\`](.agents/skills/web-document-api/SKILL.md) 同步受影响模块与必要的 \`docs/api/\` 索引。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 文档展示接口名称、接口说明和有来源的 Schema SDL。参考合同与模拟结果不能证明服务端已实现。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。全量重生成按当前实现、采用的服务契约与已确认设计需求的并集核对模块，保留尚未实施的有效商品/订单等设计并标明待确认；离线原型不当作产品 API Mock，文档生成不越过原型选择或真实接入门禁。
 
 按当前事件可独立调用 API 契约/模块边界只读审查，以及访问控制、写入恢复、浏览器存储、持续事件流和用户可见 Task 管理。入口与触发条件见 \`AGENTS.md\` 的 Skills 地图；叶子完成后返回当前流程，不自动追加需求记录、构建或验收。
 

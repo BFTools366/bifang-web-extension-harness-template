@@ -63,7 +63,7 @@ SaaS 大后台管理使用 [`$web-implement-saas-admin`](.agents/skills/web-impl
 
 工具站点、SaaS 客户端与 SaaS 大后台统一遵循 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)：创建选择仅作为 README 交接输入，首次需求直接复用；下游当前业务模式与购买选择由唯一 PRD 记录，需求、原型、实现和真实接入复用同一事实。安装 Skill 不自动实现产品功能。
 
-三项 SaaS 能力共用 [API 关联表](docs/API.md#saas-能力与-api-关联)：映射已有认证操作、协议与字段，列明组织切换/权限、购买及后台管理的服务契约缺口。需要整理接口文档或公开 API 实际变化时，在下游调用 [`$web-document-api`](.agents/skills/web-document-api/SKILL.md)，依据当前 API 实现、类型与相关测试写入 `docs/api/`：每个模块一份文档，并生成索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 展示接口名称、接口说明与有来源的 Schema。初始化只分发 Skill，不生成业务接口文档。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。
+三项 SaaS 能力共用 [API 关联表](docs/API.md#saas-能力与-api-关联)：映射已有认证操作、协议与字段，列明组织切换/权限、购买及后台管理的服务契约缺口。需要整理接口文档或公开 API 实际变化时，在下游调用 [`$web-document-api`](.agents/skills/web-document-api/SKILL.md)，依据当前 API 实现、类型与相关测试写入 `docs/api/`：每个模块一份文档，并生成索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 展示接口名称、接口说明与有来源的 Schema。初始化只分发 Skill，不生成业务接口文档。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。全量重生成按当前实现、采用的服务契约与已确认设计需求的并集核对模块，保留尚未实施的有效商品/订单等设计并标明待确认；离线原型不当作产品 API Mock，文档生成不越过原型选择或真实接入门禁。
 
 Extension 默认同时构建 Chrome MV3 与 Firefox MV2；`pnpm dev` 开发 Chrome，`pnpm dev:firefox` 开发 Firefox。最终 manifest 由 Plasmo 动态生成，后续开发按 [工程基础](docs/harness_engineering/foundations.md) 自行处理两浏览器差异与兼容。
 
