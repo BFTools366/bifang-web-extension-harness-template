@@ -151,6 +151,7 @@ REST/RESTful 最终以纯 Markdown（`.md`）导出。每个接口只按以下�
 - 准确保留 `!`、列表与元素可空性、默认值、已知 description/directive 和弃用信息；区分 `[T]`、`[T!]`、`[T]!`、`[T!]!`。输入参数/字段只有非空且无默认值时才必须提供；自定义 scalar 的单位、格式与序列化语义依真实契约说明，未知处保持未确认。
 - 只有客户端 query/fragment、TypedDocumentNode 或 TypeScript 结果类型时，明确“服务端 Schema 未确认”，另列已有 operation 文档与源码依据；不能从选择集反推服务端完整类型、nullability 或参数默认值，也不能把 operation 文档标成 Schema。
 - Schema 之外仍说明实际接口地址、请求方法/请求头、operationName、variables、返回映射，以及 HTTP/GraphQL 错误与 partial data 策略。JSON variables/响应需要字段说明时复用上述字段表的列与字段语义；query/fragment 示例只作调用补充。未确认 Mutation、Subscription 或推送协议时不宣称支持。
+- 当前为 Mock 时，另外说明执行器实际支持及明确拒绝的 operation 控制与语法范围，例如 variables、operationName、fragment、directive、别名和多根字段；按实现及测试填写，不把这些示例变成统一拒绝列表。可信 SDL 证明来源契约，不能证明 Mock 已完整执行该 Schema；不能为迎合受限 Mock 改写来源类型或删除服务能力。核对未支持请求是否明确失败；若实现静默忽略并返回成功，如实标明协议差异并报告调用方，不修改代码或把差异写成已通过。
 
 ## 增量更新与核对
 
