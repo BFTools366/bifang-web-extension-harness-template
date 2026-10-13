@@ -1,6 +1,6 @@
 # 数据层、存储与 API 职责
 
-本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成基于 Ky 的无业务 endpoint HTTP client、语言偏好、分页基础与非空测试；`ky` 是两种宿主共有的运行时依赖，不生成占位业务请求、登录页、列表页或事件总线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
+本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成基于 Ky 的无业务 endpoint HTTP client、语言偏好、分页基础与非空测试；`ky` 是两种宿主共有的运行时依赖，不生成占位业务请求、业务列表页或事件总线；SaaS 客户端按创建契约另生成通用认证基线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
 
 固定生成的 HTTP/分页基础（`.harness/tooling/templates/http.ts`、`pagination.ts`）体量明显大于"不生成空壳"原则通常允许的规模，这是刻意例外而非疏漏：动态 header、乱序 revision、迟到 401 与 single-flight 是认证/并发正确性问题，一旦交给每个下游各自实现，出错代价（安全绕过、竞态覆盖新状态）远高于集中维护的成本；因此即便当前项目零业务 endpoint，也在初始化阶段一次性生成并测试，而不是等首个真实 endpoint 出现才补。这套正确性契约由请求上下文维护，默认使用 Ky 的 Fetch 传输；OpenAPI/GraphQL/SSE/RxJS 协议适配器仍按真实消费者加入并复用该契约。
 
@@ -182,7 +182,7 @@ React 项目使用已声明的 `@tanstack/react-query`。REST 读取与 GraphQL 
 - 本地能力：计算、转换、浏览器存储与本地数据操作按真实需求直接实现。纯业务逻辑留在对应 feature，存储访问通过 `src/data/storage/`，真实读取、写入、校验与失败处理不能替换为 Mock；不为本地操作包装假 HTTP 请求、等待远端配置或创建占位 endpoint。
 - 混合流程：本地部分照常执行，仅隔离缺少地址的远端 API 边界。一个远端服务未配置，不影响独立的本地能力或已配置的其他服务；Mock 结果不能冒充真实远端响应或本地已保存数据。
 
-Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不把模拟凭据、continuation 或调用结果当成真实会话及网络成功证据。初始化仍只生成中性工程基础；没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
+Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不把模拟凭据、continuation 或调用结果当成真实会话及网络成功证据。SaaS 客户端初始化包含明确标注的认证域 Mock，固定演示账户、组织与权限只用于该通用基线；其他创建类型保持中性。没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
 
 当前功能已采用可信服务协议，且依赖 Header、原始封装、错误码或 DTO 映射时，产品 Mock 也经过对应的请求序列化、内存 exchange、原始响应边界校验与领域投影，复用 API 模块的解析器；不能直接返回领域对象后声称协议适配已覆盖。测试在可注入的 exchange 边界观察请求与响应，证明公开操作隔离、适用报文及最高风险错误分支，同时断言零网络调用。只模拟本次采用的操作和协议支持面，不复制完整服务器或自建通用解析框架；来源 Schema、协议合同与当前 Mock 的实际支持范围分别说明。
 

@@ -367,10 +367,10 @@ describe("Harness template validator", () => {
   test("rejects versions below a minimum and non-exact packageManager ranges", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     const lowNodeRoot = await copyRepository()
     await updateManifest(lowNodeRoot, (manifest) => {
-      manifest.engines = { node: ">=26.9.0", pnpm: ">=12.8.1" }
+      manifest.engines = { node: ">=23.99.0", pnpm: ">=12.8.1" }
     })
     await expect(validateHarness(lowNodeRoot)).rejects.toThrow(
-      /Node engine minimum must not be lower than 26\.10\.0/
+      /Node engine minimum must not be lower than 24\.0\.0/
     )
 
     const rangedPnpmRoot = await copyRepository()
@@ -384,13 +384,13 @@ describe("Harness template validator", () => {
 
   /** 验证 requires engines to express an open minimum rather than equality or capped ranges 场景。 */
   test("requires engines to express an open minimum rather than equality or capped ranges", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    for (const node of ["26.10.0", "=26.10.0", "^26.10.0", "~26.10.0", ">=26.10.0 <27.0.0"]) {
+    for (const node of ["24.0.0", "=24.0.0", "^24.0.0", "~24.0.0", ">=24.0.0 <27.0.0"]) {
       const targetRoot = await copyRepository()
       await updateManifest(targetRoot, (manifest) => {
         manifest.engines = { node, pnpm: ">=12.8.1" }
       })
       await expect(validateHarness(targetRoot)).rejects.toThrow(
-        /Node engine minimum must not be lower than 26\.10\.0/
+        /Node engine minimum must not be lower than 24\.0\.0/
       )
     }
   })
@@ -435,7 +435,7 @@ describe("Harness template validator", () => {
     const inconsistentPnpmRoot = await copyRepository()
     await updateManifest(inconsistentPnpmRoot, (manifest) => {
       manifest.packageManager = "pnpm@12.8.1"
-      manifest.engines = { node: ">=26.10.0", pnpm: ">=12.9.0" }
+      manifest.engines = { node: ">=24.0.0", pnpm: ">=12.9.0" }
     })
     await expect(validateHarness(inconsistentPnpmRoot)).rejects.toThrow(
       /packageManager pnpm pin must satisfy engines\.pnpm/

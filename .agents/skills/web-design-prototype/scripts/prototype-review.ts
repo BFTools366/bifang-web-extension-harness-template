@@ -14,17 +14,16 @@ interface Artifact {
   sha256: string
 }
 
-/** 保存本轮候选与真实用户选择，需求正文仍属于 Product Spec。 */
+/** 绑定本轮单一桌面原型；需求正文及开发授权不由此记录代替。 */
 export interface PrototypeReview {
-  schemaVersion: 1
+  schemaVersion: 2
   projectId: string
   projectType: "web" | "extension"
   scope: string
   revision: string
+  layout: "desktop"
   prd: Artifact
-  candidates: (Artifact & { id: string })[]
-  state: "awaiting_selection" | "selected"
-  selection?: { candidateId: string; confirmation: string; confirmedAt: string }
+  prototype: Artifact
 }
 
 /** 保存已校验的下游项目配置类型。 */
@@ -35,19 +34,15 @@ function reviewHeader(
   config: ProjectConfig,
   scope: string,
   revision: string
-): Omit<PrototypeReview, "prd" | "candidates" | "state"> {
+): Omit<PrototypeReview, "prd" | "prototype"> {
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     projectId: config.id,
     projectType: config.projectType,
     scope,
-    revision
+    revision,
+    layout: "desktop"
   }
-}
-
-/** 选择确认语必须是非空白字符串。 */
-function hasConfirmation(value: unknown): value is string {
-  return typeof value === "string" && value.trim() !== ""
 }
 
 /** 校验稳定范围标识，避免命令参数改变记录目录。 */
@@ -154,7 +149,7 @@ async function confirmedPrd(root: string, relative: string): Promise<Artifact> {
   ])
   const specs = names.filter((name) => /^\d{8}_product_spec\.md$/u.test(name)).sort()
   if (path.posix.basename(relative) !== specs.at(-1)) {
-    throw new Error("PRD 必须是最新产品规格；请针对当前范围重新取得选择")
+    throw new Error("PRD 必须是最新产品规格；请针对当前范围重新登记原型")
   }
   if (!isApprovedPrd(bytes.toString("utf8"))) {
     throw new Error("准备原型前须由用户确认 PRD")
@@ -162,16 +157,16 @@ async function confirmedPrd(root: string, relative: string): Promise<Artifact> {
   return result
 }
 
-/** 限定候选为同一范围及版本的独立 HTML，并返回可直接选择的 ID。 */
-function candidateIdentity(scope: string, relative: string): { revision: string; id: string } {
+/** 限定原型为当前范围及版本中的一个独立 HTML。 */
+function prototypeRevision(scope: string, relative: string): string {
   const prefix = `docs/prototypes/${scope}/`
   const match = relative.startsWith(prefix)
     ? /^(v[1-9]\d*)\/([a-z][a-z0-9-]*)\.html$/u.exec(relative.slice(prefix.length))
     : null
   if (match?.[1] === undefined || match[2] === undefined) {
-    throw new Error("Candidates must be docs/prototypes/<scope>/vN/<id>.html")
+    throw new Error("Prototype must be docs/prototypes/<scope>/vN/<name>.html")
   }
-  return { revision: match[1], id: match[2] }
+  return match[1]
 }
 
 /** 读取并验证记录与当前项目及文件内容一致，任何漂移都要求重新展示。 */
@@ -186,135 +181,74 @@ async function readReview(
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
       throw new Error(
-        "No prototype review; generate candidates and wait for user selection before development",
+        "No prototype review; generate and register one desktop prototype before development",
         { cause: error }
       )
     }
     throw error
   }
   const raw = object(JSON.parse(await readFile(location, "utf8")))
+  if (raw.schemaVersion !== 2) {
+    throw new Error("原型记录格式已更新；请自查、展示并重新登记单一桌面原型")
+  }
   if (
-    raw.schemaVersion !== 1 ||
     raw.projectId !== config.id ||
     raw.projectType !== config.projectType ||
     raw.scope !== scope ||
     typeof raw.revision !== "string" ||
-    !Array.isArray(raw.candidates) ||
-    raw.candidates.length < 1 ||
-    raw.candidates.length > 3 ||
-    (raw.state !== "awaiting_selection" && raw.state !== "selected")
+    raw.layout !== "desktop" ||
+    "candidates" in raw ||
+    "selection" in raw ||
+    "state" in raw
   ) {
-    throw new Error("Invalid prototype review identity or state")
+    throw new Error("Invalid single desktop prototype review identity")
   }
   const prd = artifact(raw.prd)
   if ((await confirmedPrd(root, prd.path)).sha256 !== prd.sha256) {
-    throw new Error("PRD 已变化；请重新准备原型并取得用户选择")
+    throw new Error("PRD 已变化；请修订、自查并重新登记原型")
   }
-  const candidates: PrototypeReview["candidates"] = []
-  for (const value of raw.candidates) {
-    const item = object(value)
-    const file = artifact(item)
-    const identity = candidateIdentity(scope, file.path)
-    if (
-      identity.revision !== raw.revision ||
-      item.id !== identity.id ||
-      candidates.some((other) => other.id === item.id)
-    ) {
-      throw new Error("Invalid or duplicate candidate identity")
-    }
-    candidates.push({ ...file, id: identity.id })
+  const prototype = artifact(raw.prototype)
+  if (prototypeRevision(scope, prototype.path) !== raw.revision) {
+    throw new Error("Invalid prototype revision")
   }
-  const current = await Promise.all(candidates.map((item) => fingerprint(root, item.path)))
-  if (current.some((item, index) => item.sha256 !== candidates[index]?.sha256)) {
-    throw new Error("原型已变化；请重新准备并取得用户选择")
+  if ((await fingerprint(root, prototype.path)).sha256 !== prototype.sha256) {
+    throw new Error("原型已变化；请修订、自查并重新登记原型")
   }
-  const review: PrototypeReview = {
+  return {
     ...reviewHeader(config, scope, raw.revision),
     prd,
-    candidates,
-    state: raw.state
+    prototype
   }
-  if (raw.state === "selected") {
-    const selected = object(raw.selection)
-    if (
-      typeof selected.candidateId !== "string" ||
-      !candidates.some((item) => item.id === selected.candidateId) ||
-      !hasConfirmation(selected.confirmation) ||
-      typeof selected.confirmedAt !== "string" ||
-      !Number.isFinite(Date.parse(selected.confirmedAt))
-    ) {
-      throw new Error("Invalid user selection evidence")
-    }
-    review.selection = {
-      candidateId: selected.candidateId,
-      confirmation: selected.confirmation,
-      confirmedAt: selected.confirmedAt
-    }
-  } else if (raw.selection !== undefined) {
-    throw new Error("Unselected review cannot contain selection evidence")
-  }
-  return review
 }
 
-/** 执行下游原型登记、选择与开发前核验；授权真实性由调用 Agent 对照用户会话。 */
+/** 登记或核验单一桌面原型，不增加用户选择或业务开发授权。 */
 export async function runPrototypeReview(
   argv: string[],
   root = process.cwd()
 ): Promise<PrototypeReview> {
   const [command, scope, ...args] = argv
-  if (scope === undefined)
-    throw new Error("用法：prototype-review.ts prepare|select|check <scope> ...")
+  if (scope === undefined) throw new Error("用法：prototype-review.ts prepare|check <scope> ...")
   assertScope(scope)
   // 在读取任何业务文件或创建目录前验证下游身份，初始化不得调用本工具。
   const config = await loadProjectConfig(root)
   if (command === "prepare") {
-    const [prdPath, ...paths] = args
-    if (prdPath === undefined || paths.length < 1 || paths.length > 3)
-      throw new Error("prepare 需要 PRD 和 1–3 个 HTML 候选方案")
+    const [prdPath, prototypePath] = args
+    if (args.length !== 2 || prdPath === undefined || prototypePath === undefined)
+      throw new Error("prepare 需要 PRD 和恰好一个桌面 HTML 原型")
     const prd = await confirmedPrd(root, prdPath)
-    const identities = paths.map((file) => candidateIdentity(scope, file))
-    if (
-      new Set(identities.map((item) => item.revision)).size !== 1 ||
-      new Set(identities.map((item) => item.id)).size !== paths.length
-    ) {
-      throw new Error("候选方案必须具有唯一 ID，且属于同一版本")
-    }
-    const candidates = await Promise.all(
-      paths.map(async (file, index) => ({
-        ...(await fingerprint(root, file)),
-        id: identities[index]?.id ?? ""
-      }))
-    )
+    const revision = prototypeRevision(scope, prototypePath)
+    const prototype = await fingerprint(root, prototypePath)
     const review: PrototypeReview = {
-      ...reviewHeader(config, scope, identities[0]?.revision ?? ""),
+      ...reviewHeader(config, scope, revision),
       prd,
-      candidates,
-      state: "awaiting_selection"
+      prototype
     }
     await save(root, review)
     return review
   }
-  if (command !== "select" && command !== "check") throw new Error("未知的原型评审命令")
-  if ((command === "check" && args.length !== 0) || (command === "select" && args.length !== 2)) {
-    throw new Error("check 不接受额外参数；select 需要候选 ID 和用户确认")
-  }
-  const review = await readReview(root, scope, config)
-  if (command === "select") {
-    const [id, confirmation] = args
-    if (
-      id === undefined ||
-      !review.candidates.some((item) => item.id === id) ||
-      !hasConfirmation(confirmation)
-    ) {
-      throw new Error("须根据用户明确确认选择已有候选方案")
-    }
-    review.state = "selected"
-    review.selection = { candidateId: id, confirmation, confirmedAt: new Date().toISOString() }
-    await save(root, review)
-  } else if (review.state !== "selected") {
-    throw new Error("等待用户选择，暂不开始开发")
-  }
-  return review
+  if (command !== "check") throw new Error("仅支持 prepare/check，不提供多方案选择命令")
+  if (args.length !== 0) throw new Error("check 不接受额外参数")
+  return readReview(root, scope, config)
 }
 
 if (isMainModule(import.meta.url)) {

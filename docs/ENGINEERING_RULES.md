@@ -52,7 +52,7 @@
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`data/` 统一承载 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；`data/api/` 提供 client 与类型化服务边界，`data/storage/` 集中存储访问。页面或 route 文件不得直接拼任意 URL。
 - 两种宿主未配置对应 BaseURL 时，只有依赖该远端 API 的操作在 `src/data/api/<domain>/` 以完整 Mock API 提供；本地能力直接真实实现，不要求 BaseURL，纯业务逻辑留在 feature，存储访问经 `src/data/storage/`。混合流程只 Mock 缺少地址的远端边界；用户要求真实联网后收集缺失配置，再替换对应实现，流程以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 为准。组件、route、hook 和 Query 不内嵌业务 Mock，真实请求失败不回落 Mock；中性初始化不生成业务数据。
-- `data/api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。初始化不生成业务请求、refresh/replay、登录页、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
+- `data/api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。基础 client 不生成业务请求、refresh/replay、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
 - Query key、请求前缓存、新鲜度、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target、语言与非敏感 scope。REST/GraphQL 有限查询统一复用当前上下文的 QueryClient 与 feature Query options，缓存已解析校验的领域数据；Ky/client 不再建立结果缓存，不缓存可消耗的 Response。详细入口和新鲜度语义见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.7。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
 - React 组件负责呈现和交互编排；可复用的纯逻辑放在当前单包内有业务名称的模块或 hook 中。不要为假想复用建立跨包抽象。
@@ -149,7 +149,7 @@
 - 文档中的命令、路径、依赖和能力必须来自真实仓库。计划中的能力标记为“计划”，未执行检查写“未执行”。
 - 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 只拒绝形如 `候选状态：已验收`、`发布就绪：ready`、`Candidate status: accepted` 的行首结论，其他措辞靠评审。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
-- 下游需求澄清、PRD、原型选择的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与版本选择证据。初始化只分发能力，不执行业务流程；新产品/页面及显著交互改版选定原型后才开发，日常小修复不强制重走。
+- 下游需求澄清、PRD、原型登记的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与摘要绑定证据。初始化只分发能力，不执行业务流程；新产品/页面及显著交互改版完成单一桌面原型自查登记后按已有授权开发，日常小修复不强制重走。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`；Harness 源版本采用上海时间 `YYYYMMDDHHMM`，Web 候选页面版本采用上海时间 `YYMMDDHHMMSS`，Extension 候选使用 `package.json.version` 的稳定 SemVer。
 - 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。
@@ -175,7 +175,7 @@
 - 先复用当前请求、会话与工程中已明确且有效的事实；各流程的检查清单用于 Agent 自查，不是要求用户一次填写全部信息的问卷。只补当前下一步真正依赖的缺项，不重问已有答案。
 - 每轮优先提出一个关键问题，确有共同依赖时才合并少量问题。用“是否先采用……？建议/默认……，因为……”引导，给简短选项与实际影响；没有可靠默认值时直接说明需要明确选择，不强凑建议。
 - 对可逆、低影响的可选项给出默认方案；非阻断未知项可明确记录为建议或待定并继续独立工作。用户选择后沿用；改变已有明确决定需要新指令，不用新的默认值覆盖。
-- 默认值只降低输入负担，不代替用户同意。必需的范围确认、功能启用、原型选择及外部副作用授权仍须取得明确答案；沉默、超时或预选项不算批准。CLI 只有在题面明确写出“回车采用”的普通配置项上，才把用户实际提交的空回答记为接受默认值；最终创建确认空回答仍取消。
+- 默认值只降低输入负担，不代替用户同意。必需的范围确认、功能启用及外部副作用授权仍须取得明确答案；沉默、超时或预选项不算批准。CLI 只有在题面明确写出“回车采用”的普通配置项上，才把用户实际提交的空回答记为接受默认值；最终创建确认空回答仍取消。
 - 不从建议值编造项目类型、服务地址、endpoint、凭据、权限码、资金归属或支付契约；只追问本次操作及其最小依赖链。完整范围确定后给一次可审阅汇总，不在每个阶段重复索要同一份资料。
 
 ### 7.2 Skill 职责、复用与渐进披露
@@ -188,9 +188,10 @@
 
 ## 8. 依赖与安全
 
-- Harness 自有工具与 Skill helper 统一使用项目本地 Node.js/TypeScript 和标准库；不引入 Python 解释器、Python 文件或执行入口。已有声明依赖按当前工程规则使用，新增第三方运行时依赖仍需说明必要性并按授权规则处理。`pnpm validate:harness` 拒绝自有 Python 文件、shebang、指向 Python 的 package 脚本/bin，以及可静态识别的启动 Python 解释器的 child_process 调用，其他子进程不在该门禁范围；第三方依赖与原样隔离的 vendor 不重写。
+- Harness 自有工具与 Skill helper 统一使用全局 Node.js、项目声明的 TypeScript 和标准库；不引入 Python 解释器、Python 文件或执行入口。已有声明依赖按当前工程规则使用，新增第三方运行时依赖仍需说明必要性并按授权规则处理。`pnpm validate:harness` 拒绝自有 Python 文件、shebang、指向 Python 的 package 脚本/bin，以及可静态识别的启动 Python 解释器的 child_process 调用，其他子进程不在该门禁范围；第三方依赖与原样隔离的 vendor 不重写。
 
-- 只安装当前单包真实使用的依赖。生成的基础 client 使用 Ky 的浏览器 Fetch 传输并声明运行时依赖；Axios、OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件；安装或升级工具仍需授权。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
+- Node.js、pnpm 与独立 CLI 工具必须全局安装或升级；项目运行时/开发依赖（含 React、Vite、TypeScript、Vitest）按 manifest 与锁文件安装在项目内，项目脚本使用声明版本，不以同名全局包替代。工具安装或升级仅在已有授权范围内执行，实际变更后核对可执行文件路径与版本；此规则不授权额外依赖、自动升级或日常环境预探测。
+- 只安装当前单包真实使用的项目依赖。生成的基础 client 使用 Ky 的浏览器 Fetch 传输并声明运行时依赖；Axios、OpenAPI、GraphQL、SSE、RxJS 只随真实消费者加入。Web 列表能力本身不预装图标或 DnD 包；只有当前列表真实使用对应 UI 或拖拽时才按授权与依赖评审加入。首次生成 manifest 后使用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出并固定 `pnpm-lock.yaml`；后续 CI、复现和候选检查使用 frozen lockfile。Node.js、pnpm 与受控依赖按声明的稳定 SemVer（`x.y.z`）最低版本验收，更高合法版本允许进入完整门禁；prerelease 或无法解析的声明失败。首次初始化只检查一次 Node.js/pnpm，普通开发和构建不做环境预探测，真实命令报出疑似环境错误后才诊断相关组件。`packageManager` 仍须是精确 `pnpm@x.y.z` pin 且不得低于 pnpm 最低版本。当前版本、候选版本、提交、lock/hash、Schema/协议版本、`manifest_version` 和 `projectType` 等身份或协议事实继续精确匹配。新增依赖要检查维护状态、许可证、体积、安全公告和目标浏览器兼容性；具体选择遵循 [`DATA_ACCESS.md`](DATA_ACCESS.md)。
 - pnpm 12 的依赖构建许可保存在根 `pnpm-workspace.yaml` 的 `allowBuilds` 中；该文件不得声明 `packages`。不再使用 `package.json` 的 `pnpm.onlyBuiltDependencies`。TypeScript 暂固定在 6.0.3：受管 AST 工具依赖其 JavaScript API，且当前 `typescript-eslint` 的 TypeScript peer 范围不支持 7.x；升级前须先解决这两处兼容性。
 - 不在源码、测试、日志或前端构建中写入密钥。浏览器端环境变量默认可被用户观察，不能承载服务端秘密；`X-AUTH-TOKEN`、`X-Http-Request` 及其 fixture 不得进入日志或 Release 产物，Token/continuation 默认不得写入 localStorage/sessionStorage；仅 Web SaaS 会话凭据适用 `DATA_ACCESS.md` §1.3 的明确例外，continuation 始终不持久化。
 - 外部 URL、HTML、消息、Storage 与网络响应均视为不可信输入；验证并编码后再使用。

@@ -1,4 +1,17 @@
 export const REQUIRED_FILES = [
+  ".harness/tooling/templates/saas-client.ts",
+  ".harness/tooling/templates/saas-client/AuthPages.tsx.txt",
+  ".harness/tooling/templates/saas-client/Workspace.tsx.txt",
+  ".harness/tooling/templates/saas-client/api.ts.txt",
+  ".harness/tooling/templates/saas-client/contracts.ts.txt",
+  ".harness/tooling/templates/saas-client/provider.tsx.txt",
+  ".harness/tooling/templates/saas-client/router.test.tsx.txt",
+  ".harness/tooling/templates/saas-client/session.test.ts.txt",
+  ".harness/tooling/templates/saas-client/session.ts.txt",
+  ".harness/tooling/templates/saas-client/storage.ts.txt",
+  ".harness/tooling/templates/saas-client/translations.ts.txt",
+
+  ".agents/skills/web-instantiate-project/references/initialization-questions.json",
   ".agents/skills/web-audit-worktrees/references/inspection-contract.md",
   ".agents/skills/web-preview-harness-upgrade/references/preview-contract.md",
   ".harness/tooling/templates/downstream-agents.ts",

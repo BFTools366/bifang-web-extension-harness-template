@@ -134,7 +134,7 @@ export const SKILL_CONTRACTS = {
   },
   "web-implement-saas-auth": {
     description:
-      "在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension，初始化不生成认证页面。",
+      "在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension；客户端创建复用通用认证基线。",
     title: "# Web Harness：规范与实施 SaaS 认证",
     displayName: "Web Harness：规范与实施 SaaS 认证",
     shortDescription: "完善 SaaS 客户端与大后台认证 SOP，统一持久会话、路由及权限控制",
@@ -197,21 +197,21 @@ export const SKILL_CONTRACTS = {
   },
   "web-define-product": {
     description:
-      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游澄清需求，将用户、问题、范围、约束和验收标准记录为 Product Spec（PRD），确认后交给原型选择或范围明确的实现。用于新产品、模糊需求或产品边界变化；不参与上游初始化，也不为日常小修复强制编写 PRD。",
+      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游澄清需求，将用户、问题、范围、约束和验收标准记录为 Product Spec（PRD），确认后交给单一桌面原型设计或范围明确的实现。用于新产品、模糊需求或产品边界变化；不参与上游初始化，也不为日常小修复强制编写 PRD。",
     title: "# Web Harness：定义前端产品",
     displayName: "Web Harness：定义前端产品",
-    shortDescription: "在下游澄清产品需求并保存唯一 PRD，确认范围后进入原型选择",
+    shortDescription: "在下游澄清产品需求并保存唯一 PRD，确认范围后进入单一桌面原型设计",
     defaultPrompt:
-      "使用 $web-define-product 在当前已初始化下游澄清需求并记录 Product Spec（PRD），确认范围后进入原型选择流程。"
+      "使用 $web-define-product 在当前已初始化下游澄清需求并记录 Product Spec（PRD），确认范围后进入单一桌面原型设计流程。"
   },
   "web-design-prototype": {
     description:
-      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游，将已澄清的 PRD 转为可交互 HTML 原型方案，记录用户选定的具体版本后交接开发。用于新产品、新页面、显著交互改版或用户要求原型；不参与上游创建下游，也不为日常小修复强制重做原型。",
-    title: "# Web Harness：设计并选择产品原型",
-    displayName: "Web Harness：设计并选择产品原型",
-    shortDescription: "在下游生成交互原型方案并记录用户选择，确认具体版本后交接开发",
+      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游，将已澄清的 PRD 转为一个桌面端可交互 HTML 原型，自查并登记内容摘要后交接开发。用于新产品、新页面、显著交互改版或用户要求原型；不生成 A/B 多方案或 Mobile 布局，不参与上游创建下游，也不为日常小修复强制重做原型。",
+    title: "# Web Harness：设计单一桌面原型",
+    displayName: "Web Harness：设计单一桌面原型",
+    shortDescription: "根据已确认 PRD 生成一个桌面交互原型，自查登记后按已有授权交接开发",
     defaultPrompt:
-      "使用 $web-design-prototype 在当前已初始化下游根据 PRD 生成 2–3 个可交互 HTML 方案，展示比较并等待我选择具体版本后进入开发。"
+      "使用 $web-design-prototype 在当前已初始化下游根据 PRD 生成一个桌面端可交互 HTML 原型，自查并登记内容摘要后按已有授权交接开发，不生成 A/B 备选方案或 Mobile 布局。"
   },
   "web-document-api": {
     description:
@@ -459,9 +459,11 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
   "web-design-prototype": [
     "仅在已初始化下游运行",
     "初始化仅分发 Skills",
-    "必须等待用户明确选定",
+    "每次只生成一个桌面端原型",
+    "不生成 A/B/C 备选方案",
+    "不规划、生成或验证 Mobile 支持",
     "pnpm prototype:check",
-    "旧选择失效"
+    "旧摘要失效"
   ],
   "web-implement-list-view": [
     "仅用于 projectType=web",

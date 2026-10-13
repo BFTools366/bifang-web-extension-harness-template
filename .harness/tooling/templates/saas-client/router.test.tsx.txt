@@ -1,0 +1,187 @@
+// @vitest-environment jsdom
+import "../../i18n"
+import { MantineProvider } from "@mantine/core"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router"
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { createMockAuthApi } from "../../data/api/auth/api"
+import { createCredentialStorage } from "../../data/storage/auth"
+import { routeTree } from "../../routeTree.gen"
+import type { AuthContext } from "../../data/api/auth/contracts"
+import { routeStateDefaults } from "../route-state/RouteState"
+import { createSaasSession, type SaasSession } from "./session"
+import { SaasSessionProvider } from "./SessionProvider"
+import i18n from "../../i18n"
+
+/** 使用真实 Router、UI 和会话模块验证界面流程，隔离 URL 与存储。 */
+export function createTestRouter(session: SaasSession, entry = "/login") {
+  return createRouter({
+    routeTree,
+    ...routeStateDefaults,
+    context: { session },
+    history: createMemoryHistory({ initialEntries: [entry] })
+  })
+}
+/** 重置本地 fixture，并提供单上下文锁替身。 */
+beforeEach(async () => {
+  localStorage.clear()
+  vi.restoreAllMocks()
+  Object.defineProperty(navigator, "locks", {
+    configurable: true,
+    value: { request: async (_name: string, operation: () => Promise<unknown>) => operation() }
+  })
+  await i18n.changeLanguage("en")
+})
+afterEach(cleanup)
+/** 渲染与生产相同的 Provider 组合，但不使用任何网络测试替身代替认证行为。 */
+function renderApplication(entry = "/login") {
+  const query = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const session = createSaasSession(createMockAuthApi(), createCredentialStorage(), query)
+  const router = createTestRouter(session, entry)
+  render(
+    <MantineProvider>
+      <QueryClientProvider client={query}>
+        <SaasSessionProvider session={session} onStorageChange={() => router.invalidate()}>
+          <RouterProvider router={router} />
+        </SaasSessionProvider>
+      </QueryClientProvider>
+    </MantineProvider>
+  )
+  return { session, router }
+}
+/** 匿名深链接先登录，错误密码不能打开工作区，退出后返回同样受保护。 */
+test("anonymous deep links require a validated login and logout clears the workspace", async () => {
+  const { router } = renderApplication("/app/dashboard")
+  const user = userEvent.setup()
+  await screen.findByRole("heading", { name: "Sign in" })
+  await user.type(screen.getByLabelText(/^Username/), "demo")
+  await user.type(screen.getByLabelText(/^Password/), "wrong")
+  await user.click(screen.getByRole("button", { name: "Sign in" }))
+  expect(await screen.findByText("The username or password is incorrect.")).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/login")
+  await user.clear(screen.getByLabelText(/^Password/))
+  await user.type(screen.getByLabelText(/^Password/), "Demo-only-24")
+  await user.click(screen.getByRole("button", { name: "Sign in" }))
+  await screen.findByRole("heading", { name: "Workspace", level: 1 })
+  expect(screen.getByText("Your workspace is ready")).toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "demo" }))
+  await user.click(await screen.findByRole("menuitem", { name: "Sign out" }))
+  await screen.findByRole("heading", { name: "Sign in" })
+  await act(async () => router.navigate({ to: "/app/dashboard" }))
+  await waitFor(() => expect(router.state.location.pathname).toBe("/login"))
+})
+/** 同 scope 导航保持外壳节点，组织撤权后私有工作台立即不可见。 */
+test("ordinary navigation preserves the shell and scope changes remove private content", async () => {
+  const { session, router } = renderApplication("/app")
+  await screen.findByRole("heading", { name: "Sign in" })
+  await act(async () => {
+    await session.login("demo", "Demo-only-24")
+    await router.navigate({ to: "/app/dashboard" })
+  })
+  await screen.findByRole("heading", { name: "Workspace", level: 1 })
+  const shell = screen.getByRole("button", { name: "demo" })
+  router.update({ ...router.options, defaultPendingMs: 0, defaultPendingMinMs: 0 })
+  const validate = session.api.validate.bind(session.api)
+  let release: ((context: AuthContext) => void) | undefined
+  let token = ""
+  vi.spyOn(session.api, "validate").mockImplementationOnce((value) => {
+    token = value
+    return new Promise((resolve) => {
+      release = resolve
+    })
+  })
+  let navigating: Promise<void> | undefined
+  act(() => {
+    navigating = router.navigate({ to: "/app/account" })
+  })
+  await waitFor(() => expect(release).toBeTypeOf("function"))
+  await screen.findByText("Loading page…")
+  expect(screen.getByRole("button", { name: "demo" })).toBe(shell)
+  expect(screen.getAllByRole("main")).toHaveLength(1)
+  await act(async () => {
+    release?.(await validate(token))
+    await navigating
+  })
+  await screen.findByRole("heading", { name: "Account", level: 1 })
+  expect(screen.getByRole("button", { name: "demo" })).toBe(shell)
+  await act(async () => {
+    await session.switchOrganization("restricted-team")
+    await router.navigate({ to: "/app/dashboard" })
+  })
+  await screen.findByRole("heading", { name: "No access" })
+  expect(screen.queryByText("Your workspace is ready")).not.toBeInTheDocument()
+})
+
+/** 注册表单真实发送并消费演示验证码，成功回登录且新账号没有默认组织。 */
+test("registration returns to login and the new account has no invented membership", async () => {
+  const { session, router } = renderApplication("/register")
+  const user = userEvent.setup()
+  await screen.findByRole("heading", { name: "Create account" })
+  await user.type(screen.getByLabelText(/^Username/), "new-user")
+  await user.type(screen.getByLabelText(/^Email(?:\s*\*)?$/), "new@example.test")
+  await user.type(screen.getByLabelText(/^Password/), "New-demo-24")
+  await user.click(screen.getByRole("button", { name: "Send code" }))
+  await screen.findByText(/Demo code sent/)
+  await user.type(screen.getByLabelText(/^Email verification code/), "246810")
+  await user.click(screen.getByRole("button", { name: "Create account" }))
+  await screen.findByRole("heading", { name: "Sign in" })
+  expect(session.context()).toBeUndefined()
+  expect(router.state.location.pathname).toBe("/login")
+  await user.type(screen.getByLabelText(/^Username/), "new-user")
+  await user.type(screen.getByLabelText(/^Password/), "New-demo-24")
+  await user.click(screen.getByRole("button", { name: "Sign in" }))
+  await screen.findByRole("heading", { name: "No access" })
+})
+
+/** 找回表单检查两次密码，验证码成功后返回登录而不自动授予会话。 */
+test("password recovery validates confirmation and returns to login", async () => {
+  const { session } = renderApplication("/forgot-password")
+  const user = userEvent.setup()
+  await screen.findByRole("heading", { name: "Reset password" })
+  await user.type(screen.getByLabelText(/^Email(?:\s*\*)?$/), "demo@example.test")
+  await user.type(screen.getByLabelText(/^New password/), "Changed-demo-24")
+  await user.type(screen.getByLabelText(/^Confirm password/), "mismatch")
+  await user.click(screen.getByRole("button", { name: "Send code" }))
+  await user.type(screen.getByLabelText(/^Email verification code/), "246810")
+  await user.click(screen.getByRole("button", { name: "Reset password" }))
+  await screen.findByText("Passwords do not match.")
+  await user.clear(screen.getByLabelText(/^Confirm password/))
+  await user.type(screen.getByLabelText(/^Confirm password/), "Changed-demo-24")
+  await user.click(screen.getByRole("button", { name: "Reset password" }))
+  await screen.findByRole("heading", { name: "Sign in" })
+  expect(session.context()).toBeUndefined()
+  await expect(session.login("demo", "Demo-only-24")).rejects.toMatchObject({
+    key: "authInvalidCredentials"
+  })
+})
+
+/** 外部退出信号触发重新读取与路由守卫，不保留旧私有正文。 */
+test("an external credential removal redirects the active workspace to login", async () => {
+  const { session, router } = renderApplication()
+  await screen.findByRole("heading", { name: "Sign in" })
+  await act(async () => {
+    await session.login("demo", "Demo-only-24")
+    await router.navigate({ to: "/app/dashboard" })
+  })
+  await screen.findByRole("heading", { name: "Workspace", level: 1 })
+  const storage = createCredentialStorage()
+  await act(async () => {
+    storage.remove()
+    window.dispatchEvent(new StorageEvent("storage", { key: storage.key }))
+  })
+  await screen.findByRole("heading", { name: "Sign in" })
+  expect(screen.queryByText("Your workspace is ready")).not.toBeInTheDocument()
+})
+/** 语言和主题偏好变化保留尚未提交的表单输入。 */
+test("appearance and language changes preserve form input", async () => {
+  renderApplication()
+  const user = userEvent.setup()
+  await screen.findByRole("heading", { name: "Sign in" })
+  await user.type(screen.getByLabelText(/^Username/), "keep-me")
+  await user.click(screen.getByText("Dark"))
+  expect(screen.getByLabelText(/^Username/)).toHaveValue("keep-me")
+  await act(async () => i18n.changeLanguage("zh"))
+  expect(screen.getByLabelText(/^用户名/)).toHaveValue("keep-me")
+})

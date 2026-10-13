@@ -20,7 +20,7 @@ export function downstreamAgents(config: ProjectConfig): string {
 
 列表、数据表格、后台列表或搜索结果任务读取 \`docs/MANTINE_UI_GUIDELINES.md\` 与 \`docs/DATA_ACCESS.md\`，并在实施流程中调用 \`$web-implement-list-view\`。
 
-明确采用 SaaS 客户端或大后台认证时，调用 \`$web-implement-saas-auth\`，复用用户操作流程和限定范围的 LocalStorage 凭据例外；工程创建只提供中性基线，不为普通站点自动增加认证。
+明确采用 SaaS 客户端或大后台认证时，调用 \`$web-implement-saas-auth\`，复用用户操作流程和限定范围的 LocalStorage 凭据例外；SaaS 客户端创建已生成通用认证与主工作区，先检查现有实现再完善；普通站点和大后台创建仍为中性基线。
 
 明确选中 SaaS 客户端可选购买能力时，调用 \`$web-implement-saas-commerce\`。购买默认关闭，功能选择不授予权限。复用服务端钱包支付选项，重试支付前恢复原订单，确认成功后刷新账户数据；该能力不适用于 SaaS 大后台。
 
@@ -40,7 +40,7 @@ ${hostMinimumReading}授权范围包含有限 REST/GraphQL HTTP 接入或 API Mo
 
 ## 事件驱动执行
 
-新产品、新页面、显著交互改版或用户要求原型时，先用 \`$web-define-product\` 澄清并记录唯一产品规格（PRD），再用 \`$web-design-prototype\` 展示 2–3 个可交互 HTML 方案。等待用户明确选择具体版本，业务实施前运行 \`pnpm prototype:check <scope>\` 核对 \`docs/prototypes/<scope>/review.json\`。PRD 批准、推荐、沉默或含糊的“继续”不能代替选择。已有有效选择直接复用，不重复询问；PRD/原型变化会使旧选择失效。初始化只分发项目级 Skills，不生成业务 PRD、原型或选择记录。范围清楚的日常修复和无界面变更直接实施，只运行受影响检查与相关非空测试，但不能绕过同一范围内尚未完成的原型选择。多步骤、多模块、中等风险或用户可见本身不触发工作计划、全仓检查、构建、冒烟或 E2E。只有用户明确要求、跨会话交接或发布/高风险协调确有需要时才创建持久计划。行为保持重构运行全量单元测试。
+新产品、新页面、显著交互改版或用户要求原型时，先用 \`$web-define-product\` 澄清并记录唯一产品规格（PRD），再用 \`$web-design-prototype\` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实施前运行 \`pnpm prototype:check <scope>\` 核对 \`docs/prototypes/<scope>/review.json\`。登记不代替原有开发授权；已授权实施时无需用户选择或再次批准原型。已有有效登记直接复用；PRD/原型变化会使旧摘要失效。初始化分发项目级 Skills，客户端另有通用认证基线；不生成业务 PRD、原型或登记记录。范围清楚的日常修复和无界面变更直接实施，只运行受影响检查与相关非空测试，但不能绕过同一范围内尚未完成的原型自查登记。多步骤、多模块、中等风险或用户可见本身不触发工作计划、全仓检查、构建、冒烟或 E2E。只有用户明确要求、跨会话交接或发布/高风险协调确有需要时才创建持久计划。行为保持重构运行全量单元测试。
 
 安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容合同、完整候选验收和发布分别进入对应专用门禁。并行写入工作树必须同时满足用户本轮明确要求及 \`parallel_worktree_subagents: enabled\`。同一发布的构建、打包和修复复用已确认的 E2E 选择；没有选择也没有硬要求时才询问。每个新产物重新验证。明确发布请求覆盖既有目标与范围内必要的提交、推送和发布步骤，无需重复确认；仅新增目标或范围外副作用需要另行授权。
 
@@ -51,6 +51,8 @@ ${hostMinimumReading}授权范围包含有限 REST/GraphQL HTTP 接入或 API Mo
 创建、编号、绑定、恢复与状态转换调用 \`$web-manage-user-tasks\`，按当前策略执行并复读真实证据。只返回 \`clientThreadId\` 表示环境仍在准备，不授权实施；未取得真实 id、精确项目、非 pinned、cwd、ready 与适用 Git 基线/登记证据前保持零业务写入。绑定异常先修复原 Task，不创建替代 Task。
 
 ## 权威事实来源
+
+Node.js、pnpm 与独立 CLI 全局安装/升级；项目依赖按 manifest/锁文件本地安装，脚本使用声明版本。实际工具变更后核对版本与路径；安装授权与环境检查触发遵循 [工程规则的依赖与工具链](docs/ENGINEERING_RULES.md#依赖与工具链)。
 
 - \`.harness/project.json\`：项目类型、身份与品牌元数据。
 - \`.harness/brand/logo-1024.png\`：Logo 母版；派生资产必须统一刷新，不独立编辑。
@@ -76,7 +78,7 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 - \`$web-configure-git-commits\`：只在用户明确要求，或下一步将实际创建提交时，检查并配置仓库本地 Git 身份与受管提交模板。
 - \`$web-connect-http-service\`：在已初始化下游接入已批准服务，验证域 API、Mock 退出与缓存切换。
 - \`$web-define-product\`：在下游澄清需求，将范围和验收标准记录为唯一产品规格（PRD）。
-- \`$web-design-prototype\`：在下游产出 2–3 个可交互 HTML 原型，等待用户选定具体版本后交接开发。
+- \`$web-design-prototype\`：在下游产出一个桌面端可交互 HTML 原型，自查、展示并登记后按已有授权交接开发。
 - \`$web-document-api\`：结合当前实现、需求与服务契约整理 \`docs/api/\`，每个模块独立成文并明确 Mock 和未知边界。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。

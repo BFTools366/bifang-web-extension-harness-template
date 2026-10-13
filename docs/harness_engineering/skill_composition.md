@@ -17,7 +17,7 @@
 | 职责组     | 独立入口                                                                                       | 结果与保留边界                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | 创建与环境 | `web-instantiate-project`、`web-check-development-environment`、`web-prepare-brand-identity`   | 新下游、环境诊断、品牌资产分别交付；检查不自动安装，品牌不重新初始化 |
-| 产品与设计 | `web-define-product`、`web-design-prototype`                                                   | 唯一 PRD 与原型版本选择分别拥有记录；原型不代替实施                  |
+| 产品与设计 | `web-define-product`、`web-design-prototype`                                                   | 唯一 PRD 与单一桌面原型摘要分别拥有记录；原型不代替实施              |
 | 实施与重构 | `web-implement-change`、`web-refactor-code`                                                    | 授权行为变化与行为保持重构分别验证；按事件调用叶子                   |
 | 模块审查   | [`web-review-module-boundaries`](../../.agents/skills/web-review-module-boundaries/SKILL.md)   | 只读职责、依赖和状态拥有者地图；不自动重构                           |
 | 接口契约   | [`web-review-api-contract`](../../.agents/skills/web-review-api-contract/SKILL.md)             | 只读当前操作的来源/实现关联与差异；不联网、不写模块文档              |

@@ -361,8 +361,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       {
         dev: "vite --mode development",
         "build:release": "tsx .harness/tooling/build.ts build",
-        test: "vitest run",
-        "test:related": "vitest related --run",
+        test: "pnpm routes:generate && vitest run",
+        "test:related": "pnpm routes:generate && vitest related --run",
         typecheck: "pnpm routes:generate && tsc --noEmit"
       },
       errors,

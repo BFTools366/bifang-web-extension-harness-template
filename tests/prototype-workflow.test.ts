@@ -7,13 +7,10 @@ import { runPrototypeReview } from "../.agents/skills/web-design-prototype/scrip
 
 const roots: string[] = []
 const prd = "docs/product_spec/20261009_product_spec.md"
-const candidates: [string, string] = [
-  "docs/prototypes/settings/v1/a.html",
-  "docs/prototypes/settings/v1/b.html"
-]
-const [candidateA, candidateB] = candidates
+const prototype = "docs/prototypes/settings/v1/prototype.html"
+const record = "docs/prototypes/settings/review.json"
 
-/** 创建与 UI 无关的下游需求和原型 fixture，验证真实选择文件行为。 */
+/** 创建单一桌面原型及已确认 PRD，验证真实登记和核验行为。 */
 async function fixture(projectType: "web" | "extension" = "web"): Promise<string> {
   const root = await mkdtemp(path.join(os.tmpdir(), "prototype-workflow-"))
   roots.push(root)
@@ -31,33 +28,31 @@ async function fixture(projectType: "web" | "extension" = "web"): Promise<string
     )
   )
   await mkdir(path.join(root, "docs/product_spec"), { recursive: true })
-  await mkdir(path.join(root, "docs/prototypes/settings/v1"), { recursive: true })
+  await mkdir(path.dirname(path.join(root, prototype)), { recursive: true })
   await writeFile(path.join(root, prd), "# 设置需求\n\n状态：Approved\n\n用户确认本轮范围。\n")
-  for (const [index, file] of candidates.entries()) {
-    await writeFile(
-      path.join(root, file),
-      `<!doctype html><html lang="zh"><title>方案 ${index}</title><button>保存</button></html>`
-    )
-  }
+  await writeFile(
+    path.join(root, prototype),
+    '<!doctype html><html lang="zh"><title>桌面设置</title><button>保存</button></html>'
+  )
   return root
 }
 
-/** 以 settings 范围登记 PRD 与候选；paths 可替换为异常输入。 */
-function prepare(root: string, paths: readonly string[] = candidates, scope = "settings") {
+/** 登记恰好一个原型；异常测试可提供其他路径或参数数量。 */
+function prepare(root: string, paths: readonly string[] = [prototype], scope = "settings") {
   return runPrototypeReview(["prepare", scope, prd, ...paths], root)
 }
 
-/** 对 settings 范围执行 select 或 check。 */
-function review(root: string, ...args: string[]) {
-  return runPrototypeReview([args[0] ?? "check", "settings", ...args.slice(1)], root)
+/** 在同一范围核验原型，或执行需要明确拒绝的旧命令。 */
+function review(root: string, command = "check", ...args: string[]) {
+  return runPrototypeReview([command, "settings", ...args], root)
 }
 
-/** 断言失败路径没有留下评审记录。 */
+/** 失败的首次登记不得留下评审记录。 */
 async function expectNoReview(root: string): Promise<void> {
-  await expect(readFile(path.join(root, "docs/prototypes/settings/review.json"))).rejects.toThrow()
+  await expect(readFile(path.join(root, record))).rejects.toThrow()
 }
 
-/** 尝试创建符号链接；Windows 无权限时返回 false 供测试跳过。 */
+/** Windows 无符号链接权限时仅跳过对应边界用例。 */
 async function trySymlink(target: string, link: string): Promise<boolean> {
   try {
     await symlink(target, link)
@@ -73,8 +68,8 @@ afterEach(async () => {
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
 })
 
-describe("downstream prototype selection", () => {
-  // 验证草稿、正文示例、重复及冲突状态不能把真实草稿提升为已确认需求。
+describe("single desktop prototype workflow", () => {
+  /** 草稿、正文示例、重复及冲突状态不能替代需求确认。 */
   test.each([
     "状态：Draft\n",
     "# PRD\n\n状态：Draft\n\n## 示例\n```markdown\n状态：Approved\n```\n",
@@ -87,48 +82,69 @@ describe("downstream prototype selection", () => {
     await expectNoReview(root)
   })
 
-  // 验证两宿主都必须先选择，并在内容不变时复用准确的用户证据。
+  /** 两宿主均可在单原型登记后直接核验，不制造用户选择或确认状态。 */
   test.each(["web", "extension"] as const)(
-    "binds %s PRD and prototypes before allowing development",
+    "binds one %s desktop prototype without a selection step",
     async (projectType) => {
       const root = await fixture(projectType)
       const prepared = await prepare(root)
       expect(prepared).toMatchObject({
+        schemaVersion: 2,
         projectType,
         scope: "settings",
         revision: "v1",
-        state: "awaiting_selection"
+        layout: "desktop"
       })
-      expect(prepared.candidates.map((item) => item.id)).toEqual(["a", "b"])
-      await expect(review(root, "check")).rejects.toThrow(/等待用户选择/)
-      const quote = "选择 settings v1 的 B，进入开发"
-      await review(root, "select", "b", quote)
-      const selected = await review(root, "check")
-      expect(selected.selection).toMatchObject({ candidateId: "b", confirmation: quote })
-      const stored = JSON.parse(
-        await readFile(path.join(root, "docs/prototypes/settings/review.json"), "utf8")
-      )
-      expect(stored).toEqual(selected)
-      expect(selected.prd.sha256).toMatch(/^[a-f0-9]{64}$/)
+      expect(prepared.prototype.path).toBe(prototype)
+      expect(prepared.prototype.sha256).toMatch(/^[a-f0-9]{64}$/)
+      expect(prepared.prd.sha256).toMatch(/^[a-f0-9]{64}$/)
+      expect(prepared).not.toHaveProperty("candidates")
+      expect(prepared).not.toHaveProperty("selection")
+      expect(prepared).not.toHaveProperty("state")
+      const before = await readFile(path.join(root, record), "utf8")
+      expect(await review(root)).toEqual(prepared)
+      expect(await readFile(path.join(root, record), "utf8")).toBe(before)
+      expect(JSON.parse(before)).toEqual(prepared)
     }
   )
 
-  // 验证需求或候选漂移无法复用原选择，重新登记后必须重新等用户选择。
-  test.each([prd, ...candidates])("rejects a changed review input: %s", async (file) => {
+  /** 需求或原型漂移仍阻断开发，显式重新自查登记后无需选择步骤。 */
+  test.each([prd, prototype])("rejects a changed review input: %s", async (file) => {
     const root = await fixture()
     await prepare(root)
-    await review(root, "select", "a", "选 settings v1 A")
+    const before = await readFile(path.join(root, record), "utf8")
     await writeFile(
       path.join(root, file),
       `${await readFile(path.join(root, file), "utf8")}\n修改\n`
     )
-    await expect(review(root, "check")).rejects.toThrow(/已变化/)
-    await expect(review(root, "select", "b", "选 B")).rejects.toThrow(/已变化/)
-    await prepare(root)
-    await expect(review(root, "check")).rejects.toThrow(/等待用户选择/)
+    await expect(review(root)).rejects.toThrow(/已变化/)
+    expect(await readFile(path.join(root, record), "utf8")).toBe(before)
+    const refreshed = await prepare(root)
+    expect(await review(root)).toEqual(refreshed)
   })
 
-  // 验证源模板身份不能登记产品需求，失败不创建原型记录。
+  /** 每次登记严格一个 HTML，拒绝零文件、多个和重复参数且保持零写入。 */
+  test.each([
+    { paths: [] },
+    { paths: [prototype, prototype] },
+    { paths: [prototype, "docs/prototypes/settings/v1/alternative.html"] }
+  ])("rejects non-single prototype arguments: $paths", async ({ paths }) => {
+    const root = await fixture()
+    await expect(prepare(root, paths)).rejects.toThrow(/恰好一个/)
+    await expectNoReview(root)
+  })
+
+  /** 原 select 命令不再存在，不能恢复旧选择流程或改写已登记原型。 */
+  test("rejects the removed selection command and extra check arguments", async () => {
+    const root = await fixture()
+    await prepare(root)
+    const before = await readFile(path.join(root, record), "utf8")
+    await expect(review(root, "select", "a", "选 A")).rejects.toThrow(/仅支持 prepare\/check/)
+    await expect(review(root, "check", "extra")).rejects.toThrow(/不接受额外参数/)
+    expect(await readFile(path.join(root, record), "utf8")).toBe(before)
+  })
+
+  /** 源模板身份不能登记产品内容，失败不创建业务记录。 */
   test("rejects source roots before writing business records", async () => {
     const root = await fixture()
     await rm(path.join(root, ".harness/project.json"))
@@ -136,69 +152,72 @@ describe("downstream prototype selection", () => {
     await expectNoReview(root)
   })
 
-  // 验证缺失产物及无效选择均无法取得开发资格。
-  test("rejects missing artifacts and invented selection evidence", async () => {
+  /** 缺失、空文件或目录都不是可交付原型。 */
+  test("rejects missing, empty or non-file artifacts", async () => {
     const root = await fixture()
     await expect(prepare(root, ["docs/prototypes/settings/v1/missing.html"])).rejects.toThrow()
-    await prepare(root)
-    for (const args of [
-      ["z", "选不存在的 Z"],
-      ["a", ""]
-    ] as const) {
-      await expect(review(root, "select", ...args)).rejects.toThrow(/已有候选方案/)
-    }
-    await expect(review(root, "check")).rejects.toThrow(/等待用户选择/)
+    await writeFile(path.join(root, prototype), "")
+    await expect(prepare(root)).rejects.toThrow(/must not be empty/)
+    await rm(path.join(root, prototype))
+    await mkdir(path.join(root, prototype))
+    await expect(prepare(root)).rejects.toThrow(/regular file/)
+    await expectNoReview(root)
   })
 
-  // 验证旧版 PRD 不能在新快照出现后继续通过开发检查。
-  test("invalidates a selection when a newer Product Spec appears", async () => {
+  /** 新产品规格出现后，旧摘要不能继续代表当前已确认需求。 */
+  test("invalidates a review when a newer Product Spec appears", async () => {
     const root = await fixture()
     await prepare(root)
-    await review(root, "select", "a", "选 settings v1 A")
     await writeFile(
       path.join(root, "docs/product_spec/20261010_product_spec.md"),
       "状态：Approved\n新范围\n"
     )
-    await expect(review(root, "check")).rejects.toThrow(/最新产品规格/)
+    await expect(review(root)).rejects.toThrow(/最新产品规格/)
   })
 
-  // 验证不能跨范围、跨版本、重复候选或使用仓库外输入。
-  test("rejects path escape and mixed or duplicate candidate revisions", async () => {
+  /** 原型路径仍限定当前范围、规范版本和仓库内普通路径。 */
+  test("rejects path escape, foreign scopes and invalid revisions", async () => {
     const root = await fixture()
-    for (const paths of [
-      [candidateA, candidateA],
-      [candidateA, "docs/prototypes/settings/v2/b.html"],
-      ["docs/prototypes/other/v1/a.html"],
-      ["../outside.html"]
+    for (const file of [
+      "docs/prototypes/other/v1/a.html",
+      "docs/prototypes/settings/v0/a.html",
+      "../outside.html",
+      "/outside.html",
+      "docs\\prototypes\\settings\\v1\\a.html"
     ]) {
-      await expect(prepare(root, paths)).rejects.toThrow()
+      await expect(prepare(root, [file])).rejects.toThrow()
     }
-    await expect(prepare(root, candidates, "../escape")).rejects.toThrow(/kebab-case/)
+    await expect(prepare(root, [prototype], "../escape")).rejects.toThrow(/kebab-case/)
     await expectNoReview(root)
   })
 
-  // 验证损坏或伪造项目身份的记录不会作为已选方案被接受。
-  test("fails closed on corrupted, foreign or inconsistent records", async () => {
+  /** 损坏记录、外来身份、Mobile 或旧多方案结构不能通过新合同。 */
+  test("fails closed on corrupted, foreign, mobile or obsolete records", async () => {
     const root = await fixture()
     const prepared = await prepare(root)
-    const location = path.join(root, "docs/prototypes/settings/review.json")
     for (const value of [
       "{",
       JSON.stringify({ ...prepared, projectId: "other" }),
-      JSON.stringify({ ...prepared, state: "selected" }),
-      JSON.stringify({ ...prepared, selection: { candidateId: "a" } })
+      JSON.stringify({ ...prepared, revision: "v2" }),
+      JSON.stringify({ ...prepared, layout: "mobile" }),
+      JSON.stringify({ ...prepared, prototype: { path: prototype, sha256: "bad" } }),
+      JSON.stringify({ ...prepared, candidates: [prepared.prototype] }),
+      JSON.stringify({ ...prepared, selection: { candidateId: "a" } }),
+      JSON.stringify({ ...prepared, schemaVersion: 1, state: "awaiting_selection" }),
+      JSON.stringify({ ...prepared, schemaVersion: 1, state: "selected" })
     ]) {
-      await writeFile(location, value)
-      await expect(review(root, "check")).rejects.toThrow()
+      await writeFile(path.join(root, record), value)
+      await expect(review(root)).rejects.toThrow()
+      expect(await readFile(path.join(root, record), "utf8")).toBe(value)
     }
   })
 
-  // 验证符号链接不能把原型读取或记录写入导向仓库之外。
+  /** 符号链接不能把原型读取导向另一个文件或仓库之外。 */
   test("rejects symlink artifacts", async (context) => {
     const root = await fixture()
-    const candidate = path.join(root, candidateA)
-    await rm(candidate)
-    if (!(await trySymlink(path.join(root, candidateB), candidate))) {
+    const file = path.join(root, prototype)
+    await rm(file)
+    if (!(await trySymlink(path.join(root, prd), file))) {
       context.skip()
       return
     }

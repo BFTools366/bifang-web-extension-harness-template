@@ -115,7 +115,7 @@ describe("single-package Harness validation and governance", () => {
       expect(confirmed).toBe(interactive)
       expect(instantiated).toBe(true)
       expect(output.join("\n")).toContain(webType)
-      expect(output.join("\n")).toContain("需求确认 → 原型选择 → 实施")
+      expect(output.join("\n")).toContain("需求确认 → 原型登记 → 实施")
     }
   })
 

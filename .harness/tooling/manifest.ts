@@ -119,6 +119,9 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
           build: "pnpm build:release",
           "build:release": "tsx .harness/tooling/build.ts build",
           preview: "vite preview",
+          // 真实文件路由测试也能从刚创建或刚检出的仓库直接执行。
+          test: "pnpm routes:generate && vitest run",
+          "test:related": "pnpm routes:generate && vitest related --run",
           typecheck: "pnpm routes:generate && tsc --noEmit"
         }
       : {
@@ -138,7 +141,7 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
     private: true,
     description: config.description,
     type: "module",
-    engines: { node: ">=26.10.0", pnpm: ">=12.8.1" },
+    engines: { node: ">=24.0.0", pnpm: ">=12.8.1" },
     packageManager: "pnpm@12.8.1",
     scripts,
     dependencies,

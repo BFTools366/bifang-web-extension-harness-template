@@ -252,7 +252,7 @@ describe("terminal Web initialization", () => {
       devDependencies: Record<string, string>
       engines: Record<string, string>
     }
-    expect(manifest.engines).toEqual({ node: ">=26.10.0", pnpm: ">=12.8.1" })
+    expect(manifest.engines).toEqual({ node: ">=24.0.0", pnpm: ">=12.8.1" })
     expect(manifest.dependencies).toHaveProperty("@mantine/core", "9.6.3")
     expect(manifest.dependencies).toHaveProperty("@mantine/hooks", "9.6.3")
     expect(manifest.dependencies).toHaveProperty("@tanstack/react-query", "5.104.0")
@@ -274,8 +274,8 @@ describe("terminal Web initialization", () => {
     expect(manifest.scripts["build:release"]).toBe("tsx .harness/tooling/build.ts build")
     expect(Object.values(manifest.scripts).join("\n")).not.toContain("env:validate -- --profile")
     expect(manifest.scripts.typecheck).toContain("pnpm routes:generate")
-    expect(manifest.scripts.test).toBe("vitest run")
-    expect(manifest.scripts["test:related"]).toBe("vitest related --run")
+    expect(manifest.scripts.test).toBe("pnpm routes:generate && vitest run")
+    expect(manifest.scripts["test:related"]).toBe("pnpm routes:generate && vitest related --run")
     const webInstalledPackages = { ...manifest.dependencies, ...manifest.devDependencies }
     expect(webInstalledPackages).not.toHaveProperty("@dnd-kit/core")
     expect(webInstalledPackages).not.toHaveProperty("@dnd-kit/sortable")

@@ -1,7 +1,8 @@
 import path from "node:path"
 import { describe, expect, test } from "vitest"
-import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
+import { collectPromptedIdentity, confirmInstantiation } from "../.harness/tooling/prompts.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
+import { parseIdentityI18n } from "../.harness/tooling/identity.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
 import {
   mkdir,
@@ -22,6 +23,135 @@ const BASE_INPUT = {
 }
 
 describe("初始化渐进式引导", () => {
+  /** 验证整条客户端自定义流程每次只问一个固定题目，错误重问不改题面。 */
+  test("固定题名和题面贯穿逐项询问与错误重问", async () => {
+    const questions: string[] = []
+    const answers = [
+      "invalid",
+      "1",
+      "2",
+      "",
+      "Guided Example",
+      BASE_INPUT.targetRoot,
+      "custom",
+      "2",
+      "invalid",
+      "2",
+      "2",
+      "1",
+      "2"
+    ]
+    const identity = await collectPromptedIdentity({}, async (question) => {
+      questions.push(question)
+      const answer = answers.shift()
+      if (answer === undefined) throw new Error("不应询问额外字段")
+      return answer
+    })
+    expect(answers).toEqual([])
+    expect(questions.map((question) => question.split("\n")[0])).toEqual([
+      "问题名称：项目类型",
+      "问题名称：项目类型",
+      "问题名称：Web 类型",
+      "问题名称：商品购买模块",
+      "问题名称：项目显示名称",
+      "问题名称：源 Harness 外的父目录",
+      "问题名称：Agent 策略模式",
+      "问题名称：左侧 user-owned Task 自动拆分",
+      "问题名称：Superpowers",
+      "问题名称：Superpowers",
+      "问题名称：并行 Worktree/Subagent",
+      "问题名称：完整候选冒烟",
+      "问题名称：发布首次 E2E 建议"
+    ])
+    expect(questions[0]?.split("\n")[1]).toBe("请选择要创建的项目类型。")
+    expect(questions[2]?.split("\n")[1]).toBe("请选择 Web 项目的类型。")
+    expect(questions[3]?.split("\n")[1]).toBe("是否需要商品购买模块？")
+    expect(questions[6]?.split("\n")[1]).toBe("请选择 Agent 策略模式。")
+    // 校验失败只改变错误块，固定题名、题面与选项顺序保持不变。
+    expect(questions[0]?.split("\n").slice(0, 4)).toEqual(questions[1]?.split("\n").slice(0, 4))
+    expect(questions[8]?.split("\n").slice(0, 4)).toEqual(questions[9]?.split("\n").slice(0, 4))
+    for (const question of questions) {
+      expect(question.match(/^问题名称：/gm)).toHaveLength(1)
+      expect(question.match(/^字段：/gm)).toHaveLength(1)
+    }
+    const choiceIndexes = [0, 2, 3, 6, 7, 8, 10, 11, 12]
+    for (const index of choiceIndexes) {
+      const options = questions[index]?.split("\n").filter((line) => line.startsWith("- "))
+      expect(options).toHaveLength(index === 2 ? 3 : 2)
+      for (const option of options ?? []) {
+        expect(option).toMatch(/^- [^（）]+（[^（）]*[\p{Script=Han}][^（）]*）$/u)
+      }
+    }
+    // 选项后解释实际能力，不能只用协议值代替含义。
+    expect(questions[0]).toContain("1.Web（React 网页项目，创建独立单包网站）")
+    expect(questions[2]).toContain(
+      "2.SaaS客户端（面向最终用户，创建通用登录、注册、找回与主工作区，业务在下游完善）"
+    )
+    expect(questions[3]).toContain("2.关闭（本次不选择商品购买、订单和钱包能力，后续可明确启用）")
+    expect(questions[10]).toContain(
+      "1.启用（仅用户明确要求并行时，允许 Worktree 与写入型 Subagent）"
+    )
+    expect(identity).toMatchObject({
+      projectType: "web",
+      webType: "saas-client",
+      saasCommerce: "disabled",
+      id: "guided-example",
+      inputSources: { saasCommerce: "交互接受默认值" },
+      agentPolicy: { superpowers: "disabled", acceptanceSmoke: "enabled" }
+    })
+  })
+
+  /** 验证已有决定改变建议值时，只更新建议块而不改问题或重排选项。 */
+  test("策略建议变化不改变固定题面和选项", async () => {
+    const modeQuestions: string[] = []
+    for (const userOwnedTasks of [undefined, "enabled"]) {
+      await collectPromptedIdentity(
+        { ...BASE_INPUT, policyMode: undefined, userOwnedTasks },
+        async (question) => {
+          if (question.includes("字段： policyMode")) modeQuestions.push(question)
+          return ""
+        }
+      )
+    }
+    expect(modeQuestions).toHaveLength(2)
+    expect(modeQuestions[0]?.split("\n").slice(0, 5)).toEqual(
+      modeQuestions[1]?.split("\n").slice(0, 5)
+    )
+    expect(modeQuestions[0]).toContain("建议/默认：预设；回车采用")
+    expect(modeQuestions[1]).toContain("建议/默认：自定义；回车采用")
+  })
+
+  /** 验证创建确认使用同一固定表单，取消和空回答均不能成为创建授权。 */
+  test("固定创建确认选项说明写入边界且空回答取消", async () => {
+    const identity = await collectPromptedIdentity(BASE_INPUT, async () => {
+      throw new Error("已有字段无需补问")
+    })
+    const summary = {
+      rawSourceRoot: repositoryRoot,
+      canonicalSourceRoot: repositoryRoot,
+      rawTargetRoot: BASE_INPUT.targetRoot,
+      canonicalTargetRoot: BASE_INPUT.targetRoot,
+      inputSources: identity.inputSources,
+      policyMode: identity.policyMode,
+      init: { ...identity, identityI18n: parseIdentityI18n(identity.identityI18n) }
+    }
+    const decisions: boolean[] = []
+    for (const answer of ["", "no", "取消", "yes", "确认"]) {
+      decisions.push(
+        await confirmInstantiation(summary, async (question) => {
+          expect(question).toContain("问题名称：创建确认\n按此创建？")
+          expect(question).toContain(
+            "确认（按完整汇总创建项目，开始写入目标与暂存目录、安装依赖并建立 Git 基线）"
+          )
+          expect(question).toContain("取消（结束本次创建，不写入目标或暂存目录）")
+          expect(question).not.toContain("回车采用")
+          return answer
+        })
+      )
+    }
+    expect(decisions).toEqual([false, false, false, true, true])
+  })
+
   /** 验证数字类型与英文名称在公开入口解析，父目录已有内容不妨碍创建新子目录。 */
   test.each([
     ["1", "web"],
@@ -173,7 +303,7 @@ describe("初始化渐进式引导", () => {
     )
     expect(questions).toHaveLength(5)
     expect(questions[0]).toContain("建议/默认：自定义；回车采用")
-    expect(questions.slice(1).join("\n")).not.toContain("是否开启左侧")
+    expect(questions.slice(1).join("\n")).not.toContain("问题名称：左侧 user-owned Task 自动拆分")
     expect(resolved.policyMode).toBe("custom")
     expect(resolved.agentPolicy.userOwnedTasks).toBe("enabled")
     expect(resolved.inputSources.userOwnedTasks).toBe("命令行参数")
@@ -265,6 +395,7 @@ describe("初始化渐进式引导", () => {
     expect(questions).toHaveLength(3)
     expect(questions[1]).toContain("上次回答无法解析")
     expect(questions[1]).toContain("字段： projectType")
+    expect(questions[0]?.split("\n").slice(0, 4)).toEqual(questions[1]?.split("\n").slice(0, 4))
     expect(questions[2]).toContain("字段： webType")
     expect(resolved.inputSources.name).toBe("命令行参数")
     expect(resolved.name).toBe(BASE_INPUT.name)

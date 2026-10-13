@@ -264,7 +264,7 @@ export async function initializeProject(
       : Buffer.from(preparedLogo)
   const projectFiles =
     config.projectType === "web"
-      ? webFiles(config, resolvedOptions)
+      ? webFiles(config, resolvedOptions, resolvedOptions.webType)
       : extensionFiles(config, resolvedOptions)
   const [normalizedTsconfig, logoAssets, finalizationPlan, designSkillFiles] = await Promise.all([
     prepareProjectTsconfig(root, config.projectType),

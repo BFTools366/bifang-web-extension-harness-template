@@ -15,6 +15,8 @@ import type {
 
 import {
   collectBasicFields,
+  formatInitializationQuestion,
+  INITIALIZATION_QUESTIONS,
   parsePolicyMode,
   parseWebCreationType,
   requiredText,
@@ -85,32 +87,25 @@ function parsePolicyChoice(value: string, label: string): AgentPolicyChoice {
   throw new Error(`${label} 必须是 enabled 或 disabled`)
 }
 
-/** 按询问顺序列出自定义策略字段、命令行名称与问题。 */
-const POLICY_QUESTIONS = [
-  {
-    key: "userOwnedTasks",
-    field: "user-owned-tasks",
-    question: "是否开启左侧 user-owned Task 自动拆分？"
-  },
-  { key: "superpowers", field: "superpowers", question: "是否启用 Superpowers？" },
-  {
-    key: "parallelWorktreeSubagents",
-    field: "parallel-worktree-subagents",
-    question: "是否启用并行 Worktree/Subagent？"
-  },
-  { key: "acceptanceSmoke", field: "acceptance-smoke", question: "是否启用完整候选冒烟？" },
-  {
-    key: "e2eHint",
-    field: "e2e-hint",
-    question: "是否建议启用发布首次 E2E？同一发布流程复用已明确选择。"
-  }
-] as const
+/** 关联固定策略字段与命令行参数，不另行维护题目顺序。 */
+const POLICY_FIELDS = {
+  userOwnedTasks: "user-owned-tasks",
+  superpowers: "superpowers",
+  parallelWorktreeSubagents: "parallel-worktree-subagents",
+  acceptanceSmoke: "acceptance-smoke",
+  e2eHint: "e2e-hint"
+} as const satisfies Record<keyof typeof INITIALIZATION_QUESTIONS.policy, string>
+
+/** 基础字段与自定义策略都以固定清单的键顺序为唯一询问顺序。 */
+const POLICY_QUESTIONS = (
+  Object.keys(INITIALIZATION_QUESTIONS.policy) as (keyof typeof POLICY_FIELDS)[]
+).map((key) => ({ key, field: POLICY_FIELDS[key] }))
 
 /** 逐轮读取一个自定义策略选择，非法值只重问当前字段。 */
 async function collectPolicyChoice(
   supplied: string | undefined,
   field: string,
-  question: string,
+  key: keyof typeof INITIALIZATION_QUESTIONS.policy,
   suggested: AgentPolicyChoice,
   ask: InteractiveQuestion
 ): Promise<ResolvedPolicyChoice> {
@@ -126,7 +121,11 @@ async function collectPolicyChoice(
       }
     }
     const answer = await ask(
-      `${issue === undefined ? "" : `当前问题：${issue}\n`}${question}\n建议/默认：${suggested}；回车采用，也可回答启用/关闭：`
+      formatInitializationQuestion(INITIALIZATION_QUESTIONS.policy[key], {
+        field: key,
+        suggested,
+        issue
+      })
     )
     candidate = answer.trim() || suggested
     source = answer.trim() ? "交互条件问询" : "交互接受默认值"
@@ -154,8 +153,8 @@ export async function collectPromptedIdentity(
     const suggested = recommendedAgentPolicy(confirmedBy)
     const choices: Record<string, AgentPolicyChoice> = {}
     policySources = {}
-    for (const { key, field, question } of POLICY_QUESTIONS) {
-      const resolved = await collectPolicyChoice(basic[key], field, question, suggested[key], ask)
+    for (const { key, field } of POLICY_QUESTIONS) {
+      const resolved = await collectPolicyChoice(basic[key], field, key, suggested[key], ask)
       choices[key] = resolved.choice
       policySources[key] = resolved.source
     }
@@ -211,7 +210,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}${summary.init.webType === undefined ? "" : `\n- Web 类型：${WEB_TYPE_LABELS[summary.init.webType]}（${summary.init.webType}）`}
-${summary.init.saasCommerce === undefined ? "" : `- 商品购买模块：${summary.init.saasCommerce}（商品选择、订单管理、钱包管理）\n`}- 展示名称：${summary.init.name}
+${summary.init.webType === "saas-client" ? "- 创建基线：通用登录、注册、找回和受保护主工作区；空服务地址使用明确标注的认证 Mock\n" : ""}${summary.init.saasCommerce === undefined ? "" : `- 商品购买模块：${summary.init.saasCommerce}（商品选择、订单管理、钱包管理）\n`}- 展示名称：${summary.init.name}
 - 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}
 - 项目说明：${summary.init.description}
@@ -235,7 +234,10 @@ export async function confirmInstantiation(
   summary: InstantiationSummary,
   ask?: InteractiveQuestion
 ): Promise<boolean> {
-  const question = `${formatInstantiationSummary(summary)}\n\n按此创建？输入 yes 确认，其余回答取消：`
+  const question = `${formatInstantiationSummary(summary)}\n\n${formatInitializationQuestion(
+    INITIALIZATION_QUESTIONS.confirmation,
+    { field: "confirmation" }
+  )}`
   if (ask !== undefined) {
     return ["yes", "y", "确认"].includes((await ask(question)).trim().toLowerCase())
   }

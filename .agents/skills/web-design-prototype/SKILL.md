@@ -1,54 +1,47 @@
 ---
 name: web-design-prototype
-description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游，将已澄清的 PRD 转为可交互 HTML 原型方案，记录用户选定的具体版本后交接开发。用于新产品、新页面、显著交互改版或用户要求原型；不参与上游创建下游，也不为日常小修复强制重做原型。
+description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游，将已澄清的 PRD 转为一个桌面端可交互 HTML 原型，自查并登记内容摘要后交接开发。用于新产品、新页面、显著交互改版或用户要求原型；不生成 A/B 多方案或 Mobile 布局，不参与上游创建下游，也不为日常小修复强制重做原型。
 ---
 
-# Web Harness：设计并选择产品原型
+# Web Harness：设计单一桌面原型
 
-把已确认需求变成用户能打开、比较和选择的原型，再进入开发。默认提供 2–3 个在布局、信息层级或交互组织上有明显差异的方案；用户明确要求单方案时复用该选择。
+每次只生成一个桌面端原型，不生成 A/B/C 备选方案、不做 A/B 测试、不要求用户选择方案。交付可打开、可操作的 HTML，自查并登记当前文件后按已有授权交接开发。
 
 ## 准入与事实
 
-1. 仅在已初始化下游运行：先确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，在分析或记录业务需求前停止，要求切换到下游后重提。Harness 自身维护本 Skill 不受此限制。
-2. 初始化仅分发 Skills，不执行需求澄清、PRD、原型或选择，不增加初始化问题，也不读写全局 Skills。
-3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；按 [PRD 结构](references/prd-outline.md) 补齐当前范围。按工程规则“渐进式交互引导”只逐项澄清影响当前方案的关键缺口，并给可靠建议默认值；非阻断技术未知明确标注，不为补齐所有 PRD 栏目重启问卷。具体原型版本仍须用户明确选定。
-4. Product Spec 就是唯一 PRD 正文，不另建重复的 `docs/prd/`。需求状态 `Approved` 只证明需求已确认，不能代替用户选择原型。选择证据只在对应 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。
-5. Web 按 [Web 类型与可选能力](references/prd-outline.md#web-类型与可选能力) 继承 PRD 的业务类型、购买开关与相关 SaaS 合同。同一批候选只改变视觉/交互组织：购买关闭时不增加购买菜单或流程，后台管理目标组织不模拟为切换操作者身份。Extension 跳过本节业务类型规则。
+1. 仅在已初始化下游运行：确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，在分析或记录业务需求前停止，要求切换到下游后重提。Harness 自身维护本 Skill 不受此限制。
+2. 初始化仅分发 Skills，不执行需求澄清、PRD、原型或登记，不增加初始化问题，也不读写全局 Skills。
+3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；按 [PRD 结构](references/prd-outline.md) 补齐当前范围。只逐项澄清影响当前设计的关键缺口，复用已确认事实，不重启整套问卷。
+4. Product Spec 是唯一 PRD，不另建 `docs/prd/`。需求须为 `Approved`；原型摘要只登记在 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。登记不代表用户新增授权或交互质量已验证。
+5. Web 按 [Web 类型与可选能力](references/prd-outline.md#web-类型与可选能力) 继承业务类型、购买开关与相关 SaaS 合同；关闭的购买能力不进入原型，后台目标组织不模拟为切换操作者身份。Extension 跳过业务类型规则。
 
 ## 产出与自查
 
-1. 为本轮范围分配稳定 kebab-case `scope`，如 `account-settings`；新增版本目录 `docs/prototypes/<scope>/v1/`，后续修订递增且保留旧版本。每个候选使用独立 `a.html`、`b.html`、可选 `c.html`，并保持同一份需求范围，不能让某个方案偷偷增加功能。
-2. 每个候选是可离线打开的独立 HTML，内联 CSS/JS 与所需小型资源，不引用 CDN、远程脚本或真实接口，不新增依赖。涵盖本轮主线、明确的按钮目的地，以及相关的加载、空、成功、错误、禁用与恢复交互；示例数据和模拟结果有清楚标识。不要做只有截图或失效按钮的原型。
-3. 遵循现有品牌、Mantine 令牌与宿主尺寸。HTML 是评审媒介，实际开发仍用现有 React/Mantine/TypeScript/i18n。Web 覆盖所需桌面/移动布局；Extension 明确 弹出页（Popup）、选项页（Options）等界面，不把 HTML 模拟当成浏览器权限/API 或 Chrome/Firefox 兼容证据。`design-taste-frontend` 仅按现有 UI 规范的适用边界调用。
-   明确采用 SaaS 的 Web 按 UI 规范“路由布局与插槽”展示父布局、叶页面与 URL 对应；菜单切换与模拟慢加载保持账号区、底部身份和外壳交互连续，当前模式已采用的认证页覆盖安全返回与失败恢复，注册仅客户端。页面关系纳入现有 PRD/原型交接，不另外建立重复规范；离线模拟不能证明真实鉴权。
-4. 展示前检查主线、跳转、关键状态、键盘/焦点、标签、溢出和响应式；按当前范围记录证据、问题与未执行项到版本目录的 `review.md`。有浏览器能力时打开原型走查；没有时保留可打开文件并明确浏览器未检查。此检查不触发发布构建、候选验收或 E2E。
-5. 将影响规则、数据、状态和验收的原型发现回写 PRD，与用户确认实质需求变化，消除阻断未决项后再登记候选。仅有视觉组织差异不改业务范围。
-6. 在下游根运行项目本地命令，参数用实际路径替换：
+1. 为本轮范围分配稳定 kebab-case `scope`，如 `account-settings`；在 `docs/prototypes/<scope>/v1/prototype.html` 生成唯一原型。修订时递增版本并保留旧版本，它们是修订历史，不作为并行备选方案展示。
+2. 原型是可离线打开的独立 HTML，内联 CSS/JS 与所需小型资源，不引用 CDN、远程脚本或真实接口，不新增依赖。覆盖本轮主线、按钮目的地及相关加载、空、成功、错误、禁用与恢复交互；清楚标识示例数据和模拟结果。不得交付只有截图或失效按钮的原型。
+3. 仅面向桌面端，不规划、生成或验证 Mobile 支持：不增加手机/平板布局、移动断点、触控专用交互或移动端验收项。Web 遵循现有品牌、Mantine 令牌和桌面窗口尺寸；Extension 按桌面浏览器的 Popup、Options 等真实 surface 尺寸设计，紧凑 Popup 不等于 Mobile。通用 UI 规范中的移动优先建议不扩张本 Skill 的原型范围；产品实现的设备支持仍由产品范围及其工程规则决定。
+   HTML 是设计媒介，开发仍使用既有 React/Mantine/TypeScript/i18n。`design-taste-frontend` 只在 UI 规范允许的范围内调用，不让其多方案或移动偏好覆盖本 Skill。
+   明确采用 SaaS 的 Web 按 UI 规范“路由布局与插槽”展示父布局、叶页面与 URL 对应；菜单切换及模拟慢加载保持账号区、底部身份和外壳连续。已采用的认证页覆盖安全返回与失败恢复，注册仅客户端；离线模拟不能证明真实鉴权。
+4. 展示前自查主线、跳转、关键状态、键盘/焦点、标签及桌面窗口溢出；将实际证据、问题和未执行项写入版本目录 `review.md`。有浏览器能力时走查原型；没有时保留可打开文件并明确浏览器未检查，不伪造交互或桌面布局通过。此步骤不触发发布构建、候选验收或 E2E。
+5. 将影响规则、数据、状态及验收的发现回写 PRD；实质需求变化须复用或取得用户确认。自查完成、消除阻断后展示唯一原型链接和最短试用路径，不提出 A/B 选择题，也不把修改意见变成新增方案。
+6. 在下游根运行以下命令，替换为真实路径：
 
    ```text
-   pnpm exec tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts prepare <scope> docs/product_spec/YYYYMMDD_product_spec.md docs/prototypes/<scope>/v1/a.html docs/prototypes/<scope>/v1/b.html
-   ```
-
-   helper 只登记本项目 PRD 和候选的 SHA-256，写 `review.json` 的 `awaiting_selection` 状态，不生成产品内容或自动选方案。它不安装依赖、不调用网络。
-
-## 用户选择与开发交接
-
-1. 给用户可打开的所有候选链接、具体版本、方案差异、推荐理由、已检查及未检查项，再明确请用户选择“scope 的 vN 方案 A/B/C”。提供能在当前浏览器或本地直接打开的 HTML 链接，并说明最短试用路径（如登录 → 账号菜单 → 组织弹窗 → 退出）。在可用时打开 HTML；截图仅用于视觉比较，不能作为唯一交付或遮住实际交互。选项可以是建议，不能预先提交或自动选中。
-2. 必须等待用户明确选定，不能把推荐、沉默、超时、自查通过、`Approved` PRD 或“继续”这种无法唯一识别方案的回复视为选择。已在当前会话明确选择同一版本时直接复用，不重复问；用户只批准设计并要求暂缓开发时遵守暂缓。
-3. 用户明确选定后，记录真实原话（含方案/版本）、时间与候选 ID：
-
-   ```text
-   pnpm exec tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts select <scope> <candidate-id> <用户明确选择的原话>
+   pnpm exec tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts prepare <scope> docs/product_spec/YYYYMMDD_product_spec.md docs/prototypes/<scope>/v1/prototype.html
    pnpm prototype:check <scope>
    ```
 
-   `candidate-id` 必须与用户选定的方案一致，不能照抄示例或默认第一项。参数经工具结构化传递或安全引用，不能把用户原话当 Shell 代码。只有真实用户选择后才可调用 `select`；helper 验证文件绑定，不能证明授权原话真实性，Agent 必须核对会话。`check` 通过后才可交给 `$web-implement-change`。
+   `prepare` 仅接受一个 HTML，写入 schemaVersion 2 的项目、范围、版本、`layout: desktop`、PRD 与原型 SHA-256。`check` 只读校验身份、最新已确认 PRD 和文件摘要，不等待用户选择。helper 不生成内容、不安装依赖、不联网，也不检查页面是否可交互或桌面布局是否合格。
 
-4. 开发交接包含 PRD、scope、选定版本/候选、review.json、成功标准、状态/数据契约与未验证项。不自动创建左侧 Task、Work Plan、发布候选或对外副作用；各自仍按独立触发器运行。
-5. 选定后 PRD 或原型内容变化，旧选择失效：先展示差异、修订版本并重新 `prepare`，等待用户选定。不得为让 `check` 通过而静默重算或手改摘要。需求未变且有效选择存在时复用；普通小修复不自动开启新流程。
+## 开发交接与修订
+
+1. 交接 PRD、scope、唯一原型链接及版本、review.json、成功标准、状态/数据契约、自查证据和未验证项。不自动创建左侧 Task、Work Plan、发布候选或外部副作用。
+2. 原请求已授权实施且没有暂缓时，`check` 通过后直接交给 `$web-implement-change`，无需用户选择或再次批准原型；原请求仅限原型时完成设计交付，用户要求暂缓开发时保持暂缓。
+3. PRD 或原型内容变化时，旧摘要失效：修订当前唯一设计、自查并展示变化，再显式 `prepare` 和 `check`。不得手改摘要或让 `check` 自动重算以掩盖漂移。范围未变且登记有效时直接复用，普通小修复不自动开启新流程。
+4. 旧 schemaVersion 1 的多方案/选择记录不自动迁移或默认采用第一项。按当前范围整理一个桌面原型，自查、展示后重新登记；不要求重新进行方案选择，也不删除历史产物。
 
 ## 完成输出
 
-报告 PRD 和原型链接、版本、比较、自查范围、选择状态及下一步。等待选择时完成本轮原型产出并把问题留给用户，业务代码保持未实施；原实施请求已授权且未暂停时，选定后携带有效证据直接进入开发，不增加第三次确认。若原请求仅限原型，则不扩大到开发。原型可交互不代表真实产品或最终产物已验证。
+报告 PRD、唯一原型链接、版本、桌面设计范围、自查结果、摘要核验及按已有授权确定的下一步。明确未执行的浏览器检查；不生成 Mobile 方案或要求用户比较选型。原型可交互不代表真实产品或最终产物已验证。
 
 方法参考：[jg-product-design-skills](https://github.com/yideng-xl/pause_jg-product-design-skills) 的需求、原型与自查分阶段思路。本 Skill 为原创适配，不分发该项目的文本、资产、插件或禅道集成。

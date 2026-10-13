@@ -17,7 +17,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 3. 确认 Git 顶层目录等于项目根，先检查 diff 并保留用户修改；重叠无法安全处理时停止。实际左侧 Task 在首次写入前由 `$web-manage-user-tasks` 核对精确身份、项目、非 pinned、cwd、环境与基线；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入，绑定异常先修复原 Task，不代做。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
-6. 下游的新产品、新页面、显著交互改版或用户要求原型时，先由 `$web-define-product` 澄清并记录唯一 PRD，再由 `$web-design-prototype` 展示方案并等待用户选择。业务实现前读取本轮 `docs/prototypes/<scope>/review.json` 并运行 `pnpm prototype:check <scope>`；PRD、原型漂移或尚未选择时不能进入该范围开发。已有明确选择且检查通过就复用，不重复询问；用户要求暂缓开发时仍暂缓。范围清楚的日常小修复、无界面变更及 Harness 自身维护不强制重做 PRD/原型，但不能绕过正在等待选择的同一设计范围。
+6. 下游的新产品、新页面、显著交互改版或用户要求原型时，先由 `$web-define-product` 澄清并记录唯一 PRD，再由 `$web-design-prototype` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实现前读取本轮 `docs/prototypes/<scope>/review.json` 并运行 `pnpm prototype:check <scope>`；PRD、原型漂移或尚未登记时不能进入该范围开发。已有有效登记且检查通过就复用，不要求用户选择方案或追加原型批准；用户要求暂缓开发时仍暂缓。范围清楚的日常小修复、无界面变更及 Harness 自身维护不强制重做 PRD/原型，但不能绕过尚未完成自查登记的同一设计范围。
 7. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 
 已初始化 Web 的业务工作按 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力) 恢复唯一 PRD 的类型和购买开关，仅对本次受影响的 SaaS 认证、已选客户端购买或后台管理读取对应 Skill 合同。范围清楚的日常修复直接复用，不重启产品定义；未选择购买不生成相应菜单、路由或 API。此规则不适用于 Harness 自身维护或 Extension。

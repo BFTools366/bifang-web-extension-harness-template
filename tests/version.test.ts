@@ -4,6 +4,7 @@ import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { validatePnpmBuildPolicy } from "../.harness/tooling/pnpm-policy.ts"
 import {
+  assertPackageManagerPins,
   declaredVersionAtLeast,
   declaresMinimumVersion,
   packageManagerVersion,
@@ -11,20 +12,31 @@ import {
 } from "../.harness/tooling/version.ts"
 
 describe("stable minimum-version gates", /* 执行 当前声明 函数的处理逻辑。 */ () => {
+  /** 验证 Node.js 24 的最低边界及更高稳定版本均可进入实际工程检查。 */
+  test.each(["24.0.0", "24.0.1", "26.10.0", "27.0.0"])("接受 Node.js 最低声明 >=%s", (minimum) => {
+    const errors: string[] = []
+    assertPackageManagerPins(
+      { engines: { node: `>=${minimum}`, pnpm: ">=12.8.1" }, packageManager: "pnpm@12.8.1" },
+      errors
+    )
+    expect(errors).toEqual([])
+  })
+
   /** 验证 accepts only an uncapped >= engine minimum 场景。 */
   test("accepts only an uncapped >= engine minimum", /* 执行 当前声明 函数的处理逻辑。 */ () => {
-    expect(declaresMinimumVersion(">=26.10.0", "26.10.0")).toBe(true)
-    expect(declaresMinimumVersion(">=27.0.0", "26.10.0")).toBe(true)
+    expect(declaresMinimumVersion(">=24.0.0", "24.0.0")).toBe(true)
+    expect(declaresMinimumVersion(">=27.0.0", "24.0.0")).toBe(true)
+    expect(declaresMinimumVersion(">=23.99.0", "24.0.0")).toBe(false)
     // 保存 declaration 变量供当前逻辑使用。
     for (const declaration of [
-      "26.10.0",
-      "=26.10.0",
-      "^26.10.0",
-      "~26.10.0",
-      ">=26.10.0 <27.0.0",
-      ">=26.10.0-beta.1"
+      "24.0.0",
+      "=24.0.0",
+      "^24.0.0",
+      "~24.0.0",
+      ">=24.0.0 <27.0.0",
+      ">=24.0.0-beta.1"
     ]) {
-      expect(declaresMinimumVersion(declaration, "26.10.0")).toBe(false)
+      expect(declaresMinimumVersion(declaration, "24.0.0")).toBe(false)
     }
   })
 

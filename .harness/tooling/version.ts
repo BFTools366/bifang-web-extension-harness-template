@@ -108,8 +108,8 @@ export function assertPackageManagerPins(
 ): void {
   // 保存 engines 变量供当前逻辑使用。
   const engines = manifest.engines as Record<string, unknown> | undefined
-  if (!declaresMinimumVersion(engines?.node, "26.10.0")) {
-    errors.push("Node engine minimum must not be lower than 26.10.0")
+  if (!declaresMinimumVersion(engines?.node, "24.0.0")) {
+    errors.push("Node engine minimum must not be lower than 24.0.0")
   }
   if (!declaresMinimumVersion(engines?.pnpm, "12.8.1")) {
     errors.push("pnpm engine minimum must not be lower than 12.8.1")

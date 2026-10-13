@@ -50,7 +50,9 @@ async function expectPrototypeWorkflowDistributed(root: string): Promise<void> {
   )
   expect(reviewCli.status).toBe(1)
   expect(reviewCli.stderr).toContain("No prototype review")
-  expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain("等待用户明确选择")
+  expect(await readFile(path.join(root, "AGENTS.md"), "utf8")).toContain(
+    "不做 A/B 选择或 Mobile 设计"
+  )
 }
 
 /** 验证两宿主仅隔离未配置的远端 API，本地能力仍真实实现且不要求地址。 */

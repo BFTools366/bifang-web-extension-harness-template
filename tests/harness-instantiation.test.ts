@@ -102,10 +102,23 @@ describe("minimal public instantiation inputs", () => {
           expect(readme).toContain("首次 PRD 沿用此选择")
           expect(readme).toContain(config.initializedAt)
         }
-        expect((await readdir(path.join(targetRoot, "src/routes"))).sort()).toEqual([
-          "__root.tsx",
-          "index.tsx"
-        ])
+        expect((await readdir(path.join(targetRoot, "src/routes"))).sort()).toEqual(
+          webType === "saas-client"
+            ? [
+                "__root.tsx",
+                "_auth.forgot-password.tsx",
+                "_auth.login.tsx",
+                "_auth.register.tsx",
+                "_auth.tsx",
+                "app.account.tsx",
+                "app.dashboard.tsx",
+                "app.index.tsx",
+                "app.tsx",
+                "index.tsx",
+                "no-access.tsx"
+              ]
+            : ["__root.tsx", "index.tsx"]
+        )
         expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toContain(
           "### 创建与开发 SOP"
         )

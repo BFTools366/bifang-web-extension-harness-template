@@ -23,7 +23,7 @@ description: 在已初始化 React Web 的 SaaS 大后台中设计或实施商�
 缺项按工程规则“渐进式交互引导”逐项补问，每轮优先一个影响下一步的问题并给可靠建议与理由。例如“钱包记录是否先保持只读查询？建议沿用默认只读，资金写操作另行明确范围”。接口核对委托 `$web-review-api-contract`，限定本次操作及最小依赖链，不要求用户一次提供全部管理接口；权限、目标组织和交易状态不从默认值推断。
 
 1. 识别源/下游、模式、本次页面及授权范围。需求/SOP 读取 [pages-and-sop.md](references/pages-and-sop.md)；首次采用或管理页面/动作范围变化时，由 `$web-define-product` 更新下游唯一 PRD，日常修复复用已有确认事实。
-2. 设计读取 [neutral-ui-design.md](references/neutral-ui-design.md) 与当前 UI 规范，按通用触发条件使用 `$web-design-prototype`；已有有效选择且范围未变时复用，由调用方检查有效性。本 Skill 的通用页面规格不替代用户选定原型。
+2. 设计读取 [neutral-ui-design.md](references/neutral-ui-design.md) 与当前 UI 规范，按通用触发条件使用 `$web-design-prototype`；已有有效原型登记且范围未变时复用，由调用方检查有效性。本 Skill 的通用页面规格不替代下游登记的单一桌面原型。
 3. 实施前完整读取 [management-contract.md](references/management-contract.md)、`docs/DATA_ACCESS.md` 的数据层/状态所有权与当前操作命中的 HTTP/认证章节，以及 [SaaS 会话合同](../web-implement-saas-auth/references/session-contract.md)；核对 [基础 API 的大后台关联与缺口](../../../docs/API.md#大后台契约缺口)。来源只覆盖当前账号自服务，不提供管理目标组织/账户、商品订单、平台权限或审计接口。商品/订单规则与 [客户端购买合同](../web-implement-saas-commerce/references/order-and-wallet-contract.md) 一致；不从通用字段或 BaseURL 猜 endpoint。
 4. **改价与下架不改写历史订单快照**。分类移动与删除/归档必须校验树及引用；组织成员、账户禁用与平台角色分别建模。写入使用真实版本冲突、允许状态和幂等/恢复契约，超时未知先查询，不自动重放。
 5. **菜单、路由与操作复用服务端权限判断**。区分平台作用域、目标组织、对象与动作；业务 403 不自动注销，凭据校验错误按认证合同统一处理。成功响应、迟到错误和缓存写回均复核当前会话与目标。

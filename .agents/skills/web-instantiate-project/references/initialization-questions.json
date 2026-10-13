@@ -1,0 +1,239 @@
+{
+  "basic": {
+    "projectType": {
+      "title": "项目类型",
+      "question": "请选择要创建的项目类型。",
+      "hint": "输入 1 或 2，也可输入 web 或 extension；无默认值。",
+      "options": [
+        { "value": "web", "label": "1.Web", "description": "React 网页项目，创建独立单包网站" },
+        {
+          "value": "extension",
+          "label": "2.Extension",
+          "description": "浏览器扩展项目，同时支持 Chrome MV3 与 Firefox MV2"
+        }
+      ]
+    },
+    "webType": {
+      "title": "Web 类型",
+      "question": "请选择 Web 项目的类型。",
+      "hint": "输入 1、2 或 3，也可输入中文名称或 tool-site、saas-client、saas-admin；无默认值。",
+      "options": [
+        {
+          "value": "tool-site",
+          "label": "1.工具站点",
+          "description": "面向工具或普通网站，按具体需求组织功能"
+        },
+        {
+          "value": "saas-client",
+          "label": "2.SaaS客户端",
+          "description": "面向最终用户，创建通用登录、注册、找回与主工作区，业务在下游完善"
+        },
+        {
+          "value": "saas-admin",
+          "label": "3.SaaS大后台",
+          "description": "面向管理人员，后续在下游完善组织、成员、商品和订单管理"
+        }
+      ]
+    },
+    "saasCommerce": {
+      "title": "商品购买模块",
+      "question": "是否需要商品购买模块？",
+      "hint": "仅 SaaS 客户端适用；输入 1/2、enabled/disabled 或启用/关闭。",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "1.启用",
+          "description": "包含商品选择、订单管理和钱包管理，创建后在下游定义与实施"
+        },
+        {
+          "value": "disabled",
+          "label": "2.关闭",
+          "description": "本次不选择商品购买、订单和钱包能力，后续可明确启用"
+        }
+      ]
+    },
+    "name": {
+      "title": "项目显示名称",
+      "question": "请输入项目显示名称。",
+      "hint": "输入页面或扩展中显示的非空名称。",
+      "options": []
+    },
+    "englishName": {
+      "title": "项目名称的英文翻译",
+      "question": "请输入项目名称的英文翻译。",
+      "hint": "CLI 缺少必要英文译名或已提供译名非法时补问；使用英文名称生成小写 kebab-case 项目标识，不使用拼音。",
+      "options": []
+    },
+    "id": {
+      "title": "项目标识",
+      "question": "请修正项目标识。",
+      "hint": "通常由英文名称自动生成；显式标识非法时补问，小写字母、数字和连字符，例如 my-project。",
+      "options": []
+    },
+    "targetRoot": {
+      "title": "源 Harness 外的父目录",
+      "question": "请输入源 Harness 外的父目录绝对路径。",
+      "hint": "原始输入本身必须是完整绝对路径；最终项目目录为此路径/项目标识，不提供默认路径。",
+      "options": []
+    },
+    "description": {
+      "title": "项目说明",
+      "question": "请输入项目说明。",
+      "hint": "Extension 必填，非空且最多 132 字符；Web 缺省使用显示名称。",
+      "options": []
+    },
+    "identityI18n": {
+      "title": "身份本地化",
+      "question": "请修正身份本地化配置。",
+      "hint": "仅已提供值非法时补问；输入 JSON，defaultLocale 为 en 或 zh_CN，translations 提供另一语言的名称和说明。",
+      "options": []
+    },
+    "brandColor": {
+      "title": "品牌颜色",
+      "question": "请修正品牌颜色。",
+      "hint": "仅已提供值非法时补问；输入 #RGB 或 #RRGGBB 十六进制颜色。",
+      "options": []
+    },
+    "developmentBaseUrl": {
+      "title": "开发 API 基地址",
+      "question": "请修正开发 API 基地址。",
+      "hint": "仅已提供值非法时补问；无凭据、query、fragment 的绝对 HTTP(S) URL，也可留空后续配置。",
+      "options": []
+    },
+    "testBaseUrl": {
+      "title": "测试 API 基地址",
+      "question": "请修正测试 API 基地址。",
+      "hint": "仅已提供值非法时补问；无凭据、query、fragment 的绝对 HTTP(S) URL，也可留空后续配置。",
+      "options": []
+    },
+    "releaseBaseUrl": {
+      "title": "正式 API 基地址",
+      "question": "请修正正式 API 基地址。",
+      "hint": "仅已提供值非法时补问；无凭据、query、fragment 的绝对 HTTPS URL，可留空但正式发布前必须补齐。",
+      "options": []
+    },
+    "policyMode": {
+      "title": "Agent 策略模式",
+      "question": "请选择 Agent 策略模式。",
+      "hint": "输入 1/2、预设/自定义 或 recommended/custom。",
+      "options": [
+        {
+          "value": "recommended",
+          "label": "1.预设",
+          "description": "采用固定五项策略：仅完整候选冒烟启用，其余四项关闭"
+        },
+        {
+          "value": "custom",
+          "label": "2.自定义",
+          "description": "逐项选择五项策略，保留已明确的单项决定"
+        }
+      ]
+    },
+    "confirmedBy": {
+      "title": "确认来源",
+      "question": "确认来源自动记录为当前用户。",
+      "hint": "自动字段，不主动询问；已有明确来源则复用。",
+      "options": []
+    }
+  },
+  "policy": {
+    "userOwnedTasks": {
+      "title": "左侧 user-owned Task 自动拆分",
+      "question": "是否开启左侧 user-owned Task 自动拆分？",
+      "hint": "输入 1/2、enabled/disabled 或启用/关闭。",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "1.启用",
+          "description": "按独立结果自动创建项目内的左侧 Task，长期授权自动拆分"
+        },
+        {
+          "value": "disabled",
+          "label": "2.关闭",
+          "description": "默认在当前聊天工作，仅明确要求时创建左侧 Task"
+        }
+      ]
+    },
+    "superpowers": {
+      "title": "Superpowers",
+      "question": "是否启用 Superpowers？",
+      "hint": "输入 1/2、enabled/disabled 或启用/关闭。",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "1.启用",
+          "description": "允许按任务触发 Superpowers Skills"
+        },
+        {
+          "value": "disabled",
+          "label": "2.关闭",
+          "description": "禁止调用或遵循 Superpowers Skills"
+        }
+      ]
+    },
+    "parallelWorktreeSubagents": {
+      "title": "并行 Worktree/Subagent",
+      "question": "是否启用并行 Worktree/Subagent？",
+      "hint": "输入 1/2、enabled/disabled 或启用/关闭。",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "1.启用",
+          "description": "仅用户明确要求并行时，允许 Worktree 与写入型 Subagent"
+        },
+        {
+          "value": "disabled",
+          "label": "2.关闭",
+          "description": "写入工作使用单 Agent，仍可使用只读 Subagent 分析"
+        }
+      ]
+    },
+    "acceptanceSmoke": {
+      "title": "完整候选冒烟",
+      "question": "是否启用完整候选冒烟？",
+      "hint": "输入 1/2、enabled/disabled 或启用/关闭。",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "1.启用",
+          "description": "仅完整真实候选验收时允许执行适用的浏览器冒烟"
+        },
+        {
+          "value": "disabled",
+          "label": "2.关闭",
+          "description": "不因偏好自动执行冒烟，真实候选的必需门禁仍适用"
+        }
+      ]
+    },
+    "e2eHint": {
+      "title": "发布首次 E2E 建议",
+      "question": "是否建议启用发布首次 E2E？",
+      "hint": "输入 1/2、enabled/disabled 或启用/关闭；同一发布流程复用已明确选择。",
+      "options": [
+        {
+          "value": "enabled",
+          "label": "1.启用",
+          "description": "发布尚无 E2E 选择时建议启用，发布时仍需明确选择"
+        },
+        {
+          "value": "disabled",
+          "label": "2.关闭",
+          "description": "发布尚无 E2E 选择时建议关闭，必需 E2E 门禁仍适用"
+        }
+      ]
+    }
+  },
+  "confirmation": {
+    "title": "创建确认",
+    "question": "按此创建？",
+    "hint": "输入 yes、y 或“确认”创建，其余回答（包括回车）取消。",
+    "options": [
+      {
+        "value": "yes",
+        "label": "确认",
+        "description": "按完整汇总创建项目，开始写入目标与暂存目录、安装依赖并建立 Git 基线"
+      },
+      { "value": "cancel", "label": "取消", "description": "结束本次创建，不写入目标或暂存目录" }
+    ]
+  }
+}

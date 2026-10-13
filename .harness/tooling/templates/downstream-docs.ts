@@ -90,6 +90,11 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 - \`.harness/brand/logo-1024.png\` 是 Logo 母版；${brandAssets(config)}只能由受管品牌流程派生。
 - 保护用户和其他 Agent 的既有修改；未知文件默认归用户所有，不得用整文件覆盖绕过冲突。
 
+## 依赖与工具链
+
+- Node.js、pnpm 与独立 CLI 工具必须全局安装或升级；项目运行时/开发依赖（含 React、Vite、TypeScript、Vitest）按 \`package.json\` 与 \`pnpm-lock.yaml\` 安装在项目内，项目脚本使用声明版本，不以同名全局包替代。优先标准库与已声明依赖，新增依赖须有真实消费者和必要性。
+- 安装或升级只在已有授权范围内执行，工具变更后核对实际版本与可执行文件路径。首次初始化只检查一次 Node.js/pnpm，普通开发、构建或新会话不预探测；真实命令报出疑似环境错误后才诊断受影响组件。安装方式不授权额外依赖或自动升级，具体环境处理使用 \`$web-check-development-environment\`。
+
 ## TypeScript 与职责
 
 - 启用严格类型检查；跨模块输入、外部响应、浏览器消息和环境变量在边界校验，不用无约束 \`any\` 隐藏不确定性。
@@ -223,6 +228,8 @@ function runtimeConfiguration(config: ProjectConfig): string {
 - \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；复用本次发布已明确的 E2E 选择，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
 
 Node.js、pnpm 与按需使用的${config.projectType === "web" ? " Chrome" : " Chrome/Firefox"} 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。
+
+Node.js、pnpm 与独立 CLI 工具全局安装或升级；项目运行时/开发依赖按 manifest 与锁文件本地安装，项目脚本使用声明版本。工具变更须在已有授权范围内，完成后核对实际版本与可执行文件路径；详细规则见 [工程规则的依赖与工具链](ENGINEERING_RULES.md#依赖与工具链)。
 
 ${config.projectType === "extension" ? "Extension 的 BaseURL 不授予权限；Chrome MV3 host_permissions / Firefox MV2 permissions 中的 host patterns 按 docs/DATA_ACCESS.md 审批最小集合。" : ""}
 `
@@ -419,7 +426,7 @@ function docsReadme(config: ProjectConfig): string {
 
 按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。独立契约/模块审查、访问控制、写入恢复、存储、持续事件与左侧 Task 入口见 \`AGENTS.md\` 的 Skills 地图。组合与参考资料按需读取遵循 \`ENGINEERING_RULES.md\`，不因分发 Skill 自动启用功能。
 
-${config.projectType === "web" ? "Web 业务类型与可选能力以唯一 PRD 为准，遵循 [统一记录与流程关联](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。工具站点沿用通用流程；SaaS 客户端使用认证及明确选中的购买能力；SaaS 大后台使用认证与管理能力。首次需求复用 [README 创建交接](../README.md#创建交接) 的明确类型，再按 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 进入唯一 PRD、原型与实施。真实服务接入前核对 [SaaS API 关联与契约缺口](API.md#saas-能力与-api-关联)。\n\n" : ""}需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。全量重生成按当前实现、采用的服务契约与已确认设计需求的并集核对模块，保留尚未实施的有效商品/订单等设计并标明待确认；离线原型不当作产品 API Mock，文档生成不越过原型选择或真实接入门禁。
+${config.projectType === "web" ? "Web 业务类型与可选能力以唯一 PRD 为准，遵循 [统一记录与流程关联](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。工具站点沿用通用流程；SaaS 客户端使用认证及明确选中的购买能力；SaaS 大后台使用认证与管理能力。首次需求复用 [README 创建交接](../README.md#创建交接) 的明确类型，再按 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 进入唯一 PRD、原型与实施。真实服务接入前核对 [SaaS API 关联与契约缺口](API.md#saas-能力与-api-关联)。\n\n" : ""}需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。全量重生成按当前实现、采用的服务契约与已确认设计需求的并集核对模块，保留尚未实施的有效商品/订单等设计并标明待确认；离线原型不当作产品 API Mock，文档生成不越过原型登记或真实接入门禁。
 `
 }
 

@@ -9,9 +9,11 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 收集输入
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮优先问一个：唯一项目类型、展示名称、源 Harness 之外的完整绝对父目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
-2. 要求用户明确选择且只能选择一种项目类型：1.Web（`web`）或 2.Extension（`extension`），可直接回答 `1` 或 `2`。不得默认、推断、同时选择或保留稍后转换类型的入口。选择 Web 后必须让用户选择 Web 类型：1.工具站点（`tool-site`，沿用现有逻辑）；2.SaaS客户端（`saas-client`）；3.SaaS大后台（`saas-admin`）。Web 类型没有默认值，不能从产品描述推断；已明确的合法选择直接复用，尚未提供时条件补问。三种 Web 类型均可创建，沿用相同的中性工程初始化事务；将明确类型保留在下游 README 的“创建交接”，不新增身份 Schema 或在源收集具体产品需求。创建后的模式差异与交接按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 执行。Extension 不询问或接受 Web 类型。仅 SaaS 客户端条件询问“是否需要商品购买模块（商品选择、订单管理、钱包管理）？建议关闭”；等待明确启用/关闭或题面允许的实际回车接受，已明确值复用。其他模式不询问或接受此字段。选择、来源和日期留在 README 创建交接，首次 PRD 沿用；不因此生成业务、接入支付或新增身份字段。
-3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户选择记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
+创建前同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用清单中的问题名称、题面、选项与顺序；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
+
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮只问一个：唯一项目类型、展示名称、源 Harness 之外的完整绝对父目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
+2. 要求用户明确选择且只能选择一种项目类型：1.Web（`web`）或 2.Extension（`extension`），可直接回答 `1` 或 `2`。不得默认、推断、同时选择或保留稍后转换类型的入口。选择 Web 后必须让用户选择 Web 类型：1.工具站点（`tool-site`，沿用现有逻辑）；2.SaaS客户端（`saas-client`）；3.SaaS大后台（`saas-admin`）。Web 类型没有默认值，不能从产品描述推断；已明确的合法选择直接复用，尚未提供时条件补问。三种 Web 类型均可创建，沿用相同的安全初始化事务；SaaS 客户端按通用认证合同生成登录、注册/找回与主工作区基线；将明确类型保留在下游 README 的“创建交接”，不新增身份 Schema 或在源收集具体产品需求。创建后的模式差异与交接按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 执行。Extension 不询问或接受 Web 类型。仅 SaaS 客户端条件询问固定清单的 `saasCommerce` 问题（商品选择、订单管理、钱包管理），另列建议关闭；等待明确启用/关闭或 CLI 提示允许的实际回车接受，已明确值复用。其他模式不询问或接受此字段。选择、来源和日期留在 README 创建交接，首次 PRD 沿用；不因此生成业务、接入支付或新增身份字段。
+3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户登记记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
 
@@ -44,7 +46,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
      --name "<display-name>" --english-name "<English translation>" --policy-mode <预设|自定义>
    ```
 
-   Web 必须额外传入已明确选择的 `--web-type tool-site|saas-client|saas-admin`，Extension 不传该参数；SaaS 客户端额外传入明确的 `--saas-commerce enabled|disabled`，非交互缺失时拒绝，其他模式不传；三种类型共用安全复制、安装、验证与 Git 基线流程，不自动生成业务页面。自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
+   Web 必须额外传入已明确选择的 `--web-type tool-site|saas-client|saas-admin`，Extension 不传该参数；SaaS 客户端额外传入明确的 `--saas-commerce enabled|disabled`，非交互缺失时拒绝，其他模式不传；三种类型共用安全复制、安装、验证与 Git 基线流程；SaaS 客户端直接生成通用认证与主工作区，不生成产品专属业务或支付功能。自定义策略模式还必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
    交互模式按依赖顺序逐项解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总并仅询问一次“按此创建？”。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
 
@@ -64,4 +66,4 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 完成输出
 
-报告模板根、目标根、唯一项目类型、明确 Web 类型与下游 README 创建交接、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 顶层/分支、有效身份及其来源、受管提交模板检查、唯一基线 commit、无远端与 clean 状态、Logo 来源、母版与派生路径及视觉检查、身份本地化及回退、初始化期未生成 Release 产物、验证结果及下一步。Web 下一步明确切换到成功下游，复用所选模式按创建与开发 SOP 完成唯一 PRD、原型选择与实施；不重问已选类型，不在源继续产品定义。不得复述源根已拒绝的产品需求。
+报告模板根、目标根、唯一项目类型、明确 Web 类型与下游 README 创建交接、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 顶层/分支、有效身份及其来源、受管提交模板检查、唯一基线 commit、无远端与 clean 状态、Logo 来源、母版与派生路径及视觉检查、身份本地化及回退、初始化期未生成 Release 产物、验证结果及下一步。Web 下一步明确切换到成功下游，复用所选模式按创建与开发 SOP 完成唯一 PRD、原型登记与实施；不重问已选类型，不在源继续产品定义。不得复述源根已拒绝的产品需求。

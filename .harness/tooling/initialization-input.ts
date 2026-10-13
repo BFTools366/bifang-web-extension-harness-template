@@ -1,4 +1,5 @@
 import path from "node:path"
+import initializationQuestions from "../../.agents/skills/web-instantiate-project/references/initialization-questions.json" with { type: "json" }
 import { parseSaasCommerceChoice, resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { assertExtensionIdentityText, parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
@@ -97,22 +98,38 @@ export interface PromptDefaults {
 export type InteractiveQuestion = (question: string) => Promise<string>
 
 /** 枚举初始化基础字段及主动提供 JSON 时使用的稳定键。 */
-type BasicField =
-  | "targetRoot"
-  | "projectType"
-  | "webType"
-  | "saasCommerce"
-  | "name"
-  | "englishName"
-  | "id"
-  | "description"
-  | "identityI18n"
-  | "brandColor"
-  | "developmentBaseUrl"
-  | "testBaseUrl"
-  | "releaseBaseUrl"
-  | "policyMode"
-  | "confirmedBy"
+type BasicField = keyof typeof initializationQuestions.basic
+
+/** 为 CLI 与 Agent 提供同一份固定题名、题面及选项说明。 */
+export const INITIALIZATION_QUESTIONS = initializationQuestions
+
+/** 描述固定题目的展示内容，选项说明必须跟在选项名称之后。 */
+interface InitializationQuestion {
+  title: string
+  question: string
+  hint: string
+  options: readonly { value: string; label: string; description: string }[]
+}
+
+/** 将固定内容与可变建议、校验错误分别展示，重问时不改题名或题面。 */
+export function formatInitializationQuestion(
+  definition: InitializationQuestion,
+  context: { field: string; suggested?: string; issue?: string; parseError?: string }
+): string {
+  const lines = [
+    `问题名称：${definition.title}`,
+    definition.question,
+    ...definition.options.map(({ label, description }) => `- ${label}（${description}）`),
+    definition.hint
+  ]
+  if (context.suggested !== undefined) {
+    lines.push(`建议/默认：${context.suggested}；回车采用，也可输入其他值。`)
+  }
+  if (context.parseError !== undefined) lines.push(`上次回答无法解析：${context.parseError}`)
+  if (context.issue !== undefined) lines.push(`当前问题：${context.issue}`)
+  lines.push(`字段： ${context.field}`, "> ")
+  return lines.join("\n")
+}
 
 /** 描述已解析基础字段及其最终输入来源。 */
 interface CollectedBasicFields {
@@ -126,71 +143,10 @@ interface MergedBasicAnswer {
   suppliedFields: BasicField[]
 }
 
-/** 保存逐项引导的字段顺序、显示名和约束。 */
-const BASIC_FIELDS: ReadonlyArray<{
-  key: BasicField
-  label: string
-  constraint: string
-}> = [
-  {
-    key: "projectType",
-    label: "项目类型",
-    constraint:
-      "1.Web（web，React 网页）/ 2.Extension（extension，Chrome MV3 / Firefox MV2 扩展），输入 1 或 2，不设默认值"
-  },
-  {
-    key: "webType",
-    label: "Web 类型",
-    constraint:
-      "1.工具站点（tool-site）/ 2.SaaS客户端（saas-client）/ 3.SaaS大后台（saas-admin），不设默认值"
-  },
-  {
-    key: "saasCommerce",
-    label: "商品购买模块",
-    constraint: "enabled 启用 / disabled 关闭；包含商品选择、订单管理和钱包管理，仅 SaaS 客户端适用"
-  },
-  { key: "name", label: "项目显示名称", constraint: "非空文本" },
-  {
-    key: "englishName",
-    label: "项目名称的英文翻译",
-    constraint: "用英文表达项目名称，自动生成小写 kebab-case 项目标识，不使用拼音"
-  },
-  { key: "id", label: "项目标识", constraint: "小写字母、数字和连字符，例如 my-project" },
-  {
-    key: "targetRoot",
-    label: "源 Harness 外的父目录",
-    constraint: "原始输入本身必须是完整绝对路径；最终项目目录为此路径/项目标识"
-  },
-  { key: "description", label: "项目说明", constraint: "Extension 必填，简短说明；Web 可省略" },
-  {
-    key: "identityI18n",
-    label: "身份本地化",
-    constraint:
-      "可选 JSON 字符串：defaultLocale 为 en 或 zh_CN，translations 提供另一语言名称和说明"
-  },
-  { key: "brandColor", label: "品牌颜色", constraint: "#RGB 或 #RRGGBB 十六进制颜色" },
-  {
-    key: "developmentBaseUrl",
-    label: "开发 API 基地址",
-    constraint: "无凭据、query、fragment 的绝对 http/https URL"
-  },
-  {
-    key: "testBaseUrl",
-    label: "测试 API 基地址",
-    constraint: "无凭据、query、fragment 的绝对 http/https URL"
-  },
-  {
-    key: "releaseBaseUrl",
-    label: "正式 API 基地址",
-    constraint: "无凭据、query、fragment 的绝对 https URL"
-  },
-  {
-    key: "policyMode",
-    label: "Agent 策略模式",
-    constraint: "预设（推荐）或自定义"
-  },
-  { key: "confirmedBy", label: "确认来源", constraint: "真实确认人或明确责任主体" }
-]
+/** 按固定清单中的键顺序逐项收集基础字段，不随默认值改变问法。 */
+const BASIC_FIELDS = (Object.keys(INITIALIZATION_QUESTIONS.basic) as BasicField[]).map((key) => ({
+  key
+}))
 
 /** 保存无需主动询问、但可提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
@@ -370,22 +326,18 @@ function basicQuestion(
   suggested: string | undefined,
   parseError?: string
 ): string {
-  const definition = BASIC_FIELDS.find(({ key }) => key === field)
-  if (definition === undefined) throw new Error(`未知初始化字段：${field}`)
-  const value = field === "policyMode" ? (suggested === "custom" ? "自定义" : "预设") : suggested
-  const reason =
-    field === "saasCommerce"
-      ? "购买能力可选，关闭时不生成商品选择、订单管理或钱包管理；需要时明确开启。"
-      : field === "id"
-        ? "由项目名称的英文翻译生成。"
-        : suggested === "custom"
-          ? "已有单项策略，使用自定义可保留这些决定。"
-          : "沿用仓库五项预设，减少逐项配置。"
-  const guidance =
-    suggested === undefined
-      ? `${definition.label}希望使用什么值？请直接输入回答。`
-      : `是否使用${value}作为${definition.label}？建议/默认：${value}；回车采用，也可输入其他值。${reason}`
-  return `${parseError === undefined ? "" : `上次回答无法解析：${parseError}\n`}${guidance}\n字段： ${field}；${definition.constraint}；当前问题：${issue}\n> `
+  const value =
+    field === "policyMode" && suggested !== undefined
+      ? suggested === "custom"
+        ? "自定义"
+        : "预设"
+      : suggested
+  return formatInitializationQuestion(INITIALIZATION_QUESTIONS.basic[field], {
+    field,
+    suggested: value,
+    issue,
+    parseError
+  })
 }
 
 /** 按依赖顺序逐项引导，仅重问缺失或非法值并在类型确定后立即检查可用性。 */

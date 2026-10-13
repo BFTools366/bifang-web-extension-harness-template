@@ -20,8 +20,8 @@
 
 ## 固定范围
 
-- 下游产品开发支持需求澄清 → 唯一 Product Spec（PRD）记录与确认 → 默认 2–3 个可交互 HTML 方案 → 用户明确选定具体版本 → 实施。两类下游初始化仅安装完整项目级 Skills，不运行产品流程、不生成业务 PRD/原型/选择记录、不写全局 Skills。
-- 原型选择按稳定 scope 与修订记录项目身份、当前 PRD 和候选 SHA-256；尚未选择或内容漂移不能开发该设计范围，已有有效选择复用。日常小修复和无界面变更不强制重走流程。详细合同由 web-define-product、web-design-prototype 和 web-implement-change 串联维护。
+- 下游产品开发支持需求澄清 → 唯一 Product Spec（PRD）记录与确认 → 一个桌面端可交互 HTML 原型 → 自查、展示并登记 → 按已有授权实施。两类下游初始化仅安装完整项目级 Skills，不运行产品流程、不生成业务 PRD/原型/登记记录、不写全局 Skills。
+- 原型登记按稳定 scope 与修订绑定项目身份、当前 PRD 和唯一 HTML 的 SHA-256；不生成 A/B 备选或 Mobile 布局、不要求用户选择方案。未登记或内容漂移不能开发该设计范围，已有有效登记复用。日常小修复和无界面变更不强制重走流程。详细合同由 web-define-product、web-design-prototype 和 web-implement-change 串联维护。
 
 - Web 使用 Vite、Mantine、TanStack Router 文件路由、TanStack Query、Jotai 与 i18next。
 - Extension 使用 Plasmo、Chrome MV3 / Firefox MV2、Mantine、TanStack Router 代码路由、TanStack Query、Jotai 与 i18next；Popup 与 Options 分别持有 Router。
@@ -57,6 +57,7 @@
 - 源 validator 必须校验 Web 列表 Skill 的 canonical id、路由、必需 references/资产、可执行契约与宿主裁剪，防止只保留空目录或把 Web-only 能力泄漏到 Extension。
 - 初始化目标必须位于源外空目录，并经同目标合作租约、身份绑定 sibling staging、单次安装、Git 初始化、唯一 local root commit 和原子 rename 发布；结果保持 clean 且无远端。父目录漂移时失败关闭且不清理替代树。Node 标准库不具备跨平台目录 no-replace flag，故意绕过租约的同机竞态不属于本协议保证。
 - Extension 只申请真实功能所需最小权限，不使用远程托管可执行代码。
+- Node.js、pnpm 与独立 CLI 工具全局安装或升级；项目运行时/开发依赖按 manifest 与锁文件本地安装，脚本使用声明版本。工具变更仅在已有授权范围内执行，完成后核对实际版本与可执行文件路径。
 - 不在浏览器配置、日志、候选或提交中泄漏秘密；Release logger 仅保留批准字段并脱敏 URL、路径、Error stack/cause。
 - 明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；新增目的地或范围外的生产数据、付费及不可逆副作用才补充授权。
 
@@ -65,11 +66,11 @@
 - Rust、Tauri、桌面 GUI、桌面 CLI/TUI/MCP、安装器、签名、公证和桌面发布链。
 - 同仓库 Web + Extension、workspace、`apps/`、`packages/` 或创建第二宿主的入口。
 - 初始化期间选择 E2E 或生成最终候选；最终构建在下游解析或复用本次发布的 E2E 选择。
-- 全局依赖安装、自动升级 Node.js/pnpm/Chrome、自动创建 PR/tag/发布或静默改写 Git 全局配置。
+- 将项目依赖改为全局安装、未经授权安装或升级工具、自动创建 PR/tag/发布或静默改写 Git 全局配置。
 
 ## 成功标准
 
-- Web 和 Extension 都完整保留原型 Skill、发现元数据、PRD 参考及 Node 标准库选择 helper；初始化表单不新增业务问题，初始化输出没有业务 PRD、原型或选择。选择记录能阻断尚未选择、PRD/原型漂移、过期规格及无效文件输入。用户真实授权仍由 Agent 对照会话确认，脚本只证明记录与文件绑定。
+- Web 和 Extension 都完整保留原型 Skill、发现元数据、PRD 参考及 Node 标准库摘要登记 helper；初始化表单不新增业务问题，初始化输出没有业务 PRD、原型或登记记录。摘要登记能阻断多文件输入、旧多方案记录、PRD/原型漂移、过期规格及无效文件输入。脚本只证明记录与文件绑定；是否继续实施由 Agent 依据用户原请求或暂缓指令决定，无需用户选型步骤。
 
 - 源 Harness 验证器可确定性证明 Skills、治理文档、模板、初始化、环境、注释、行数、版本、升级所有权和安全边界一致。
 - Web 与 Extension 均能从源外独立实例化，生成仓库只有其单一宿主所需文件、不保留派生入口，并各自拥有恰好一个中性本地基线提交且无远端。

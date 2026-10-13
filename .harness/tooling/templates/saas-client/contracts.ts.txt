@@ -1,0 +1,46 @@
+/** 描述演示认证错误；技术原因不包含密码、验证码或凭据。 */
+export class AuthFailure extends Error {
+  /* 保留可本地化的错误标识，不包含敏感输入。 */ constructor(public readonly key: string) {
+    super(key)
+  }
+}
+/** 描述服务端确认的组织与权限。 */
+export interface Membership {
+  id: string
+  name: string
+  permissions: string[]
+}
+/** 描述通过服务校验的当前用户与组织上下文。 */
+export interface AuthContext {
+  user: { id: string; username: string; email: string }
+  organization: Membership | null
+  organizations: Membership[]
+  permissions: string[]
+}
+/** 描述唯一认证域接口；真实接入时替换该边界，不在 UI 拼 endpoint。 */
+export interface AuthApi {
+  login(username: string, password: string): Promise<string>
+  validate(token: string): Promise<AuthContext>
+  logout(token: string): Promise<void>
+  switchOrganization(token: string, organizationId: string): Promise<string>
+  sendCode(email: string, purpose: "register" | "reset"): Promise<void>
+  register(username: string, email: string, password: string, code: string): Promise<void>
+  resetPassword(email: string, password: string, code: string): Promise<void>
+}
+/** 精确限制认证返回目标，不接受外站、协议相对路径或未知页面。 */
+export function safeReturnTarget(value: unknown): "/app/dashboard" | "/app/account" | "/no-access" {
+  return value === "/app/account" || value === "/no-access" ? value : "/app/dashboard"
+}
+
+/** 认证搜索参数可缺省，所有输入经过内部目标与固定状态校验。 */
+export interface AuthSearch {
+  returnTo?: ReturnType<typeof safeReturnTarget>
+  notice?: "registered" | "reset"
+}
+/** 保持路由搜索字段可选，不使用类型断言修补 Link 组合。 */
+export function parseAuthSearch(search: Record<string, unknown>): AuthSearch {
+  return {
+    returnTo: safeReturnTarget(search.returnTo),
+    notice: search.notice === "registered" || search.notice === "reset" ? search.notice : undefined
+  }
+}

@@ -263,7 +263,7 @@ export async function runInstantiateCli(
     if (init.saasCommerce !== undefined)
       output(`商品购买模块：${init.saasCommerce}（商品选择、订单管理、钱包管理）；首次 PRD 沿用。`)
     output(
-      "下一步：切换到新项目，复用创建选择执行需求确认 → 原型选择 → 实施；SOP 见项目 README.md。"
+      "下一步：切换到新项目，复用创建选择执行需求确认 → 原型登记 → 实施；SOP 见项目 README.md。"
     )
   }
   output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)

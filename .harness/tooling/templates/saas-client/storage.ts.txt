@@ -1,0 +1,81 @@
+import { BRAND } from "../../brand"
+import { APP_CONFIG } from "../../config/environment"
+import { AuthFailure } from "../api/auth/contracts"
+import { getWebStorage } from "./webStorage"
+
+/** 仅持久保存凭据；用户、组织与权限由 API 和 Query 拥有。 */
+export interface CredentialStorage {
+  key: string
+  read(): string | null
+  write(token: string): void
+  remove(): void
+}
+/** 获取可用本地存储，访问拒绝必须阻断持久登录。 */
+export function requireAuthStorage(): Storage {
+  const storage = getWebStorage("local")
+  if (storage === undefined) throw new AuthFailure("authStorageError")
+  return storage
+}
+/** 为当前项目、模式和环境隔离会话记录并核实读写删除结果。 */
+export function createCredentialStorage(): CredentialStorage {
+  const key = `${BRAND.id}:auth:saas-client:${APP_CONFIG.environment}:${APP_CONFIG.apiBaseUrl || "mock"}:v1`
+  return {
+    key,
+    /* 读取当前作用域的凭据记录并校验形状。 */ read() {
+      try {
+        const storage = requireAuthStorage()
+        const raw = storage.getItem(key)
+        if (raw === null) return null
+        let record: unknown
+        try {
+          record = JSON.parse(raw)
+        } catch {
+          record = null
+        }
+        if (
+          typeof record !== "object" ||
+          record === null ||
+          !("version" in record) ||
+          record.version !== 1 ||
+          !("token" in record) ||
+          typeof record.token !== "string" ||
+          !/^[\x21-\x7e]{1,512}$/.test(record.token) ||
+          Object.keys(record).length !== 2
+        ) {
+          storage.removeItem(key)
+          if (storage.getItem(key) !== null) throw new AuthFailure("authStorageError")
+          return null
+        }
+        return record.token
+      } catch {
+        throw new AuthFailure("authStorageError")
+      }
+    },
+    /* 写入凭据并核实持久化结果。 */ write(token) {
+      try {
+        if (!/^[\x21-\x7e]{1,512}$/.test(token)) throw new AuthFailure("authStorageError")
+        const storage = requireAuthStorage()
+        const record = JSON.stringify({ version: 1, token })
+        storage.setItem(key, record)
+        if (storage.getItem(key) !== record) throw new Error("unconfirmed")
+      } catch {
+        throw new AuthFailure("authStorageError")
+      }
+    },
+    /* 移除精确凭据项并核实删除结果。 */ remove() {
+      try {
+        const storage = requireAuthStorage()
+        storage.removeItem(key)
+        if (storage.getItem(key) !== null) throw new Error("unconfirmed")
+      } catch {
+        throw new AuthFailure("authStorageError")
+      }
+    }
+  }
+}
+/** 使用浏览器同源锁串行发布凭据，缺少可靠协调能力时明确阻断。 */
+export async function withAuthLock<T>(operation: () => Promise<T>): Promise<T> {
+  if (typeof navigator === "undefined" || navigator.locks === undefined)
+    throw new AuthFailure("authCoordinationError")
+  return navigator.locks.request(`${BRAND.id}:saas-client:auth`, operation)
+}

@@ -84,13 +84,19 @@ describe("Harness Skill and Agent policy validation", () => {
       await expect(validateHarness(root)).rejects.toThrow(/Missing required file/)
     }
   )
-  // 验证新工作流不能缺失选择门禁、参考或可执行工具而仍被声明完整。
-  test("requires prototype selection guidance and complete project-local resources", async () => {
-    const targetRoot = await copyRepository()
-    const skillPath = path.join(targetRoot, ".agents/skills/web-design-prototype/SKILL.md")
-    const skillSource = await readFile(skillPath, "utf8")
-    await writeFile(skillPath, skillSource.replace("必须等待用户明确选定", "自动采用推荐方案"))
-    await expect(validateHarness(targetRoot)).rejects.toThrow(/missing required workflow/)
+  // 验证新工作流不能缺失单原型合同、参考或可执行工具而仍被声明完整。
+  test("requires single desktop prototype guidance and complete project-local resources", async () => {
+    for (const requirement of [
+      "每次只生成一个桌面端原型",
+      "不生成 A/B/C 备选方案",
+      "不规划、生成或验证 Mobile 支持"
+    ]) {
+      const targetRoot = await copyRepository()
+      const skillPath = path.join(targetRoot, ".agents/skills/web-design-prototype/SKILL.md")
+      const skillSource = await readFile(skillPath, "utf8")
+      await writeFile(skillPath, skillSource.replace(requirement, "已移除该设计约束"))
+      await expect(validateHarness(targetRoot)).rejects.toThrow(/missing required workflow/)
+    }
     for (const relative of ["references/prd-outline.md", "scripts/prototype-review.ts"]) {
       const resourceRoot = await copyRepository()
       await rm(path.join(resourceRoot, ".agents/skills/web-design-prototype", relative))
@@ -209,7 +215,7 @@ describe("Harness Skill and Agent policy validation", () => {
     const sentenceSource = await readFile(sentencePath, "utf8")
     await writeFile(
       sentencePath,
-      sentenceSource.replace('原型选择流程。"', '原型选择流程。不要扩大范围。"')
+      sentenceSource.replace('单一桌面原型设计流程。"', '单一桌面原型设计流程。不要扩大范围。"')
     )
     await expect(validateHarness(sentenceRoot)).rejects.toThrow(
       /default_prompt must be one Chinese sentence/

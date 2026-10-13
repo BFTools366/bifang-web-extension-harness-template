@@ -5,7 +5,7 @@
   "description": "以智能体为首要使用者的 TypeScript Harness 模板，生成 React Web 或 Plasmo Chrome MV3 / Firefox MV2 扩展。",
   "type": "module",
   "engines": {
-    "node": ">=26.10.0",
+    "node": ">=24.0.0",
     "pnpm": ">=12.8.1"
   },
   "packageManager": "pnpm@12.8.1",
