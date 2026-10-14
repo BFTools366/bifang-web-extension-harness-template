@@ -1,3 +1,4 @@
+import { fixtureValue } from "../../data/api/auth/mockTestAssertions"
 import { expect, test, vi } from "vitest"
 import { QueryClient } from "@tanstack/react-query"
 import { AuthError } from "../../data/api/auth/contracts"
@@ -6,7 +7,6 @@ import { createMockAuthBackend } from "../../data/api/auth/mockAuthBackend"
 import { createAuthSession } from "./session"
 import { authFixture, memoryAuthStorage } from "./authTestFixtures"
 import { createAuthSessionStorage } from "../../data/storage/authSessionStorage"
-
 /** 显式刷新轮换仅在原子写入后公布，原组织保持。 */
 test("refreshes through the coordinator without automatic navigation refresh", async () => {
   const fixture = authFixture()
@@ -29,7 +29,6 @@ test("refreshes through the coordinator without automatic navigation refresh", a
   expect(fixture.session.getSnapshot().phase).toBe("anonymous")
   fixture.queryClient.clear()
 })
-
 /** 刷新存储失败丢弃新临时引用，不能撤销账号的旧会话。 */
 test("discards an unpublished refresh when storage fails", async () => {
   const fixture = authFixture()
@@ -46,11 +45,10 @@ test("discards an unpublished refresh when storage fails", async () => {
   expect(fixture.storage.read()).toEqual(previous)
   expect(fixture.session.getContext()).toBeUndefined()
   await expect(
-    fixture.api.validateSession(previous.credential!, new AbortController().signal)
-  ).resolves.toMatchObject(previous.credential!)
+    fixture.api.validateSession(fixtureValue(previous.credential), new AbortController().signal)
+  ).resolves.toMatchObject(fixtureValue(previous.credential))
   fixture.queryClient.clear()
 })
-
 /** 改密输入错误可恢复旧会话，成功只清本地，不额外发送已吊销的logout。 */
 test("preserves the session on wrong old password and clears after success", async () => {
   const fixture = authFixture()
@@ -67,7 +65,6 @@ test("preserves the session on wrong old password and clears after success", asy
   await expect(fixture.session.login("demo", "Changed123")).resolves.toBeUndefined()
   fixture.queryClient.clear()
 })
-
 /** 改密失败后的校验若断网也必须进入明确恢复状态，不能卡住restoring。 */
 test("settles recovery failure after a rejected password change", async () => {
   const fixture = authFixture()
@@ -82,7 +79,6 @@ test("settles recovery failure after a rejected password change", async () => {
   expect(fixture.session.getContext()).toBeUndefined()
   fixture.queryClient.clear()
 })
-
 /** 重置成功不重复logout；匹配账号清理失败保持blocked。 */
 test("clears matching reset sessions and blocks on deletion failure", async () => {
   const fixture = authFixture()
@@ -98,7 +94,7 @@ test("clears matching reset sessions and blocks on deletion failure", async () =
   }
   await expect(
     fixture.session.resetPassword(
-      { email: "demo@example.invalid", password: "Changed123", code: sent.mockCode! },
+      { email: "demo@example.invalid", password: "Changed123", code: fixtureValue(sent.mockCode) },
       new AbortController().signal
     )
   ).rejects.toMatchObject({ code: "storageUnavailable" })
@@ -107,7 +103,6 @@ test("clears matching reset sessions and blocks on deletion failure", async () =
   expect(fixture.session.getContext()).toBeUndefined()
   fixture.queryClient.clear()
 })
-
 /** 迟到重置不得删除后来其它账号的登录，也不能导航回旧表单结果。 */
 test("does not clear a later login when a reset response arrives late", async () => {
   const fixture = authFixture()
@@ -136,12 +131,11 @@ test("does not clear a later login when a reset response arrives late", async ()
   expect(fixture.session.getContext()?.user.username).toBe("test")
   fixture.queryClient.clear()
 })
-
 /** 真实删除失败仍尝试一次服务吊销，恢复保持阻断。 */
 test("attempts server revocation even when local deletion fails", async () => {
   const fixture = authFixture()
   await fixture.session.login("demo", "demo-password")
-  const credential = fixture.storage.read().credential!
+  const credential = fixtureValue(fixture.storage.read().credential)
   const logout = vi.spyOn(fixture.api, "logout")
   fixture.backend.removeItem = () => {
     throw new Error("Denied")
@@ -157,7 +151,6 @@ test("attempts server revocation even when local deletion fails", async () => {
   ).rejects.toMatchObject({ serviceCode: "auth.token.revoked" })
   fixture.queryClient.clear()
 })
-
 /** 两个客户端共享服务与存储，旧退出不能吊销替代登录。 */
 test("does not revoke a replacement session after a storage conflict", async () => {
   const backend = createMockAuthBackend()
@@ -194,7 +187,6 @@ test("does not revoke a replacement session after a storage conflict", async () 
   firstQueries.clear()
   secondQueries.clear()
 })
-
 /** 冷恢复共享服务时保留已提交但还未写回Storage的权威组织。 */
 test("does not roll back an authoritative organization during cold restoration", async () => {
   const backend = createMockAuthBackend()
@@ -203,7 +195,7 @@ test("does not roll back an authoritative organization during cold restoration",
   const fixture = authFixture(firstService.api)
   await fixture.session.login("demo", "demo-password")
   await firstService.api.switchOrganization(
-    fixture.storage.read().credential!,
+    fixtureValue(fixture.storage.read().credential),
     "studio",
     new AbortController().signal
   )
@@ -221,7 +213,6 @@ test("does not roll back an authoritative organization during cold restoration",
   queries.clear()
   fixture.queryClient.clear()
 })
-
 /** 新登录取消尚未提交的旧注销，旧请求释放后不吊销新凭据。 */
 test("cancels a pending logout when a new login starts", async () => {
   const fixture = authFixture()
@@ -252,11 +243,10 @@ test("cancels a pending logout when a new login starts", async () => {
   expect(fixture.storage.read()).toEqual(replacement)
   expect(fixture.session.getSnapshot().phase).toBe("ready")
   await expect(
-    fixture.api.validateSession(replacement.credential!, new AbortController().signal)
-  ).resolves.toMatchObject(replacement.credential!)
+    fixture.api.validateSession(fixtureValue(replacement.credential), new AbortController().signal)
+  ).resolves.toMatchObject(fixtureValue(replacement.credential))
   fixture.queryClient.clear()
 })
-
 /** 刷新迟到只丢弃自己的临时引用，不覆盖或吊销后来新登录。 */
 test("discards a late refresh without overwriting a later login", async () => {
   const fixture = authFixture()
@@ -288,11 +278,10 @@ test("discards a late refresh without overwriting a later login", async () => {
   expect(fixture.storage.read()).toEqual(replacement)
   expect(fixture.session.getSnapshot().phase).toBe("ready")
   await expect(
-    fixture.api.validateSession(replacement.credential!, new AbortController().signal)
-  ).resolves.toMatchObject(replacement.credential!)
+    fixture.api.validateSession(fixtureValue(replacement.credential), new AbortController().signal)
+  ).resolves.toMatchObject(fixtureValue(replacement.credential))
   fixture.queryClient.clear()
 })
-
 /** 订阅者失败不能把已提交认证事务改判成失败或阻止后续监听者。 */
 test("isolates observer exceptions from session commits", async () => {
   const fixture = authFixture()

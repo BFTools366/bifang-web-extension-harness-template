@@ -1,8 +1,8 @@
+import { fixtureValue } from "../../data/api/auth/mockTestAssertions"
 import { expect, test, vi } from "vitest"
 import { authFixture } from "./authTestFixtures"
 import { createAuthSession } from "./session"
 import { AuthError } from "../../data/api/auth/contracts"
-
 /** 同作用域导航保留认证代次、缓存引用和 HTTP 会话，不把菜单切换当登出重建。 */
 test("retains context and HTTP session during same-scope navigation", async () => {
   const fixture = authFixture()
@@ -26,7 +26,6 @@ test("retains context and HTTP session during same-scope navigation", async () =
   expect(clearHttpSession).toHaveBeenCalledTimes(clears)
   fixture.queryClient.clear()
 })
-
 /** 取消导航不清理已确认会话，检查状态收敛回ready，不接受迟到权限。 */
 test("settles cancelled navigation without replacing the current context", async () => {
   const fixture = authFixture()
@@ -60,14 +59,13 @@ test("settles cancelled navigation without replacing the current context", async
   expect(fixture.session.getContext()).toBe(context)
   fixture.queryClient.clear()
 })
-
 /** 导航发现权威组织变化后，以独立会话恢复完成新scope，原导航取消不回退旧授权。 */
 test("finishes a discovered organization change independently of navigation cancellation", async () => {
   const fixture = authFixture()
   await fixture.session.login("demo", "demo-password")
   const generation = fixture.session.getSnapshot().generation
   await fixture.api.switchOrganization(
-    fixture.storage.read().credential!,
+    fixtureValue(fixture.storage.read().credential),
     "studio",
     new AbortController().signal
   )
@@ -101,7 +99,6 @@ test("finishes a discovered organization change independently of navigation canc
   expect(fixture.storage.read().credential?.organizationId).toBe("studio")
   fixture.queryClient.clear()
 })
-
 /** 确认失效后的清理不随原导航取消，释放删除锁后仍收敛匿名且记录为空。 */
 test("finishes invalid-session cleanup after the original navigation is cancelled", async () => {
   const fixture = authFixture()

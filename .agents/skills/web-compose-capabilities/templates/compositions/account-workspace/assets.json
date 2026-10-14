@@ -63,5 +63,6 @@
   "src/features/client/organizationChoices.test.ts": "../../organization/organizationChoices.test.ts.txt",
   "src/app/queryClient.ts": "app/queryClient.ts.txt",
   "src/features/auth/useOperationGuard.ts": "features/auth/useOperationGuard.ts.txt",
-  "src/i18n/locales/accountWorkspace.ts": "i18n/locales/accountWorkspace.ts.txt"
+  "src/i18n/locales/accountWorkspace.ts": "i18n/locales/accountWorkspace.ts.txt",
+  "src/data/api/auth/mockTestAssertions.ts": "data/api/auth/mockTestAssertions.ts.txt"
 }

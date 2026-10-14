@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util"
 import { describe, expect, test } from "vitest"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { repositoryRoot, path, temporaryDirectory } from "./harness-tooling-support.ts"
@@ -213,8 +214,7 @@ describe("explicit account workspace composition", () => {
           })
           expect(output).toMatch(/Tests\s+\d+ passed/)
           console.info(
-            output
-              .replace(/\x1b\[[0-9;]*m/gu, "")
+            stripVTControlCharacters(output)
               .split("\n")
               .filter((line) => /^\s*(Test Files|Tests)/u.test(line))
               .join("\n")

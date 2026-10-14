@@ -1,6 +1,6 @@
+import { fixtureValue } from "./mockTestAssertions"
 import { expect, test, vi } from "vitest"
 import { createMockAuthApi, createMockService } from "./mockAuth"
-
 /** 完整 Mock 流程不触发 HTTP，也不会生成用于请求头的 Token。 */
 test("supports login, organization switching, restoring and revocation without network", async () => {
   const fetch = vi.spyOn(globalThis, "fetch")
@@ -22,7 +22,6 @@ test("supports login, organization switching, restoring and revocation without n
   expect(fetch).not.toHaveBeenCalled()
   fetch.mockRestore()
 })
-
 /** 验证码绑定邮箱和用途，成功消费一次且过期必须重发。 */
 test("binds codes to purpose and email, enforces resend and expiry", async () => {
   let now = 0
@@ -60,7 +59,7 @@ test("binds codes to purpose and email, enforces resend and expiry", async () =>
       signal
     )
   ).rejects.toMatchObject({ code: "codeInvalid" })
-  now = 300_001
+  now = 300001
   await expect(
     api.register(
       {
@@ -88,7 +87,7 @@ test("binds codes to purpose and email, enforces resend and expiry", async () =>
     {
       username: "new",
       email: "new@example.invalid",
-      code: resent.mockCode!,
+      code: fixtureValue(resent.mockCode),
       password: "new-pass123"
     },
     signal
@@ -96,7 +95,7 @@ test("binds codes to purpose and email, enforces resend and expiry", async () =>
   expect((await api.login("new", "new-pass123", signal)).accountId).not.toBe("demo-user")
   const reset = await api.sendCode("new@example.invalid", "reset", signal)
   await api.resetPassword(
-    { email: "new@example.invalid", code: reset.mockCode!, password: "changed123" },
+    { email: "new@example.invalid", code: fixtureValue(reset.mockCode), password: "changed123" },
     signal
   )
   await expect(api.login("new", "new-pass123", signal)).rejects.toMatchObject({
@@ -116,7 +115,6 @@ test("binds codes to purpose and email, enforces resend and expiry", async () =>
     )
   ).rejects.toMatchObject({ code: "codeInvalid" })
 })
-
 /** 共享服务中的客户端可恢复引用，权限按服务当前账号与组织计算。 */
 test("isolates the test permission by account and organization across reloads", async () => {
   const service = createMockService({ delayMs: 0, configured: () => false })
@@ -135,7 +133,6 @@ test("isolates the test permission by account and organization across reloads", 
   await nextReload.validateSession(switched, signal, true)
   expect((await nextReload.getContext(switched, signal)).capabilities).not.toContain("test-menu")
 })
-
 /** 已配置真实服务时不允许隐式回落到演示。 */
 test("fails closed for configured services and cancelled writes", async () => {
   const api = createMockAuthApi({ delayMs: 0, configured: () => true })

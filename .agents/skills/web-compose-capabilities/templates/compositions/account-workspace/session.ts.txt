@@ -1,4 +1,4 @@
-import { QueryClient, queryOptions } from "@tanstack/react-query"
+import { type QueryClient, queryOptions } from "@tanstack/react-query"
 import {
   AuthError,
   isAuthContext,
@@ -176,7 +176,8 @@ export function createAuthSession(dependencies: SessionDependencies) {
         return
       }
     }
-    const activeCredential = stored.credential!
+    const activeCredential = stored.credential
+    if (!activeCredential) throw new AuthError("sessionExpired", "invalid-session")
     await queryClient.query(
       queryOptions({
         queryKey: contextKey(),

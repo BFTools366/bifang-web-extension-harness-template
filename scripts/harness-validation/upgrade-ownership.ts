@@ -150,6 +150,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   "tests/saas-foundation-guidance.test.ts": "tombstone",
   "tests/web-routing-policy.test.ts": "tombstone",
   "tests/saas-creation.test.ts": "tombstone",
+  "tests/capability-assets.test.ts": "tombstone",
   "tests/harness-instantiation.test.ts": "tombstone",
   "tests/harness-memory.test.ts": "tombstone",
   "tests/harness-ownership-validation.test.ts": "tombstone",

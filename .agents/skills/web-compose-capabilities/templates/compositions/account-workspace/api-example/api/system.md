@@ -111,15 +111,15 @@
 }
 ```
 
-| 字段路径       | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                        |
-| -------------- | --------- | --------- | ---- | ----------------------------------------------- | ----------------------------------------------------------------------------- |
-| model          | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "system.health.check"                                                         |
+| 字段路径       | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                         |
+| -------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| model          | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "system.health.check"                                                          |
 | data           | object    | 是        | 否   | 当前操作的结果对象                              | {"available":true,"name":"example-mock-service","version":"1.0.0","env":"dev"} |
-| data.available | boolean   | 是        | 否   | 服务可用状态                                    | true                                                                          |
+| data.available | boolean   | 是        | 否   | 服务可用状态                                    | true                                                                           |
 | data.name      | string    | 是        | 否   | 名称                                            | "example-mock-service"                                                         |
-| data.version   | string    | 是        | 否   | 版本                                            | "1.0.0"                                                                       |
-| data.env       | string    | 是        | 否   | dev、test 或 prod                               | "dev"                                                                         |
-| request_id     | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                        |
+| data.version   | string    | 是        | 否   | 版本                                            | "1.0.0"                                                                        |
+| data.env       | string    | 是        | 否   | dev、test 或 prod                               | "dev"                                                                          |
+| request_id     | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                         |
 
 错误响应（按下表区分 HTTP 状态与稳定 code；报文结构相同，示例为其中一项）。
 
@@ -225,11 +225,11 @@ type Query {
 }
 ```
 
-| 字段路径              | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                | 示例值                                                                                   |
-| --------------------- | --------- | --------- | ---- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 字段路径              | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                | 示例值                                                                                    |
+| --------------------- | --------- | --------- | ---- | ----------------------------------------- | ----------------------------------------------------------------------------------------- |
 | data                  | object    | 是        | 否   | GraphQL 选择集结果；业务鉴权错误可为 null | {"health":{"available":true,"name":"example-mock-service","version":"1.0.0","env":"dev"}} |
 | data.health           | object    | 是        | 否   | 服务健康投影                              | {"available":true,"name":"example-mock-service","version":"1.0.0","env":"dev"}            |
-| data.health.available | boolean   | 是        | 否   | 服务可用状态                              | true                                                                                     |
+| data.health.available | boolean   | 是        | 否   | 服务可用状态                              | true                                                                                      |
 | data.health.name      | string    | 是        | 否   | 名称                                      | "example-mock-service"                                                                    |
-| data.health.version   | string    | 是        | 否   | 版本                                      | "1.0.0"                                                                                  |
-| data.health.env       | string    | 是        | 否   | dev、test 或 prod                         | "dev"                                                                                    |
+| data.health.version   | string    | 是        | 否   | 版本                                      | "1.0.0"                                                                                   |
+| data.health.env       | string    | 是        | 否   | dev、test 或 prod                         | "dev"                                                                                     |

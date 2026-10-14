@@ -159,7 +159,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
   /** 将单个签发结果投影为来源 TokenPair，不暴露版本或密码。 */
   function result(credential: MockCredential, entry: MockAccount): ServiceAuthResult {
     return {
-      token: { ...sessions.get(credential.sessionId)!.token },
+      token: { ...reference(credential).token },
       account: { ...entry.dto }
     }
   }
@@ -258,7 +258,8 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       if (type !== "email" && type !== "phone")
         throw new ServiceFailure("common.validate.error", 400)
       if (type === "phone" && !phone) throw new ServiceFailure("verification.target.missing", 400)
-      const target = type === "phone" ? phone! : email
+      const target = type === "phone" ? phone : email
+      if (!target) throw new ServiceFailure("verification.target.missing", 400)
       verification.verify(target, type, "register", body.code)
       for (const entry of accounts.values()) {
         if (entry.dto.username === username)
@@ -336,7 +337,8 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     /** UI 组织与能力完全独立于服务默认组织。 */
     context(credential: MockCredential): AuthContext {
       const current = this.validate(credential)
-      const entry = accounts.get(current.accountId)!
+      const entry = accounts.get(current.accountId)
+      if (!entry) throw new ServiceFailure("auth.account.not.found", 401)
       return {
         user: {
           id: entry.dto.id,
@@ -363,7 +365,8 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     /** 组织切换只改变内存扩展，令牌对和服务默认组织保持各自含义。 */
     switchOrganization(credential: MockCredential, organizationId: string) {
       const current = this.validate(credential)
-      if (!accounts.get(current.accountId)!.memberships.some((org) => org.id === organizationId))
+      const account = accounts.get(current.accountId)
+      if (!account || !account.memberships.some((org) => org.id === organizationId))
         throw new ServiceFailure("mock.organization.unavailable", 400)
       const next = { ...current, organizationId }
       reference(credential).credential = next

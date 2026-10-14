@@ -1,10 +1,10 @@
+import { fixtureValue } from "../../data/api/auth/mockTestAssertions"
 import { expect, test, vi } from "vitest"
 import { AuthError } from "../../data/api/auth/contracts"
 import { createAuthSession } from "./session"
 import { authFixture } from "./authTestFixtures"
 import { ApiError } from "../../data/api/client/httpContracts"
 import { canAccess, safeReturnTo } from "./access"
-
 /** 登录、刷新恢复、按实际导航重新验证与退出只影响私有 scope。 */
 test("restores persisted demo sessions and validates every navigation", async () => {
   const fixture = authFixture()
@@ -32,7 +32,6 @@ test("restores persisted demo sessions and validates every navigation", async ()
   expect(fixture.queryClient.getQueryData(["public-data"])).toBe("retained")
   fixture.queryClient.clear()
 })
-
 /** 冷启动网络失败保留引用但没有权限；明确校验失效统一清理。 */
 test("does not grant cold offline permissions and clears invalid sessions", async () => {
   const fixture = authFixture()
@@ -57,7 +56,6 @@ test("does not grant cold offline permissions and clears invalid sessions", asyn
   expect(fixture.storage.read().raw).toBeNull()
   fixture.queryClient.clear()
 })
-
 /** 不可写持久存储阻断登录，禁止只在 UI 假装已登录。 */
 test("refuses login when the credential cannot be persisted", async () => {
   const fixture = authFixture()
@@ -75,7 +73,6 @@ test("refuses login when the credential cannot be persisted", async () => {
   expect(fixture.session.getContext()).toBeUndefined()
   fixture.queryClient.clear()
 })
-
 /** 退出清理失败立即隐藏数据，后续自动恢复被禁止直到成功重试。 */
 test("blocks restoration after deletion failure and recovers through explicit cleanup", async () => {
   const fixture = authFixture()
@@ -98,7 +95,6 @@ test("blocks restoration after deletion failure and recovers through explicit cl
   expect(fixture.storage.read().raw).toBeNull()
   fixture.queryClient.clear()
 })
-
 /** 组织请求可能已提交时不回滚旧权限，恢复后获取权威新组织。 */
 test("recovers uncertain organization results without old permissions", async () => {
   const fixture = authFixture()
@@ -117,7 +113,6 @@ test("recovers uncertain organization results without old permissions", async ()
   expect(fixture.storage.read().credential?.organizationId).toBe("studio")
   fixture.queryClient.clear()
 })
-
 /** 异步上下文即使忽略取消，也不能在退出后写回旧身份。 */
 test("ignores late private reads after logout", async () => {
   const fixture = authFixture()
@@ -132,21 +127,20 @@ test("ignores late private reads after logout", async () => {
   })
   fixture.api.getContext = async (credential, signal) => {
     const result = await original(credential, signal)
-    started!()
+    fixtureValue(started)()
     await pause
     return result
   }
   const pending = fixture.session.login("demo", "demo-password").catch(() => undefined)
   await ready
   await fixture.session.logout()
-  finish!()
+  fixtureValue(finish)()
   await pending
   expect(fixture.session.getSnapshot().phase).toBe("anonymous")
   expect(fixture.session.getContext()).toBeUndefined()
   expect(fixture.storage.read().raw).toBeNull()
   fixture.queryClient.clear()
 })
-
 /** 跨标签页变化重读真实记录，旧退出不能删除新登录。 */
 test("synchronizes external sessions and rejects stale logout deletion", async () => {
   const fixture = authFixture()
@@ -170,7 +164,6 @@ test("synchronizes external sessions and rejects stale logout deletion", async (
   otherFixture.queryClient.clear()
   observerFixture.queryClient.clear()
 })
-
 /** 深链接只允许已声明内部页面，未知/空权限从不默认放行。 */
 test("fails closed for unsafe targets and missing capabilities", () => {
   for (const path of [
@@ -183,7 +176,6 @@ test("fails closed for unsafe targets and missing capabilities", () => {
   expect(safeReturnTo("/app/account")).toBe("/app/account")
   expect(canAccess(undefined, "account")).toBe(false)
 })
-
 /** 真实标签页各有 API 内存与 Query，外部新记录采用后不能回写旧组织。 */
 test("adopts organization changes across independent tab runtimes", async () => {
   const first = authFixture()
@@ -201,7 +193,6 @@ test("adopts organization changes across independent tab runtimes", async () => 
   first.queryClient.clear()
   second.queryClient.clear()
 })
-
 /** 快速连续导航的 Query 具有独立代次，旧请求不能取消新导航或永久挂起。 */
 test("settles the latest navigation when private reads overlap", async () => {
   const fixture = authFixture()
@@ -219,7 +210,7 @@ test("settles the latest navigation when private reads overlap", async () => {
   fixture.api.getContext = async (credential, signal) => {
     const result = await original(credential, signal)
     if (++count === 1) {
-      started!()
+      fixtureValue(started)()
       await paused
     }
     return result
@@ -228,13 +219,12 @@ test("settles the latest navigation when private reads overlap", async () => {
   await entered
   const second = fixture.session.validateNavigation(new AbortController().signal)
   await second
-  release!()
+  fixtureValue(release)()
   await first
   expect(fixture.session.getSnapshot().phase).toBe("ready")
   expect(fixture.session.getContext()?.user.username).toBe("demo")
   fixture.queryClient.clear()
 })
-
 /** 切组织中的导航保持私有内容隐藏，不能提前恢复旧权限。 */
 test("does not restore an old scope while organization mutation is pending", async () => {
   const fixture = authFixture()
@@ -252,12 +242,11 @@ test("does not restore an old scope while organization mutation is pending", asy
   await fixture.session.validateNavigation(new AbortController().signal)
   expect(fixture.session.getSnapshot().phase).toBe("switching")
   expect(fixture.session.getContext()).toBeUndefined()
-  release!()
+  fixtureValue(release)()
   await pending
   expect(fixture.session.getContext()?.currentOrganization?.id).toBe("studio")
   fixture.queryClient.clear()
 })
-
 /** 校验端明确响应错误清理会话；只有无响应网络/超时保留引用。 */
 test.each(["http", "invalid-response", "network", "timeout"] as const)(
   "classifies validation %s failures",
@@ -281,7 +270,6 @@ test.each(["http", "invalid-response", "network", "timeout"] as const)(
     fixture.queryClient.clear()
   }
 )
-
 /** 外部新引用采用中断后保留待确认标志，重试不能回写旧组织。 */
 test("retries adoption after offline cross-tab synchronization", async () => {
   const first = authFixture()
@@ -302,7 +290,6 @@ test("retries adoption after offline cross-tab synchronization", async () => {
   first.queryClient.clear()
   second.queryClient.clear()
 })
-
 /** 程序未知异常不能冒充服务明确拒绝并删除有效记录。 */
 test("retains a credential when validation fails with an unknown local error", async () => {
   const fixture = authFixture()

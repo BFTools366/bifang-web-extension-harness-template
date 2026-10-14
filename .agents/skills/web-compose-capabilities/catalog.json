@@ -470,6 +470,11 @@
           "path": "templates/compositions/account-workspace/api-example/business/account.md",
           "kind": "design",
           "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockTestAssertions.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
         }
       ]
     },

@@ -1,0 +1,6 @@
+/** 测试先核实Mock签发/读取结果存在，再使用其字段，不绕过运行时校验。 */
+export function fixtureValue<T>(value: T | null | undefined): T {
+  if (value === undefined || value === null)
+    throw new Error("Expected a defined Mock fixture value")
+  return value
+}

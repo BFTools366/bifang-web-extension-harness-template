@@ -570,6 +570,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/capability-assets.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/harness-instantiation.test.ts",
       "mode": "tombstone"
     },

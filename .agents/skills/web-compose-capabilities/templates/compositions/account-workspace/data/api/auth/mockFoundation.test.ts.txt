@@ -1,19 +1,32 @@
+import { fixtureValue } from "./mockTestAssertions"
 import { expect, test, vi } from "vitest"
 import { createMockService } from "./mockAuth"
 import { createMockAuthBackend } from "./mockAuthBackend"
 import { ACCOUNT_QUERY } from "./mockGraphql"
 import type { MockServiceExchange } from "./mockAuthService"
-
 const signal = new AbortController().signal
 /** 从受控内存响应读取已知测试形状，不绕过产品运行时校验。 */
 function data(result: MockServiceExchange) {
-  return (result.response as { data: Record<string, unknown> }).data
+  return (
+    result.response as {
+      data: Record<string, unknown>
+    }
+  ).data
 }
 /** 只提取稳定码作断言，绝不以消息文本判断结果。 */
 function code(result: MockServiceExchange) {
-  return (result.response as { errors: { datas: { code: string }[] } }).errors.datas[0]!.code
+  return fixtureValue(
+    (
+      result.response as {
+        errors: {
+          datas: {
+            code: string
+          }[]
+        }
+      }
+    ).errors.datas[0]
+  ).code
 }
-
 /** 真实存活、系统健康和 GraphQL 健康共享来源服务信息，全程零网络。 */
 test("exposes text liveness and consistent REST/GraphQL health", async () => {
   const fetch = vi.spyOn(globalThis, "fetch")
@@ -36,7 +49,6 @@ test("exposes text liveness and consistent REST/GraphQL health", async () => {
   expect(fetch).not.toHaveBeenCalled()
   fetch.mockRestore()
 })
-
 /** 响应追踪头与 REST JSON 一致，语言优先级、404/405 和匿名隔离均可观察。 */
 test("echoes response headers and preserves route/method errors", async () => {
   const service = createMockService({ delayMs: 0, configured: () => false })
@@ -79,7 +91,6 @@ test("echoes response headers and preserves route/method errors", async () => {
   )
   expect(publicLogin.status).toBe(200)
 })
-
 /** 刷新可在 access 到期后执行，类型与 refresh 自身的期限分别检查。 */
 test("refreshes expired access without bearer and enforces token type and expiry", async () => {
   let now = 0
@@ -93,8 +104,16 @@ test("refreshes expired access without bearer and enforces token type and expiry
     observeExchange: (exchange) => exchanges.push(exchange)
   })
   const credential = await service.api.login("demo", "demo-password", signal)
-  const access = (data(exchanges[0]!).token as { access_token: string }).access_token
-  const refresh = (data(exchanges[0]!).token as { refresh_token: string }).refresh_token
+  const access = (
+    data(fixtureValue(exchanges[0])).token as {
+      access_token: string
+    }
+  ).access_token
+  const refresh = (
+    data(fixtureValue(exchanges[0])).token as {
+      refresh_token: string
+    }
+  ).refresh_token
   const wrong = await service.request(
     { method: "POST", path: "/api/v1/auth/refresh", body: { refresh_token: access } },
     signal
@@ -106,7 +125,9 @@ test("refreshes expired access without bearer and enforces token type and expiry
     serviceCode: "auth.token.expired"
   })
   const next = await service.api.refresh(credential, signal)
-  const exchange = exchanges.findLast((entry) => entry.request.path === "/api/v1/auth/refresh")!
+  const exchange = fixtureValue(
+    exchanges.findLast((entry) => entry.request.path === "/api/v1/auth/refresh")
+  )
   expect(exchange.request.headers).not.toHaveProperty("Authorization")
   expect(exchange.request.body).toEqual({ refresh_token: refresh })
   expect(next.sessionId).not.toBe(credential.sessionId)
@@ -129,7 +150,6 @@ test("refreshes expired access without bearer and enforces token type and expiry
     )
   ).toBe("auth.token.invalid")
 })
-
 /** 共享服务态的多个客户端统一吊销，未采用引用也不能越过账号版本。 */
 test("revokes all tokens across clients without affecting unpublished-session cleanup", async () => {
   const backend = createMockAuthBackend({ now: () => 0 })
@@ -138,7 +158,7 @@ test("revokes all tokens across clients without affecting unpublished-session cl
   const a = await first.api.login("demo", "demo-password", signal)
   const b = await other.api.login("demo", "demo-password", signal)
   const temporary = await first.api.login("demo", "demo-password", signal)
-  first.api.discardUnpublishedSession!(temporary)
+  fixtureValue(first.api.discardUnpublishedSession)(temporary)
   await expect(other.api.validateSession(b, signal)).resolves.toMatchObject({
     accountId: "demo-user"
   })
@@ -158,7 +178,6 @@ test("revokes all tokens across clients without affecting unpublished-session cl
     serviceCode: "auth.token.revoked"
   })
 })
-
 /** 原密码错为400且保留会话；成功改密吊销访问与刷新，不能自动登录。 */
 test("changes passwords with account-wide revocation and stable account times", async () => {
   let now = 1000
@@ -192,7 +211,6 @@ test("changes passwords with account-wide revocation and stable account times", 
   })
   expect(updated.org).toEqual(original.org)
 })
-
 /** 手机归一化、昵称、默认组织与字符串ID完整；查重失败不消耗正确码。 */
 test("registers by phone and preserves codes through uniqueness conflicts", async () => {
   const service = createMockService({ delayMs: 0, configured: () => false })
@@ -266,7 +284,6 @@ test("registers by phone and preserves codes through uniqueness conflicts", asyn
     serviceCode: "auth.token.revoked"
   })
 })
-
 /** 错误次数/每日上限是显式 Mock 控制值，目标与场景仍隔离。 */
 test("enforces attempts, required codes, scene validation and daily windows", async () => {
   let now = 0
@@ -297,7 +314,7 @@ test("enforces attempts, required codes, scene validation and daily windows", as
   await expect(service.api.register({ ...input, code: "246810" }, signal)).rejects.toMatchObject({
     serviceCode: "verification.code.attempts.exceeded"
   })
-  now = 60_000
+  now = 60000
   await expect(service.api.sendCode(input.email, "register", signal)).rejects.toMatchObject({
     serviceCode: "verification.code.daily.limit"
   })
@@ -310,12 +327,11 @@ test("enforces attempts, required codes, scene validation and daily windows", as
     signal
   )
   expect(code(badScene)).toBe("verification.scene.unsupported")
-  now = 86_400_001
+  now = 86400001
   expect(await service.api.sendCode(input.email, "register", signal)).toMatchObject({
     retryAfterSeconds: 60
   })
 })
-
 /** 鉴权错误精确区分missing、malformed、invalid、wrong.type与disabled。 */
 test("distinguishes bearer failures and disabled accounts", async () => {
   const backend = createMockAuthBackend()
@@ -347,7 +363,6 @@ test("distinguishes bearer failures and disabled accounts", async () => {
     serviceCode: "auth.account.disabled"
   })
 })
-
 /** GraphQL只读投影、别名和null传播独立于REST协议。 */
 test("projects GraphQL fields and separates protocol errors from authentication", async () => {
   const service = createMockService({ delayMs: 0, configured: () => false })
@@ -429,8 +444,8 @@ test("projects GraphQL fields and separates protocol errors from authentication"
   })
   const reference = await consumer.api.login("test", "test-password", signal)
   expect((await consumer.api.getContext(reference, signal)).capabilities).toContain("test-menu")
-  expect(exchanges.at(-1)!.request.body).toEqual({ query: ACCOUNT_QUERY })
-  expect(exchanges.at(-1)!.request.headers["X-Request-Id"]).toBeTruthy()
+  expect(fixtureValue(exchanges.at(-1)).request.body).toEqual({ query: ACCOUNT_QUERY })
+  expect(fixtureValue(exchanges.at(-1)).request.headers["X-Request-Id"]).toBeTruthy()
   await consumer.api.logout(reference, signal)
   await expect(consumer.api.getContext(reference, signal)).rejects.toMatchObject({
     kind: "invalid-session",

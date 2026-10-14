@@ -53,7 +53,8 @@ export function createMockVerification(options: VerificationOptions) {
       const key = `${type}:${scene}:${target}`
       const now = options.now()
       const history = (sends.get(key) ?? []).filter((time) => time > now - 86_400_000)
-      if (history.length && history[history.length - 1]! + 60_000 > now)
+      const lastSend = history.at(-1)
+      if (lastSend !== undefined && lastSend + 60_000 > now)
         throw new ServiceFailure("verification.code.too.frequent", 429)
       if (history.length >= (options.dailyLimit ?? 20))
         throw new ServiceFailure("verification.code.daily.limit", 429)

@@ -47,8 +47,9 @@ export function createMockAuthService(backend: MockAuthBackend, options: MockSer
     const value = header(headers, "Authorization")
     if (!value) throw new ServiceFailure("auth.token.missing", 401)
     const match = /^Bearer ([\x21-\x7e]+)$/i.exec(value)
-    if (!match || match[1]!.length > 8192) throw new ServiceFailure("auth.token.malformed", 401)
-    return match[1]!
+    const token = match?.[1]
+    if (!token || token.length > 8192) throw new ServiceFailure("auth.token.malformed", 401)
+    return token
   }
   /** 每次只等待一次；真实地址配置时失败关闭，不隐式回落 Mock。 */
   async function active(signal: AbortSignal): Promise<void> {
@@ -163,10 +164,11 @@ export function createMockAuthService(backend: MockAuthBackend, options: MockSer
         )
         return finish(result.status, result.response)
       }
-      const token = operation![1].authenticated ? bearer(headers) : undefined
+      if (!operation) throw new ServiceFailure("common.route.not.found", 404)
+      const token = operation[1].authenticated ? bearer(headers) : undefined
       let model = "empty"
       let data: unknown
-      switch (operation![0]) {
+      switch (operation[0]) {
         case "sendCode":
           model = "verification.code"
           data = backend.sendCode(body)

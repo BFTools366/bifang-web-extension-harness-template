@@ -37,6 +37,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/saas-foundation-guidance.test.ts",
   "tests/web-routing-policy.test.ts",
   "tests/saas-creation.test.ts",
+  "tests/capability-assets.test.ts",
   "tests/identity-localization.test.ts",
   "tests/http-foundation.test.ts",
   "tests/harness-http-governance.test.ts",

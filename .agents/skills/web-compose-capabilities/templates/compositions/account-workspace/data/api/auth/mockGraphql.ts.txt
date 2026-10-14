@@ -1,4 +1,4 @@
-import { ServiceFailure } from "../foundationProtocol"
+import { ServiceFailure, isRecord } from "../foundationProtocol"
 import type { ServiceProfile } from "./serviceContract"
 
 /** 健康信息属于模拟的来源服务，不能冒充浏览器应用的运行信息。 */
@@ -145,13 +145,15 @@ function mergeSelections(fields: Selection[]): Selection[] {
 }
 /** 完整校验选择集后才读取身份，未知字段不能返回业务成功。 */
 function validate(fields: Selection[], type: string): void {
+  const fieldsByName = schema[type]
+  if (!fieldsByName) throw new ServiceFailure("GRAPHQL_VALIDATION_FAILED", 422)
   const aliases = new Map<string, string>()
   for (const selection of fields) {
     const fieldType =
       selection.field === "__typename"
         ? null
-        : Object.hasOwn(schema[type]!, selection.field)
-          ? schema[type]![selection.field]
+        : Object.hasOwn(fieldsByName, selection.field)
+          ? fieldsByName[selection.field]
           : undefined
     if (
       fieldType === undefined ||
@@ -172,10 +174,13 @@ function select(
   const result: Record<string, unknown> = Object.create(null)
   for (const field of fields) {
     const data = field.field === "__typename" ? type : value[field.field]
-    const projected =
-      field.children && data !== null
-        ? select(field.children, schema[type]![field.field]!, data as Record<string, unknown>)
-        : data
+    let projected: unknown = data
+    if (field.children && data !== null) {
+      const nestedType = schema[type]?.[field.field]
+      if (typeof nestedType !== "string" || !isRecord(data))
+        throw new ServiceFailure("GRAPHQL_VALIDATION_FAILED", 422)
+      projected = select(field.children, nestedType, data)
+    }
     const previous = result[field.alias]
     result[field.alias] =
       previous && typeof previous === "object" && projected && typeof projected === "object"

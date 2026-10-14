@@ -1,3 +1,4 @@
+import { fixtureValue } from "./mockTestAssertions"
 import { expect, test, vi } from "vitest"
 import { createMockAuthApi } from "./mockAuth"
 import {
@@ -7,7 +8,6 @@ import {
   isServiceVerification
 } from "./serviceContract"
 import type { MockServiceExchange } from "./mockAuthService"
-
 /** 实际应用使用的 Mock 适配层处理原始登录 Token JSON，且不发起网络。 */
 test("maps login, public isolation, bearer profile and empty logout without fetch", async () => {
   const fetch = vi.spyOn(globalThis, "fetch")
@@ -20,7 +20,7 @@ test("maps login, public isolation, bearer profile and empty logout without fetc
   })
   const signal = new AbortController().signal
   const credential = await api.login("test@example.invalid", "test-password", signal)
-  const login = exchanges[0]!
+  const login = fixtureValue(exchanges[0])
   expect(login.request).toMatchObject({
     method: "POST",
     path: "/api/v1/auth/login",
@@ -42,7 +42,7 @@ test("maps login, public isolation, bearer profile and empty logout without fetc
     }
   })
   await api.validateSession(credential, signal, true)
-  const profile = exchanges.at(-1)!
+  const profile = fixtureValue(exchanges.at(-1))
   expect(profile.request).toMatchObject({
     method: "GET",
     path: "/api/v1/auth/profile",
@@ -55,15 +55,20 @@ test("maps login, public isolation, bearer profile and empty logout without fetc
     model: "account",
     data: { org: { is_default: true } }
   })
-  expect((profile.response as { data: unknown }).data).not.toHaveProperty("capabilities")
+  expect(
+    (
+      profile.response as {
+        data: unknown
+      }
+    ).data
+  ).not.toHaveProperty("capabilities")
   expect(profile.request.headers["X-Request-Id"]).not.toBe(login.request.headers["X-Request-Id"])
   await api.logout(credential, signal)
   expect(exchanges.at(-1)).toMatchObject({ status: 200, response: { model: "empty" } })
-  expect(exchanges.at(-1)!.request.body).toBeUndefined()
+  expect(fixtureValue(exchanges.at(-1)).request.body).toBeUndefined()
   expect(fetch).not.toHaveBeenCalled()
   fetch.mockRestore()
 })
-
 /** 业务错误从统一 errors 封装解析稳定码及追踪标识，不匹配翻译消息。 */
 test("preserves service error codes, request ids and server cooldown mapping", async () => {
   const exchanges: MockServiceExchange[] = []
@@ -79,7 +84,7 @@ test("preserves service error codes, request ids and server cooldown mapping", a
     status: 401,
     requestId: expect.any(String)
   })
-  expect(exchanges[0]!.response).toMatchObject({
+  expect(fixtureValue(exchanges[0]).response).toMatchObject({
     model: "errors",
     errors: {
       model: "data.set",
@@ -91,7 +96,7 @@ test("preserves service error codes, request ids and server cooldown mapping", a
     retryAfterSeconds: 60,
     mockCode: "246810"
   })
-  expect(exchanges.at(-1)!.request.body).toEqual({
+  expect(fixtureValue(exchanges.at(-1)).request.body).toEqual({
     target: "test@example.invalid",
     target_type: "email",
     scene: "reset_password"
@@ -101,7 +106,6 @@ test("preserves service error codes, request ids and server cooldown mapping", a
     status: 404
   })
 })
-
 /** 全账号登出吊销本实例所有会话，清理临时本地引用则只影响该引用。 */
 test("distinguishes account-wide logout from unpublished mock cleanup", async () => {
   const api = createMockAuthApi({ delayMs: 0, configured: () => false })
@@ -111,7 +115,7 @@ test("distinguishes account-wide logout from unpublished mock cleanup", async ()
     serviceCode: "auth.token.revoked"
   })
   const temporary = await api.login("demo", "demo-password", signal)
-  api.discardUnpublishedSession!(temporary)
+  fixtureValue(api.discardUnpublishedSession)(temporary)
   await expect(api.validateSession(first, signal)).resolves.toMatchObject({
     accountId: "demo-user"
   })
@@ -121,7 +125,6 @@ test("distinguishes account-wide logout from unpublished mock cleanup", async ()
     serviceCode: "auth.token.revoked"
   })
 })
-
 /** 匿名操作忽略传入 Token，非法 Bearer 与错误模型不得进入领域层。 */
 test("rejects invalid tokens and model shapes without inferring permissions", () => {
   expect(authServiceHeaders("login", "en-US", "request-example", "old-token")).not.toHaveProperty(
@@ -140,7 +143,6 @@ test("rejects invalid tokens and model shapes without inferring permissions", ()
   ).toBe(false)
   expect(isServiceProfile({ account: { id: "2108046372081659904" }, org: null })).toBe(false)
 })
-
 /** 非 Mock 不能携带验证码明文，且目标类型和用途必须受约束。 */
 test("validates verification mode and scene rather than trusting duration fields", () => {
   const sent = {
@@ -154,13 +156,15 @@ test("validates verification mode and scene rather than trusting duration fields
   }
   expect(isServiceVerification(sent)).toBe(true)
   expect(isServiceVerification({ ...sent, mock: false })).toBe(false)
-  const { code: _code, ...delivered } = sent
+  const delivered: Omit<typeof sent, "code"> & {
+    code?: string
+  } = { ...sent }
+  delete delivered.code
   expect(isServiceVerification({ ...delivered, mock: false })).toBe(true)
   expect(isServiceVerification({ ...sent, scene: "unknown" })).toBe(false)
   expect(isServiceVerification({ ...sent, target_type: "unknown" })).toBe(false)
   expect(isServiceVerification({ ...sent, code: "secret-text" })).toBe(false)
 })
-
 /** 注册不返回令牌，找回采用服务字段并使已签发的旧引用失效。 */
 test("maps registration and reset wire bodies while preserving session effects", async () => {
   const exchanges: MockServiceExchange[] = []
@@ -180,7 +184,7 @@ test("maps registration and reset wire bodies while preserving session effects",
     },
     signal
   )
-  const registration = exchanges.at(-1)!
+  const registration = fixtureValue(exchanges.at(-1))
   expect(registration.request).toMatchObject({
     method: "POST",
     path: "/api/v1/auth/register",
@@ -200,10 +204,10 @@ test("maps registration and reset wire bodies while preserving session effects",
   const credential = await api.login("new_user", "Example123", signal)
   const sent = await api.sendCode("new@example.invalid", "reset", signal)
   await api.resetPassword(
-    { email: "new@example.invalid", password: "Changed123", code: sent.mockCode! },
+    { email: "new@example.invalid", password: "Changed123", code: fixtureValue(sent.mockCode) },
     signal
   )
-  const reset = exchanges.at(-1)!
+  const reset = fixtureValue(exchanges.at(-1))
   expect(reset.request).toMatchObject({
     method: "POST",
     path: "/api/v1/auth/password/reset",
