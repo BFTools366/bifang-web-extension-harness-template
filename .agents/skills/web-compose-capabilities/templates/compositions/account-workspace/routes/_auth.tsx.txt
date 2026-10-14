@@ -1,0 +1,12 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { AuthLayout } from "../features/client/AuthLayout"
+import { publicAuthRoute } from "../features/auth/guards"
+import { authReturnSearch } from "../features/auth/search"
+
+/** 无路径认证布局共享页脚和插槽，公开 URL 保持登录、注册和找回三个明确入口。 */
+export const Route = createFileRoute("/_auth")({
+  validateSearch: authReturnSearch,
+  beforeLoad: ({ context, search, preload }) =>
+    publicAuthRoute(context.auth, search.returnTo, preload),
+  component: AuthLayout
+})

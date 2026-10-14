@@ -31,3 +31,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，为真�
 ## 返回结果
 
 返回真实存储后端、数据/状态拥有者、key 与兼容/迁移影响、失败语义和实际验证。不自动安装依赖、运行全仓检查、构建、浏览器或候选验收。
+
+## 实现参考
+
+[Web认证存储适配与回归](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 演示精确raw、随机revision、锁内代次检查和写后核实。只在已选Web认证持久化范围应用，不能自动复制到Extension或扩张真实凭据持久化。

@@ -1,0 +1,41 @@
+import { MantineProvider, type MantineProviderProps } from "@mantine/core"
+import { QueryClientProvider, type QueryClient } from "@tanstack/react-query"
+import type { ReactNode } from "react"
+import { colorSchemeManager } from "../data/storage/colorScheme"
+import { queryClient as applicationQueryClient } from "./queryClient"
+import { HttpFeedback } from "../data/api/client/HttpErrorView"
+import { theme } from "./theme"
+import { authSession } from "./authSession"
+import { AuthProvider } from "../features/auth/AuthProvider"
+import type { AuthSession } from "../features/auth/session"
+
+/** 说明 AppProvidersProps 的稳定结构与职责边界。 */
+interface AppProvidersProps {
+  children: ReactNode
+  session?: AuthSession
+  queryClient?: QueryClient
+  /** 无布局引擎的 DOM 测试使用 Mantine 官方测试环境，真实页面保持默认行为。 */
+  env?: MantineProviderProps["env"]
+}
+
+/** 说明 AppProviders 的稳定结构与职责边界。 */
+export function AppProviders({
+  children,
+  session = authSession,
+  queryClient = applicationQueryClient,
+  env
+}: AppProvidersProps) {
+  return (
+    <MantineProvider
+      theme={theme}
+      defaultColorScheme="auto"
+      colorSchemeManager={colorSchemeManager}
+      env={env}
+    >
+      <QueryClientProvider client={queryClient}>
+        <HttpFeedback />
+        <AuthProvider session={session}>{children}</AuthProvider>
+      </QueryClientProvider>
+    </MantineProvider>
+  )
+}

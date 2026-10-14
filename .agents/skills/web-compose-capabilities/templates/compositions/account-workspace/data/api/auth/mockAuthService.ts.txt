@@ -1,0 +1,240 @@
+import { APP_CONFIG } from "../../../config/environment"
+import { isRecord, ServiceFailure } from "../foundationProtocol"
+import { AuthError } from "./contracts"
+import type { MockAuthBackend } from "./mockAuthBackend"
+import { executeMockGraphql, type ServiceHealth } from "./mockGraphql"
+import { AUTH_OPERATIONS } from "./serviceContract"
+import { awaitMockExchange, serializeMockRequest } from "./mockProtocol"
+
+/** Mock 请求是内存报文，不提交给 Fetch。 */
+export interface MockServiceRequest {
+  method: string
+  path: string
+  headers?: Record<string, string>
+  body?: unknown
+}
+/** 响应 Header 与 JSON 保持各自方向，观察器只用于受控测试。 */
+export interface MockServiceExchange {
+  request: { method: string; path: string; headers: Record<string, string>; body?: unknown }
+  status: number
+  responseHeaders: Record<string, string>
+  response: unknown
+}
+/** 控制选项不是业务 wire 字段，不写日志或持久化。 */
+export interface MockServiceOptions {
+  delayMs?: number
+  now?: () => number
+  getLanguage?: () => string
+  configured?: () => boolean
+  health?: ServiceHealth
+  wait?: (signal: AbortSignal) => Promise<void>
+  observeExchange?: (exchange: MockServiceExchange) => void
+}
+/** REST/GraphQL 内存报文入口和应用 adapter 共用同一账号模型。 */
+export function createMockAuthService(backend: MockAuthBackend, options: MockServiceOptions = {}) {
+  const health: ServiceHealth = options.health ?? {
+    available: true,
+    name: "example-mock-service",
+    version: "1.0.0",
+    env: "dev"
+  }
+  /** Header 名称大小写不敏感，不接受 query Token。 */
+  function header(headers: Record<string, string>, name: string) {
+    return new Headers(headers).get(name) ?? undefined
+  }
+  /** Bearer 严格解析，仅 scheme 忽略大小写。 */
+  function bearer(headers: Record<string, string>): string {
+    const value = header(headers, "Authorization")
+    if (!value) throw new ServiceFailure("auth.token.missing", 401)
+    const match = /^Bearer ([\x21-\x7e]+)$/i.exec(value)
+    if (!match || match[1]!.length > 8192) throw new ServiceFailure("auth.token.malformed", 401)
+    return match[1]!
+  }
+  /** 每次只等待一次；真实地址配置时失败关闭，不隐式回落 Mock。 */
+  async function active(signal: AbortSignal): Promise<void> {
+    const generation = backend.generation
+    signal.throwIfAborted()
+    if ((options.configured ?? (() => APP_CONFIG.apiBaseUrl.length > 0))())
+      throw new AuthError("serviceNotConnected", "configuration")
+    if (typeof navigator !== "undefined" && navigator.onLine === false)
+      throw new AuthError("connectionUnavailable", "network")
+    if (options.wait) await awaitMockExchange(options.wait(signal), signal)
+    else
+      await new Promise<void>((resolve, reject) => {
+        const stop = () => {
+          clearTimeout(timer)
+          reject(new DOMException("Cancelled", "AbortError"))
+        }
+        const timer = setTimeout(() => {
+          signal.removeEventListener("abort", stop)
+          resolve()
+        }, options.delayMs ?? 240)
+        signal.addEventListener("abort", stop, { once: true })
+      })
+    signal.throwIfAborted()
+    if (generation !== backend.generation) throw new DOMException("Service reset", "AbortError")
+  }
+  /** 返回内存 exchange，模拟状态码、响应 Header 和 REST 错误。 */
+  async function request(
+    value: MockServiceRequest,
+    signal: AbortSignal
+  ): Promise<MockServiceExchange> {
+    const input = serializeMockRequest(value)
+    await active(signal)
+    const headers = input.headers ?? {}
+    const queryAt = input.path.indexOf("?")
+    const path = queryAt < 0 ? input.path : input.path.slice(0, queryAt)
+    const language =
+      header(headers, "X-Lang") ??
+      header(headers, "Accept-Language") ??
+      (queryAt < 0 ? undefined : new URLSearchParams(input.path.slice(queryAt + 1)).get("lang")) ??
+      "zh"
+    const contentLanguage = /^en(?:[-,;]|$)/i.test(language) ? "en" : "zh-CN"
+    const suppliedId = header(headers, "X-Request-Id")
+    const requestId =
+      suppliedId && /^[\x21-\x7e]{1,128}$/.test(suppliedId) ? suppliedId : crypto.randomUUID()
+    const responseHeaders = {
+      "Content-Type": "application/json",
+      "Content-Language": contentLanguage,
+      Vary: "Accept-Language, X-Lang",
+      "X-Request-Id": requestId
+    }
+    const normalized = {
+      method: input.method.toUpperCase(),
+      path: input.path,
+      headers,
+      ...(input.body !== undefined ? { body: input.body } : {})
+    }
+    /** 观察器故障不能把已成功写入变成失败。 */
+    function finish(status: number, response: unknown): MockServiceExchange {
+      const exchange = {
+        request: normalized,
+        status,
+        responseHeaders: { ...responseHeaders },
+        response
+      }
+      try {
+        options.observeExchange?.(structuredClone(exchange))
+      } catch {
+        /* 观察器不拥有业务结果。 */
+      }
+      return exchange
+    }
+    try {
+      const operation = Object.entries(AUTH_OPERATIONS).find(([, route]) => route.path === path)
+      const method =
+        operation?.[1].method ??
+        (path === "/graphql"
+          ? "POST"
+          : ["/healthz", "/api/v1/system/health-check"].includes(path)
+            ? "GET"
+            : undefined)
+      if (!method) throw new ServiceFailure("common.route.not.found", 404)
+      if (normalized.method !== method) throw new ServiceFailure("common.method.not.allowed", 405)
+      if (path === "/healthz") {
+        responseHeaders["Content-Type"] = "text/plain"
+        return finish(200, "ok")
+      }
+      if (path === "/api/v1/system/health-check")
+        return finish(200, {
+          model: "system.health.check",
+          data: { ...health },
+          request_id: requestId
+        })
+      if (
+        path !== "/graphql" &&
+        !isRecord(input.body) &&
+        !["profile", "logout"].includes(operation?.[0] ?? "")
+      )
+        throw new ServiceFailure("common.validate.error", 400)
+      const body = isRecord(input.body) ? input.body : {}
+      if (path === "/graphql") {
+        if ("variables" in body || "operationName" in body)
+          return finish(422, {
+            errors: [
+              {
+                message: "Unsupported query controls",
+                extensions: { code: "GRAPHQL_VALIDATION_FAILED" }
+              }
+            ]
+          })
+        const result = executeMockGraphql(body.query, health, () =>
+          backend.profile(bearer(headers))
+        )
+        return finish(result.status, result.response)
+      }
+      const token = operation![1].authenticated ? bearer(headers) : undefined
+      let model = "empty"
+      let data: unknown
+      switch (operation![0]) {
+        case "sendCode":
+          model = "verification.code"
+          data = backend.sendCode(body)
+          break
+        case "register":
+          model = "account"
+          data = backend.register(body)
+          break
+        case "login":
+          model = "auth.token"
+          data = backend.login(body)
+          break
+        case "refresh":
+          model = "auth.token"
+          data = backend.refresh(body)
+          break
+        case "profile":
+          model = "account"
+          data = backend.profile(token)
+          break
+        case "resetPassword":
+          backend.resetPassword(body)
+          break
+        case "changePassword":
+          backend.changePassword(token, body)
+          break
+        case "logout":
+          backend.logout(token)
+          break
+      }
+      return finish(200, {
+        model,
+        ...(data !== undefined ? { data } : {}),
+        request_id: requestId
+      })
+    } catch (error) {
+      if (!(error instanceof ServiceFailure)) throw error
+      return finish(error.status, {
+        model: "errors",
+        errors: {
+          model: "data.set",
+          datas: [
+            {
+              model: "error",
+              code: error.code,
+              message: contentLanguage === "en" ? "Mock operation failed" : "演示操作未完成"
+            }
+          ],
+          total: 1
+        },
+        request_id: requestId
+      })
+    }
+  }
+  return {
+    request,
+    active,
+    backend,
+    /** 服务重置不属于可联网的业务接口。 */
+    reset() {
+      backend.reset()
+    },
+    /** 代次与客户端响应校验共用同一服务生命周期。 */
+    get generation() {
+      return backend.generation
+    }
+  }
+}
+
+/** 显式服务实例被多个协议客户端共享，不包含第二份状态。 */
+export type MockAuthService = ReturnType<typeof createMockAuthService>

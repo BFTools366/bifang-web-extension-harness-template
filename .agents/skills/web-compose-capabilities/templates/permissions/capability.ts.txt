@@ -1,0 +1,7 @@
+/** 精确权限码判定不依赖组织、UI、路由或产品分类。 */
+export function hasCapability(
+  granted: readonly string[] | undefined,
+  required: string
+): boolean {
+  return required.length > 0 && granted?.includes(required) === true
+}

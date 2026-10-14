@@ -71,3 +71,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 ## 完成输出
 
 报告路径、变更、每项公开行为的“入口 → 实现 → 测试”映射、权限变化、实际检查与修复、Todo 状态、未运行项和剩余风险。实际用户可见 Task 的适用提交、clean 与完成状态由 `$web-manage-user-tasks` 核对，不复制创建/状态流程。明确发布请求覆盖既有目的地及范围内的必要提交、push 和发布步骤，不重复确认；仅要求实施不触发外部发布，新增目的地或范围外副作用才补充授权。
+
+## 能力代码参考
+
+[账户能力实现地图](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 给出API、Mock、会话、UI和回归对应关系。仅命中已确认操作时逐项适配；模板不改变原型、权限、HTTP接入或交付门禁。

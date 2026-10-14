@@ -1,0 +1,162 @@
+import { expect, test, vi } from "vitest"
+import { createMockAuthApi, createMockService } from "./mockAuth"
+
+/** 完整 Mock 流程不触发 HTTP，也不会生成用于请求头的 Token。 */
+test("supports login, organization switching, restoring and revocation without network", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch")
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const api = service.api
+  const signal = new AbortController().signal
+  const credential = await api.login("demo", "demo-password", signal)
+  expect(credential.kind).toBe("mock")
+  const next = await api.switchOrganization(credential, "studio", signal)
+  expect((await api.validateSession(credential, signal)).organizationId).toBe("studio")
+  expect((await api.getContext(next, signal)).currentOrganization?.id).toBe("studio")
+  const reloaded = service.createClient().api
+  await reloaded.validateSession(next, signal, true)
+  expect((await reloaded.getContext(next, signal)).user.username).toBe("demo")
+  await api.logout(next, signal)
+  await expect(api.validateSession(next, signal)).rejects.toMatchObject({
+    kind: "invalid-session"
+  })
+  expect(fetch).not.toHaveBeenCalled()
+  fetch.mockRestore()
+})
+
+/** 验证码绑定邮箱和用途，成功消费一次且过期必须重发。 */
+test("binds codes to purpose and email, enforces resend and expiry", async () => {
+  let now = 0
+  const api = createMockAuthApi({ delayMs: 0, now: () => now, configured: () => false })
+  const signal = new AbortController().signal
+  await api.sendCode("new@example.invalid", "register", signal)
+  await expect(api.sendCode("new@example.invalid", "register", signal)).rejects.toMatchObject({
+    code: "codeRateLimited"
+  })
+  await expect(
+    api.resetPassword(
+      { email: "new@example.invalid", code: "246810", password: "new-pass123" },
+      signal
+    )
+  ).rejects.toMatchObject({ code: "targetNotRegistered" })
+  await expect(
+    api.register(
+      {
+        username: "new",
+        email: "other@example.invalid",
+        code: "246810",
+        password: "new-pass123"
+      },
+      signal
+    )
+  ).rejects.toMatchObject({ code: "codeInvalid" })
+  await expect(
+    api.register(
+      {
+        username: "new",
+        email: "new@example.invalid",
+        code: "000000",
+        password: "new-pass123"
+      },
+      signal
+    )
+  ).rejects.toMatchObject({ code: "codeInvalid" })
+  now = 300_001
+  await expect(
+    api.register(
+      {
+        username: "new",
+        email: "new@example.invalid",
+        code: "246810",
+        password: "new-pass123"
+      },
+      signal
+    )
+  ).rejects.toMatchObject({ code: "codeExpired" })
+  const resent = await api.sendCode("new@example.invalid", "register", signal)
+  await expect(
+    api.register(
+      {
+        username: "new",
+        email: "new@example.invalid",
+        code: "246810",
+        password: "new-pass123"
+      },
+      signal
+    )
+  ).rejects.toMatchObject({ code: "codeInvalid" })
+  await api.register(
+    {
+      username: "new",
+      email: "new@example.invalid",
+      code: resent.mockCode!,
+      password: "new-pass123"
+    },
+    signal
+  )
+  expect((await api.login("new", "new-pass123", signal)).accountId).not.toBe("demo-user")
+  const reset = await api.sendCode("new@example.invalid", "reset", signal)
+  await api.resetPassword(
+    { email: "new@example.invalid", code: reset.mockCode!, password: "changed123" },
+    signal
+  )
+  await expect(api.login("new", "new-pass123", signal)).rejects.toMatchObject({
+    code: "credentialsInvalid"
+  })
+  expect(await api.login("new", "changed123", signal)).toMatchObject({ kind: "mock" })
+  const registered = await api.login("new", "changed123", signal)
+  expect(await api.getContext(registered, signal)).toMatchObject({
+    organizations: [],
+    currentOrganization: null,
+    capabilities: []
+  })
+  await expect(
+    api.resetPassword(
+      { email: "new@example.invalid", code: "246810", password: "again1234" },
+      signal
+    )
+  ).rejects.toMatchObject({ code: "codeInvalid" })
+})
+
+/** 共享服务中的客户端可恢复引用，权限按服务当前账号与组织计算。 */
+test("isolates the test permission by account and organization across reloads", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const api = service.api
+  const signal = new AbortController().signal
+  const ordinary = await api.login("demo", "demo-password", signal)
+  expect((await api.getContext(ordinary, signal)).capabilities).not.toContain("test-menu")
+  const testCredential = await api.login("test", "test-password", signal)
+  expect((await api.getContext(testCredential, signal)).capabilities).toContain("test-menu")
+  const reloaded = service.createClient().api
+  const restored = await reloaded.validateSession(testCredential, signal, true)
+  expect((await reloaded.getContext(restored, signal)).capabilities).toContain("test-menu")
+  const switched = await reloaded.switchOrganization(restored, "studio", signal)
+  expect((await reloaded.getContext(switched, signal)).capabilities).not.toContain("test-menu")
+  const nextReload = service.createClient().api
+  await nextReload.validateSession(switched, signal, true)
+  expect((await nextReload.getContext(switched, signal)).capabilities).not.toContain("test-menu")
+})
+
+/** 已配置真实服务时不允许隐式回落到演示。 */
+test("fails closed for configured services and cancelled writes", async () => {
+  const api = createMockAuthApi({ delayMs: 0, configured: () => true })
+  await expect(
+    api.login("demo", "demo-password", new AbortController().signal)
+  ).rejects.toMatchObject({ code: "serviceNotConnected" })
+  const controller = new AbortController()
+  controller.abort()
+  const mock = createMockAuthApi({ delayMs: 0, configured: () => false })
+  await expect(
+    mock.sendCode("new@example.invalid", "register", controller.signal)
+  ).rejects.toMatchObject({ name: "AbortError" })
+  await expect(
+    mock.register(
+      {
+        username: "new",
+        email: "new@example.invalid",
+        code: "246810",
+        password: "new-pass123"
+      },
+      new AbortController().signal
+    )
+  ).rejects.toMatchObject({ code: "codeInvalid" })
+})

@@ -1,0 +1,109 @@
+import { ServiceFailure } from "../foundationProtocol"
+import type { ServiceVerification } from "./serviceContract"
+
+/** 验证码目标和场景沿用服务合同。 */
+export type VerificationType = "email" | "phone"
+/** 可控上限属于 Mock fixture，并非来源服务的默认值。 */
+export interface VerificationOptions {
+  now: () => number
+  maxAttempts?: number
+  dailyLimit?: number
+}
+
+/** 归一化目标后再校验；手机号保留国家码。 */
+export function normalizeTarget(target: unknown, type: unknown): string {
+  if (
+    typeof target !== "string" ||
+    !target ||
+    target.length > 128 ||
+    (type !== "email" && type !== "phone")
+  )
+    throw new ServiceFailure("common.validate.error", 400)
+  if (type === "email") {
+    const value = target.trim().toLowerCase()
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return value
+  } else if (type === "phone") {
+    const value = target.replace(/[\s().-]/g, "")
+    if (/^\+[1-9][0-9]{6,14}$/.test(value)) return value
+  }
+  throw new ServiceFailure("verification.target.invalid", 400)
+}
+
+/** 单一服务内存拥有验证码、发送窗口与尝试计数，不写入浏览器存储。 */
+export function createMockVerification(options: VerificationOptions) {
+  const codes = new Map<
+    string,
+    { code: string; expires: number; resend: number; attempts: number }
+  >()
+  const sends = new Map<string, number[]>()
+  let sequence = 0
+  return {
+    /** 服务重置同时清除发送窗口、验证码和尝试次数。 */
+    reset() {
+      codes.clear()
+      sends.clear()
+      sequence = 0
+    },
+    /** 同一目标与场景重发换码，发送失败不覆盖有效码。 */
+    send(
+      target: string,
+      type: VerificationType,
+      scene: "register" | "reset_password"
+    ): ServiceVerification {
+      const key = `${type}:${scene}:${target}`
+      const now = options.now()
+      const history = (sends.get(key) ?? []).filter((time) => time > now - 86_400_000)
+      if (history.length && history[history.length - 1]! + 60_000 > now)
+        throw new ServiceFailure("verification.code.too.frequent", 429)
+      if (history.length >= (options.dailyLimit ?? 20))
+        throw new ServiceFailure("verification.code.daily.limit", 429)
+      // 首次沿用演示码；后续签发不同值，避免重发旧码仍可使用。
+      const code = String(246810 + sequence++).padStart(6, "0")
+      codes.set(key, { code, expires: now + 300_000, resend: now + 60_000, attempts: 0 })
+      sends.set(key, [...history, now])
+      const masked =
+        type === "email"
+          ? target[0] + "***@" + target.split("@")[1]
+          : target.slice(0, 3) + "****" + target.slice(-4)
+      return {
+        target: masked,
+        target_type: type,
+        scene,
+        expires_in: 300,
+        resend_after: 60,
+        mock: true,
+        code
+      }
+    },
+    /** 校验与消费分离，查重失败不消耗正确验证码。 */
+    verify(
+      target: string,
+      type: VerificationType,
+      scene: "register" | "reset_password",
+      code: unknown,
+      consume = false
+    ): void {
+      if (code === undefined || code === "")
+        throw new ServiceFailure("verification.code.required", 400)
+      if (typeof code !== "string" || !/^[0-9]{1,16}$/.test(code))
+        throw new ServiceFailure("common.validate.error", 400)
+      const key = `${type}:${scene}:${target}`
+      const current = codes.get(key)
+      if (!current) throw new ServiceFailure("verification.code.invalid", 400)
+      if (current.expires <= options.now())
+        throw new ServiceFailure("verification.code.expired", 400)
+      if (current.attempts >= (options.maxAttempts ?? 5))
+        throw new ServiceFailure("verification.code.attempts.exceeded", 429)
+      if (current.code !== code) {
+        current.attempts++
+        throw new ServiceFailure(
+          current.attempts >= (options.maxAttempts ?? 5)
+            ? "verification.code.attempts.exceeded"
+            : "verification.code.invalid",
+          current.attempts >= (options.maxAttempts ?? 5) ? 429 : 400
+        )
+      }
+      if (consume) codes.delete(key)
+    }
+  }
+}

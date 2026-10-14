@@ -1,0 +1,139 @@
+import { expect, test, vi } from "vitest"
+import { authFixture } from "./authTestFixtures"
+import { createAuthSession } from "./session"
+import { AuthError } from "../../data/api/auth/contracts"
+
+/** 同作用域导航保留认证代次、缓存引用和 HTTP 会话，不把菜单切换当登出重建。 */
+test("retains context and HTTP session during same-scope navigation", async () => {
+  const fixture = authFixture()
+  const clearHttpSession = vi.fn()
+  const session = createAuthSession({
+    api: fixture.api,
+    storage: fixture.storage,
+    queryClient: fixture.queryClient,
+    clearHttpSession
+  })
+  await session.login("demo", "demo-password")
+  const generation = session.getSnapshot().generation
+  const key = session.contextKey()
+  const context = session.getContext()
+  const clears = clearHttpSession.mock.calls.length
+  await session.validateNavigation(new AbortController().signal)
+  await session.validateNavigation(new AbortController().signal)
+  expect(session.getSnapshot()).toMatchObject({ phase: "ready", generation })
+  expect(session.contextKey()).toEqual(key)
+  expect(session.getContext()).toBe(context)
+  expect(clearHttpSession).toHaveBeenCalledTimes(clears)
+  fixture.queryClient.clear()
+})
+
+/** 取消导航不清理已确认会话，检查状态收敛回ready，不接受迟到权限。 */
+test("settles cancelled navigation without replacing the current context", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const context = fixture.session.getContext()
+  const stored = fixture.storage.read()
+  let release = () => {}
+  let started = () => {}
+  const ready = new Promise<void>((resolve) => {
+    started = resolve
+  })
+  const paused = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const validate = fixture.api.validateSession
+  fixture.api.validateSession = async (...args) => {
+    started()
+    await paused
+    return validate(...args)
+  }
+  const controller = new AbortController()
+  const navigation = fixture.session.validateNavigation(controller.signal)
+  await ready
+  expect(fixture.session.getSnapshot().phase).toBe("checking")
+  expect(fixture.session.getContext()).toBe(context)
+  controller.abort()
+  release()
+  await navigation
+  expect(fixture.session.getSnapshot().phase).toBe("ready")
+  expect(fixture.storage.read()).toEqual(stored)
+  expect(fixture.session.getContext()).toBe(context)
+  fixture.queryClient.clear()
+})
+
+/** 导航发现权威组织变化后，以独立会话恢复完成新scope，原导航取消不回退旧授权。 */
+test("finishes a discovered organization change independently of navigation cancellation", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const generation = fixture.session.getSnapshot().generation
+  await fixture.api.switchOrganization(
+    fixture.storage.read().credential!,
+    "studio",
+    new AbortController().signal
+  )
+  const original = fixture.api.getContext
+  let release = () => {}
+  let started = () => {}
+  const ready = new Promise<void>((resolve) => {
+    started = resolve
+  })
+  const paused = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  fixture.api.getContext = async (...args) => {
+    started()
+    await paused
+    return original(...args)
+  }
+  const controller = new AbortController()
+  const navigation = fixture.session.validateNavigation(controller.signal)
+  await ready
+  expect(fixture.session.getSnapshot()).toMatchObject({
+    phase: "restoring",
+    generation: generation + 1
+  })
+  expect(fixture.session.getContext()).toBeUndefined()
+  controller.abort()
+  release()
+  await navigation
+  expect(fixture.session.getSnapshot().phase).toBe("ready")
+  expect(fixture.session.getContext()?.currentOrganization?.id).toBe("studio")
+  expect(fixture.storage.read().credential?.organizationId).toBe("studio")
+  fixture.queryClient.clear()
+})
+
+/** 确认失效后的清理不随原导航取消，释放删除锁后仍收敛匿名且记录为空。 */
+test("finishes invalid-session cleanup after the original navigation is cancelled", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  let release = () => {}
+  let started = () => {}
+  const ready = new Promise<void>((resolve) => {
+    started = resolve
+  })
+  const paused = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  const commit = fixture.storage.commit
+  fixture.storage.commit = async (...args) => {
+    if (args[1] === null) {
+      started()
+      await paused
+    }
+    return commit(...args)
+  }
+  fixture.api.validateSession = async () => {
+    throw new AuthError("sessionExpired", "invalid-session")
+  }
+  const controller = new AbortController()
+  const navigation = fixture.session.validateNavigation(controller.signal)
+  await ready
+  expect(fixture.session.getSnapshot().phase).toBe("logging-out")
+  expect(fixture.session.getContext()).toBeUndefined()
+  controller.abort()
+  release()
+  await navigation
+  expect(fixture.session.getSnapshot().phase).toBe("anonymous")
+  expect(fixture.storage.read().raw).toBeNull()
+  fixture.queryClient.clear()
+})

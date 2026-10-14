@@ -1,0 +1,176 @@
+/** 基础服务错误封装；业务代码只按稳定 code 判断，不匹配 message。 */
+export interface ServiceErrors {
+  model: "errors"
+  errors: {
+    model: "data.set"
+    datas: { model: "error"; code: string; message: string }[]
+    total: number
+  }
+  request_id: string
+}
+
+/** 基础服务单对象响应；同一 model 仍须按具体 endpoint 校验 data。 */
+export interface ServiceObject<T> {
+  model: string
+  data: T
+  request_id: string
+}
+
+/** 空结果仍是 HTTP 200 JSON，不能当作 204 或 undefined。 */
+export interface ServiceEmpty {
+  model: "empty"
+  request_id: string
+}
+
+/** 服务端分页原始结构，与前端分页状态分开维护。 */
+export interface ServiceGrid<T> {
+  model: "grid.result"
+  page: { model: "page"; current: number; size: number; total: number; total_page: number }
+  result: { model: "data.set"; datas: T[]; total: number }
+  request_id: string
+}
+
+/** 只保存稳定错误码、状态和追踪标识，不保存远端错误正文。 */
+export class ServiceFailure extends Error {
+  /** 远端业务错误与协议错误保持明确分类。 */
+  constructor(
+    readonly code: string,
+    readonly status: number,
+    readonly requestId?: string
+  ) {
+    super(code)
+    this.name = "ServiceFailure"
+  }
+}
+
+/** 在不引入运行时依赖的情况下收窄 JSON 对象。 */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+/** 对错误码和追踪标识执行有界字符串检查。 */
+export function protocolText(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 256 &&
+    !/[\u0000-\u001f\u007f]/.test(value)
+  )
+}
+
+/** 解析统一错误体，保留第一个稳定业务码；非法结构失败关闭。 */
+export function parseServiceFailure(value: unknown, status: number): ServiceFailure {
+  if (
+    !isRecord(value) ||
+    value.model !== "errors" ||
+    !protocolText(value.request_id) ||
+    !isRecord(value.errors)
+  )
+    return new ServiceFailure("invalid_service_response", status)
+  const errors = value.errors
+  if (
+    errors.model !== "data.set" ||
+    !Array.isArray(errors.datas) ||
+    errors.datas.length === 0 ||
+    errors.total !== errors.datas.length ||
+    !errors.datas.every(
+      (entry) =>
+        isRecord(entry) &&
+        entry.model === "error" &&
+        protocolText(entry.code) &&
+        typeof entry.message === "string"
+    )
+  )
+    return new ServiceFailure("invalid_service_response", status)
+  const first: unknown = errors.datas[0]
+  if (!isRecord(first) || !protocolText(first.code))
+    return new ServiceFailure("invalid_service_response", status)
+  return new ServiceFailure(first.code, status, value.request_id)
+}
+
+/** 单对象解包必须同时核对 model、request_id 与 endpoint 数据校验器。 */
+export function parseServiceObject<T>(
+  value: unknown,
+  model: string,
+  valid: (data: unknown) => data is T
+): ServiceObject<T> {
+  if (
+    !isRecord(value) ||
+    value.model !== model ||
+    !protocolText(value.request_id) ||
+    !valid(value.data)
+  )
+    throw new ServiceFailure("invalid_service_response", 200)
+  return { model, data: value.data, request_id: value.request_id }
+}
+
+/** 校验空结果模型，拒绝错误地吞掉未知或缺失响应。 */
+export function parseServiceEmpty(value: unknown): ServiceEmpty {
+  if (
+    !isRecord(value) ||
+    value.model !== "empty" ||
+    !protocolText(value.request_id) ||
+    "data" in value
+  )
+    throw new ServiceFailure("invalid_service_response", 200)
+  return { model: "empty", request_id: value.request_id }
+}
+
+/** 显式发送内部页码与每页条数，避免服务端默认 10 与前端默认 20 冲突。 */
+export function servicePageQuery(
+  page: number,
+  pageSize: number,
+  sort?: { field: string; order: "asc" | "desc" }
+) {
+  if (
+    !Number.isSafeInteger(page) ||
+    page < 1 ||
+    !Number.isSafeInteger(pageSize) ||
+    pageSize < 1 ||
+    pageSize > 200 ||
+    (sort && (!protocolText(sort.field) || !["asc", "desc"].includes(sort.order)))
+  )
+    throw new ServiceFailure("invalid_page_request", 400)
+  return {
+    current: page,
+    size: pageSize,
+    ...(sort ? { order_by: sort.field, order: sort.order } : {})
+  }
+}
+
+/** 校验分页与两处 total 的一致性后才投影为前端分页数据。 */
+export function parseServiceGrid<T>(value: unknown, valid: (item: unknown) => item is T) {
+  if (
+    !isRecord(value) ||
+    value.model !== "grid.result" ||
+    !protocolText(value.request_id) ||
+    !isRecord(value.page) ||
+    !isRecord(value.result)
+  )
+    throw new ServiceFailure("invalid_service_response", 200)
+  const { page, result } = value
+  const integer = (number: unknown, minimum: number) =>
+    typeof number === "number" && Number.isSafeInteger(number) && number >= minimum
+  if (
+    page.model !== "page" ||
+    !integer(page.current, 1) ||
+    !integer(page.size, 1) ||
+    (page.size as number) > 200 ||
+    !integer(page.total, 0) ||
+    !integer(page.total_page, 0) ||
+    result.model !== "data.set" ||
+    result.total !== page.total ||
+    !Array.isArray(result.datas) ||
+    !result.datas.every(valid) ||
+    result.datas.length > (page.size as number) ||
+    result.datas.length > (page.total as number) ||
+    page.total_page !== Math.ceil((page.total as number) / (page.size as number))
+  )
+    throw new ServiceFailure("invalid_service_response", 200)
+  return {
+    page: page.current as number,
+    pageSize: page.size as number,
+    items: result.datas as T[],
+    total: page.total as number
+  }
+}

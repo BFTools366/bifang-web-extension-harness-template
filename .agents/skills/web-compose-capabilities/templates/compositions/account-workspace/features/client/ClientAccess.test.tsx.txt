@@ -1,0 +1,151 @@
+// @vitest-environment jsdom
+
+import { act, screen, waitFor, within } from "@testing-library/react"
+import { expect, test } from "vitest"
+import { authFixture } from "../auth/authTestFixtures"
+import { AuthError } from "../../data/api/auth/contracts"
+import { mountClient } from "./clientTestFixtures"
+/** 冷启动传输失败只显示恢复状态，空能力也不能通过 URL 获得账号页面。 */
+test("hides private content during offline recovery and missing permissions", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  fixture.api.validateSession = async () => {
+    throw new AuthError("connectionUnavailable", "network")
+  }
+  const { user, router } = mountClient("/app/account", fixture)
+  await screen.findByRole("heading", { name: "Connection unavailable" })
+  expect(screen.queryByText("demo@example.invalid")).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Account menu" })).not.toBeInTheDocument()
+  fixture.api.validateSession = async (credential) => credential
+  const getContext = fixture.api.getContext
+  fixture.api.getContext = async (...args) => ({
+    ...(await getContext(...args)),
+    capabilities: []
+  })
+  await user.click(screen.getByRole("button", { name: "Retry recovery" }))
+  await screen.findByRole("heading", { name: "Access denied" })
+  expect(router.state.location.pathname).toBe("/app/forbidden")
+  expect(screen.queryByRole("link", { name: "Current account" })).not.toBeInTheDocument()
+})
+
+/** 新账号拥有独立测试能力，每个导航只高亮当前页面，历史返回保持相同结果。 */
+test("opens the test menu with one active item per navigation", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("test", "test-password")
+  const { user, router } = mountClient("/app/dashboard", fixture)
+  await screen.findByRole("heading", { name: "Welcome back, test" })
+  const sidebar = screen.getByRole("navigation", { name: "Client sidebar" })
+  const navigation = within(sidebar).getByRole("navigation", { name: "Client navigation" })
+  expect(within(navigation).getByRole("link", { name: "Test menu" })).toHaveAttribute(
+    "href",
+    "/app/test"
+  )
+  await user.click(within(navigation).getByRole("link", { name: "Test menu" }))
+  await screen.findByRole("heading", { level: 1, name: "Test menu" })
+  expect(router.state.location.pathname).toBe("/app/test")
+  expect(document.title).toContain("Test menu")
+  for (const nav of screen.getAllByRole("navigation", { name: "Client navigation" })) {
+    const active = within(nav).getAllByRole("link", { current: "page" })
+    expect(active).toHaveLength(1)
+    expect(active[0]).toHaveAccessibleName("Test menu")
+    expect(within(nav).getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
+      "data-status",
+      "active"
+    )
+  }
+  await user.click(within(navigation).getByRole("link", { name: "Current account" }))
+  await screen.findByRole("heading", { level: 1, name: "Current account" })
+  expect(within(navigation).getAllByRole("link", { current: "page" })).toHaveLength(1)
+  await act(async () => {
+    router.history.back()
+  })
+  await screen.findByRole("heading", { level: 1, name: "Test menu" })
+  expect(within(navigation).getAllByRole("link", { current: "page" })).toHaveLength(1)
+})
+
+/** 匿名测试深链接保留返回目标，登录成功且取得权限后才呈现测试正文。 */
+test.each(["/app/test", "/app/test/"])(
+  "returns to the permitted %s deep link after sign-in",
+  async (path) => {
+    const { user, router } = mountClient(path)
+    await screen.findByRole("heading", { name: "Welcome back" })
+    expect(router.state.location.search).toMatchObject({ returnTo: "/app/test" })
+    await user.type(screen.getByLabelText("Username", { exact: false }), "test")
+    await user.type(
+      screen.getByLabelText("Password", {
+        exact: false,
+        selector: 'input[name="password"]'
+      }),
+      "test-password{Enter}"
+    )
+    expect(await screen.findByRole("heading", { level: 1, name: "Test menu" })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe("/app/test")
+  }
+)
+
+/** 普通账号不显示测试入口，直接访问或登录返回该 URL 都到独立无权限页。 */
+test("hides the test menu and rejects its URL for an ordinary account", async () => {
+  const { user, router, session } = mountClient("/app/test")
+  await screen.findByRole("heading", { name: "Welcome back" })
+  await user.type(screen.getByLabelText("Username", { exact: false }), "demo")
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "demo-password{Enter}"
+  )
+  await screen.findByRole("heading", { name: "Access denied" })
+  expect(router.state.location.pathname).toBe("/app/forbidden")
+  expect(screen.queryByRole("link", { name: "Test menu" })).not.toBeInTheDocument()
+  expect(screen.queryByText("Test menu access granted.")).not.toBeInTheDocument()
+  expect(session.getSnapshot().phase).toBe("ready")
+  expect(document.title).toContain("Access denied")
+  await user.click(screen.getByRole("link", { name: "Return to an accessible page" }))
+  await screen.findByRole("heading", { name: "Welcome back, demo" })
+  await act(async () => {
+    await router.navigate({ to: "/app/test" })
+  })
+  await screen.findByRole("heading", { name: "Access denied" })
+  expect(router.state.location.pathname).toBe("/app/forbidden")
+  expect(screen.queryByRole("link", { name: "Test menu" })).not.toBeInTheDocument()
+})
+
+/** 切组织撤销测试权限后立即退出旧页面，刷新深链接也不能沿用旧能力。 */
+test("leaves the test page when the new organization lacks permission", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("test", "test-password")
+  const { user, router, session } = mountClient("/app/test", fixture)
+  await screen.findByRole("heading", { level: 1, name: "Test menu" })
+  await user.click(screen.getByRole("button", { name: "Account menu" }))
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
+  const dialog = await screen.findByRole("dialog", { name: "Switch organization" })
+  await user.selectOptions(within(dialog).getByLabelText("Target organization"), "studio")
+  await user.click(within(dialog).getByRole("button", { name: "Switch organization" }))
+  await screen.findByRole("heading", { name: "Access denied" })
+  await waitFor(() => expect(router.state.location.pathname).toBe("/app/forbidden"))
+  await waitFor(() => expect(session.getContext()?.currentOrganization?.id).toBe("studio"))
+  expect(screen.queryByRole("link", { name: "Test menu" })).not.toBeInTheDocument()
+  await act(async () => {
+    await router.navigate({ to: "/app/test" })
+  })
+  await screen.findByRole("heading", { name: "Access denied" })
+  expect(router.state.location.pathname).toBe("/app/forbidden")
+})
+
+/** 当前上下文直接撤权时布局先阻断正文，即使尚未导航也不能保留测试页。 */
+test("redirects a mounted page after its current permission is revoked", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("test", "test-password")
+  const { session, router, api } = mountClient("/app/test", fixture)
+  await screen.findByRole("heading", { level: 1, name: "Test menu" })
+  const original = api.getContext
+  api.getContext = async (...args) => ({
+    ...(await original(...args)),
+    capabilities: ["workspace", "account"]
+  })
+  await act(async () => {
+    await session.restore()
+  })
+  await screen.findByRole("heading", { name: "Access denied" })
+  await waitFor(() => expect(router.state.location.pathname).toBe("/app/forbidden"))
+  expect(screen.queryByText("Test menu access granted.")).not.toBeInTheDocument()
+  expect(screen.queryByRole("link", { name: "Test menu" })).not.toBeInTheDocument()
+})

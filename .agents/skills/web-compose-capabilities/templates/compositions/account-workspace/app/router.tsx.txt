@@ -1,0 +1,35 @@
+import { createRouter } from "@tanstack/react-router"
+import { routeTree } from "../routeTree.gen"
+import { routeStateDefaults } from "../features/route-state/RouteState"
+import { authSession } from "./authSession"
+import { configureUnauthorizedHandler } from "../data/api/client/httpRuntime"
+
+export const router = createRouter({
+  routeTree,
+  ...routeStateDefaults,
+  context: { auth: authSession },
+  scrollRestoration: true,
+  defaultPreload: false
+})
+
+configureUnauthorizedHandler({
+  /** 旧 HTTP 失效周期不能干扰后来建立的认证代次。 */
+  handleUnauthorized: async (_error, context) => {
+    if (context?.signal.aborted || context?.isCurrentSession() === false) return
+    const generation = authSession.getSnapshot().generation + 1
+    await authSession.logout()
+    if (
+      !context?.signal.aborted &&
+      authSession.getSnapshot().generation === generation &&
+      authSession.getSnapshot().phase === "anonymous"
+    )
+      await router.navigate({ to: "/login", replace: true })
+  }
+})
+
+declare module "@tanstack/react-router" {
+  /** 说明 Register 的稳定结构与职责边界。 */
+  interface Register {
+    router: typeof router
+  }
+}

@@ -1,0 +1,53 @@
+import { Avatar, Group, Paper, Stack, Text, Title } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { useAuth } from "../auth/AuthProvider"
+import { canAccess } from "../auth/access"
+import { AuthStatePanel } from "../auth/AuthStatePanel"
+import { Preferences } from "./Preferences"
+import classes from "./client.module.css"
+
+/** 当前账号为只读页面，不扩展资料修改、成员管理或删除账号能力。 */
+export function AccountPage() {
+  const { t } = useTranslation()
+  const { context } = useAuth()
+  if (!context || !canAccess(context, "account")) return <AuthStatePanel denied />
+  return (
+    <Stack gap="xl">
+      <div>
+        <Title order={1}>{t("client.account")}</Title>
+        <Text mt="sm" c="dimmed">
+          {t("client.accountDescription")}
+        </Text>
+      </div>
+      <div className={classes.workspaceGrid}>
+        <Paper withBorder radius="lg" p="xl">
+          <Stack gap="xl">
+            <Group>
+              <Avatar color="brand" size="lg" radius="md">
+                {context.user.displayName.slice(0, 1)}
+              </Avatar>
+              <div>
+                <Title order={2} size="h3">
+                  {context.user.displayName}
+                </Title>
+                <Text c="dimmed">{t("auth.demoIdentity")}</Text>
+              </div>
+            </Group>
+            <dl className={classes.accountFields}>
+              <dt>{t("auth.username")}</dt>
+              <dd>{context.user.username}</dd>
+              <dt>{t("auth.email")}</dt>
+              <dd>{context.user.email}</dd>
+              <dt>{t("client.currentOrganization")}</dt>
+              <dd>{context.currentOrganization?.name}</dd>
+            </dl>
+            <Text c="dimmed" size="sm">
+              {t("client.readOnlyAccount")}
+            </Text>
+          </Stack>
+        </Paper>
+        <Preferences />
+      </div>
+    </Stack>
+  )
+}

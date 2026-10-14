@@ -47,3 +47,7 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 ## 验证
 
 按实际改动检查：未选操作不产生菜单、路由或请求；组合只保留一份状态所有者；匿名、拒绝、撤权、切换、并发迟到和未知写结果按命中知识验证。模板中的 Mock 或离线演示不能证明真实服务、权限或资金流程通过。完成后报告所选模块与操作、适配内容、实际验证和契约缺口。
+
+## 可执行模板索引
+
+按操作使用 [账户能力实现地图](templates/compositions/account-workspace/README.md)，身份、组织和权限的独立模板与组合代码分别列出；初始化不调用组装器。

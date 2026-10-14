@@ -11,15 +11,6 @@ import { accountWorkspaceFiles } from "../.agents/skills/web-compose-capabilitie
 function accountFileRouteTreeFixture(): string {
   const routes = [
     {
-      name: "Index",
-      file: "index",
-      id: "/",
-      path: "/",
-      fullPath: "/",
-      parent: "rootRoute",
-      localId: "/"
-    },
-    {
       name: "Auth",
       file: "_auth",
       id: "/_auth",
@@ -30,7 +21,7 @@ function accountFileRouteTreeFixture(): string {
     },
     {
       name: "Login",
-      file: "_auth.login",
+      file: "_auth/login",
       id: "/_auth/login",
       path: "/login",
       fullPath: "/login",
@@ -39,7 +30,7 @@ function accountFileRouteTreeFixture(): string {
     },
     {
       name: "Register",
-      file: "_auth.register",
+      file: "_auth/register",
       id: "/_auth/register",
       path: "/register",
       fullPath: "/register",
@@ -48,7 +39,7 @@ function accountFileRouteTreeFixture(): string {
     },
     {
       name: "Reset",
-      file: "_auth.forgot-password",
+      file: "_auth/forgot-password",
       id: "/_auth/forgot-password",
       path: "/forgot-password",
       fullPath: "/forgot-password",
@@ -65,17 +56,8 @@ function accountFileRouteTreeFixture(): string {
       localId: "/app"
     },
     {
-      name: "AppIndex",
-      file: "app.index",
-      id: "/app/",
-      path: "/",
-      fullPath: "/app/",
-      parent: "AppRoute",
-      localId: "/"
-    },
-    {
       name: "Dashboard",
-      file: "app.dashboard",
+      file: "app/dashboard",
       id: "/app/dashboard",
       path: "/dashboard",
       fullPath: "/app/dashboard",
@@ -84,7 +66,7 @@ function accountFileRouteTreeFixture(): string {
     },
     {
       name: "Account",
-      file: "app.account",
+      file: "app/account",
       id: "/app/account",
       path: "/account",
       fullPath: "/app/account",
@@ -93,12 +75,21 @@ function accountFileRouteTreeFixture(): string {
     },
     {
       name: "NoAccess",
-      file: "no-access",
-      id: "/no-access",
-      path: "/no-access",
-      fullPath: "/no-access",
-      parent: "rootRoute",
-      localId: "/no-access"
+      file: "app/forbidden",
+      id: "/app/forbidden",
+      path: "/forbidden",
+      fullPath: "/app/forbidden",
+      parent: "AppRoute",
+      localId: "/forbidden"
+    },
+    {
+      name: "TestPage",
+      file: "app/test",
+      id: "/app/test",
+      path: "/test",
+      fullPath: "/app/test",
+      parent: "AppRoute",
+      localId: "/test"
     }
   ]
   let source = 'import { Route as rootRoute } from "./routes/__root"\n'
@@ -112,7 +103,7 @@ function accountFileRouteTreeFixture(): string {
   for (const route of routes)
     source += `${JSON.stringify(route.id)}: { id: ${JSON.stringify(route.id)}; path: ${JSON.stringify(route.path)}; fullPath: ${JSON.stringify(route.fullPath)}; preLoaderRoute: typeof ${route.name}RouteImport; parentRoute: typeof ${route.parent} }\n`
   source +=
-    "} }\nexport const routeTree = rootRoute.addChildren([IndexRoute, AuthRoute.addChildren([LoginRoute, RegisterRoute, ResetRoute]), AppRoute.addChildren([AppIndexRoute, DashboardRoute, AccountRoute]), NoAccessRoute])\n"
+    "} }\nexport const routeTree = rootRoute.addChildren([AuthRoute.addChildren([LoginRoute, RegisterRoute, ResetRoute]), AppRoute.addChildren([DashboardRoute, AccountRoute, NoAccessRoute, TestPageRoute])])\n"
   return source
 }
 
@@ -132,12 +123,13 @@ describe("explicit account workspace composition", () => {
           description: "账户组合 fixture",
           brandColor: "#2563eb"
         })
-        const files = webFiles(config, {
+        const base = webFiles(config, {
           developmentBaseUrl: "",
           testBaseUrl: apiBaseUrl,
           releaseBaseUrl: ""
         })
-        for (const [name, source] of accountWorkspaceFiles(files)) files.set(name, source)
+        const files = accountWorkspaceFiles(base)
+        files.delete("src/routes/index.tsx")
         files.delete("src/features/welcome/WelcomePage.tsx")
         files.delete("src/features/welcome/WelcomePage.test.tsx")
         for (const [name, source] of files) {
@@ -158,7 +150,7 @@ describe("explicit account workspace composition", () => {
         await writeFile(path.join(root, "src/routeTree.gen.ts"), accountFileRouteTreeFixture())
         await writeFile(
           path.join(root, "src/fixture-env.d.ts"),
-          'interface ImportMeta { readonly hot?: { dispose(callback: () => void): void } }\ndeclare module "*.css" {}\n'
+          'interface ImportMeta { readonly hot?: { dispose(callback: () => void): void } }\ndeclare module "*.css" { const classes: Record<string, string>; export default classes }\n'
         )
         await writeFile(
           path.join(root, "tsconfig.json"),
@@ -222,6 +214,7 @@ describe("explicit account workspace composition", () => {
           expect(output).toMatch(/Tests\s+\d+ passed/)
           console.info(
             output
+              .replace(/\x1b\[[0-9;]*m/gu, "")
               .split("\n")
               .filter((line) => /^\s*(Test Files|Tests)/u.test(line))
               .join("\n")

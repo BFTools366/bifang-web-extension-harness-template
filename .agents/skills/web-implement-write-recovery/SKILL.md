@@ -27,3 +27,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，实施�
 ## 返回结果
 
 返回操作状态与恢复路径、幂等/冲突/作用域拥有者、精确刷新范围、实际测试和服务端未确认项。不自动增加构建、浏览器、全仓检查或最终候选验收。
+
+## 已实现恢复参考
+
+[认证和组织写入协调](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 演示窄处置临时签发、先本地阻断的有界退出、迟到找回隔离与切换后恢复。它没有订单或资金实现，不能替代真实支付幂等/查询合同。

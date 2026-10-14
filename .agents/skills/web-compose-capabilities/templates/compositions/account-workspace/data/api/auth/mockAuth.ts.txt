@@ -1,0 +1,39 @@
+import {
+  createMockAuthBackend,
+  type MockAuthBackend,
+  type MockBackendOptions
+} from "./mockAuthBackend"
+import { createMockAuthService, type MockServiceOptions } from "./mockAuthService"
+import { createMockAuthClient, type MockClientOptions } from "./mockAuthClient"
+
+/** 默认测试隔离服务态，多个客户端可显式共享同一内存服务。 */
+export interface MockAuthOptions extends MockServiceOptions, MockBackendOptions {
+  backend?: MockAuthBackend
+}
+/** 构建完整内存服务，包含健康、GraphQL 和认证 adapter。 */
+export function createMockService(options: MockAuthOptions = {}) {
+  const service = createMockAuthService(options.backend ?? createMockAuthBackend(options), options)
+  return {
+    ...service,
+    ...createMockAuthClient(service, options),
+    /** 多客户端显式共享这个服务实例，适配器不复制服务状态。 */
+    createClient(clientOptions: MockClientOptions = {}) {
+      return createMockAuthClient(service, {
+        getLanguage: options.getLanguage,
+        ...clientOptions
+      })
+    },
+    /** 展开对象不会复制动态代次。 */
+    get generation() {
+      return service.generation
+    }
+  }
+}
+/** 兼容应用认证入口，全部操作经过原始报文校验。 */
+export function createMockAuthApi(options: MockAuthOptions = {}) {
+  return createMockService(options).api
+}
+/** 应用只装配一份内存服务，不访问真实 endpoint。 */
+export const mockService = createMockService()
+/** 认证表单与会话协调者复用该服务的领域 adapter。 */
+export const authApi = mockService.api

@@ -1,0 +1,137 @@
+import { BRAND } from "../../brand"
+import { APP_CONFIG } from "../../config/environment"
+import { AuthError, type MockCredential } from "../api/auth/contracts"
+import { getWebStorage } from "./webStorage"
+
+export const AUTH_STORAGE_KEY = `${BRAND.id}:auth:account-workspace:${APP_CONFIG.environment}:mock:v1`
+
+/** 精确原始记录用于冲突检测，不把时间戳误当跨页事务。 */
+export interface StoredAuth {
+  raw: string | null
+  credential: MockCredential | null
+}
+
+/** 认证存储只负责校验与核实写入，会话授权仍归认证 API。 */
+export interface AuthSessionStorage {
+  key: string
+  read(): StoredAuth
+  check(expectedRaw: string | null, isCurrent: () => boolean): Promise<void>
+  commit(
+    expectedRaw: string | null,
+    credential: MockCredential | null,
+    isCurrent?: () => boolean
+  ): Promise<StoredAuth>
+}
+
+/** 运行时检查演示引用的版本与作用域，不接受真实 Token 或用户快照。 */
+export function isMockCredential(value: unknown): value is MockCredential {
+  if (typeof value !== "object" || value === null) return false
+  const entry = value as Partial<MockCredential>
+  const id = (text: unknown) => typeof text === "string" && /^[a-zA-Z0-9-]{1,64}$/.test(text)
+  const reference =
+    typeof entry.sessionId === "string" && /^[a-zA-Z0-9.-]{1,192}$/.test(entry.sessionId)
+  return (
+    entry.kind === "mock" &&
+    reference &&
+    id(entry.accountId) &&
+    (entry.organizationId === null || id(entry.organizationId)) &&
+    Object.keys(entry).every((key) =>
+      ["kind", "sessionId", "accountId", "organizationId"].includes(key)
+    )
+  )
+}
+
+/** 原生 Web Locks 负责跨标签页写入；不支持时阻断而不是伪造原子性。 */
+async function browserLock<T>(name: string, work: () => T): Promise<T> {
+  if (typeof navigator === "undefined" || !navigator.locks)
+    throw new AuthError("storageCoordinationUnavailable", "configuration")
+  return navigator.locks.request(name, { mode: "exclusive" }, work)
+}
+
+/** 只持久化显式 Mock 会话引用，且核对每次读写及精确删除。 */
+export function createAuthSessionStorage(
+  storage: () => Storage | undefined = () => getWebStorage("local"),
+  lock: <T>(name: string, work: () => T) => Promise<T> = browserLock
+): AuthSessionStorage {
+  /** 访问拒绝属于关键失败，不静默降级为内存登录。 */
+  function backend(): Storage {
+    const result = storage()
+    if (!result) throw new AuthError("storageUnavailable", "configuration")
+    return result
+  }
+  /** 输入损坏单独报告给协调者，由其精确删除并阻止越权恢复。 */
+  function read(): StoredAuth {
+    let raw: string | null = null
+    try {
+      raw = backend().getItem(AUTH_STORAGE_KEY)
+      if (raw === null) return { raw, credential: null }
+      if (raw.length > 1024) return { raw, credential: null }
+      const value: unknown = JSON.parse(raw)
+      if (
+        typeof value !== "object" ||
+        value === null ||
+        !("version" in value) ||
+        value.version !== 1 ||
+        !("revision" in value) ||
+        typeof value.revision !== "string" ||
+        !/^[a-zA-Z0-9-]{1,64}$/.test(value.revision) ||
+        !("credential" in value) ||
+        !isMockCredential(value.credential)
+      )
+        return { raw, credential: null }
+      if (Object.keys(value).some((key) => !["version", "revision", "credential"].includes(key)))
+        return { raw, credential: null }
+      return { raw, credential: value.credential }
+    } catch (error) {
+      if (error instanceof SyntaxError) return { raw, credential: null }
+      throw new AuthError("storageUnavailable", "configuration")
+    }
+  }
+  return {
+    key: AUTH_STORAGE_KEY,
+    read,
+    /** 检查同样保留稳定的存储失败语义。 */
+    async check(expectedRaw, isCurrent) {
+      await lock(AUTH_STORAGE_KEY + ":write", () => {
+        if (!isCurrent()) throw new DOMException("Superseded", "AbortError")
+        let actual: string | null
+        try {
+          actual = backend().getItem(AUTH_STORAGE_KEY)
+        } catch {
+          throw new AuthError("storageUnavailable", "configuration")
+        }
+        if (actual !== expectedRaw) throw new AuthError("sessionConflict", "configuration")
+      })
+    },
+    /** 精确写入采用新 revision，已经删除的记录允许幂等清理。 */
+    async commit(expectedRaw, credential, isCurrent = () => true) {
+      if (credential !== null && !isMockCredential(credential))
+        throw new AuthError("sessionInvalid", "invalid-session")
+      return lock(AUTH_STORAGE_KEY + ":write", () => {
+        try {
+          const target = backend()
+          if (!isCurrent()) throw new DOMException("Superseded", "AbortError")
+          const actual = target.getItem(AUTH_STORAGE_KEY)
+          if (credential === null && actual === null) return { raw: null, credential: null }
+          if (actual !== expectedRaw) throw new AuthError("sessionConflict", "configuration")
+          const raw =
+            credential === null
+              ? null
+              : JSON.stringify({ version: 1, revision: crypto.randomUUID(), credential })
+          if (raw === null) target.removeItem(AUTH_STORAGE_KEY)
+          else target.setItem(AUTH_STORAGE_KEY, raw)
+          if (target.getItem(AUTH_STORAGE_KEY) !== raw)
+            throw new AuthError("storageUnavailable", "configuration")
+          return { raw, credential }
+        } catch (error) {
+          if (
+            error instanceof AuthError ||
+            (error instanceof DOMException && error.name === "AbortError")
+          )
+            throw error
+          throw new AuthError("storageUnavailable", "configuration")
+        }
+      })
+    }
+  }
+}

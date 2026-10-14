@@ -1,0 +1,371 @@
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  color: var(--mantine-color-text);
+  min-height: 3rem;
+}
+.brand img {
+  flex-shrink: 0;
+}
+.brand > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.skip {
+  position: fixed;
+  top: var(--mantine-spacing-xs);
+  left: var(--mantine-spacing-md);
+  transform: translateY(-200%);
+  z-index: 500;
+  padding: var(--mantine-spacing-sm);
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-anchor);
+  border: 2px solid currentColor;
+  border-radius: var(--mantine-radius-sm);
+}
+.skip:focus {
+  transform: translateY(0);
+}
+.clientShell {
+  min-height: 100dvh;
+  background:
+    radial-gradient(ellipse at top right, var(--mantine-color-cyan-light), transparent 70%),
+    var(--mantine-color-default-hover);
+}
+.shellHeader {
+  background: transparent;
+  border: 0;
+}
+.headerTitle {
+  min-width: 0;
+}
+.shellSidebar {
+  background: var(--mantine-color-body);
+  border: 0;
+  overflow-y: auto;
+}
+.shellSidebar > * {
+  flex-shrink: 0;
+}
+.shellMain {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.nav {
+  display: grid;
+  gap: var(--mantine-spacing-xs);
+  margin-top: calc(var(--mantine-spacing-xl) * 1.5);
+}
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-md);
+  min-height: 3rem;
+  padding: var(--mantine-spacing-sm) var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+  color: var(--mantine-color-dimmed);
+  text-decoration: none;
+}
+.navLink svg {
+  flex-shrink: 0;
+}
+.navLink:hover {
+  background: var(--mantine-color-default-hover);
+  color: var(--mantine-color-text);
+}
+.navLink[aria-current="page"] {
+  background: var(--mantine-primary-color-filled);
+  color: light-dark(var(--mantine-color-white), var(--mantine-color-black));
+  font-weight: 600;
+}
+.navLink:not(:has(span)) {
+  justify-content: center;
+  padding-inline: var(--mantine-spacing-xs);
+}
+.sidebarBottom {
+  margin-top: auto;
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-default-border);
+  overflow-wrap: anywhere;
+}
+.sidebarIcon {
+  display: flex;
+  align-items: center;
+}
+.accountMenu {
+  min-height: 2.5rem;
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-body);
+}
+.accountMenu:hover {
+  background: var(--mantine-color-default-hover);
+}
+.accountName {
+  max-width: 12rem;
+  overflow-wrap: anywhere;
+}
+.accountDropdown {
+  padding: var(--mantine-spacing-xs);
+  box-shadow: var(--mantine-shadow-md);
+  border-radius: var(--mantine-radius-lg);
+}
+.accountDropdown :global(.mantine-Menu-item) {
+  min-height: 3rem;
+  padding-inline: var(--mantine-spacing-md);
+}
+.menuValue {
+  max-width: 10rem;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.mobileNav {
+  display: none;
+}
+.pageHeading {
+  padding-block: var(--mantine-spacing-xs);
+}
+.contextCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mantine-spacing-md);
+  box-shadow: var(--mantine-shadow-xs);
+  min-height: 8rem;
+}
+.contextIcon {
+  flex-shrink: 0;
+  display: flex;
+  padding-top: var(--mantine-spacing-xs);
+}
+.contextValue {
+  overflow-wrap: anywhere;
+}
+.workspacePanel {
+  box-shadow: var(--mantine-shadow-xs);
+  overflow: hidden;
+}
+.panelHeader {
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+.empty {
+  min-height: max(22rem, calc(100dvh - 32rem));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--mantine-spacing-md);
+  padding: var(--mantine-spacing-xl);
+  text-align: center;
+}
+.emptyIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5rem;
+  height: 5rem;
+  border-radius: var(--mantine-radius-lg);
+  background: var(--mantine-color-brand-light);
+  color: var(--mantine-color-brand-light-color);
+}
+.demoFootnote {
+  border-top: 1px solid var(--mantine-color-default-border);
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+.workspaceGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 18rem);
+  gap: var(--mantine-spacing-xl);
+}
+.accountFields {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(6rem, 0.6fr) minmax(0, 1fr);
+  gap: var(--mantine-spacing-lg);
+}
+.accountFields dt {
+  color: var(--mantine-color-dimmed);
+}
+.accountFields dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.authPage {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(ellipse at top right, var(--mantine-color-cyan-light), transparent 65%),
+    linear-gradient(140deg, var(--mantine-color-violet-light), var(--mantine-color-body));
+}
+.authMain {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: clamp(1rem, 4vw, 3rem) 0;
+}
+.authMain > :first-child {
+  width: 100%;
+}
+.authLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 6rem);
+  min-height: 40rem;
+  padding: clamp(1.5rem, 5vw, 4rem);
+  box-shadow: var(--mantine-shadow-md);
+  background:
+    radial-gradient(
+      ellipse at top left,
+      var(--mantine-color-violet-light),
+      transparent 60%
+    ),
+    var(--mantine-color-body);
+}
+.authAside {
+  padding-block: var(--mantine-spacing-xl);
+}
+.authBrandName {
+  font-size: clamp(1.5rem, 3vw, 2.4rem);
+}
+.authTitle {
+  font-size: clamp(2rem, 3.5vw, 3rem);
+  line-height: 1.25;
+  max-width: 11em;
+  text-wrap: balance;
+}
+.authAside p {
+  max-width: 30em;
+}
+.authCard {
+  width: 100%;
+  max-width: 27rem;
+  justify-self: end;
+  min-width: 0;
+}
+.authFormHeading {
+  position: relative;
+  padding-bottom: var(--mantine-spacing-md);
+  border-bottom: 2px solid var(--mantine-color-default-border);
+}
+.authFormHeading::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  bottom: -2px;
+  width: 4rem;
+  height: 2px;
+  background: var(--mantine-primary-color-filled);
+}
+.authPreferences {
+  margin-top: var(--mantine-spacing-sm);
+}
+.compactPreferences {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--mantine-spacing-xs);
+  width: 100%;
+  max-width: 22rem;
+  margin-inline-start: auto;
+}
+.compactPreferenceInput {
+  min-height: 2.25rem;
+  color: var(--mantine-color-dimmed);
+  background: transparent;
+}
+.authFooter {
+  width: 100%;
+  max-width: var(--mantine-container-size-lg, 60rem);
+  margin: auto;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-lg);
+}
+.authMobileBrand {
+  display: none;
+}
+.demoDetails {
+  border-top: 1px solid var(--mantine-color-default-border);
+  padding-top: var(--mantine-spacing-sm);
+}
+.demoDetails summary {
+  cursor: pointer;
+  color: var(--mantine-color-dimmed);
+  font-size: var(--mantine-font-size-xs);
+}
+.authForm {
+  display: grid;
+  gap: var(--mantine-spacing-md);
+}
+.codeRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--mantine-spacing-sm);
+}
+.codeRow > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.wrapButton {
+  height: auto;
+  min-height: 2.75rem;
+  padding-block: var(--mantine-spacing-xs);
+}
+.wrapButton :global(.mantine-Button-label) {
+  white-space: normal;
+}
+@media (max-width: 62em) {
+  .workspaceGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .authLayout {
+    gap: var(--mantine-spacing-xl);
+  }
+}
+@media (max-width: 48em) {
+  .authLayout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 30rem;
+    min-height: 0;
+    margin: auto;
+    padding: var(--mantine-spacing-lg);
+  }
+  .authAside {
+    display: none;
+  }
+  .authMobileBrand {
+    display: flex;
+  }
+  .mobileNav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--mantine-spacing-xs);
+  }
+  .mobileNav .navLink {
+    min-height: 2.5rem;
+    padding: var(--mantine-spacing-xs) var(--mantine-spacing-sm);
+  }
+  .empty {
+    min-height: 20rem;
+    padding: var(--mantine-spacing-lg);
+  }
+  .accountFields {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--mantine-spacing-sm);
+  }
+  .accountFields dd {
+    margin-bottom: var(--mantine-spacing-md);
+  }
+  .codeRow {
+    flex-wrap: wrap;
+  }
+  .accountName {
+    max-width: 6rem;
+  }
+  .headerTitle {
+    display: none;
+  }
+}

@@ -1,0 +1,18 @@
+/** 已认证的成员组织只用于选择，不由本地条目授予服务端权限。 */
+export interface OrganizationChoice {
+  id: string
+  name: string
+}
+/** 排除当前组织并按ID去重；上游响应校验仍须拒绝重复成员。 */
+export function otherOrganizations(
+  organizations: readonly OrganizationChoice[],
+  currentId?: string | null
+): OrganizationChoice[] {
+  return [
+    ...new Map(
+      organizations
+        .filter((entry) => entry.id !== currentId)
+        .map((entry) => [entry.id, entry])
+    ).values()
+  ]
+}

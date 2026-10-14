@@ -1,0 +1,162 @@
+import { isRecord, protocolText } from "../foundationProtocol"
+
+/** 本次已采用的认证路径；组织与权限扩展没有伪造 REST 地址。 */
+export const AUTH_OPERATIONS = {
+  login: { method: "POST", path: "/api/v1/auth/login", authenticated: false },
+  sendCode: {
+    method: "POST",
+    path: "/api/v1/auth/verification-code",
+    authenticated: false
+  },
+  register: { method: "POST", path: "/api/v1/auth/register", authenticated: false },
+  resetPassword: {
+    method: "POST",
+    path: "/api/v1/auth/password/reset",
+    authenticated: false
+  },
+  profile: { method: "GET", path: "/api/v1/auth/profile", authenticated: true },
+  logout: { method: "POST", path: "/api/v1/auth/logout", authenticated: true },
+  refresh: { method: "POST", path: "/api/v1/auth/refresh", authenticated: false },
+  changePassword: { method: "PUT", path: "/api/v1/auth/password", authenticated: true }
+} as const
+
+/** 原始账号 DTO 保留字符串 ID、秒时间和可空字段。 */
+export interface ServiceAccount {
+  id: string
+  username: string
+  email: string
+  phone: string | null
+  nickname: string
+  status: 0 | 1
+  last_login_at: number | null
+  last_login_ip: string
+  created_time: number
+  updated_time: number
+}
+
+/** 登录响应的令牌对，不把刷新令牌作为访问凭据。 */
+export interface ServiceTokenPair {
+  access_token: string
+  refresh_token: string
+  token_type: "Bearer"
+  expires_in: number
+}
+
+/** 登录与 refresh 共用的原始结果，权限不从 Account 推断。 */
+export interface ServiceAuthResult {
+  token: ServiceTokenPair
+  account: ServiceAccount
+}
+
+/** profile 仅返回默认组织，不提供成员列表和权限码。 */
+export interface ServiceProfile {
+  account: ServiceAccount
+  org: {
+    id: string
+    name: string
+    owner_id: string
+    is_default: boolean
+    created_time: number
+    updated_time: number
+  } | null
+}
+
+/** 验证码的非 Mock 响应不能出现明文 code。 */
+export interface ServiceVerification {
+  target: string
+  target_type: "email" | "phone"
+  scene: "register" | "reset_password"
+  expires_in: number
+  resend_after: number
+  mock: boolean
+  code?: string
+}
+
+/** 秒时间必须是非负安全整数，不能直接当作 JS 毫秒。 */
+function seconds(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+}
+
+/** 同时校验用途、目标类型、持续时间及明文验证码的模式边界。 */
+export function isServiceVerification(value: unknown): value is ServiceVerification {
+  if (
+    !isRecord(value) ||
+    !protocolText(value.target) ||
+    !["email", "phone"].includes(value.target_type as string) ||
+    !["register", "reset_password"].includes(value.scene as string) ||
+    !seconds(value.expires_in) ||
+    value.expires_in === 0 ||
+    !seconds(value.resend_after) ||
+    typeof value.mock !== "boolean"
+  )
+    return false
+  return value.mock
+    ? typeof value.code === "string" && /^[0-9]{1,16}$/.test(value.code)
+    : !("code" in value)
+}
+
+/** 账号形状按 endpoint 收窄，不依赖 model:account 单独判断。 */
+export function isServiceAccount(value: unknown): value is ServiceAccount {
+  return (
+    isRecord(value) &&
+    [value.id, value.username, value.email, value.nickname].every(protocolText) &&
+    (value.phone === null || protocolText(value.phone)) &&
+    [0, 1].includes(value.status as number) &&
+    (value.last_login_at === null || seconds(value.last_login_at)) &&
+    typeof value.last_login_ip === "string" &&
+    seconds(value.created_time) &&
+    seconds(value.updated_time)
+  )
+}
+
+/** 校验 body 中的令牌对，opaque Token 不做 JWT 解码授权。 */
+export function isServiceAuthResult(value: unknown): value is ServiceAuthResult {
+  if (!isRecord(value) || !isRecord(value.token) || !isServiceAccount(value.account)) return false
+  const token = value.token
+  const opaque = (entry: unknown) =>
+    typeof entry === "string" &&
+    entry.length > 0 &&
+    entry.length <= 8192 &&
+    !/[^\x21-\x7e]/.test(entry)
+  return (
+    opaque(token.access_token) &&
+    opaque(token.refresh_token) &&
+    token.token_type === "Bearer" &&
+    seconds(token.expires_in) &&
+    token.expires_in > 0
+  )
+}
+
+/** 默认组织允许 null，但存在时必须保留完整组织 DTO。 */
+export function isServiceProfile(value: unknown): value is ServiceProfile {
+  if (!isRecord(value) || !isServiceAccount(value.account)) return false
+  const org = value.org
+  return (
+    org === null ||
+    (isRecord(org) &&
+      [org.id, org.name, org.owner_id].every(protocolText) &&
+      typeof org.is_default === "boolean" &&
+      seconds(org.created_time) &&
+      seconds(org.updated_time))
+  )
+}
+
+/** 公开操作不携带旧 Token，追踪标识只属于本次请求。 */
+export function authServiceHeaders(
+  operation: keyof typeof AUTH_OPERATIONS,
+  language: string,
+  requestId: string,
+  accessToken?: string
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    "X-Lang": language.toLowerCase().startsWith("zh") ? "zh" : "en",
+    "X-Request-Id": requestId
+  }
+  if (!["profile", "logout"].includes(operation)) headers["Content-Type"] = "application/json"
+  if (AUTH_OPERATIONS[operation].authenticated) {
+    if (!accessToken || accessToken.length > 8192 || /[^\x21-\x7e]/.test(accessToken))
+      throw new Error("invalid_auth_token")
+    headers.Authorization = "Bearer " + accessToken
+  }
+  return headers
+}

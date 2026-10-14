@@ -1,0 +1,381 @@
+import { protocolText, ServiceFailure } from "../foundationProtocol"
+import type { AuthContext, MockCredential } from "./contracts"
+import {
+  createMockVerification,
+  normalizeTarget,
+  type VerificationOptions,
+  type VerificationType
+} from "./mockVerification"
+import type { ServiceAccount, ServiceAuthResult, ServiceProfile } from "./serviceContract"
+
+/** 服务账号状态与公开 DTO 分离，密码与吊销版本不会出现在响应里。 */
+interface MockAccount {
+  dto: ServiceAccount
+  password: string
+  version: number
+  org: ServiceProfile["org"]
+  testMenu: boolean
+  memberships: AuthContext["organizations"]
+}
+/** 引用、令牌和时效分别保存在服务内存，不从持久引用恢复授权。 */
+interface MockSession {
+  credential: MockCredential
+  token: ServiceAuthResult["token"]
+  version: number
+  accessExpires: number
+  refreshExpires: number
+}
+/** 内存服务可被多个客户端显式共享；时钟与上限只用于确定性模拟。 */
+export interface MockBackendOptions extends Omit<VerificationOptions, "now"> {
+  now?: () => number
+  accessSeconds?: number
+  refreshSeconds?: number
+}
+
+/** 服务字段缺失或类型错误统一返回参数校验错误。 */
+function required(value: unknown, max = 128): string {
+  if (typeof value !== "string" || !value || value.length > max)
+    throw new ServiceFailure("common.validate.error", 400)
+  return value
+}
+/** 新密码规则与登录密码规则分开，保留固定演示账号入口。 */
+function newPassword(value: unknown): string {
+  const password = required(value, 64)
+  if (!/^(?=.*[A-Za-z])(?=.*[0-9]).{8,64}$/.test(password))
+    throw new ServiceFailure("common.validate.error", 400)
+  return password
+}
+
+/** 模拟服务端账号生命周期、令牌到期及版本吊销；不签发真实 JWT。 */
+export function createMockAuthBackend(options: MockBackendOptions = {}) {
+  const now = options.now ?? Date.now
+  const time = () => Math.floor(now() / 1000)
+  const accounts = new Map<string, MockAccount>()
+  const sessions = new Map<string, MockSession>()
+  const tokens = new Map<string, { session: MockSession; type: "access" | "refresh" }>()
+  const verification = createMockVerification({ ...options, now })
+  let accountSequence = 0n
+  let generation = 0
+  const accessSeconds = options.accessSeconds ?? 7200
+  const refreshSeconds = options.refreshSeconds ?? 604800
+  const organizations = [
+    { id: "workspace", name: "Example workspace" },
+    { id: "studio", name: "Example studio" }
+  ]
+
+  /** 固定演示账号沿用已有 UI 身份，仅服务 DTO 使用独立默认组织。 */
+  function addAccount(
+    id: string,
+    username: string,
+    email: string,
+    password: string,
+    phone: string | null,
+    nickname: string,
+    testMenu = false
+  ) {
+    const stamp = time()
+    const entry: MockAccount = {
+      dto: {
+        id,
+        username,
+        email,
+        phone,
+        nickname,
+        status: 1,
+        last_login_at: null,
+        last_login_ip: "",
+        created_time: stamp,
+        updated_time: stamp
+      },
+      password,
+      version: 0,
+      testMenu,
+      memberships:
+        id === "demo-user" || id === "test-user" ? organizations.map((org) => ({ ...org })) : [],
+      org: {
+        id: "org-" + id,
+        name: nickname + "的组织",
+        owner_id: id,
+        is_default: true,
+        created_time: stamp,
+        updated_time: stamp
+      }
+    }
+    accounts.set(id, entry)
+    return entry
+  }
+  addAccount("demo-user", "demo", "demo@example.invalid", "demo-password", null, "demo")
+  addAccount("test-user", "test", "test@example.invalid", "test-password", null, "test", true)
+
+  /** 每次签发保留版本与有效期，使未采用的旧引用也受账号版本约束。 */
+  function issue(
+    entry: MockAccount,
+    organizationId: string | null = entry.memberships[0]?.id ?? null
+  ) {
+    const sessionId = crypto.randomUUID()
+    const credential: MockCredential = {
+      kind: "mock",
+      sessionId,
+      accountId: entry.dto.id,
+      organizationId
+    }
+    const token = {
+      access_token: "mock-access-" + crypto.randomUUID(),
+      refresh_token: "mock-refresh-" + crypto.randomUUID(),
+      token_type: "Bearer" as const,
+      expires_in: accessSeconds
+    }
+    const session = {
+      credential,
+      token,
+      version: entry.version,
+      accessExpires: time() + accessSeconds,
+      refreshExpires: time() + refreshSeconds
+    }
+    sessions.set(sessionId, session)
+    tokens.set(token.access_token, { session, type: "access" })
+    tokens.set(token.refresh_token, { session, type: "refresh" })
+    return credential
+  }
+  /** 令牌类型、时效、账号存在与吊销版本分别校验。 */
+  function authenticate(raw: unknown, expected: "access" | "refresh") {
+    const token = required(raw, 8192)
+    const match = /^mock-(access|refresh)-(.+)$/.exec(token)
+    if (!match) throw new ServiceFailure("auth.token.invalid", 401)
+    if (match[1] !== expected) throw new ServiceFailure("auth.token.wrong.type", 401)
+    const stored = tokens.get(token)
+    if (!stored || stored.type !== expected) throw new ServiceFailure("auth.token.invalid", 401)
+    const session = stored.session
+    const { credential } = session
+    const entry = accounts.get(credential.accountId)
+    if (!entry) throw new ServiceFailure("auth.account.not.found", 401)
+    if (session.version !== entry.version || !sessions.has(credential.sessionId))
+      throw new ServiceFailure("auth.token.revoked", 401)
+    if ((expected === "access" ? session.accessExpires : session.refreshExpires) <= time())
+      throw new ServiceFailure("auth.token.expired", 401)
+    if (entry.dto.status === 0) throw new ServiceFailure("auth.account.disabled", 403)
+    return { entry, credential }
+  }
+  /** 将单个签发结果投影为来源 TokenPair，不暴露版本或密码。 */
+  function result(credential: MockCredential, entry: MockAccount): ServiceAuthResult {
+    return {
+      token: { ...sessions.get(credential.sessionId)!.token },
+      account: { ...entry.dto }
+    }
+  }
+  /** 引用仅定位既存服务记录；存储中的组织不是授权来源。 */
+  function reference(credential: MockCredential): MockSession {
+    const session = sessions.get(credential.sessionId)
+    if (!session || session.credential.accountId !== credential.accountId)
+      throw new ServiceFailure("auth.token.revoked", 401)
+    return session
+  }
+  /** 从当前凭据识别账号，不接受目标账号 ID。 */
+  function access(token: unknown) {
+    return authenticate(token, "access")
+  }
+  /** 邮箱和手机查找只使用归一化后的目标。 */
+  function findTarget(target: string, type: VerificationType) {
+    return [...accounts.values()].find(
+      (entry) => entry.dto[type === "email" ? "email" : "phone"] === target
+    )
+  }
+  /** 账号禁用属于服务端决定，不能由客户端权限推断。 */
+  function enabled(entry: MockAccount) {
+    if (entry.dto.status === 0) throw new ServiceFailure("auth.account.disabled", 403)
+  }
+  return {
+    /** 代次用于拒绝重置前的在途请求与迟到响应。 */
+    get generation() {
+      return generation
+    },
+    /** 显式重置模拟服务；所有引用、令牌、临时账号及验证码均失效。 */
+    reset() {
+      generation++
+      accounts.clear()
+      sessions.clear()
+      tokens.clear()
+      verification.reset()
+      accountSequence = 0n
+      addAccount("demo-user", "demo", "demo@example.invalid", "demo-password", null, "demo")
+      addAccount("test-user", "test", "test@example.invalid", "test-password", null, "test", true)
+    },
+    /** 只向内存客户端适配器提供令牌，未登记引用不能推导令牌。 */
+    sessionTokens(credential: MockCredential) {
+      return { ...reference(credential).token }
+    },
+    /** 原始令牌报文校验后，按服务记录取回独立引用。 */
+    credentialForResult(value: ServiceAuthResult): MockCredential {
+      const stored = tokens.get(value.token.access_token)
+      if (
+        !stored ||
+        stored.type !== "access" ||
+        stored.session.token.refresh_token !== value.token.refresh_token ||
+        stored.session.credential.accountId !== value.account.id ||
+        !sessions.has(stored.session.credential.sessionId)
+      )
+        throw new ServiceFailure("invalid_service_response", 200)
+      authenticate(value.token.access_token, "access")
+      return { ...stored.session.credential }
+    },
+    /** 验证码发送支持邮箱、手机以及独立的注册/找回场景。 */
+    sendCode(body: Record<string, unknown>) {
+      const target = normalizeTarget(body.target, body.target_type)
+      const scene = body.scene === "" || body.scene === undefined ? "register" : body.scene
+      if (typeof scene !== "string" || scene.length > 32)
+        throw new ServiceFailure("common.validate.error", 400)
+      if (scene !== "register" && scene !== "reset_password")
+        throw new ServiceFailure("verification.scene.unsupported", 400)
+      const type = body.target_type as VerificationType
+      if (scene === "reset_password" && !findTarget(target, type))
+        throw new ServiceFailure("verification.target.not.registered", 404)
+      return verification.send(target, type, scene)
+    },
+    /** 先验证后查重，正确码只在账号与默认组织原子建立时消费。 */
+    register(body: Record<string, unknown>) {
+      const username = required(body.username, 32)
+      if (!/^[A-Za-z0-9_-]{3,32}$/.test(username))
+        throw new ServiceFailure("common.validate.error", 400)
+      let email: string
+      try {
+        email = normalizeTarget(body.email, "email")
+      } catch {
+        throw new ServiceFailure("common.validate.error", 400)
+      }
+      const password = newPassword(body.password)
+      let phone: string | null = null
+      if (body.phone !== undefined) {
+        try {
+          phone = normalizeTarget(body.phone, "phone")
+        } catch {
+          throw new ServiceFailure("common.validate.error", 400)
+        }
+      }
+      const nickname =
+        body.nickname === undefined || body.nickname === "" ? username : required(body.nickname, 64)
+      if (!protocolText(nickname)) throw new ServiceFailure("common.validate.error", 400)
+      const type = body.code_type === "" || body.code_type === undefined ? "email" : body.code_type
+      if (type !== "email" && type !== "phone")
+        throw new ServiceFailure("common.validate.error", 400)
+      if (type === "phone" && !phone) throw new ServiceFailure("verification.target.missing", 400)
+      const target = type === "phone" ? phone! : email
+      verification.verify(target, type, "register", body.code)
+      for (const entry of accounts.values()) {
+        if (entry.dto.username === username)
+          throw new ServiceFailure("account.username.exists", 409)
+        if (entry.dto.email === email) throw new ServiceFailure("account.email.exists", 409)
+        if (phone && entry.dto.phone === phone)
+          throw new ServiceFailure("account.phone.exists", 409)
+      }
+      verification.verify(target, type, "register", body.code, true)
+      const id = String(2108046372081659904n + accountSequence++)
+      return { ...addAccount(id, username, email, password, phone, nickname).dto }
+    },
+    /** 登录才更新最近登录字段；未知账号与错误密码返回相同错误。 */
+    login(body: Record<string, unknown>) {
+      const name = required(body.account)
+      const password = required(body.password, 64)
+      const entry = [...accounts.values()].find(
+        (item) => item.dto.username === name || item.dto.email === name.trim().toLowerCase()
+      )
+      if (!entry || entry.password !== password)
+        throw new ServiceFailure("auth.password.wrong", 401)
+      enabled(entry)
+      entry.dto.last_login_at = time()
+      entry.dto.last_login_ip = ""
+      return result(issue(entry), entry)
+    },
+    /** 刷新独立验证 refresh 类型，不使用旧 access，也不承诺一次性令牌。 */
+    refresh(body: Record<string, unknown>) {
+      const { entry, credential } = authenticate(body.refresh_token, "refresh")
+      return result(issue(entry, credential.organizationId), entry)
+    },
+    /** 当前账号和默认组织保持稳定时间，不混入 UI 当前组织或权限。 */
+    profile(token: unknown): ServiceProfile {
+      const { entry } = access(token)
+      return { account: { ...entry.dto }, org: entry.org ? { ...entry.org } : null }
+    },
+    /** 验证码找回成功吊销该账号全部令牌，保持不自动登录。 */
+    resetPassword(body: Record<string, unknown>) {
+      const target = normalizeTarget(body.target, body.target_type)
+      const password = newPassword(body.new_password)
+      const type = body.target_type as VerificationType
+      const entry = findTarget(target, type)
+      if (!entry) throw new ServiceFailure("verification.target.not.registered", 404)
+      enabled(entry)
+      verification.verify(target, type, "reset_password", body.code, true)
+      entry.password = password
+      entry.version++
+      entry.dto.updated_time = time()
+    },
+    /** 原密码错误保留会话；成功修改后提升账号吊销版本。 */
+    changePassword(token: unknown, body: Record<string, unknown>) {
+      const { entry } = access(token)
+      const oldPassword = required(body.old_password, 64)
+      const password = newPassword(body.new_password)
+      if (entry.password !== oldPassword) throw new ServiceFailure("auth.old.password.wrong", 400)
+      entry.password = password
+      entry.version++
+      entry.dto.updated_time = time()
+    },
+    /** 全账号吊销包含其他客户端和未采用的合法旧引用。 */
+    logout(token: unknown) {
+      access(token).entry.version++
+    },
+    /** 仅释放当前临时签发，不提升账号版本。 */
+    discard(credential: MockCredential) {
+      const session = sessions.get(credential.sessionId)
+      if (session?.credential.accountId === credential.accountId)
+        sessions.delete(credential.sessionId)
+    },
+    /** 冷恢复与普通校验均只采用服务记录中的当前组织。 */
+    validate(credential: MockCredential): MockCredential {
+      const current = access(reference(credential).token.access_token)
+      return { ...current.credential }
+    },
+    /** UI 组织与能力完全独立于服务默认组织。 */
+    context(credential: MockCredential): AuthContext {
+      const current = this.validate(credential)
+      const entry = accounts.get(current.accountId)!
+      return {
+        user: {
+          id: entry.dto.id,
+          username: entry.dto.username,
+          displayName: entry.dto.nickname,
+          email: entry.dto.email
+        },
+        organizations: entry.memberships.map((org) => ({ ...org })),
+        currentOrganization:
+          entry.memberships.find((org) => org.id === current.organizationId) ?? null,
+        capabilities:
+          current.organizationId === null
+            ? []
+            : [
+                "workspace",
+                "account",
+                "switch-organization",
+                ...(entry.testMenu && current.organizationId === "workspace"
+                  ? ["test-menu" as const]
+                  : [])
+              ]
+      }
+    },
+    /** 组织切换只改变内存扩展，令牌对和服务默认组织保持各自含义。 */
+    switchOrganization(credential: MockCredential, organizationId: string) {
+      const current = this.validate(credential)
+      if (!accounts.get(current.accountId)!.memberships.some((org) => org.id === organizationId))
+        throw new ServiceFailure("mock.organization.unavailable", 400)
+      const next = { ...current, organizationId }
+      reference(credential).credential = next
+      return { ...next }
+    },
+    /** 故障注入只属于受控 Mock 服务，不是业务接口。 */
+    setAccountStatus(accountId: string, status: 0 | 1) {
+      const entry = accounts.get(accountId)
+      if (entry) entry.dto.status = status
+    }
+  }
+}
+
+/** 多个 Mock 客户端共享同一实例才能模拟同一服务端状态。 */
+export type MockAuthBackend = ReturnType<typeof createMockAuthBackend>

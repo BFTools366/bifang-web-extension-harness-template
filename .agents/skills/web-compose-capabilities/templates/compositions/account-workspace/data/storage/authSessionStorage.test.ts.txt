@@ -1,0 +1,121 @@
+import { expect, test } from "vitest"
+import { createAuthSessionStorage, AUTH_STORAGE_KEY } from "./authSessionStorage"
+import { memoryAuthStorage } from "../../features/auth/authTestFixtures"
+
+const credential = {
+  kind: "mock",
+  sessionId: "demo-session",
+  accountId: "demo-user",
+  organizationId: "workspace"
+} as const
+
+/** 凭据记录只包含最小演示作用域，保留无关偏好并核实精确删除。 */
+test("saves a scoped reference and removes only the auth record", async () => {
+  const backend = memoryAuthStorage()
+  backend.setItem("appearance", "dark")
+  const store = createAuthSessionStorage(
+    () => backend,
+    async (_name, work) => work()
+  )
+  const saved = await store.commit(null, credential)
+  expect(store.read()).toEqual(saved)
+  expect(JSON.parse(saved.raw!)).toEqual({
+    version: 1,
+    revision: expect.any(String),
+    credential
+  })
+  expect(AUTH_STORAGE_KEY).toContain(":auth:account-workspace:test:mock:v1")
+  await store.commit(saved.raw, null)
+  expect(store.read().credential).toBeNull()
+  expect(backend.getItem("appearance")).toBe("dark")
+})
+
+/** 损坏、越界和额外敏感字段从不被接纳为会话。 */
+test("rejects malformed records and snapshots", () => {
+  const backend = memoryAuthStorage()
+  const store = createAuthSessionStorage(() => backend)
+  for (const value of [
+    "{",
+    JSON.stringify({ version: 1, credential }),
+    JSON.stringify({
+      version: 1,
+      revision: "ok",
+      credential: { ...credential, password: "private" }
+    }),
+    "x".repeat(1025)
+  ]) {
+    backend.setItem(store.key, value)
+    expect(store.read()).toEqual({ raw: value, credential: null })
+  }
+})
+
+/** 同作用域 A→B→A 仍有新修订，旧写入不能跨过 ABA 变化。 */
+test("rejects stale commits including ABA changes", async () => {
+  const backend = memoryAuthStorage()
+  const store = createAuthSessionStorage(
+    () => backend,
+    async (_name, work) => work()
+  )
+  const a = await store.commit(null, credential)
+  const b = await store.commit(a.raw, { ...credential, organizationId: "studio" })
+  const nextA = await store.commit(b.raw, credential)
+  expect(nextA.raw).not.toBe(a.raw)
+  await expect(store.commit(a.raw, null)).rejects.toMatchObject({ code: "sessionConflict" })
+  expect(store.read()).toEqual(nextA)
+})
+
+/** 读取和写入被拒绝时返回关键错误，不虚报持久化成功。 */
+test("reports denied storage and ineffective writes", async () => {
+  const unavailable = createAuthSessionStorage(
+    () => undefined,
+    async (_name, work) => work()
+  )
+  expect(() => unavailable.read()).toThrow("storageUnavailable")
+  await expect(unavailable.commit(null, credential)).rejects.toMatchObject({
+    code: "storageUnavailable"
+  })
+  const backend = memoryAuthStorage()
+  backend.setItem = () => undefined
+  const store = createAuthSessionStorage(
+    () => backend,
+    async (_name, work) => work()
+  )
+  await expect(store.commit(null, credential)).rejects.toMatchObject({
+    code: "storageUnavailable"
+  })
+})
+
+/** 锁等待期间被退出取代的操作不能写入任何记录。 */
+test("checks generation inside the write lock", async () => {
+  const backend = memoryAuthStorage()
+  let release: (() => void) | undefined
+  const wait = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let current = true
+  const store = createAuthSessionStorage(
+    () => backend,
+    async (_name, work) => {
+      await wait
+      return work()
+    }
+  )
+  const pending = store.commit(null, credential, () => current)
+  current = false
+  release!()
+  await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+  expect(store.read().raw).toBeNull()
+})
+
+/** 解析损坏项保留首次读取的原值，不重读并误删其他标签页的新记录。 */
+test("keeps the original malformed record for exact cleanup", () => {
+  const backend = memoryAuthStorage()
+  let reads = 0
+  backend.getItem = () => (++reads === 1 ? "{" : "new-record")
+  const storage = createAuthSessionStorage(
+    () => backend,
+    async (_name, work) => work()
+  )
+  expect(storage.read()).toEqual({ raw: "{", credential: null })
+  expect(reads).toBe(1)
+})

@@ -42,3 +42,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 不自动追加构建、E2E 或完整验收。真实服务、CORS、登录导航、权限或浏览器场景未执行时标为 `Unverified`；候选或硬要求返回调用方处理。
 
 逐环境、逐远端服务报告当前 Mock/HTTP 模式、修改文件、域契约、检查和测试、实际联网证据、剩余远端 API Mock、未验证项及后续门禁。本地实现单独按真实行为报告，不计入待接入服务。配置成功、Mock 测试或 HTTP 替身测试不等于真实服务可达。
+
+## 协议与Mock参考
+
+按需参考 [账户组合的API与Mock](../web-compose-capabilities/templates/compositions/account-workspace/README.md)：原始请求快照、Header、REST/GraphQL解析、领域投影和内存服务分层。模板协议仅属于已采用参考合同，真实接入仍逐操作核对。

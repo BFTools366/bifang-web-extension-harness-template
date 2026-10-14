@@ -1,0 +1,130 @@
+import { Avatar, Menu, Text, UnstyledButton } from "@mantine/core"
+import { Link } from "@tanstack/react-router"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { useAuth } from "../auth/AuthProvider"
+import { canAccess } from "../auth/access"
+import { ClientIcon } from "./ClientIcon"
+import { OrganizationSwitcher } from "./OrganizationSwitcher"
+import classes from "./client.module.css"
+
+/** 右上角菜单集中账号、组织、语言、外观和退出，真实可用能力决定入口。 */
+export function AccountMenu({
+  onPreferences
+}: {
+  onPreferences: (trigger: HTMLElement | null) => void
+}) {
+  const { t, i18n } = useTranslation()
+  const { context, state, session } = useAuth()
+  const [switchOpened, setSwitchOpened] = useState(false)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const switchWasOpened = useRef(false)
+  const focusPending = useRef(false)
+  const closeSwitch = useCallback(() => setSwitchOpened(false), [])
+  const restoreFocus = useCallback(() => {
+    if (!switchWasOpened.current) return
+    switchWasOpened.current = false
+    focusPending.current = true
+    if (trigger.current) {
+      trigger.current.focus()
+      focusPending.current = false
+    }
+  }, [])
+  useEffect(() => {
+    if (state.phase === "ready" && focusPending.current && trigger.current) {
+      trigger.current.focus()
+      focusPending.current = false
+    }
+  }, [state.phase])
+  const canSwitch =
+    canAccess(context, "switch-organization") && (context?.organizations.length ?? 0) > 1
+  const organization = context?.currentOrganization?.name ?? t("auth.states.noOrganization")
+  return (
+    <>
+      {context && (
+        <Menu position="bottom-end" withinPortal width="min(22rem, calc(100vw - 2rem))" offset={8}>
+          <Menu.Target>
+            <UnstyledButton
+              ref={trigger}
+              className={classes.accountMenu}
+              aria-label={t("auth.accountMenu")}
+            >
+              <Avatar color="brand" radius="xl" size="sm">
+                {context.user.displayName.slice(0, 1)}
+              </Avatar>
+              <Text fw={600} className={classes.accountName}>
+                {context.user.displayName}
+              </Text>
+              <ClientIcon name="chevron" size={18} />
+            </UnstyledButton>
+          </Menu.Target>
+          <Menu.Dropdown className={classes.accountDropdown}>
+            <Menu.Label>{t("client.account")}</Menu.Label>
+            {canSwitch ? (
+              <Menu.Item
+                aria-label={t("auth.switchOrganization")}
+                leftSection={<ClientIcon name="organization" />}
+                rightSection={
+                  <Text size="sm" c="dimmed" className={classes.menuValue}>
+                    {organization}
+                  </Text>
+                }
+                onClick={() => {
+                  switchWasOpened.current = true
+                  setSwitchOpened(true)
+                }}
+              >
+                {t("client.currentOrganization")}
+              </Menu.Item>
+            ) : (
+              <Menu.Label>{organization}</Menu.Label>
+            )}
+            <Menu.Divider />
+            <Menu.Item
+              leftSection={<ClientIcon name="language" />}
+              rightSection={
+                <Text size="sm" c="dimmed">
+                  {i18n.resolvedLanguage?.startsWith("zh") ? "简体中文" : "English"}
+                </Text>
+              }
+              onClick={() => onPreferences(trigger.current)}
+            >
+              {t("client.language")}
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<ClientIcon name="settings" />}
+              onClick={() => onPreferences(trigger.current)}
+            >
+              {t("client.appearance")}
+            </Menu.Item>
+            {canAccess(context, "account") && (
+              <Menu.Item
+                component={Link}
+                to="/app/account"
+                leftSection={<ClientIcon name="account" />}
+              >
+                {t("client.accountSettings")}
+              </Menu.Item>
+            )}
+            <Menu.Divider />
+            <Menu.Item
+              color="red"
+              leftSection={<ClientIcon name="logout" />}
+              onClick={() => {
+                void session.logout()
+              }}
+            >
+              {t("auth.logout")}
+            </Menu.Item>
+          </Menu.Dropdown>
+        </Menu>
+      )}
+      <OrganizationSwitcher
+        opened={switchOpened}
+        onClose={closeSwitch}
+        returnFocus={false}
+        onExited={restoreFocus}
+      />
+    </>
+  )
+}

@@ -1,0 +1,439 @@
+import { expect, test, vi } from "vitest"
+import { createMockService } from "./mockAuth"
+import { createMockAuthBackend } from "./mockAuthBackend"
+import { ACCOUNT_QUERY } from "./mockGraphql"
+import type { MockServiceExchange } from "./mockAuthService"
+
+const signal = new AbortController().signal
+/** 从受控内存响应读取已知测试形状，不绕过产品运行时校验。 */
+function data(result: MockServiceExchange) {
+  return (result.response as { data: Record<string, unknown> }).data
+}
+/** 只提取稳定码作断言，绝不以消息文本判断结果。 */
+function code(result: MockServiceExchange) {
+  return (result.response as { errors: { datas: { code: string }[] } }).errors.datas[0]!.code
+}
+
+/** 真实存活、系统健康和 GraphQL 健康共享来源服务信息，全程零网络。 */
+test("exposes text liveness and consistent REST/GraphQL health", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch")
+  const service = createMockService({
+    delayMs: 0,
+    configured: () => false,
+    health: { available: true, name: "fixture-service", version: "1.0.0", env: "test" }
+  })
+  expect(await service.healthz(signal)).toBe("ok")
+  const health = await service.healthCheck(signal)
+  expect(health).toMatchObject({ name: "fixture-service", env: "test" })
+  const query = await service.request(
+    { method: "POST", path: "/graphql", body: { query: "{ health { name env } }" } },
+    signal
+  )
+  expect(query.response).toEqual({
+    data: { health: { name: health.name, env: health.env } }
+  })
+  expect(query.response).not.toHaveProperty("request_id")
+  expect(fetch).not.toHaveBeenCalled()
+  fetch.mockRestore()
+})
+
+/** 响应追踪头与 REST JSON 一致，语言优先级、404/405 和匿名隔离均可观察。 */
+test("echoes response headers and preserves route/method errors", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const response = await service.request(
+    {
+      method: "GET",
+      path: "/api/v1/system/health-check?lang=zh",
+      headers: {
+        "x-request-id": "request-fixture",
+        "x-lang": "en",
+        "Accept-Language": "zh"
+      }
+    },
+    signal
+  )
+  expect(response.responseHeaders).toMatchObject({
+    "Content-Type": "application/json",
+    "Content-Language": "en",
+    "X-Request-Id": "request-fixture",
+    Vary: expect.stringContaining("X-Lang")
+  })
+  expect(response.response).toHaveProperty("request_id", "request-fixture")
+  expect(code(await service.request({ method: "POST", path: "/missing" }, signal))).toBe(
+    "common.route.not.found"
+  )
+  expect(code(await service.request({ method: "GET", path: "/api/v1/auth/login" }, signal))).toBe(
+    "common.method.not.allowed"
+  )
+  expect(
+    code(await service.request({ method: "POST", path: "/api/v1/auth/login", body: [] }, signal))
+  ).toBe("common.validate.error")
+  const publicLogin = await service.request(
+    {
+      method: "POST",
+      path: "/api/v1/auth/login",
+      headers: { Authorization: "Bearer invalid-old-token" },
+      body: { account: "demo", password: "demo-password" }
+    },
+    signal
+  )
+  expect(publicLogin.status).toBe(200)
+})
+
+/** 刷新可在 access 到期后执行，类型与 refresh 自身的期限分别检查。 */
+test("refreshes expired access without bearer and enforces token type and expiry", async () => {
+  let now = 0
+  const exchanges: MockServiceExchange[] = []
+  const service = createMockService({
+    delayMs: 0,
+    configured: () => false,
+    now: () => now,
+    accessSeconds: 2,
+    refreshSeconds: 10,
+    observeExchange: (exchange) => exchanges.push(exchange)
+  })
+  const credential = await service.api.login("demo", "demo-password", signal)
+  const access = (data(exchanges[0]!).token as { access_token: string }).access_token
+  const refresh = (data(exchanges[0]!).token as { refresh_token: string }).refresh_token
+  const wrong = await service.request(
+    { method: "POST", path: "/api/v1/auth/refresh", body: { refresh_token: access } },
+    signal
+  )
+  expect(wrong.status).toBe(401)
+  expect(code(wrong)).toBe("auth.token.wrong.type")
+  now = 2000
+  await expect(service.api.validateSession(credential, signal)).rejects.toMatchObject({
+    serviceCode: "auth.token.expired"
+  })
+  const next = await service.api.refresh(credential, signal)
+  const exchange = exchanges.findLast((entry) => entry.request.path === "/api/v1/auth/refresh")!
+  expect(exchange.request.headers).not.toHaveProperty("Authorization")
+  expect(exchange.request.body).toEqual({ refresh_token: refresh })
+  expect(next.sessionId).not.toBe(credential.sessionId)
+  await expect(service.api.validateSession(next, signal)).resolves.toMatchObject({
+    accountId: credential.accountId
+  })
+  now = 10000
+  const expired = await service.request(
+    { method: "POST", path: "/api/v1/auth/refresh", body: { refresh_token: refresh } },
+    signal
+  )
+  expect(code(expired)).toBe("auth.token.expired")
+  const tampered = refresh + "tampered"
+  expect(
+    code(
+      await service.request(
+        { method: "POST", path: "/api/v1/auth/refresh", body: { refresh_token: tampered } },
+        signal
+      )
+    )
+  ).toBe("auth.token.invalid")
+})
+
+/** 共享服务态的多个客户端统一吊销，未采用引用也不能越过账号版本。 */
+test("revokes all tokens across clients without affecting unpublished-session cleanup", async () => {
+  const backend = createMockAuthBackend({ now: () => 0 })
+  const first = createMockService({ backend, delayMs: 0, configured: () => false })
+  const other = createMockService({ backend, delayMs: 0, configured: () => false })
+  const a = await first.api.login("demo", "demo-password", signal)
+  const b = await other.api.login("demo", "demo-password", signal)
+  const temporary = await first.api.login("demo", "demo-password", signal)
+  first.api.discardUnpublishedSession!(temporary)
+  await expect(other.api.validateSession(b, signal)).resolves.toMatchObject({
+    accountId: "demo-user"
+  })
+  await first.api.logout(a, signal)
+  await expect(other.api.refresh(b, signal)).rejects.toMatchObject({
+    serviceCode: "auth.token.revoked"
+  })
+  // 构造尚未被 adopt 的同版本引用，版本校验仍必须拒绝。
+  const unseen = {
+    ...b,
+    sessionId: b.sessionId.replace(/[a-f0-9-]{36}$/, "00000000-0000-4000-8000-000000000001")
+  }
+  await expect(other.api.validateSession(unseen, signal)).rejects.toMatchObject({
+    serviceCode: "auth.token.revoked"
+  })
+  await expect(first.api.logout(a, signal)).rejects.toMatchObject({
+    serviceCode: "auth.token.revoked"
+  })
+})
+
+/** 原密码错为400且保留会话；成功改密吊销访问与刷新，不能自动登录。 */
+test("changes passwords with account-wide revocation and stable account times", async () => {
+  let now = 1000
+  const service = createMockService({ delayMs: 0, configured: () => false, now: () => now })
+  const first = await service.api.login("demo", "demo-password", signal)
+  const original = (await service.profile(first, signal)).data
+  now = 5000
+  expect((await service.profile(first, signal)).data).toEqual(original)
+  await expect(
+    service.api.changePassword(first, "wrong", "Changed123", signal)
+  ).rejects.toMatchObject({
+    serviceCode: "auth.old.password.wrong",
+    status: 400,
+    kind: "input"
+  })
+  await expect(service.api.validateSession(first, signal)).resolves.toMatchObject(first)
+  const other = await service.api.login("demo", "demo-password", signal)
+  await service.api.changePassword(first, "demo-password", "Changed123", signal)
+  await expect(service.api.refresh(other, signal)).rejects.toMatchObject({
+    serviceCode: "auth.token.revoked"
+  })
+  await expect(service.api.login("demo", "demo-password", signal)).rejects.toMatchObject({
+    serviceCode: "auth.password.wrong"
+  })
+  const next = await service.api.login("demo", "Changed123", signal)
+  const updated = (await service.profile(next, signal)).data
+  expect(updated.account).toMatchObject({
+    created_time: original.account.created_time,
+    updated_time: 5,
+    last_login_at: 5
+  })
+  expect(updated.org).toEqual(original.org)
+})
+
+/** 手机归一化、昵称、默认组织与字符串ID完整；查重失败不消耗正确码。 */
+test("registers by phone and preserves codes through uniqueness conflicts", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const sent = await service.request(
+    {
+      method: "POST",
+      path: "/api/v1/auth/verification-code",
+      body: { target: "+86 138.0013.8000", target_type: "phone" }
+    },
+    signal
+  )
+  const input = {
+    username: "demo",
+    email: "Phone@Example.invalid",
+    phone: "+86 (138)-0013.8000",
+    nickname: "虚构昵称",
+    password: "Example123",
+    code_type: "phone",
+    code: data(sent).code
+  }
+  expect(
+    code(
+      await service.request({ method: "POST", path: "/api/v1/auth/register", body: input }, signal)
+    )
+  ).toBe("account.username.exists")
+  const created = await service.request(
+    {
+      method: "POST",
+      path: "/api/v1/auth/register",
+      body: { ...input, username: "phone_user" }
+    },
+    signal
+  )
+  expect(created.status).toBe(200)
+  expect(data(created)).toMatchObject({
+    id: expect.stringMatching(/^[0-9]{19}$/),
+    email: "phone@example.invalid",
+    phone: "+8613800138000",
+    nickname: "虚构昵称",
+    last_login_at: null
+  })
+  expect(data(created)).not.toHaveProperty("token")
+  const credential = await service.api.login("phone_user", "Example123", signal)
+  expect((await service.profile(credential, signal)).data.org).toMatchObject({
+    name: "虚构昵称的组织",
+    owner_id: data(created).id,
+    is_default: true
+  })
+  const reset = await service.request(
+    {
+      method: "POST",
+      path: "/api/v1/auth/verification-code",
+      body: { target: "+8613800138000", target_type: "phone", scene: "reset_password" }
+    },
+    signal
+  )
+  await service.request(
+    {
+      method: "POST",
+      path: "/api/v1/auth/password/reset",
+      body: {
+        target: "+8613800138000",
+        target_type: "phone",
+        code: data(reset).code,
+        new_password: "Changed123"
+      }
+    },
+    signal
+  )
+  await expect(service.api.validateSession(credential, signal)).rejects.toMatchObject({
+    serviceCode: "auth.token.revoked"
+  })
+})
+
+/** 错误次数/每日上限是显式 Mock 控制值，目标与场景仍隔离。 */
+test("enforces attempts, required codes, scene validation and daily windows", async () => {
+  let now = 0
+  const service = createMockService({
+    delayMs: 0,
+    configured: () => false,
+    now: () => now,
+    maxAttempts: 2,
+    dailyLimit: 1
+  })
+  await service.api.sendCode("new@example.invalid", "register", signal)
+  const input = {
+    username: "new_user",
+    email: "new@example.invalid",
+    password: "Example123",
+    code: ""
+  }
+  await expect(service.api.register(input, signal)).rejects.toMatchObject({
+    serviceCode: "verification.code.required"
+  })
+  await expect(service.api.register({ ...input, code: "000000" }, signal)).rejects.toMatchObject({
+    serviceCode: "verification.code.invalid"
+  })
+  await expect(service.api.register({ ...input, code: "000000" }, signal)).rejects.toMatchObject({
+    serviceCode: "verification.code.attempts.exceeded",
+    status: 429
+  })
+  await expect(service.api.register({ ...input, code: "246810" }, signal)).rejects.toMatchObject({
+    serviceCode: "verification.code.attempts.exceeded"
+  })
+  now = 60_000
+  await expect(service.api.sendCode(input.email, "register", signal)).rejects.toMatchObject({
+    serviceCode: "verification.code.daily.limit"
+  })
+  const badScene = await service.request(
+    {
+      method: "POST",
+      path: "/api/v1/auth/verification-code",
+      body: { target: input.email, target_type: "email", scene: "login" }
+    },
+    signal
+  )
+  expect(code(badScene)).toBe("verification.scene.unsupported")
+  now = 86_400_001
+  expect(await service.api.sendCode(input.email, "register", signal)).toMatchObject({
+    retryAfterSeconds: 60
+  })
+})
+
+/** 鉴权错误精确区分missing、malformed、invalid、wrong.type与disabled。 */
+test("distinguishes bearer failures and disabled accounts", async () => {
+  const backend = createMockAuthBackend()
+  const service = createMockService({ backend, delayMs: 0, configured: () => false })
+  const credential = await service.api.login("demo", "demo-password", signal)
+  for (const [authorization, expected] of [
+    [undefined, "auth.token.missing"],
+    ["Basic invalid", "auth.token.malformed"],
+    ["Bearer invalid", "auth.token.invalid"],
+    ["Bearer mock-refresh-" + credential.sessionId, "auth.token.wrong.type"]
+  ] as const) {
+    const response = await service.request(
+      {
+        method: "GET",
+        path: "/api/v1/auth/profile",
+        headers: authorization ? { authorization } : {}
+      },
+      signal
+    )
+    expect(response.status).toBe(401)
+    expect(code(response)).toBe(expected)
+  }
+  backend.setAccountStatus("demo-user", 0)
+  await expect(service.api.validateSession(credential, signal)).rejects.toMatchObject({
+    serviceCode: "auth.account.disabled",
+    status: 403
+  })
+  await expect(service.api.login("demo", "demo-password", signal)).rejects.toMatchObject({
+    serviceCode: "auth.account.disabled"
+  })
+})
+
+/** GraphQL只读投影、别名和null传播独立于REST协议。 */
+test("projects GraphQL fields and separates protocol errors from authentication", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const credential = await service.api.login("demo", "demo-password", signal)
+  const authorization = "Bearer " + service.backend.sessionTokens(credential).access_token
+  const projected = await service.request(
+    {
+      method: "POST",
+      path: "/graphql",
+      headers: { authorization },
+      body: { query: "query Example { mine: me { account { id label: nickname } } }" }
+    },
+    signal
+  )
+  expect(projected.response).toEqual({
+    data: { mine: { account: { id: credential.accountId, label: "demo" } } }
+  })
+  const invalid = await service.request(
+    {
+      method: "POST",
+      path: "/graphql",
+      body: { query: "{ health { name } me { account { id } } }" },
+      headers: { authorization: "Bearer invalid" }
+    },
+    signal
+  )
+  expect(invalid).toMatchObject({
+    status: 200,
+    response: { data: null, errors: [{ extensions: { code: "auth.token.missing" } }] }
+  })
+  for (const [query, expected] of [
+    ["{ me {", "GRAPHQL_PARSE_FAILED"],
+    ["{ me { account { phone } } }", "GRAPHQL_VALIDATION_FAILED"],
+    ["mutation { me { account { id } } }", "GRAPHQL_VALIDATION_FAILED"]
+  ]) {
+    const result = await service.request(
+      { method: "POST", path: "/graphql", body: { query } },
+      signal
+    )
+    expect(result).toMatchObject({
+      status: 422,
+      response: { errors: [{ extensions: { code: expected } }] }
+    })
+    expect(result.response).not.toHaveProperty("model")
+  }
+  const combined = await service.accountQuery(credential, signal)
+  expect(combined.me.account).not.toHaveProperty("phone")
+  expect(combined.me.org).not.toHaveProperty("owner_id")
+  const duplicate = await service.request(
+    {
+      method: "POST",
+      path: "/graphql",
+      headers: { authorization },
+      body: { query: "{ me { account { id } } me { account { username } } }" }
+    },
+    signal
+  )
+  expect(duplicate.response).toEqual({
+    data: { me: { account: { id: credential.accountId, username: "demo" } } }
+  })
+  const conflict = await service.request(
+    {
+      method: "POST",
+      path: "/graphql",
+      headers: { authorization },
+      body: { query: "{ me { account { x:id } } me { account { x:username } } }" }
+    },
+    signal
+  )
+  expect(conflict).toMatchObject({
+    status: 422,
+    response: { errors: [{ extensions: { code: "GRAPHQL_VALIDATION_FAILED" } }] }
+  })
+  const exchanges: MockServiceExchange[] = []
+  const consumer = createMockService({
+    delayMs: 0,
+    configured: () => false,
+    observeExchange: (entry) => exchanges.push(entry)
+  })
+  const reference = await consumer.api.login("test", "test-password", signal)
+  expect((await consumer.api.getContext(reference, signal)).capabilities).toContain("test-menu")
+  expect(exchanges.at(-1)!.request.body).toEqual({ query: ACCOUNT_QUERY })
+  expect(exchanges.at(-1)!.request.headers["X-Request-Id"]).toBeTruthy()
+  await consumer.api.logout(reference, signal)
+  await expect(consumer.api.getContext(reference, signal)).rejects.toMatchObject({
+    kind: "invalid-session",
+    serviceCode: "auth.token.missing"
+  })
+})

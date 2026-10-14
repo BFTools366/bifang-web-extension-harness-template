@@ -1,0 +1,274 @@
+import { useOperationGuard } from "../auth/useOperationGuard"
+import {
+  ActionIcon,
+  Burger,
+  Anchor,
+  AppShell,
+  Button,
+  Group,
+  Image,
+  Stack,
+  Text,
+  Tooltip
+} from "@mantine/core"
+import { useElementSize, useMediaQuery } from "@mantine/hooks"
+import { Link, Outlet, useLocation, useNavigate, useRouter } from "@tanstack/react-router"
+import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import { BRAND } from "../../brand"
+import { BUILD_VERSION } from "../../buildVersion"
+import { useAuth } from "../auth/AuthProvider"
+import { canAccess, clientPage, clientPages } from "../auth/access"
+import { AuthStatePanel } from "../auth/AuthStatePanel"
+import { AccountMenu } from "./AccountMenu"
+import { ClientIcon } from "./ClientIcon"
+import { PreferencesDialog } from "./PreferencesDialog"
+import classes from "./client.module.css"
+
+/** 完整与收起侧栏共享同一导航合同，图标模式仍有可访问名称。 */
+function ClientNavigation({ compact = false }: { compact?: boolean }) {
+  const { t } = useTranslation()
+  const { context } = useAuth()
+  return (
+    <>
+      {clientPages
+        .filter((page) => canAccess(context, page.capability))
+        .map((page) => (
+          <Link
+            key={page.path}
+            className={classes.navLink}
+            to={page.path}
+            activeOptions={{ exact: true, includeSearch: false }}
+            aria-label={t(page.title)}
+            title={compact ? t(page.title) : undefined}
+          >
+            <ClientIcon name={page.capability === "account" ? "account" : "workspace"} />
+            {!compact && <span>{t(page.title)}</span>}
+          </Link>
+        ))}
+    </>
+  )
+}
+
+/** 全高侧栏、右侧工作台与账号菜单，不扩展未启用业务。 */
+export function ClientLayout() {
+  const desktop = useMediaQuery("(min-width: 48em)")
+  const capture = useOperationGuard()
+  const [mobileOpened, setMobileOpened] = useState(false)
+  const { t } = useTranslation()
+  const { context, state, session } = useAuth()
+  const navigate = useNavigate()
+  const router = useRouter()
+  const { pathname } = useLocation()
+  const { ref: headerRef, height: headerHeight } = useElementSize<HTMLDivElement>()
+  const [collapsed, setCollapsed] = useState(false)
+  const [preferencesOpened, setPreferencesOpened] = useState(false)
+  const preferenceTrigger = useRef<HTMLElement | null>(null)
+  const preferencesButton = useRef<HTMLButtonElement>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const currentPage = clientPage(pathname)
+  const page = currentPage?.title ?? "auth.states.denied"
+  const active = state.phase === "ready" || state.phase === "checking"
+  const denied =
+    state.phase === "ready" && !!currentPage && !canAccess(context, currentPage.capability)
+  useEffect(() => {
+    if (state.phase === "anonymous") void navigate({ to: "/login", replace: true })
+  }, [state.phase, navigate])
+  useEffect(() => {
+    if (denied) void navigate({ to: "/app/forbidden", replace: true })
+  }, [denied, navigate])
+
+  useEffect(() => {
+    setMobileOpened(false)
+  }, [pathname])
+
+  /** 保存持久入口而非已卸载的菜单项，弹窗关闭后恢复准确焦点。 */
+  function openPreferences(trigger: HTMLElement | null) {
+    preferenceTrigger.current = trigger
+    setPreferencesOpened(true)
+  }
+  return (
+    <AppShell
+      className={classes.clientShell}
+      layout="alt"
+      header={{ height: Math.max(headerHeight, 72) }}
+      navbar={{
+        width: { base: 248, sm: collapsed ? 76 : 248 },
+        breakpoint: "sm",
+        collapsed: { mobile: !mobileOpened }
+      }}
+      padding={{ base: "md", sm: "lg" }}
+    >
+      <a className={classes.skip} href="#main">
+        {t("client.skip")}
+      </a>
+      <AppShell.Header className={classes.shellHeader}>
+        <Stack ref={headerRef} gap="xs" px="lg" py="sm">
+          <Group justify="space-between" gap="sm" wrap="wrap">
+            <Burger
+              hiddenFrom="sm"
+              opened={mobileOpened}
+              onClick={() => setMobileOpened((value) => !value)}
+              aria-label={t("client.navigation")}
+              aria-expanded={mobileOpened}
+            />
+            <Text fw={600} className={classes.headerTitle}>
+              {t(page)}
+            </Text>
+            <Group gap="sm" wrap="wrap">
+              <Tooltip label={t("client.refresh")}>
+                <ActionIcon
+                  variant="default"
+                  size="lg"
+                  aria-label={t("client.refresh")}
+                  loading={refreshing}
+                  disabled={state.phase !== "ready"}
+                  onClick={async () => {
+                    if (refreshing) return
+                    const current = capture()
+                    setRefreshing(true)
+                    try {
+                      await router.invalidate({ sync: true })
+                    } finally {
+                      if (current()) setRefreshing(false)
+                    }
+                  }}
+                >
+                  <ClientIcon name="refresh" />
+                </ActionIcon>
+              </Tooltip>
+              <Tooltip label={t("client.preferences")}>
+                <ActionIcon
+                  ref={preferencesButton}
+                  variant="default"
+                  size="lg"
+                  aria-label={t("client.preferences")}
+                  onClick={(event) => openPreferences(event.currentTarget)}
+                >
+                  <ClientIcon name="settings" />
+                </ActionIcon>
+              </Tooltip>
+              <AccountMenu onPreferences={openPreferences} />
+              {!context && (
+                <Button
+                  variant="subtle"
+                  color="red"
+                  onClick={() => {
+                    void session.logout()
+                  }}
+                >
+                  {t("auth.logout")}
+                </Button>
+              )}
+            </Group>
+          </Group>
+        </Stack>
+      </AppShell.Header>
+      <AppShell.Navbar className={classes.shellSidebar} p="md" aria-label={t("client.sidebar")}>
+        <Anchor
+          component={Link}
+          to="/app/dashboard"
+          className={classes.brand}
+          underline="never"
+          aria-label={t("projectName")}
+        >
+          <Image src={BRAND.logoPath} w={40} h={40} alt="" />
+          {!collapsed && (
+            <div>
+              <Text fw={700} size="lg">
+                {t("projectName")}
+              </Text>
+              <Text size="xs" c="dimmed">
+                {t("client.clientLabel")}
+              </Text>
+            </div>
+          )}
+        </Anchor>
+        <nav className={classes.nav} aria-label={t("client.navigation")}>
+          <ClientNavigation compact={desktop && collapsed} />
+        </nav>
+        <div className={classes.sidebarBottom}>
+          <Group justify={collapsed ? "center" : "space-between"} gap="xs" wrap="nowrap">
+            {!collapsed && (
+              <Group gap="xs">
+                <Text c="brand" className={classes.sidebarIcon}>
+                  <ClientIcon name="organization" size={20} />
+                </Text>
+                <Text fw={600} size="sm">
+                  {t("client.currentOrganization")}
+                </Text>
+              </Group>
+            )}
+            <Tooltip label={t(collapsed ? "client.expandSidebar" : "client.collapseSidebar")}>
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="md"
+                aria-label={t(collapsed ? "client.expandSidebar" : "client.collapseSidebar")}
+                aria-expanded={!collapsed}
+                onClick={() => setCollapsed((value) => !value)}
+              >
+                <ClientIcon name={collapsed ? "expand" : "collapse"} size={20} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+          {!collapsed && (
+            <Stack gap="sm" mt="md">
+              <Text fw={600} size="sm">
+                {context?.currentOrganization?.name ?? t("auth.states.noOrganization")}
+              </Text>
+              <Group justify="space-between" gap="xs">
+                <Text c="dimmed" size="xs">
+                  {t("client.account")}
+                </Text>
+                <Text size="xs">{context?.user.displayName ?? "—"}</Text>
+              </Group>
+              {context && (
+                <Group justify="space-between" gap="xs">
+                  <Text c="dimmed" size="xs">
+                    {t("client.availableOrganizations")}
+                  </Text>
+                  <Text size="xs">
+                    {t("client.organizationCount", { count: context.organizations.length })}
+                  </Text>
+                </Group>
+              )}
+              <Text size="xs" c="dimmed">
+                {t("auth.demoTitle")}
+              </Text>
+            </Stack>
+          )}
+        </div>
+        {!collapsed && (
+          <Text size="xs" c="dimmed" mt="sm">
+            {t("buildVersion", { version: BUILD_VERSION })}
+          </Text>
+        )}
+      </AppShell.Navbar>
+      <AppShell.Main component="div" className={classes.shellMain}>
+        <main id="main" tabIndex={-1}>
+          {!active ? (
+            <AuthStatePanel />
+          ) : !context?.currentOrganization ? (
+            <AuthStatePanel noOrganization />
+          ) : denied ? (
+            <AuthStatePanel denied />
+          ) : (
+            <Outlet />
+          )}
+        </main>
+      </AppShell.Main>
+      <PreferencesDialog
+        opened={preferencesOpened}
+        onClose={() => setPreferencesOpened(false)}
+        returnFocus={false}
+        onExited={() =>
+          (preferenceTrigger.current?.isConnected
+            ? preferenceTrigger.current
+            : preferencesButton.current
+          )?.focus()
+        }
+      />
+    </AppShell>
+  )
+}

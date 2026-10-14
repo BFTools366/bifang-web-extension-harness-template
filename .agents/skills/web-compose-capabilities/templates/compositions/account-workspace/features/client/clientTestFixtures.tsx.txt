@@ -1,0 +1,41 @@
+// @vitest-environment jsdom
+import i18n from "../../i18n"
+import { cleanup, render } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { createMemoryHistory, createRouter, RouterProvider } from "@tanstack/react-router"
+import { afterEach, beforeEach, vi } from "vitest"
+import { AppProviders } from "../../app/AppProviders"
+import { routeTree } from "../../routeTree.gen"
+import { routeStateDefaults } from "../route-state/RouteState"
+import { authFixture } from "../auth/authTestFixtures"
+
+const clients: ReturnType<typeof authFixture>[] = []
+beforeEach(async () => {
+  await i18n.changeLanguage("en")
+})
+afterEach(() => {
+  cleanup()
+  clients.forEach((entry) => entry.queryClient.clear())
+  clients.length = 0
+  vi.restoreAllMocks()
+})
+
+/** 使用产品路由树、真实表单、Query 与存储适配，只隔离每次测试的 API 内存。 */
+export function mountClient(path = "/", fixture = authFixture()) {
+  clients.push(fixture)
+  const router = createRouter({
+    routeTree,
+    ...routeStateDefaults,
+    context: { auth: fixture.session },
+    history: createMemoryHistory({ initialEntries: [path] }),
+    defaultPreload: false,
+    defaultPendingMs: 0,
+    defaultPendingMinMs: 0
+  })
+  const view = render(
+    <AppProviders session={fixture.session} queryClient={fixture.queryClient} env="test">
+      <RouterProvider router={router} />
+    </AppProviders>
+  )
+  return { ...fixture, router, unmount: view.unmount, user: userEvent.setup() }
+}

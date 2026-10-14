@@ -53,3 +53,7 @@ node .agents/skills/web-document-api/scripts/check-export.ts docs/api
 检查目录、非空文件、文档链接/显式锚点、关联覆盖、JSON 可解析及明显源码泄漏；不能自动证明业务与源码一致或服务可用。修复失败再运行；仅正文交付采用相应语义清单，不将它当作完整包检查。没有可记录内容时说明结果，不造空模板。
 
 报告聚合范围、差异、迁移、未知/阻断与实际检查。默认交付整个包；明确只要 REST 正文时只交付六项正文。纯文档不自动构建、联网、跑全量测试或浏览器；读取测试只能称为依据。文档生成不等于联调/候选验收，不自动创建 PRD、ADR、Status、Work Plan 或 Verification。
+
+## 完整导出样例
+
+[中性账户API与业务包](../web-compose-capabilities/templates/compositions/account-workspace/api-example/README.md) 包含13个内存模拟操作、共享结构、元数据与双向业务关联。仅作格式/语义参考；下游每次导出仍核对其当前实现，未实现能力不复制为产品事实。

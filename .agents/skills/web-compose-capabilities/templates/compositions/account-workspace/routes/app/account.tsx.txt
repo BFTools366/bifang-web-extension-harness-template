@@ -1,0 +1,10 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { AccountPage } from "../../features/client/AccountPage"
+import { protectPage } from "../../features/auth/guards"
+
+/** 只读账号页的深链接同样受当前组织能力约束。 */
+export const Route = createFileRoute("/app/account")({
+  beforeLoad: ({ context, abortController, preload }) =>
+    protectPage(context.auth, "/app/account", abortController.signal, preload),
+  component: AccountPage
+})

@@ -1,0 +1,9 @@
+import { expect, test } from "vitest"
+import { hasCapability } from "./capability"
+/** 缺失、未知和前缀相似码均不授予权限，身份可独立于组织存在。 */
+test("checks only the exact granted capability", () => {
+  expect(hasCapability(["read"], "read")).toBe(true)
+  for (const required of ["", "read:all", "write"])
+    expect(hasCapability(["read"], required)).toBe(false)
+  expect(hasCapability(undefined, "read")).toBe(false)
+})

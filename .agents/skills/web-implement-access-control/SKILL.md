@@ -27,3 +27,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，按当�
 ## 返回结果
 
 返回权限与入口矩阵、实际改动及测试、待确认权限/服务能力和未验证项。完成后返回调用方，不反向启动认证、产品定义、实施编排或候选验收；不因本 Skill 自动运行全仓检查、构建或浏览器。
+
+## 实现参考
+
+[独立精确权限判定](../web-compose-capabilities/templates/permissions/capability.ts.txt) 不要求组织；[组合的页面声明与门禁](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 演示当前scope、菜单、深链接、返回目标和撤权正文。按真实权限码适配，不默认授予示例能力。

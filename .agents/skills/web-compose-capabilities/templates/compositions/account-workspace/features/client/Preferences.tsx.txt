@@ -1,0 +1,66 @@
+import { NativeSelect, Paper, Stack, Title, useMantineColorScheme } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { ClientIcon } from "./ClientIcon"
+import classes from "./client.module.css"
+
+/** 账号与公开页共用外观/语言设置，继续使用现有偏好适配。 */
+export function Preferences({
+  plain = false,
+  compact = false
+}: {
+  plain?: boolean
+  compact?: boolean
+}) {
+  const { t, i18n } = useTranslation()
+  const { colorScheme, setColorScheme } = useMantineColorScheme()
+  const controls = (
+    <Stack gap={compact ? "xs" : "md"} className={compact ? classes.compactPreferences : undefined}>
+      {!plain && (
+        <Title order={2} size="h3">
+          {t("client.preferences")}
+        </Title>
+      )}
+      <NativeSelect
+        label={compact ? undefined : t("colorSchemeLabel")}
+        aria-label={t("colorSchemeLabel")}
+        size={compact ? "xs" : "md"}
+        radius={compact ? "xl" : undefined}
+        value={colorScheme}
+        leftSection={compact ? <ClientIcon name="settings" size={15} /> : undefined}
+        classNames={compact ? { input: classes.compactPreferenceInput } : undefined}
+        data={[
+          { value: "auto", label: t("colorSchemeAuto") },
+          { value: "light", label: t("colorSchemeLight") },
+          { value: "dark", label: t("colorSchemeDark") }
+        ]}
+        onChange={(event) => {
+          const value = event.currentTarget.value
+          if (value === "auto" || value === "light" || value === "dark") setColorScheme(value)
+        }}
+      />
+      <NativeSelect
+        label={compact ? undefined : t("client.language")}
+        aria-label={t("client.language")}
+        size={compact ? "xs" : "md"}
+        radius={compact ? "xl" : undefined}
+        value={i18n.resolvedLanguage?.startsWith("zh") ? "zh" : "en"}
+        leftSection={compact ? <ClientIcon name="language" size={15} /> : undefined}
+        classNames={compact ? { input: classes.compactPreferenceInput } : undefined}
+        data={[
+          { value: "zh", label: "简体中文" },
+          { value: "en", label: "English" }
+        ]}
+        onChange={(event) => {
+          void i18n.changeLanguage(event.currentTarget.value)
+        }}
+      />
+    </Stack>
+  )
+  return plain ? (
+    controls
+  ) : (
+    <Paper withBorder radius="lg" p="lg">
+      {controls}
+    </Paper>
+  )
+}

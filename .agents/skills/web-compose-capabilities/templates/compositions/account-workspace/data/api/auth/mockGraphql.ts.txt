@@ -1,0 +1,233 @@
+import { ServiceFailure } from "../foundationProtocol"
+import type { ServiceProfile } from "./serviceContract"
+
+/** 健康信息属于模拟的来源服务，不能冒充浏览器应用的运行信息。 */
+export interface ServiceHealth {
+  available: boolean
+  name: string
+  version: string
+  env: "dev" | "test" | "prod"
+}
+/** 本地选择集仅模拟当前无参数的只读 Schema，不宣称通用 GraphQL 执行器。 */
+interface Selection {
+  field: string
+  alias: string
+  children?: Selection[]
+}
+/** GraphQL 投影拥有独立的 camelCase DTO。 */
+export interface GraphqlMe {
+  account: {
+    id: string
+    username: string
+    email: string
+    nickname: string
+    status: number
+    lastLoginIp: string
+    lastLoginTime: number | null
+    createdTime: number
+    updatedTime: number
+  }
+  org: {
+    id: string
+    name: string
+    isDefault: boolean
+    createdTime: number
+    updatedTime: number
+  } | null
+}
+/** 应用使用固定的无参数查询，无需新增 GraphQL 传输依赖。 */
+export const ACCOUNT_QUERY =
+  "query AccountContext { health { available name version env } me { account { id username email nickname status lastLoginIp lastLoginTime createdTime updatedTime } org { id name isDefault createdTime updatedTime } } }"
+/** 明确裁剪字段，不将 REST DTO 整体复制到 GraphQL。 */
+export function projectGraphqlMe(profile: ServiceProfile): GraphqlMe {
+  const { account, org } = profile
+  return {
+    account: {
+      id: account.id,
+      username: account.username,
+      email: account.email,
+      nickname: account.nickname,
+      status: account.status,
+      lastLoginIp: account.last_login_ip,
+      lastLoginTime: account.last_login_at,
+      createdTime: account.created_time,
+      updatedTime: account.updated_time
+    },
+    org: org
+      ? {
+          id: org.id,
+          name: org.name,
+          isDefault: org.is_default,
+          createdTime: org.created_time,
+          updatedTime: org.updated_time
+        }
+      : null
+  }
+}
+/** 有界解析支持 query 名称、别名、嵌套和注释；其它语法明确拒绝。 */
+function parse(query: unknown): Selection[] {
+  if (typeof query !== "string" || !query || query.length > 16_384)
+    throw new ServiceFailure("GRAPHQL_PARSE_FAILED", 422)
+  const source = query.replace(/#[^\n\r]*/g, "")
+  const tokens = source.match(/[A-Za-z_][A-Za-z_0-9]*|[{}:!$()[\]@.]|[^\s,]/g) ?? []
+  let index = 0
+  const fail = () => {
+    throw new ServiceFailure("GRAPHQL_PARSE_FAILED", 422)
+  }
+  const name = () => {
+    const value = tokens[index++]
+    if (!value || !/^[_A-Za-z][_A-Za-z0-9]*$/.test(value)) return fail()
+    return value
+  }
+  /** 当前 Schema 没有参数，递归只处理实际需要的字段选择。 */
+  function selections(depth: number): Selection[] {
+    if (depth > 8 || tokens[index++] !== "{") return fail()
+    const fields: Selection[] = []
+    while (tokens[index] !== "}") {
+      if (index >= tokens.length) return fail()
+      let field = name()
+      const alias = field
+      if (tokens[index] === ":") {
+        index++
+        field = name()
+      }
+      if (["(", "@", ".", "$"].includes(tokens[index] ?? ""))
+        throw new ServiceFailure("GRAPHQL_VALIDATION_FAILED", 422)
+      const children = tokens[index] === "{" ? selections(depth + 1) : undefined
+      fields.push({ field, alias, children })
+    }
+    index++
+    if (!fields.length) return fail()
+    return fields
+  }
+  if (tokens[0] === "query") {
+    index++
+    if (tokens[index] !== "{") name()
+  } else if (["mutation", "subscription", "fragment"].includes(tokens[0] ?? ""))
+    throw new ServiceFailure("GRAPHQL_VALIDATION_FAILED", 422)
+  const result = selections(0)
+  if (index !== tokens.length) return fail()
+  return result
+}
+
+const schema: Record<string, Record<string, string | null>> = {
+  Query: { health: "Health", me: "AccountDetail" },
+  Health: { available: null, name: null, version: null, env: null },
+  AccountDetail: { account: "Account", org: "Org" },
+  Account: {
+    id: null,
+    username: null,
+    email: null,
+    nickname: null,
+    status: null,
+    lastLoginIp: null,
+    lastLoginTime: null,
+    createdTime: null,
+    updatedTime: null
+  },
+  Org: { id: null, name: null, isDefault: null, createdTime: null, updatedTime: null }
+}
+/** 同响应名递归合并字段，并联合检查重复选择中的别名冲突。 */
+function mergeSelections(fields: Selection[]): Selection[] {
+  const merged = new Map<string, Selection>()
+  for (const field of fields) {
+    const previous = merged.get(field.alias)
+    if (previous && (previous.field !== field.field || !!previous.children !== !!field.children))
+      throw new ServiceFailure("GRAPHQL_VALIDATION_FAILED", 422)
+    merged.set(field.alias, {
+      ...field,
+      ...(field.children ? { children: [...(previous?.children ?? []), ...field.children] } : {})
+    })
+  }
+  return [...merged.values()].map((field) =>
+    field.children ? { ...field, children: mergeSelections(field.children) } : field
+  )
+}
+/** 完整校验选择集后才读取身份，未知字段不能返回业务成功。 */
+function validate(fields: Selection[], type: string): void {
+  const aliases = new Map<string, string>()
+  for (const selection of fields) {
+    const fieldType =
+      selection.field === "__typename"
+        ? null
+        : Object.hasOwn(schema[type]!, selection.field)
+          ? schema[type]![selection.field]
+          : undefined
+    if (
+      fieldType === undefined ||
+      !!fieldType !== !!selection.children ||
+      (aliases.has(selection.alias) && aliases.get(selection.alias) !== selection.field)
+    )
+      throw new ServiceFailure("GRAPHQL_VALIDATION_FAILED", 422)
+    aliases.set(selection.alias, selection.field)
+    if (fieldType && selection.children) validate(selection.children, fieldType)
+  }
+}
+/** 按请求裁剪输出；nullable org 保留 null，重复对象选择合并。 */
+function select(
+  fields: Selection[],
+  type: string,
+  value: Record<string, unknown>
+): Record<string, unknown> {
+  const result: Record<string, unknown> = Object.create(null)
+  for (const field of fields) {
+    const data = field.field === "__typename" ? type : value[field.field]
+    const projected =
+      field.children && data !== null
+        ? select(field.children, schema[type]![field.field]!, data as Record<string, unknown>)
+        : data
+    const previous = result[field.alias]
+    result[field.alias] =
+      previous && typeof previous === "object" && projected && typeof projected === "object"
+        ? { ...previous, ...projected }
+        : projected
+  }
+  return result
+}
+/** GraphQL 无效凭据降匿名，me 非空错误传播为 data:null。 */
+export function executeMockGraphql(
+  query: unknown,
+  health: ServiceHealth,
+  profile: () => ServiceProfile
+) {
+  try {
+    const fields = mergeSelections(parse(query))
+    validate(fields, "Query")
+    let me: GraphqlMe | undefined
+    if (fields.some((field) => field.field === "me")) {
+      try {
+        me = projectGraphqlMe(profile())
+      } catch {
+        return {
+          status: 200,
+          response: {
+            data: null,
+            errors: [
+              {
+                message: "Authentication required",
+                extensions: { code: "auth.token.missing" }
+              }
+            ]
+          }
+        }
+      }
+    }
+    return { status: 200, response: { data: select(fields, "Query", { health, me }) } }
+  } catch (error) {
+    if (!(error instanceof ServiceFailure)) throw error
+    return {
+      status: 422,
+      response: {
+        errors: [
+          {
+            message:
+              error.code === "GRAPHQL_PARSE_FAILED"
+                ? "Invalid query syntax"
+                : "Invalid query selection",
+            extensions: { code: error.code }
+          }
+        ]
+      }
+    }
+  }
+}

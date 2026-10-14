@@ -1,0 +1,281 @@
+// @vitest-environment jsdom
+
+import { act, screen, waitFor, within } from "@testing-library/react"
+import { expect, test, vi } from "vitest"
+import { authFixture } from "../auth/authTestFixtures"
+import { AuthError } from "../../data/api/auth/contracts"
+import { mountClient } from "./clientTestFixtures"
+/** 匿名入口在表单内直接切换语言与外观，不打开弹窗、不丢失已输入凭据。 */
+test("changes inline sign-in preferences without losing form input", async () => {
+  const { user, router } = mountClient()
+  await screen.findByRole("heading", { name: "Welcome back" })
+  expect(router.state.location.pathname).toBe("/login")
+  expect(screen.queryByRole("navigation", { name: "Public navigation" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("link", { name: "Home" })).not.toBeInTheDocument()
+  expect(screen.getByText("Demo account mode")).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Enter demo workspace" })).not.toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Need an account? Register" })).toHaveAttribute(
+    "href",
+    "/register"
+  )
+  expect(screen.getByRole("link", { name: "Recover password" })).toHaveAttribute(
+    "href",
+    "/forgot-password"
+  )
+  const form = screen.getByRole("form", { name: "Welcome back" })
+  await user.type(within(form).getByLabelText("Username", { exact: false }), "demo")
+  await user.type(
+    within(form).getByLabelText("Password", {
+      exact: false,
+      selector: 'input[name="password"]'
+    }),
+    "draft-password"
+  )
+  await user.selectOptions(within(form).getByRole("combobox", { name: "Language" }), "zh")
+  expect(await screen.findByRole("heading", { name: "欢迎回来" })).toBeInTheDocument()
+  await waitFor(() => expect(document.documentElement.lang).toBe("zh"))
+  expect(document.title).toContain("登录")
+  expect(within(form).getByLabelText("用户名", { exact: false })).toHaveValue("demo")
+  expect(
+    within(form).getByLabelText("密码", {
+      exact: false,
+      selector: 'input[name="password"]'
+    })
+  ).toHaveValue("draft-password")
+  await user.selectOptions(within(form).getByRole("combobox", { name: "外观" }), "dark")
+  expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "外观与语言" })).not.toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/login")
+  await user.selectOptions(within(form).getByRole("combobox", { name: "外观" }), "auto")
+})
+
+/** 已恢复登录的根入口进入工作区；侧栏收起后图标导航和当前项语义仍然可用。 */
+test.each(["/", "/app", "/app/"])(
+  "opens authenticated %s in the dashboard and preserves collapsed navigation",
+  async (entry) => {
+    const fixture = authFixture()
+    await fixture.session.login("demo", "demo-password")
+    const { user, router } = mountClient(entry, fixture)
+    await screen.findByRole("heading", { name: "Welcome back, demo" })
+    expect(router.state.location.pathname).toBe("/app/dashboard")
+    expect(screen.queryByRole("link", { name: "Back to public home" })).not.toBeInTheDocument()
+    const sidebar = screen.getByRole("navigation", { name: "Client sidebar" })
+    await user.click(within(sidebar).getByRole("button", { name: "Collapse sidebar" }))
+    expect(within(sidebar).getByRole("button", { name: "Expand sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    )
+    expect(within(sidebar).getByRole("link", { name: "Dashboard" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    )
+    await user.click(within(sidebar).getByRole("link", { name: "Current account" }))
+    await screen.findByRole("heading", { level: 1, name: "Current account" })
+    expect(within(sidebar).getByRole("link", { name: "Current account" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    )
+    expect(within(sidebar).getByRole("link", { name: "Dashboard" })).not.toHaveAttribute(
+      "aria-current"
+    )
+    await user.click(within(sidebar).getByRole("button", { name: "Expand sidebar" }))
+    expect(within(sidebar).getByRole("button", { name: "Collapse sidebar" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    )
+  }
+)
+
+/** 深链接登录后准确返回账号，表单 Enter 校验聚焦且密码错误保留输入。 */
+test("protects deep links and completes login, account navigation and logout", async () => {
+  const { user, router, storage } = mountClient("/app/account")
+  await screen.findByRole("heading", { name: "Welcome back" })
+  expect(router.state.location.pathname).toBe("/login")
+  expect(router.state.location.search).toMatchObject({ returnTo: "/app/account" })
+  await user.click(screen.getByLabelText("Username", { exact: false }))
+  await user.keyboard("{Enter}")
+  expect(screen.getByLabelText("Username", { exact: false })).toHaveFocus()
+  await user.type(screen.getByLabelText("Username", { exact: false }), "demo")
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "wrong{Enter}"
+  )
+  expect(await screen.findByRole("alert")).toHaveTextContent("username or password is incorrect")
+  expect(screen.getByLabelText("Username", { exact: false })).toHaveValue("demo")
+  await user.clear(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' })
+  )
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "demo-password{Enter}"
+  )
+  await screen.findByRole("heading", { level: 1, name: "Current account" })
+  await waitFor(() => expect(router.state.status).toBe("idle"))
+  expect(document.title).toContain("Current account")
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { level: 1, name: "Current account" })).toHaveFocus()
+  )
+  expect(screen.getByText("demo@example.invalid")).toBeInTheDocument()
+  expect(storage.read().raw).not.toContain("demo-password")
+  await user.click(screen.getByRole("button", { name: "Account menu" }))
+  await user.click(await screen.findByRole("menuitem", { name: "Sign out" }))
+  await screen.findByRole("heading", { name: "Welcome back" })
+  expect(storage.read().raw).toBeNull()
+  await act(async () => {
+    await router.navigate({ to: "/app/account" })
+  })
+  await screen.findByRole("heading", { name: "Welcome back" })
+  expect(screen.queryByText("demo@example.invalid")).not.toBeInTheDocument()
+})
+
+/** 正常登录进入工作区；组织弹窗可键盘关闭并只列其它组织。 */
+test("opens the workspace and switches organization through the dialog", async () => {
+  const { user, session, router } = mountClient("/login")
+  await user.type(await screen.findByLabelText("Username", { exact: false }), "demo")
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "demo-password"
+  )
+  await user.click(screen.getByRole("button", { name: "Sign in" }))
+  await screen.findByRole("heading", { name: "Welcome back, demo" })
+  await waitFor(() => expect(router.state.status).toBe("idle"))
+  const trigger = screen.getByRole("button", { name: "Account menu" })
+  await user.click(trigger)
+  expect(await screen.findByRole("menuitem", { name: "Account settings" })).toBeInTheDocument()
+  expect(screen.getByRole("menuitem", { name: /Language/ })).toBeInTheDocument()
+  await user.click(screen.getByRole("menuitem", { name: "Switch organization" }))
+  let dialog = await screen.findByRole("dialog", { name: "Switch organization" })
+  expect(
+    within(dialog).queryByRole("option", { name: "Example workspace" })
+  ).not.toBeInTheDocument()
+  await user.keyboard("{Escape}")
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  await waitFor(() => expect(trigger).toHaveFocus())
+  await user.click(trigger)
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
+  dialog = await screen.findByRole("dialog", { name: "Switch organization" })
+  await user.selectOptions(within(dialog).getByLabelText("Target organization"), "studio")
+  vi.spyOn(session, "switchOrganization").mockRejectedValueOnce(
+    new AuthError("organizationUnavailable")
+  )
+  await user.click(within(dialog).getByRole("button", { name: "Switch organization" }))
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "This organization cannot be selected"
+  )
+  await user.click(within(dialog).getByRole("button", { name: "Switch organization" }))
+  await waitFor(() => expect(session.getContext()?.currentOrganization?.id).toBe("studio"))
+  expect(await screen.findByRole("heading", { name: "Welcome back, demo" })).toBeInTheDocument()
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus())
+  await user.click(screen.getByRole("button", { name: "Account menu" }))
+  await user.click(await screen.findByRole("menuitem", { name: /Language/ }))
+  await screen.findByRole("dialog", { name: "Appearance and language" })
+  await user.keyboard("{Escape}")
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus())
+})
+
+/** 会话从别处恢复时关闭旧组织弹窗，禁止用旧候选再次提交。 */
+test("closes an organization dialog when session recovery begins", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const { user, session, api } = mountClient("/app/dashboard", fixture)
+  await screen.findByRole("heading", { name: "Welcome back, demo" })
+  await user.click(screen.getByRole("button", { name: "Account menu" }))
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
+  const dialog = await screen.findByRole("dialog", { name: "Switch organization" })
+  await user.selectOptions(within(dialog).getByLabelText("Target organization"), "studio")
+  let release = () => {}
+  const validation = api.validateSession
+  const paused = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  api.validateSession = async (...args) => {
+    await paused
+    return validation(...args)
+  }
+  const switchOperation = vi.spyOn(api, "switchOrganization")
+  let restoration: Promise<void> | undefined
+  act(() => {
+    restoration = session.restore()
+  })
+  await screen.findByRole("heading", { name: "Restoring sign-in" })
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  expect(switchOperation).not.toHaveBeenCalled()
+  await act(async () => {
+    release()
+    await restoration
+  })
+  await screen.findByRole("heading", { name: "Welcome back, demo" })
+  await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus())
+})
+
+/** 注册验证码绑定邮箱、成功返回登录，随后可用本页新账号登录。 */
+test("registers with a code and returns to sign in without automatic login", async () => {
+  const { user, session } = mountClient("/register")
+  await screen.findByRole("heading", { name: "Create your account" })
+  await user.type(screen.getByLabelText("Username", { exact: false }), "fictional-user")
+  await user.type(
+    screen.getByLabelText("Email address", { exact: false }),
+    "fictional@example.invalid"
+  )
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "fictional-password123"
+  )
+  await user.click(screen.getByRole("button", { name: "Send code" }))
+  await screen.findByText(/Demo code: 246810/)
+  expect(screen.getByRole("button", { name: /Resend in/ })).toBeDisabled()
+  await user.type(screen.getByLabelText("Email verification code", { exact: false }), "246810")
+  await user.click(screen.getByRole("button", { name: "Complete registration" }))
+  await screen.findByRole("heading", { name: "Welcome back" })
+  expect(screen.getByRole("status")).toHaveTextContent("Account created")
+  expect(session.getSnapshot().phase).toBe("anonymous")
+  await user.type(screen.getByLabelText("Username", { exact: false }), "fictional-user")
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "fictional-password123{Enter}"
+  )
+  expect(
+    await screen.findByRole("heading", { name: "No organization available" })
+  ).toBeInTheDocument()
+})
+
+/** 找回确认密码校验可见，成功后不携带凭据且新密码可用于登录。 */
+test("resets a password after verification and returns to sign in", async () => {
+  const { user, router } = mountClient("/forgot-password?returnTo=/app/account")
+  await screen.findByRole("heading", { name: "Recover your password" })
+  await user.type(screen.getByLabelText("Email address", { exact: false }), "demo@example.invalid")
+  await user.type(
+    screen.getByLabelText("New password", {
+      exact: false,
+      selector: 'input[name="password"]'
+    }),
+    "new-fictional-password123"
+  )
+  await user.type(screen.getByLabelText("Confirm new password", { exact: false }), "mismatch")
+  await user.click(screen.getByRole("button", { name: "Send code" }))
+  await screen.findByText(/Demo code: 246810/)
+  await user.type(screen.getByLabelText("Email verification code", { exact: false }), "246810")
+  await user.click(screen.getByRole("button", { name: "Reset password" }))
+  expect(screen.getByText("The passwords do not match.")).toBeInTheDocument()
+  await user.clear(screen.getByLabelText("Confirm new password", { exact: false }))
+  await user.type(
+    screen.getByLabelText("Confirm new password", { exact: false }),
+    "new-fictional-password123"
+  )
+  await user.click(screen.getByRole("button", { name: "Reset password" }))
+  await screen.findByRole("heading", { name: "Welcome back" })
+  expect(router.state.location.href).not.toContain("fictional-password123")
+  expect(screen.getByRole("status")).toHaveTextContent("Password reset")
+  await user.type(screen.getByLabelText("Username", { exact: false }), "demo")
+  await user.type(
+    screen.getByLabelText("Password", { exact: false, selector: 'input[name="password"]' }),
+    "new-fictional-password123{Enter}"
+  )
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Current account" })
+  ).toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/app/account")
+})

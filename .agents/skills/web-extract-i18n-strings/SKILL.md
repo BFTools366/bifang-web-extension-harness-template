@@ -29,3 +29,7 @@ description: 扫描当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefo
 ## 完成输出
 
 报告扫描范围、抽取数量、key 与资源文件、跳过项及原因、缺失译文、默认语言行为证据、测试和剩余风险。
+
+## 功能资源参考
+
+[账户资源与偏好示例](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 展示功能域文案、插值、语言标题与稳定表单输入；项目身份继续来自BRAND，不把示例产品名称复制为身份事实。

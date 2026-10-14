@@ -1,0 +1,10 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { DashboardPage } from "../../features/client/DashboardPage"
+import { protectPage } from "../../features/auth/guards"
+
+/** 工作台是独立叶页面，每次实际导航先校验再判定工作区能力。 */
+export const Route = createFileRoute("/app/dashboard")({
+  beforeLoad: ({ context, abortController, preload }) =>
+    protectPage(context.auth, "/app/dashboard", abortController.signal, preload),
+  component: DashboardPage
+})

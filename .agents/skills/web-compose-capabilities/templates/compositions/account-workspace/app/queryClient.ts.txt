@@ -1,0 +1,24 @@
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
+import { createLogger } from "../observability/logger"
+import { reportHttpError } from "../data/api/client/httpFeedback"
+import { retryHttpQuery } from "../data/api/client/httpErrors"
+
+const logger = createLogger("query")
+
+export const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: retryHttpQuery }, mutations: { retry: false } },
+  queryCache: new QueryCache({
+    onError: (error, query) => {
+      if (query.meta?.errorOwner === "auth") return
+      logger.error("query_failed", { component: "tanstack-query", error })
+      reportHttpError(error)
+    }
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (mutation.meta?.errorOwner === "auth") return
+      logger.error("mutation_failed", { component: "tanstack-query", error })
+      reportHttpError(error)
+    }
+  })
+})

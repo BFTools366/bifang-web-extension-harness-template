@@ -1,444 +1,318 @@
-// @vitest-environment jsdom
-import { QueryClient } from "@tanstack/react-query"
-import { beforeEach, expect, test, vi } from "vitest"
-import { createMockAuthApi, createAuthApi } from "../../data/api/auth/api"
-import { createCredentialStorage } from "../../data/storage/auth"
-import { AuthFailure, safeReturnTarget } from "../../data/api/auth/contracts"
-import { createAccountSession } from "./session"
+import { expect, test, vi } from "vitest"
+import { AuthError } from "../../data/api/auth/contracts"
+import { createAuthSession } from "./session"
+import { authFixture } from "./authTestFixtures"
+import { ApiError } from "../../data/api/client/httpContracts"
+import { canAccess, safeReturnTo } from "./access"
 
-/** 在单元环境提供确定的锁替身；不冒称真实跨标签页浏览器验证。 */
-beforeEach(() => {
-  localStorage.clear()
-  vi.restoreAllMocks()
-  Object.defineProperty(navigator, "locks", {
-    configurable: true,
-    value: { request: async (_name: string, operation: () => Promise<unknown>) => operation() }
+/** 登录、刷新恢复、按实际导航重新验证与退出只影响私有 scope。 */
+test("restores persisted demo sessions and validates every navigation", async () => {
+  const fixture = authFixture()
+  const validate = vi.spyOn(fixture.api, "validateSession")
+  await fixture.session.login("demo", "demo-password")
+  expect(fixture.session.getSnapshot().phase).toBe("ready")
+  expect(canAccess(fixture.session.getContext(), "account")).toBe(true)
+  expect(fixture.storage.read().raw).not.toContain("demo-password")
+  expect(fixture.storage.read().raw).not.toContain("capabilities")
+  fixture.queryClient.setQueryData(["public-data"], "retained")
+  await fixture.session.validateNavigation(new AbortController().signal)
+  await fixture.session.validateNavigation(new AbortController().signal)
+  expect(validate).toHaveBeenCalledTimes(3)
+  const restored = createAuthSession({
+    api: fixture.api,
+    storage: fixture.storage,
+    queryClient: fixture.queryClient,
+    clearHttpSession: () => undefined
   })
+  await restored.restore()
+  expect(restored.getSnapshot().phase).toBe("ready")
+  await restored.logout()
+  expect(fixture.storage.read().raw).toBeNull()
+  expect(fixture.queryClient.getQueriesData({ queryKey: ["auth-private"] })).toEqual([])
+  expect(fixture.queryClient.getQueryData(["public-data"])).toBe("retained")
+  fixture.queryClient.clear()
 })
-/** 为各场景独立创建 API、会话和 Query 所有者。 */
-function fixture() {
-  const api = createMockAuthApi()
-  const storage = createCredentialStorage()
-  const query = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  const session = createAccountSession(api, storage, query)
-  return { api, storage, query, session }
-}
-/** 登录必须真实校验演示身份；持久记录不包含用户或权限。 */
-test("login validates credentials and restores through the API after refresh", async () => {
-  const { session, storage } = fixture()
-  await expect(session.login("demo", "wrong")).rejects.toMatchObject({
-    key: "authInvalidCredentials"
-  })
-  expect(storage.read()).toBeNull()
-  const context = await session.login("demo", "Demo-only-24")
-  expect(context.user.username).toBe("demo")
-  expect(context.permissions).toContain("workspace:view")
-  const record = JSON.parse(localStorage.getItem(storage.key) ?? "null")
-  expect(Object.keys(record).sort()).toEqual(["token", "version"])
-  const refreshed = fixture()
-  expect((await refreshed.session.check()).user.id).toBe("demo")
-  await session.logout()
-  await expect(refreshed.session.check()).rejects.toMatchObject({ key: "authAnonymous" })
-  expect(session.context()).toBeUndefined()
-})
-/** 存储失败不能得到持久登录成功，也不公布私有上下文。 */
-test("blocked persistence never grants a private UI session", async () => {
-  const { session, storage } = fixture()
-  vi.spyOn(storage, "write").mockImplementation(() => {
-    throw new AuthFailure("authStorageError")
-  })
-  await expect(session.login("demo", "Demo-only-24")).rejects.toMatchObject({
-    key: "authStorageError"
-  })
-  expect(session.getSnapshot().phase).toBe("anonymous")
-  expect(session.context()).toBeUndefined()
-})
-/** 空权限组织与普通身份不继承工作台授权，未知组织明确拒绝。 */
-test("organization changes use new permissions and reject unknown memberships", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const previous = storage.read()
-  const context = await session.switchOrganization("restricted-team")
-  expect(context.permissions).toEqual([])
-  expect(context.organization?.id).toBe("restricted-team")
-  expect(session.context()?.permissions).toEqual([])
-  await expect(api.validate(previous ?? "")).rejects.toMatchObject({ key: "authSessionExpired" })
-  await expect(api.switchOrganization(storage.read() ?? "", "unknown")).rejects.toMatchObject({
-    key: "authNoAccess"
-  })
-  await session.logout()
-  const viewer = await session.login("viewer", "Demo-only-24")
-  expect(viewer.permissions).toEqual(["account:view"])
-})
-/** 注册验证码绑定邮箱与用途，一次性消费；新账号不自动拥有组织。 */
-test("registration consumes a scoped code and does not sign in", async () => {
-  const { api, session, storage } = fixture()
-  await api.sendCode("new@example.test", "register")
-  await expect(
-    api.register("new", "other@example.test", "new-password", "246810")
-  ).rejects.toMatchObject({ key: "authInvalidCode" })
-  await api.register("new", "new@example.test", "new-password", "246810")
-  expect(storage.read()).toBeNull()
-  await expect(
-    api.register("another", "new@example.test", "new-password", "246810")
-  ).rejects.toThrow()
-  const context = await session.login("new", "new-password")
-  expect(context.organization).toBeNull()
-  expect(context.permissions).toEqual([])
-})
-/** 找回用途不能消费注册验证码，改密后当前账号会话失效。 */
-test("password reset revokes the target account without automatically signing in", async () => {
-  const { api, session, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  await api.sendCode("demo@example.test", "register")
-  await expect(
-    session.resetPassword("demo@example.test", "changed", "246810")
-  ).rejects.toMatchObject({ key: "authInvalidCode" })
-  await api.sendCode("demo@example.test", "reset")
-  expect(await session.resetPassword("demo@example.test", "changed", "246810")).toBe(true)
-  expect(storage.read()).toBeNull()
-  await expect(session.login("demo", "Demo-only-24")).rejects.toMatchObject({
-    key: "authInvalidCredentials"
-  })
-  expect((await session.login("demo", "changed")).user.id).toBe("demo")
-})
-/** 虚拟时间验证验证码过期和重发限制，不真实等待。 */
-test("demo verification windows use controllable time", async () => {
-  vi.useFakeTimers()
-  try {
-    const { api } = fixture()
-    await api.sendCode("new@example.test", "register")
-    await expect(api.sendCode("new@example.test", "register")).rejects.toMatchObject({
-      key: "authCodeRateLimited"
-    })
-    vi.advanceTimersByTime(300_001)
-    await expect(
-      api.register("new", "new@example.test", "password", "246810")
-    ).rejects.toMatchObject({ key: "authInvalidCode" })
-  } finally {
-    vi.useRealTimers()
+
+/** 冷启动网络失败保留引用但没有权限；明确校验失效统一清理。 */
+test("does not grant cold offline permissions and clears invalid sessions", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const offlineApi = {
+    ...fixture.api,
+    validateSession: vi.fn().mockRejectedValue(new AuthError("connectionUnavailable", "network"))
   }
+  const restored = createAuthSession({
+    api: offlineApi,
+    storage: fixture.storage,
+    queryClient: fixture.queryClient,
+    clearHttpSession: () => undefined
+  })
+  await restored.restore()
+  expect(restored.getSnapshot().phase).toBe("offline")
+  expect(restored.getContext()).toBeUndefined()
+  expect(fixture.storage.read().credential).not.toBeNull()
+  offlineApi.validateSession.mockRejectedValue(new AuthError("sessionExpired", "invalid-session"))
+  await restored.restore()
+  expect(restored.getSnapshot().phase).toBe("anonymous")
+  expect(fixture.storage.read().raw).toBeNull()
+  fixture.queryClient.clear()
 })
-/** 导航取消不删除有效会话；迟到签发不覆盖后来登录。 */
-test("stale login and cancelled navigation cannot replace a new session", async () => {
-  const { api, storage, query } = fixture()
-  let release: (() => void) | undefined
-  const original = api.login.bind(api)
-  api.login = async (username, password) => {
-    const issued = await original(username, password)
-    if (username === "demo")
-      await new Promise<void>((resolve) => {
-        release = resolve
-      })
-    return issued
+
+/** 不可写持久存储阻断登录，禁止只在 UI 假装已登录。 */
+test("refuses login when the credential cannot be persisted", async () => {
+  const fixture = authFixture()
+  const revoke = vi.spyOn(fixture.api, "logout")
+  const discard = vi.spyOn(fixture.api, "discardUnpublishedSession")
+  fixture.backend.setItem = () => {
+    throw new DOMException("Denied", "QuotaExceededError")
   }
-  const session = createAccountSession(api, storage, query)
-  const late = session.login("demo", "Demo-only-24").catch((error: unknown) => error)
-  await vi.waitFor(() => expect(release).toBeTypeOf("function"))
-  await session.login("viewer", "Demo-only-24")
-  release?.()
-  await expect(late).resolves.toMatchObject({ key: "authSuperseded" })
-  expect(session.context()?.user.id).toBe("viewer")
-  const abort = new AbortController()
-  abort.abort()
-  await expect(session.check(abort.signal)).rejects.toMatchObject({ key: "authSuperseded" })
-  expect(storage.read()).not.toBeNull()
-})
-/** Mock 通过公开 API 零联网；返回目标拒绝外站、未知路径和协议相对地址。 */
-test("mock performs no fetch and only accepts known internal return targets", async () => {
-  const fetch = vi.spyOn(globalThis, "fetch")
-  const api = createAuthApi("")
-  const token = await api.login("demo", "Demo-only-24")
-  await api.validate(token)
-  expect(fetch).not.toHaveBeenCalled()
-  expect(safeReturnTarget("//evil.example")).toBe("/app/dashboard")
-  expect(safeReturnTarget("https://evil.example")).toBe("/app/dashboard")
-  expect(safeReturnTarget("/unknown")).toBe("/app/dashboard")
-  expect(safeReturnTarget("/app/account")).toBe("/app/account")
-  await expect(
-    createAuthApi("https://service.invalid").login("demo", "Demo-only-24")
-  ).rejects.toMatchObject({ key: "authServiceNotConnected" })
-  expect(fetch).not.toHaveBeenCalled()
-})
-
-/** 新凭据尚未收到 storage 事件时，断网不得复用旧用户权限。 */
-test("network fallback is limited to the same confirmed credential", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const next = await api.login("viewer", "Demo-only-24")
-  storage.write(next)
-  vi.spyOn(api, "validate").mockRejectedValueOnce(new AuthFailure("authNetwork"))
-  await expect(session.check()).rejects.toMatchObject({ key: "authNetwork" })
-  expect(session.context()).toBeUndefined()
-  expect((await session.check()).user.id).toBe("viewer")
-  vi.spyOn(api, "validate").mockRejectedValueOnce(new AuthFailure("authNetwork"))
-  expect((await session.check()).user.id).toBe("viewer")
-})
-
-/** 旧校验失效的迟到结果不能删除后来已确认的凭据。 */
-test("late expiry never removes a newer confirmed session", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  let reject: ((error: AuthFailure) => void) | undefined
-  vi.spyOn(api, "validate").mockImplementationOnce(
-    () =>
-      new Promise((_resolve, fail) => {
-        reject = fail
-      })
-  )
-  const late = session.check().catch((error: unknown) => error)
-  const next = await api.login("viewer", "Demo-only-24")
-  storage.write(next)
-  await session.check()
-  reject?.(new AuthFailure("authSessionExpired"))
-  await expect(late).resolves.toMatchObject({ key: "authSuperseded" })
-  expect(storage.read()).toBe(next)
-  expect(session.context()?.user.id).toBe("viewer")
-})
-
-/** 两个会话实例模拟独立标签页，锁内复核防止迟到登录覆盖新签发。 */
-test("late login in another tab cannot overwrite a published credential", async () => {
-  const { session, api, storage } = fixture()
-  const second = createAccountSession(api, storage, new QueryClient())
-  let release: (() => void) | undefined
-  const login = api.login.bind(api)
-  vi.spyOn(api, "login").mockImplementationOnce(async (name, password) => {
-    const issued = await login(name, password)
-    await new Promise<void>((resolve) => {
-      release = resolve
-    })
-    return issued
+  await expect(fixture.session.login("demo", "demo-password")).rejects.toMatchObject({
+    code: "storageUnavailable"
   })
-  const late = session.login("demo", "Demo-only-24").catch((error: unknown) => error)
-  await vi.waitFor(() => expect(release).toBeTypeOf("function"))
-  await second.login("viewer", "Demo-only-24")
-  const current = storage.read()
-  release?.()
-  await expect(late).resolves.toMatchObject({ key: "authSuperseded" })
-  expect(storage.read()).toBe(current)
-  expect((await second.check()).user.id).toBe("viewer")
+  expect(revoke).not.toHaveBeenCalled()
+  expect(discard).toHaveBeenCalledTimes(1)
+  expect(fixture.session.getSnapshot().phase).not.toBe("ready")
+  expect(fixture.session.getContext()).toBeUndefined()
+  fixture.queryClient.clear()
 })
 
-/** 持久化写后核实失败时，回收未公布签发且禁止刷新恢复它。 */
-test("failed organization persistence cannot restore an unconfirmed scope", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const write = storage.write.bind(storage)
-  let issued = ""
-  vi.spyOn(storage, "write").mockImplementation((value) => {
-    issued = value
-    write(value)
-    throw new AuthFailure("authStorageError")
-  })
-  await expect(session.switchOrganization("restricted-team")).rejects.toMatchObject({
-    key: "authStorageError"
-  })
-  expect(session.context()).toBeUndefined()
-  expect(storage.read()).toBeNull()
-  await expect(api.validate(issued)).rejects.toMatchObject({ key: "authSessionExpired" })
-  await expect(session.check()).rejects.toMatchObject({ key: "authAnonymous" })
-})
-
-/** 旧退出等待锁时，新登录的 storage 信号不能继承旧删除阻断。 */
-test("queued logout does not block a new external login", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const next = await api.login("viewer", "Demo-only-24")
-  let release: (() => void) | undefined
-  let queued = true
-  Object.defineProperty(navigator, "locks", {
-    configurable: true,
-    value: {
-      request: async (_name: string, operation: () => Promise<unknown>) => {
-        if (queued) {
-          queued = false
-          await new Promise<void>((resolve) => {
-            release = resolve
-          })
-        }
-        return operation()
-      }
-    }
-  })
-  const stop = session.listenStorage()
-  try {
-    const exiting = session.logout()
-    storage.write(next)
-    window.dispatchEvent(new StorageEvent("storage", { key: storage.key }))
-    await vi.waitFor(() => expect(session.context()?.user.id).toBe("viewer"))
-    release?.()
-    expect(await exiting).toBe(false)
-    expect((await session.check()).user.id).toBe("viewer")
-    expect(storage.read()).toBe(next)
-  } finally {
-    stop()
+/** 退出清理失败立即隐藏数据，后续自动恢复被禁止直到成功重试。 */
+test("blocks restoration after deletion failure and recovers through explicit cleanup", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const remove = fixture.backend.removeItem
+  fixture.backend.removeItem = () => {
+    throw new Error("Denied")
   }
-})
-
-/** 浏览器存储访问拒绝和损坏记录都经过统一分类与真实清理。 */
-test("storage denial is explicit and malformed credentials are removed", () => {
-  const { storage } = fixture()
-  localStorage.setItem(storage.key, '{"version":1,"token":"demo","permissions":["all"]}')
-  expect(storage.read()).toBeNull()
-  expect(localStorage.getItem(storage.key)).toBeNull()
-  const original = Object.getOwnPropertyDescriptor(window, "localStorage")
-  if (original === undefined) throw new Error("Missing test Storage descriptor")
-  try {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      get: () => {
-        throw new Error("denied")
-      }
-    })
-    expect(() => storage.read()).toThrow(AuthFailure)
-  } finally {
-    Object.defineProperty(window, "localStorage", original)
-  }
-})
-
-/** 导航取消只取消呈现，已经确认的当前会话失效仍必须清理。 */
-test("confirmed expiry removes credentials even when its navigation was cancelled", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  vi.spyOn(api, "validate").mockRejectedValueOnce(new AuthFailure("authSessionExpired"))
-  const controller = new AbortController()
-  const pending = session.check(controller.signal)
-  controller.abort()
-  await expect(pending).rejects.toMatchObject({
-    key: "authSessionExpired"
+  await fixture.session.logout()
+  expect(fixture.session.getSnapshot()).toMatchObject({
+    phase: "blocked",
+    issue: "storageUnavailable"
   })
-  expect(storage.read()).toBeNull()
-  expect(session.context()).toBeUndefined()
+  expect(fixture.session.getContext()).toBeUndefined()
+  await fixture.session.restore()
+  expect(fixture.session.getSnapshot().phase).toBe("blocked")
+  fixture.backend.removeItem = remove
+  await fixture.session.retryCleanup()
+  expect(fixture.session.getSnapshot().phase).toBe("anonymous")
+  expect(fixture.storage.read().raw).toBeNull()
+  fixture.queryClient.clear()
 })
 
-/** 异常复核时 Storage 也失效，必须撤下私有状态而不是逃出错误分支。 */
-test("storage denial during error classification withdraws private context", async () => {
-  const { session, api, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  vi.spyOn(api, "validate").mockImplementationOnce(async () => {
-    vi.spyOn(storage, "read").mockImplementation(() => {
-      throw new AuthFailure("authStorageError")
-    })
-    throw new AuthFailure("authNetwork")
-  })
-  await expect(session.check()).rejects.toMatchObject({ key: "authStorageError" })
-  expect(session.getSnapshot().phase).toBe("error")
-  expect(session.context()).toBeUndefined()
-})
-
-/** 同凭据的后发校验撤权后，旧网络错误不能重新给路由旧权限。 */
-test("late network fallback never restores permissions revoked by a newer check", async () => {
-  const { session, api } = fixture()
-  await session.login("demo", "Demo-only-24")
-  let reject: ((error: AuthFailure) => void) | undefined
-  vi.spyOn(api, "validate").mockImplementationOnce(
-    () =>
-      new Promise((_resolve, fail) => {
-        reject = fail
-      })
-  )
-  const late = session.check().catch((error: unknown) => error)
-  const previous = session.context()
-  if (!previous) throw new Error("Missing confirmed fixture context")
-  vi.spyOn(api, "validate").mockResolvedValueOnce({ ...previous, permissions: [] })
-  expect((await session.check()).permissions).toEqual([])
-  reject?.(new AuthFailure("authNetwork"))
-  await expect(late).resolves.toMatchObject({ key: "authSuperseded" })
-  expect(session.context()?.permissions).toEqual([])
-})
-
-/** 冷恢复失败仍能退出并删除持久凭据，不要求先得到用户上下文。 */
-test("logout removes the stored credential after a failed cold restore", async () => {
-  const { session, api, storage } = fixture()
-  const issued = await api.login("demo", "Demo-only-24")
-  storage.write(issued)
-  vi.spyOn(api, "validate").mockRejectedValueOnce(new AuthFailure("authNetwork"))
-  await expect(session.check()).rejects.toMatchObject({ key: "authNetwork" })
-  await session.logout()
-  expect(storage.read()).toBeNull()
-  await expect(api.validate(issued)).rejects.toMatchObject({ key: "authSessionExpired" })
-})
-
-/** 已发起身份转换时，新导航不能重新采用仍存储的旧身份或组织。 */
-test("blocks navigation checks during login and organization transitions", async () => {
-  const { api, session, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const originalLogin = api.login.bind(api)
-  let finishLogin: (() => void) | undefined
-  api.login = async (username, password) => {
-    await new Promise<void>(resolve => { finishLogin = resolve })
-    return originalLogin(username, password)
+/** 组织请求可能已提交时不回滚旧权限，恢复后获取权威新组织。 */
+test("recovers uncertain organization results without old permissions", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const switchOperation = fixture.api.switchOrganization
+  fixture.api.switchOrganization = async (...args) => {
+    await switchOperation(...args)
+    throw new AuthError("operationFailed", "unknown")
   }
-  const login = session.login("viewer", "Demo-only-24")
-  await expect(session.check()).rejects.toMatchObject({ key: "authSuperseded" })
-  expect(session.context()).toBeUndefined()
-  expect(session.getSnapshot().phase).toBe("restoring")
-  finishLogin?.()
-  await login
-  expect(session.context()?.user.id).toBe("viewer")
-  api.login = originalLogin
-  await session.login("demo", "Demo-only-24")
-  const originalSwitch = api.switchOrganization.bind(api)
-  let finishSwitch: (() => void) | undefined
-  api.switchOrganization = async (token, organizationId) => {
-    await new Promise<void>(resolve => { finishSwitch = resolve })
-    return originalSwitch(token, organizationId)
-  }
-  const switching = session.switchOrganization("restricted-team")
-  await expect(session.check()).rejects.toMatchObject({ key: "authSuperseded" })
-  expect(session.context()).toBeUndefined()
-  finishSwitch?.()
-  await switching
-  expect(session.context()?.organization?.id).toBe("restricted-team")
-  expect(storage.read()).not.toBeNull()
+  await fixture.session.switchOrganization("studio")
+  expect(fixture.session.getSnapshot().phase).toBe("recovery")
+  expect(fixture.session.getContext()).toBeUndefined()
+  await fixture.session.restore()
+  expect(fixture.session.getSnapshot().phase).toBe("ready")
+  expect(fixture.session.getContext()?.currentOrganization?.id).toBe("studio")
+  expect(fixture.storage.read().credential?.organizationId).toBe("studio")
+  fixture.queryClient.clear()
 })
 
-/** 取消只保留同凭据已确认上下文；已发现外部凭据变化必须撤下旧权限。 */
-test("settles cancelled checks and removes stale context after external credential changes", async () => {
-  const { api, session, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const validate = api.validate.bind(api)
+/** 异步上下文即使忽略取消，也不能在退出后写回旧身份。 */
+test("ignores late private reads after logout", async () => {
+  const fixture = authFixture()
+  const original = fixture.api.getContext
   let finish: (() => void) | undefined
-  api.validate = async token => {
-    await new Promise<void>(resolve => { finish = resolve })
-    return validate(token)
+  let started: (() => void) | undefined
+  const ready = new Promise<void>((resolve) => {
+    started = resolve
+  })
+  const pause = new Promise<void>((resolve) => {
+    finish = resolve
+  })
+  fixture.api.getContext = async (credential, signal) => {
+    const result = await original(credential, signal)
+    started!()
+    await pause
+    return result
   }
-  const abort = new AbortController()
-  const checking = session.check(abort.signal)
-  abort.abort()
-  finish?.()
-  await expect(checking).rejects.toMatchObject({ key: "authSuperseded" })
-  expect(session.getSnapshot().phase).toBe("ready")
-  expect(session.context()?.user.id).toBe("demo")
-  const changed = session.check()
-  storage.write("external-credential")
-  finish?.()
-  await expect(changed).rejects.toMatchObject({ key: "authSuperseded" })
-  expect(session.context()).toBeUndefined()
-  expect(session.getSnapshot().phase).toBe("anonymous")
-  expect(storage.read()).toBe("external-credential")
+  const pending = fixture.session.login("demo", "demo-password").catch(() => undefined)
+  await ready
+  await fixture.session.logout()
+  finish!()
+  await pending
+  expect(fixture.session.getSnapshot().phase).toBe("anonymous")
+  expect(fixture.session.getContext()).toBeUndefined()
+  expect(fixture.storage.read().raw).toBeNull()
+  fixture.queryClient.clear()
 })
 
-/** 转换失败的异步清理完成前，不恢复旧组织或清掉后来转换的保护。 */
-test("keeps failed scope transition blocked throughout asynchronous cleanup", async () => {
-  const { api, session, storage } = fixture()
-  await session.login("demo", "Demo-only-24")
-  const oldToken = storage.read()
-  api.switchOrganization = async () => "issued-scope"
-  const validate = api.validate.bind(api)
-  api.validate = async value => {
-    if (value === "issued-scope") throw new AuthFailure("authNetwork")
-    return validate(value)
+/** 跨标签页变化重读真实记录，旧退出不能删除新登录。 */
+test("synchronizes external sessions and rejects stale logout deletion", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const otherFixture = authFixture({}, fixture.backend, fixture.service)
+  const other = otherFixture.session
+  await other.login("demo", "demo-password")
+  const current = fixture.storage.read()
+  await fixture.session.logout()
+  expect(fixture.storage.read()).toEqual(current)
+  expect(fixture.session.getSnapshot().phase).toBe("blocked")
+  await other.switchOrganization("studio")
+  const observerFixture = authFixture({}, fixture.backend, fixture.service)
+  const observer = observerFixture.session
+  await observer.restore()
+  expect(observer.getContext()?.currentOrganization?.id).toBe("studio")
+  await other.logout()
+  await observer.synchronize()
+  expect(observer.getSnapshot().phase).toBe("anonymous")
+  fixture.queryClient.clear()
+  otherFixture.queryClient.clear()
+  observerFixture.queryClient.clear()
+})
+
+/** 深链接只允许已声明内部页面，未知/空权限从不默认放行。 */
+test("fails closed for unsafe targets and missing capabilities", () => {
+  for (const path of [
+    "https://outside.invalid",
+    "//outside.invalid",
+    "/app?token=private",
+    "/missing"
+  ])
+    expect(safeReturnTo(path)).toBe("/app/dashboard")
+  expect(safeReturnTo("/app/account")).toBe("/app/account")
+  expect(canAccess(undefined, "account")).toBe(false)
+})
+
+/** 真实标签页各有 API 内存与 Query，外部新记录采用后不能回写旧组织。 */
+test("adopts organization changes across independent tab runtimes", async () => {
+  const first = authFixture()
+  const second = authFixture({}, first.backend, first.service)
+  await first.session.login("demo", "demo-password")
+  await second.session.restore()
+  await first.session.switchOrganization("studio")
+  const committed = first.storage.read().raw
+  await second.session.synchronize()
+  expect(second.session.getContext()?.currentOrganization?.id).toBe("studio")
+  expect(first.storage.read().raw).toBe(committed)
+  await first.session.logout()
+  await second.session.logout()
+  expect(second.session.getSnapshot().phase).toBe("anonymous")
+  first.queryClient.clear()
+  second.queryClient.clear()
+})
+
+/** 快速连续导航的 Query 具有独立代次，旧请求不能取消新导航或永久挂起。 */
+test("settles the latest navigation when private reads overlap", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const original = fixture.api.getContext
+  let release: (() => void) | undefined
+  let started: (() => void) | undefined
+  const entered = new Promise<void>((resolve) => {
+    started = resolve
+  })
+  const paused = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let count = 0
+  fixture.api.getContext = async (credential, signal) => {
+    const result = await original(credential, signal)
+    if (++count === 1) {
+      started!()
+      await paused
+    }
+    return result
   }
-  let releaseCleanup: (() => void) | undefined
-  api.logout = async () => { await new Promise<void>(resolve => { releaseCleanup = resolve }) }
-  const failure = session.switchOrganization("restricted-team").catch((error: unknown) => error)
-  await vi.waitFor(() => expect(releaseCleanup).toBeTypeOf("function"))
-  await expect(session.check()).rejects.toMatchObject({ key: "authSuperseded" })
-  expect(session.context()).toBeUndefined()
-  expect(storage.read()).toBe(oldToken)
-  releaseCleanup?.()
-  await expect(failure).resolves.toMatchObject({ key: "authNetwork" })
-  await expect(session.check()).rejects.toMatchObject({ key: "authStorageError" })
-  expect(session.context()).toBeUndefined()
+  const first = fixture.session.validateNavigation(new AbortController().signal)
+  await entered
+  const second = fixture.session.validateNavigation(new AbortController().signal)
+  await second
+  release!()
+  await first
+  expect(fixture.session.getSnapshot().phase).toBe("ready")
+  expect(fixture.session.getContext()?.user.username).toBe("demo")
+  fixture.queryClient.clear()
+})
+
+/** 切组织中的导航保持私有内容隐藏，不能提前恢复旧权限。 */
+test("does not restore an old scope while organization mutation is pending", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const original = fixture.api.switchOrganization
+  let release: (() => void) | undefined
+  const paused = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  fixture.api.switchOrganization = async (...args) => {
+    await paused
+    return original(...args)
+  }
+  const pending = fixture.session.switchOrganization("studio")
+  await fixture.session.validateNavigation(new AbortController().signal)
+  expect(fixture.session.getSnapshot().phase).toBe("switching")
+  expect(fixture.session.getContext()).toBeUndefined()
+  release!()
+  await pending
+  expect(fixture.session.getContext()?.currentOrganization?.id).toBe("studio")
+  fixture.queryClient.clear()
+})
+
+/** 校验端明确响应错误清理会话；只有无响应网络/超时保留引用。 */
+test.each(["http", "invalid-response", "network", "timeout"] as const)(
+  "classifies validation %s failures",
+  async (kind) => {
+    const fixture = authFixture()
+    await fixture.session.login("demo", "demo-password")
+    fixture.api.validateSession = async () => {
+      throw new ApiError({
+        kind,
+        code: "test",
+        message: "private detail",
+        retryable: false,
+        status: kind === "http" ? 500 : undefined
+      })
+    }
+    await fixture.session.validateNavigation(new AbortController().signal)
+    const retained = kind === "network" || kind === "timeout"
+    expect(fixture.session.getSnapshot().phase).toBe(retained ? "offline" : "anonymous")
+    expect(fixture.storage.read().credential !== null).toBe(retained)
+    expect(fixture.session.getContext()).toBeUndefined()
+    fixture.queryClient.clear()
+  }
+)
+
+/** 外部新引用采用中断后保留待确认标志，重试不能回写旧组织。 */
+test("retries adoption after offline cross-tab synchronization", async () => {
+  const first = authFixture()
+  const second = authFixture({}, first.backend, first.service)
+  await first.session.login("demo", "demo-password")
+  await second.session.restore()
+  await first.session.switchOrganization("studio")
+  const validate = second.api.validateSession
+  second.api.validateSession = async () => {
+    throw new AuthError("connectionUnavailable", "network")
+  }
+  await second.session.synchronize()
+  expect(second.session.getSnapshot().phase).toBe("offline")
+  second.api.validateSession = validate
+  await second.session.validateNavigation(new AbortController().signal)
+  expect(second.session.getContext()?.currentOrganization?.id).toBe("studio")
+  expect(first.storage.read().credential?.organizationId).toBe("studio")
+  first.queryClient.clear()
+  second.queryClient.clear()
+})
+
+/** 程序未知异常不能冒充服务明确拒绝并删除有效记录。 */
+test("retains a credential when validation fails with an unknown local error", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  fixture.api.validateSession = async () => {
+    throw new Error("internal failure")
+  }
+  await fixture.session.validateNavigation(new AbortController().signal)
+  expect(fixture.session.getSnapshot().phase).toBe("blocked")
+  expect(fixture.storage.read().credential).not.toBeNull()
+  expect(fixture.session.getContext()).toBeUndefined()
+  fixture.queryClient.clear()
 })

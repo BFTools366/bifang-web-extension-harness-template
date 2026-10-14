@@ -1,0 +1,293 @@
+import { expect, test, vi } from "vitest"
+import { createMockService } from "./mockAuth"
+import { isRecord } from "../foundationProtocol"
+import type { MockServiceExchange } from "./mockAuthService"
+
+const signal = new AbortController().signal
+/** 可控等待用于重置、取消和在途报文快照，不依赖真实时间。 */
+function barrier() {
+  let release!: () => void
+  const promise = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  return { promise, release }
+}
+
+/** 同服务恢复采用权威组织，独立服务或重置均不能从存储引用重新授权。 */
+test("isolates opaque references from tokens and reset lifecycles", async () => {
+  const fetch = vi.spyOn(globalThis, "fetch")
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const credential = await service.api.login("test", "test-password", signal)
+  const tokens = service.backend.sessionTokens(credential)
+  expect(tokens.access_token).not.toContain(credential.sessionId)
+  expect(tokens.refresh_token).not.toContain(credential.sessionId)
+  const forged = await service.request(
+    {
+      method: "GET",
+      path: "/api/v1/auth/profile",
+      headers: { Authorization: "Bearer mock-access-" + credential.sessionId }
+    },
+    signal
+  )
+  expect(forged.status).toBe(401)
+  await service.api.switchOrganization(credential, "studio", signal)
+  const client = service.createClient()
+  const restored = await client.api.validateSession(
+    { ...credential, organizationId: "workspace" },
+    signal,
+    true
+  )
+  expect(restored.organizationId).toBe("studio")
+  expect((await client.api.getContext(restored, signal)).capabilities).not.toContain("test-menu")
+  await expect(
+    service.api.validateSession({ ...credential, accountId: "demo-user" }, signal)
+  ).rejects.toMatchObject({ kind: "invalid-session" })
+  const independent = createMockService({ delayMs: 0, configured: () => false })
+  await expect(independent.api.validateSession(credential, signal, true)).rejects.toMatchObject({
+    kind: "invalid-session"
+  })
+  service.reset()
+  await expect(client.api.validateSession(credential, signal, true)).rejects.toMatchObject({
+    kind: "invalid-session"
+  })
+  await expect(client.api.refresh(credential, signal)).rejects.toMatchObject({
+    kind: "invalid-session"
+  })
+  expect(fetch).not.toHaveBeenCalled()
+  fetch.mockRestore()
+})
+
+/** 成功报文状态、内容类型、Header 与 JSON 追踪及令牌形状都必须校验。 */
+test("rejects malformed exchanges through the actual login adapter", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const changes: ((exchange: MockServiceExchange) => void)[] = [
+    (exchange) => {
+      exchange.status = 201
+    },
+    (exchange) => {
+      exchange.responseHeaders["Content-Type"] = "text/html"
+    },
+    (exchange) => {
+      exchange.responseHeaders["bad header name"] = "invalid"
+    },
+    (exchange) => {
+      exchange.responseHeaders["X-Invalid"] = "😀"
+    },
+    (exchange) => {
+      exchange.responseHeaders["X-Request-Id"] = "wrong-request"
+    },
+    (exchange) => {
+      if (isRecord(exchange.response)) exchange.response.request_id = "wrong-json-request"
+    },
+    (exchange) => {
+      if (isRecord(exchange.response) && isRecord(exchange.response.data))
+        exchange.response.data.token = {
+          access_token: "a",
+          refresh_token: "b",
+          token_type: "Basic",
+          expires_in: 1
+        }
+    }
+  ]
+  for (const change of changes) {
+    const client = service.createClient({
+      exchange: async (input, requestSignal) => {
+        const exchange = await service.request(input, requestSignal)
+        change(exchange)
+        return exchange
+      }
+    })
+    await expect(client.api.login("demo", "demo-password", signal)).rejects.toMatchObject({
+      serviceCode: "invalid_service_response",
+      kind: "unknown"
+    })
+  }
+  const client = service.createClient({
+    exchange: async (input, requestSignal) => {
+      const result = await service.request(input, requestSignal)
+      if (isRecord(result.response) && isRecord(result.response.errors))
+        result.response.errors.datas = []
+      return result
+    }
+  })
+  await expect(client.api.login("demo", "wrong", signal)).rejects.toMatchObject({
+    serviceCode: "invalid_service_response"
+  })
+})
+
+/** GraphQL partial data 即使包含可用字段也不能授予账号上下文。 */
+test("rejects partial and invalid GraphQL responses at the client boundary", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const credential = await service.api.login("demo", "demo-password", signal)
+  const partial = service.createClient({
+    exchange: async (input, requestSignal) => {
+      const result = await service.request(input, requestSignal)
+      if (isRecord(result.response))
+        result.response.errors = [{ message: "failure", extensions: { code: "common.forbidden" } }]
+      return result
+    }
+  })
+  await expect(partial.api.getContext(credential, signal)).rejects.toMatchObject({
+    serviceCode: "common.forbidden"
+  })
+  const invalid = service.createClient({
+    exchange: async (input, requestSignal) => {
+      const result = await service.request(input, requestSignal)
+      result.response = { data: { health: {}, me: null } }
+      return result
+    }
+  })
+  await expect(invalid.api.getContext(credential, signal)).rejects.toMatchObject({
+    serviceCode: "invalid_service_response"
+  })
+})
+
+/** 请求在等待前冻结，服务重置后旧写入不能落到新服务状态。 */
+test("snapshots requests before waiting and aborts writes across reset", async () => {
+  const gate = barrier()
+  const service = createMockService({ configured: () => false, wait: () => gate.promise })
+  const input = {
+    method: "POST",
+    path: "/api/v1/auth/login",
+    headers: { "X-Lang": "en" },
+    body: { account: "demo", password: "demo-password" }
+  }
+  const pending = service.request(input, signal)
+  input.body.password = "changed"
+  input.headers["X-Lang"] = "zh"
+  gate.release()
+  expect(await pending).toMatchObject({
+    status: 200,
+    request: { body: { password: "demo-password" } },
+    responseHeaders: { "Content-Language": "en" }
+  })
+  const resetGate = barrier()
+  const resetService = createMockService({
+    configured: () => false,
+    wait: () => resetGate.promise
+  })
+  const oldWrite = resetService.api.login("demo", "demo-password", signal)
+  const assertion = expect(oldWrite).rejects.toMatchObject({ name: "AbortError" })
+  resetService.reset()
+  resetGate.release()
+  await assertion
+})
+
+/** 注入 adapter 忽略取消或返回重置前响应时仍不能公布会话。 */
+test("rejects cancelled and late exchanges without publishing old sessions", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const gate = barrier()
+  const entered = barrier()
+  const client = service.createClient({
+    exchange: async (input, requestSignal) => {
+      const result = await service.request(input, requestSignal)
+      entered.release()
+      await gate.promise
+      return result
+    }
+  })
+  const pending = client.api.login("demo", "demo-password", signal)
+  await entered.promise
+  service.reset()
+  gate.release()
+  await expect(pending).rejects.toMatchObject({ name: "AbortError" })
+  const cancelled = new AbortController()
+  const hanging = service.createClient({ exchange: () => new Promise(() => undefined) })
+  const result = hanging.api.login("demo", "demo-password", cancelled.signal)
+  cancelled.abort()
+  await expect(result).rejects.toMatchObject({ name: "AbortError" })
+  const synchronous = new AbortController()
+  const rejecting = service.createClient({
+    exchange: () => {
+      synchronous.abort()
+      return Promise.reject(new Error("fixture failure"))
+    }
+  })
+  await expect(
+    rejecting.api.login("demo", "demo-password", synchronous.signal)
+  ).rejects.toMatchObject({ name: "AbortError" })
+  const waitingSignal = new AbortController()
+  const waiting = createMockService({
+    configured: () => false,
+    wait: () => {
+      waitingSignal.abort()
+      return Promise.reject(new Error("wait fixture"))
+    }
+  })
+  await expect(
+    waiting.api.login("demo", "demo-password", waitingSignal.signal)
+  ).rejects.toMatchObject({ name: "AbortError" })
+})
+
+/** 内存请求沿用 Header 的去空白与同名合并规则，不能只采用第一条凭据。 */
+test("normalizes header values and rejects duplicate authorization", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const credential = await service.api.login("demo", "demo-password", signal)
+  const token = service.backend.sessionTokens(credential).access_token
+  const request = { method: "GET", path: "/api/v1/auth/profile" }
+  expect(
+    await service.request(
+      { ...request, headers: { authorization: "  Bearer " + token + "  " } },
+      signal
+    )
+  ).toMatchObject({
+    status: 200,
+    request: { headers: { Authorization: "Bearer " + token } }
+  })
+  expect(
+    await service.request(
+      {
+        ...request,
+        headers: { Authorization: "Bearer " + token, authorization: "Bearer invalid" }
+      },
+      signal
+    )
+  ).toMatchObject({ status: 401 })
+})
+
+/** 成功报文延迟期间的账号吊销同样阻止公布旧签发，不能仅核对重置代次。 */
+test("does not publish login responses revoked during a delayed exchange", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const current = await service.api.login("demo", "demo-password", signal)
+  const gate = barrier()
+  const entered = barrier()
+  const delayed = service.createClient({
+    exchange: async (input, requestSignal) => {
+      const result = await service.request(input, requestSignal)
+      entered.release()
+      await gate.promise
+      return result
+    }
+  })
+  const pending = delayed.api.login("demo", "demo-password", signal)
+  await entered.promise
+  await service.api.logout(current, signal)
+  gate.release()
+  await expect(pending).rejects.toMatchObject({
+    serviceCode: "auth.token.revoked",
+    kind: "invalid-session"
+  })
+})
+
+/** 非法昵称在验证码消费与账号创建前失败，随后合法重试仍可完成。 */
+test("validates nicknames before consuming verification codes", async () => {
+  const service = createMockService({ delayMs: 0, configured: () => false })
+  const sent = await service.api.sendCode("new@example.invalid", "register", signal)
+  const input = {
+    username: "new_user",
+    email: "new@example.invalid",
+    password: "Example123",
+    code: sent.mockCode!
+  }
+  await expect(
+    service.api.register({ ...input, nickname: "bad\nname" }, signal)
+  ).rejects.toMatchObject({ serviceCode: "common.validate.error" })
+  expect(await service.api.register({ ...input, nickname: "正常昵称" }, signal)).toMatchObject({
+    username: "new_user",
+    nickname: "正常昵称"
+  })
+  service.reset()
+  await expect(service.api.login("new_user", "Example123", signal)).rejects.toMatchObject({
+    serviceCode: "auth.password.wrong"
+  })
+})

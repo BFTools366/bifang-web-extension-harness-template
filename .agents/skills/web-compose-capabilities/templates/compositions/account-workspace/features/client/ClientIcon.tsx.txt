@@ -1,0 +1,88 @@
+import type { ReactNode } from "react"
+
+/** 客户端自身的少量线性图标，不额外引入图标依赖。 */
+export type ClientIconName =
+  | "workspace"
+  | "account"
+  | "organization"
+  | "language"
+  | "settings"
+  | "logout"
+  | "collapse"
+  | "expand"
+  | "refresh"
+  | "chevron"
+
+const shapes: Record<ClientIconName, ReactNode> = {
+  workspace: (
+    <>
+      <rect x="3" y="4" width="18" height="16" rx="3" />
+      <path d="M3 9h18M9 9v11" />
+    </>
+  ),
+  account: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a8 8 0 0 1 16 0v2" />
+    </>
+  ),
+  organization: (
+    <>
+      <circle cx="9" cy="7" r="3" />
+      <path d="M3 20v-2a6 6 0 0 1 12 0v2M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 4v2" />
+    </>
+  ),
+  language: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18" />
+    </>
+  ),
+  settings: (
+    <>
+      <path d="m9 3-.6 3-2.8 1-2.5 2.8 2 2.2-.1 3 2.8 2.7 3 .4 2.2 2.1 3.5-1.4.6-3 2.1-2.1-.5-3.8-2.4-1.9-.7-3.1L12 3Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M9 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M10 12h11m-4-4 4 4-4 4" />
+    </>
+  ),
+  collapse: (
+    <>
+      <path d="M3 4h18v16H3ZM8 4v16m9-12-4 4 4 4" />
+    </>
+  ),
+  expand: (
+    <>
+      <path d="M3 4h18v16H3ZM8 4v16m5-12 4 4-4 4" />
+    </>
+  ),
+  refresh: (
+    <>
+      <path d="M20 4v6h-6M4 20v-6h6M5 8a8 8 0 0 1 13-3l2 5M4 14l2 5a8 8 0 0 0 13-3" />
+    </>
+  ),
+  chevron: <path d="m8 10 4 4 4-4" />
+}
+
+/** 只有所在 Button/Link 提供名称，装饰 SVG 不重复播报。 */
+export function ClientIcon({ name, size = 22 }: { name: ClientIconName; size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {shapes[name]}
+    </svg>
+  )
+}

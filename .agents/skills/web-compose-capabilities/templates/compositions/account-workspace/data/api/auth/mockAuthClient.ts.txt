@@ -1,0 +1,360 @@
+import { getRequestLanguage } from "../../../i18n/language"
+import { parseServiceEmpty, parseServiceObject, ServiceFailure } from "../foundationProtocol"
+import { AuthError, type AuthApi, type MockCredential } from "./contracts"
+import type {
+  MockAuthService,
+  MockServiceExchange,
+  MockServiceRequest,
+  MockServiceOptions
+} from "./mockAuthService"
+import { ACCOUNT_QUERY } from "./mockGraphql"
+import {
+  AUTH_OPERATIONS,
+  authServiceHeaders,
+  isServiceAccount,
+  isServiceAuthResult,
+  isServiceProfile,
+  isServiceVerification
+} from "./serviceContract"
+import {
+  awaitMockExchange,
+  isServiceHealth,
+  parseMockAccountExchange,
+  parseMockRestExchange,
+  serializeMockRequest,
+  validateMockExchange
+} from "./mockProtocol"
+
+/** 可注入内存 exchange 用于实际 adapter 的协议失败回归。 */
+export interface MockClientOptions extends Pick<MockServiceOptions, "getLanguage"> {
+  exchange?: (request: MockServiceRequest, signal: AbortSignal) => Promise<MockServiceExchange>
+}
+const uiKeys: Record<string, string> = {
+  "auth.password.wrong": "credentialsInvalid",
+  "auth.old.password.wrong": "oldPasswordWrong",
+  "auth.account.disabled": "accountDisabled",
+  "verification.target.invalid": "emailInvalid",
+  "verification.target.not.registered": "targetNotRegistered",
+  "verification.code.too.frequent": "codeRateLimited",
+  "verification.code.daily.limit": "codeDailyLimit",
+  "verification.code.attempts.exceeded": "codeAttemptsExceeded",
+  "verification.code.required": "codeRequired",
+  "verification.code.expired": "codeExpired",
+  "verification.code.invalid": "codeInvalid",
+  "account.username.exists": "accountExists",
+  "account.email.exists": "accountExists",
+  "account.phone.exists": "accountExists",
+  "common.validate.error": "validationFailed",
+  "mock.organization.unavailable": "organizationUnavailable"
+}
+/** 分支依赖稳定码，服务消息不直接展示。 */
+function uiFailure(error: unknown): never {
+  if (!(error instanceof ServiceFailure)) throw error
+  const invalid =
+    error.code.startsWith("auth.token.") ||
+    error.code === "auth.account.not.found" ||
+    error.code === "auth.account.disabled"
+  throw new AuthError(
+    uiKeys[error.code] ?? (invalid ? "sessionExpired" : "operationFailed"),
+    invalid ? "invalid-session" : error.code === "invalid_service_response" ? "unknown" : "input",
+    error.code,
+    error.status,
+    error.requestId
+  )
+}
+
+/** 同一模拟服务可装配多个独立客户端，不复制账号和吊销状态。 */
+export function createMockAuthClient(service: MockAuthService, options: MockClientOptions = {}) {
+  const backend = service.backend
+  /** 演示令牌只从服务内存取值，不从持久引用推导。 */
+  function accessToken(credential: MockCredential) {
+    return backend.sessionTokens(credential).access_token
+  }
+  /** 校验完整原始响应后，再绑定服务内已经签发的引用。 */
+  function credentialFromResult(value: unknown) {
+    return backend.credentialForResult(
+      parseServiceObject(value, "auth.token", isServiceAuthResult).data
+    )
+  }
+  /** 请求/响应跨异步边界后均复核取消与服务代次。 */
+  async function request(
+    input: MockServiceRequest,
+    signal: AbortSignal
+  ): Promise<MockServiceExchange> {
+    signal.throwIfAborted()
+    const generation = service.generation
+    const result = await awaitMockExchange(
+      (options.exchange ?? service.request)(serializeMockRequest(input), signal),
+      signal
+    )
+    signal.throwIfAborted()
+    if (generation !== service.generation) throw new DOMException("Service reset", "AbortError")
+    return result
+  }
+  /** 应用调用先校验原始 REST JSON，再映射领域结果。 */
+  async function invoke(
+    operation: keyof typeof AUTH_OPERATIONS,
+    body: Record<string, unknown> | undefined,
+    credential: MockCredential | undefined,
+    signal: AbortSignal
+  ) {
+    const route = AUTH_OPERATIONS[operation]
+    const requestId = crypto.randomUUID()
+    const exchange = await request(
+      {
+        method: route.method,
+        path: route.path,
+        headers: authServiceHeaders(
+          operation,
+          (options.getLanguage ?? getRequestLanguage)(),
+          requestId,
+          credential ? accessToken(credential) : undefined
+        ),
+        ...(body ? { body } : {})
+      },
+      signal
+    )
+    return parseMockRestExchange(exchange, requestId)
+  }
+  /** REST profile 保持导航校验职责，GraphQL 不替代身份授权。 */
+  async function profile(credential: MockCredential, signal: AbortSignal) {
+    return parseServiceObject(
+      await invoke("profile", undefined, credential, signal),
+      "account",
+      isServiceProfile
+    )
+  }
+  /** 固定 GraphQL 查询先校验协议 envelope，再提供页面投影。 */
+  async function accountQuery(credential: MockCredential, signal: AbortSignal) {
+    const requestId = crypto.randomUUID()
+    const exchange = await request(
+      {
+        method: "POST",
+        path: "/graphql",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Lang": (options.getLanguage ?? getRequestLanguage)(),
+          "X-Request-Id": requestId,
+          Authorization: "Bearer " + accessToken(credential)
+        },
+        body: { query: ACCOUNT_QUERY }
+      },
+      signal
+    )
+    return parseMockAccountExchange(exchange, requestId)
+  }
+  const api: AuthApi = {
+    mode: "mock",
+    /** 登录仅公布校验后的演示引用。 */
+    async login(username, password, signal) {
+      try {
+        return credentialFromResult(
+          await invoke("login", { account: username, password }, undefined, signal)
+        )
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 明文仅在 Mock 返回，现有表单显示真实签发的演示码。 */
+    async sendCode(email, purpose, signal) {
+      try {
+        const sent = parseServiceObject(
+          await invoke(
+            "sendCode",
+            {
+              target: email,
+              target_type: "email",
+              scene: purpose === "register" ? "register" : "reset_password"
+            },
+            undefined,
+            signal
+          ),
+          "verification.code",
+          isServiceVerification
+        )
+        return {
+          retryAfterSeconds: sent.data.resend_after,
+          ...(sent.data.mock ? { mockCode: sent.data.code } : {})
+        }
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 手机和昵称映射服务字段，注册仍不自动登录。 */
+    async register(input, signal) {
+      try {
+        return parseServiceObject(
+          await invoke(
+            "register",
+            {
+              username: input.username,
+              email: input.email,
+              password: input.password,
+              code: input.code,
+              code_type: input.codeType ?? "email",
+              ...(input.phone !== undefined ? { phone: input.phone } : {}),
+              ...(input.nickname !== undefined ? { nickname: input.nickname } : {})
+            },
+            undefined,
+            signal
+          ),
+          "account",
+          isServiceAccount
+        ).data
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 找回公开隔离，成功保持空 JSON 模型。 */
+    async resetPassword(input, signal) {
+      try {
+        parseServiceEmpty(
+          await invoke(
+            "resetPassword",
+            {
+              target: input.email,
+              target_type: "email",
+              code: input.code,
+              new_password: input.password
+            },
+            undefined,
+            signal
+          )
+        )
+      } catch (error) {
+        uiFailure(error)
+      }
+    },
+    /** 显式刷新仅发送 refresh JSON，即使旧访问凭据过期也可执行。 */
+    async refresh(credential, signal) {
+      try {
+        const next = credentialFromResult(
+          await invoke(
+            "refresh",
+            { refresh_token: backend.sessionTokens(credential).refresh_token },
+            undefined,
+            signal
+          )
+        )
+        if (next.accountId !== credential.accountId)
+          throw new ServiceFailure("auth.token.revoked", 401)
+        return next
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 改密原密码错误保留会话，成功吊销后由协调器清理本地。 */
+    async changePassword(credential, oldPassword, nextPassword, signal) {
+      try {
+        parseServiceEmpty(
+          await invoke(
+            "changePassword",
+            { old_password: oldPassword, new_password: nextPassword },
+            credential,
+            signal
+          )
+        )
+      } catch (error) {
+        uiFailure(error)
+      }
+    },
+    /** 导航先执行 REST profile，再采用本地组织引用。 */
+    async validateSession(credential, signal) {
+      try {
+        signal.throwIfAborted()
+        const data = await profile(credential, signal)
+        if (data.data.account.id !== credential.accountId)
+          throw new ServiceFailure("auth.token.revoked", 401)
+        return backend.validate(credential)
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 页面账号使用 GraphQL 投影，组织与能力保留独立 Mock 扩展。 */
+    async getContext(credential, signal) {
+      try {
+        const data = await accountQuery(credential, signal)
+        const context = backend.context(credential)
+        if (data.me.account.id !== credential.accountId)
+          throw new ServiceFailure("invalid_service_response", 200)
+        return {
+          ...context,
+          user: {
+            id: data.me.account.id,
+            username: data.me.account.username,
+            email: data.me.account.email,
+            displayName: data.me.account.nickname
+          }
+        }
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 组织切换没有来源 REST 地址，只执行本地扩展。 */
+    async switchOrganization(credential, organizationId, signal) {
+      try {
+        await service.active(signal)
+        return backend.switchOrganization(credential, organizationId)
+      } catch (error) {
+        return uiFailure(error)
+      }
+    },
+    /** 全账号登出使用当前 Bearer，无请求体。 */
+    async logout(credential, signal) {
+      try {
+        parseServiceEmpty(await invoke("logout", undefined, credential, signal))
+      } catch (error) {
+        uiFailure(error)
+      }
+    },
+    /** 临时引用清理不影响账号其它会话。 */
+    discardUnpublishedSession(credential) {
+      backend.discard(credential)
+    }
+  }
+  return {
+    api,
+    request,
+    profile,
+    accountQuery,
+    /** 存活探针保留纯文本与本次追踪，不忽略错误状态。 */
+    async healthz(signal: AbortSignal) {
+      const requestId = crypto.randomUUID()
+      const result = await request(
+        {
+          method: "GET",
+          path: "/healthz",
+          headers: {
+            "X-Lang": (options.getLanguage ?? getRequestLanguage)(),
+            "X-Request-Id": requestId
+          }
+        },
+        signal
+      )
+      validateMockExchange(result, requestId, "text/plain")
+      if (result.status !== 200 || result.response !== "ok")
+        throw new ServiceFailure("invalid_service_response", result.status)
+      return "ok" as const
+    },
+    /** 健康读取与认证复用 REST 状态及追踪边界。 */
+    async healthCheck(signal: AbortSignal) {
+      const requestId = crypto.randomUUID()
+      const result = await request(
+        {
+          method: "GET",
+          path: "/api/v1/system/health-check",
+          headers: {
+            "X-Lang": (options.getLanguage ?? getRequestLanguage)(),
+            "X-Request-Id": requestId
+          }
+        },
+        signal
+      )
+      return parseServiceObject(
+        parseMockRestExchange(result, requestId),
+        "system.health.check",
+        isServiceHealth
+      ).data
+    }
+  }
+}

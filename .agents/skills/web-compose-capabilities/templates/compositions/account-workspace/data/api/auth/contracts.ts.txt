@@ -1,0 +1,137 @@
+import type { ServiceAccount } from "./serviceContract"
+
+/** 演示会话引用不是服务端令牌，不允许注入任何真实 HTTP 请求头。 */
+export interface MockCredential {
+  kind: "mock"
+  sessionId: string
+  accountId: string
+  organizationId: string | null
+}
+
+/** 当前客户端已采用的界面能力；真实服务接入时须明确映射其权限码。 */
+export type ClientCapability = "workspace" | "account" | "switch-organization" | "test-menu"
+
+/** 经认证 API 确认的成员组织。 */
+export interface MemberOrganization {
+  id: string
+  name: string
+}
+
+/** 用户、成员组织与当前作用域权限只由 Query 缓存拥有。 */
+export interface AuthContext {
+  user: { id: string; username: string; displayName: string; email: string }
+  organizations: MemberOrganization[]
+  currentOrganization: MemberOrganization | null
+  capabilities: ClientCapability[]
+}
+
+/** 验证码用途不能在注册与找回之间互换。 */
+export type CodePurpose = "register" | "reset"
+
+/** 注册输入只在提交生命周期和 Mock 服务内存中存在。 */
+export interface RegisterInput {
+  username: string
+  email: string
+  password: string
+  code: string
+  phone?: string
+  nickname?: string
+  codeType?: "email" | "phone"
+}
+
+/** 找回输入不会写入 URL、日志或浏览器存储。 */
+export interface ResetInput {
+  email: string
+  password: string
+  code: string
+}
+
+/** API 通过稳定错误码提供反馈，不向界面暴露原始响应。 */
+export class AuthError extends Error {
+  /** 保存已校验错误语义。 */
+  constructor(
+    readonly code: string,
+    readonly kind: "input" | "invalid-session" | "network" | "unknown" | "configuration" = "input",
+    readonly serviceCode?: string,
+    readonly status?: number,
+    readonly requestId?: string
+  ) {
+    super(code)
+    this.name = "AuthError"
+  }
+}
+
+/** 认证远端边界的完整操作合同；当前实现明确为 Mock。 */
+export interface AuthApi {
+  mode: "mock"
+  /** 校验账号密码并返回演示引用。 */
+  login(username: string, password: string, signal: AbortSignal): Promise<MockCredential>
+  /** 按邮箱和用途发送演示验证码。 */
+  sendCode(
+    email: string,
+    purpose: CodePurpose,
+    signal: AbortSignal
+  ): Promise<{ retryAfterSeconds: number; mockCode?: string }>
+  /** 显式刷新，不自动重放原请求。 */
+  refresh(credential: MockCredential, signal: AbortSignal): Promise<MockCredential>
+  /** 修改密码成功会吊销账号全部会话。 */
+  changePassword(
+    credential: MockCredential,
+    oldPassword: string,
+    newPassword: string,
+    signal: AbortSignal
+  ): Promise<void>
+  /** 验证后创建本页演示账号，不自动登录。 */
+  register(input: RegisterInput, signal: AbortSignal): Promise<ServiceAccount>
+  /** 验证后修改本页演示密码。 */
+  resetPassword(input: ResetInput, signal: AbortSignal): Promise<void>
+  /** 恢复只校验同一服务内的既存引用；兼容参数不授予重建身份的能力。 */
+  validateSession(
+    credential: MockCredential,
+    signal: AbortSignal,
+    adoptStoredReference?: boolean
+  ): Promise<MockCredential>
+  /** 读取当前身份、组织及能力。 */
+  getContext(credential: MockCredential, signal: AbortSignal): Promise<AuthContext>
+  /** 切换到已确认的成员组织。 */
+  switchOrganization(
+    credential: MockCredential,
+    organizationId: string,
+    signal: AbortSignal
+  ): Promise<MockCredential>
+  /** 吊销本 Mock 实例中该账号的全部会话。 */
+  logout(credential: MockCredential, signal: AbortSignal): Promise<void>
+  /** 只丢弃尚未公布的本地 Mock 引用，不调用全账号登出接口。 */
+  discardUnpublishedSession?(credential: MockCredential): void
+}
+
+/** 外部数据即使来自 Mock，也必须满足当前上下文合同。 */
+export function isAuthContext(value: unknown): value is AuthContext {
+  if (typeof value !== "object" || value === null) return false
+  const context = value as Partial<AuthContext>
+  const user = context.user
+  const text = (entry: unknown) =>
+    typeof entry === "string" && entry.length > 0 && entry.length <= 256
+  const organization = (entry: unknown): entry is MemberOrganization =>
+    typeof entry === "object" &&
+    entry !== null &&
+    "id" in entry &&
+    "name" in entry &&
+    text(entry.id) &&
+    text(entry.name)
+  return (
+    !!user &&
+    [user.id, user.username, user.displayName, user.email].every(text) &&
+    Array.isArray(context.organizations) &&
+    context.organizations.length <= 100 &&
+    context.organizations.every(organization) &&
+    new Set(context.organizations.map((entry) => entry.id)).size === context.organizations.length &&
+    (context.currentOrganization === null ||
+      (organization(context.currentOrganization) &&
+        context.organizations.some((entry) => entry.id === context.currentOrganization?.id))) &&
+    Array.isArray(context.capabilities) &&
+    context.capabilities.every((entry) =>
+      ["workspace", "account", "switch-organization", "test-menu"].includes(entry)
+    )
+  )
+}

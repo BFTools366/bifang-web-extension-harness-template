@@ -1,0 +1,31 @@
+import { Paper, Stack, Text, Title } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { useAuth } from "../auth/AuthProvider"
+import { canAccess } from "../auth/access"
+import { AuthStatePanel } from "../auth/AuthStatePanel"
+
+/** 以当前账号与组织确认测试菜单已可访问，不制造额外业务数据或请求。 */
+export function TestMenuPage() {
+  const { t } = useTranslation()
+  const { context } = useAuth()
+  if (!context || !canAccess(context, "test-menu")) return <AuthStatePanel denied />
+  return (
+    <Stack gap="lg">
+      <Title order={1}>{t("client.testMenu")}</Title>
+      <Paper withBorder radius="lg" p="xl">
+        <Stack gap="md">
+          <Text role="status">{t("client.testMenuSuccess")}</Text>
+          <Text>
+            {t("client.testMenuIdentity", {
+              name: context.user.displayName,
+              organization: context.currentOrganization?.name
+            })}
+          </Text>
+          <Text size="sm" c="dimmed">
+            {t("client.testMenuDescription")}
+          </Text>
+        </Stack>
+      </Paper>
+    </Stack>
+  )
+}

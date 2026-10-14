@@ -32,6 +32,16 @@
           "path": "templates/organization/operation-plan.md",
           "kind": "design",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/organization/organizationChoices.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/organization/organizationChoices.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
       ]
     },
@@ -43,6 +53,16 @@
         {
           "path": "templates/permissions/operation-plan.md",
           "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/permissions/capability.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/permissions/capability.test.ts.txt",
+          "kind": "code",
           "hosts": ["web", "extension"]
         }
       ]
@@ -102,37 +122,162 @@
       "modules": ["identity", "organization", "permissions"],
       "templates": [
         {
-          "path": "templates/compositions/account-workspace/AuthPages.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/Workspace.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/api.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/contracts.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
           "path": "templates/compositions/account-workspace/files.ts",
           "kind": "code",
           "hosts": ["web"]
         },
         {
-          "path": "templates/compositions/account-workspace/provider.tsx.txt",
+          "path": "templates/compositions/account-workspace/assets.json",
           "kind": "code",
           "hosts": ["web"]
         },
         {
-          "path": "templates/compositions/account-workspace/router.test.tsx.txt",
+          "path": "templates/compositions/account-workspace/README.md",
+          "kind": "design",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/app/AppProviders.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/app/authSession.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/app/router.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockAuth.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockAuth.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockAuthBackend.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockAuthClient.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockAuthService.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockBoundary.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockFoundation.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockGraphql.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockProtocol.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/mockVerification.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/serviceContract.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/auth/serviceContract.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/foundationProtocol.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/api/foundationProtocol.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/storage/authSessionStorage.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/data/storage/authSessionStorage.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/AuthPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/AuthProvider.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/AuthStatePanel.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/access.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/access.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/authTestFixtures.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/guards.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/navigation.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/search.ts.txt",
           "kind": "code",
           "hosts": ["web"]
         },
@@ -147,13 +292,183 @@
           "hosts": ["web"]
         },
         {
-          "path": "templates/compositions/account-workspace/storage.ts.txt",
+          "path": "templates/compositions/account-workspace/features/auth/sessionOperations.test.ts.txt",
           "kind": "code",
           "hosts": ["web"]
         },
         {
-          "path": "templates/compositions/account-workspace/translations.ts.txt",
+          "path": "templates/compositions/account-workspace/features/client/AccountMenu.tsx.txt",
           "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/AccountPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/ApplicationRoot.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/AuthLayout.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/ClientFlows.test.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/ClientIcon.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/ClientLayout.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/DashboardPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/OrganizationSwitcher.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/Preferences.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/PreferencesDialog.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/TestMenuPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/client.module.css.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/__root.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/_auth.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/_auth/forgot-password.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/_auth/login.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/_auth/register.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/app.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/app/account.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/app/dashboard.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/app/forbidden.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/app/test.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/clientTestFixtures.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/ClientAccess.test.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/ClientNavigation.test.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/app/queryClient.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/auth/useOperationGuard.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/i18n/locales/accountWorkspace.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api-example/README.md",
+          "kind": "design",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api-example/api/common.md",
+          "kind": "design",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api-example/api/metadata.md",
+          "kind": "design",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api-example/api/account.md",
+          "kind": "design",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api-example/api/system.md",
+          "kind": "design",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api-example/business/account.md",
+          "kind": "design",
           "hosts": ["web"]
         }
       ]

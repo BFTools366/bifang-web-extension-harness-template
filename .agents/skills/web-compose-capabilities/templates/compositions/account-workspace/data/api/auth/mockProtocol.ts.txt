@@ -1,0 +1,150 @@
+import { isRecord, parseServiceFailure, protocolText, ServiceFailure } from "../foundationProtocol"
+import type { GraphqlMe, ServiceHealth } from "./mockGraphql"
+import type { MockServiceExchange, MockServiceRequest } from "./mockAuthService"
+
+/** 在等待前按 JSON wire 语义冻结请求，避免调用者随后修改报文。 */
+export function serializeMockRequest(input: MockServiceRequest): MockServiceRequest {
+  try {
+    const names: Record<string, string> = {
+      authorization: "Authorization",
+      "x-lang": "X-Lang",
+      "x-request-id": "X-Request-Id",
+      "content-type": "Content-Type",
+      "accept-language": "Accept-Language"
+    }
+    const headers = Object.fromEntries(
+      [...new Headers(input.headers)].map(([name, value]) => [names[name] ?? name, value])
+    )
+    const body: unknown =
+      input.body === undefined ? undefined : JSON.parse(JSON.stringify(input.body))
+    return {
+      method: input.method,
+      path: input.path,
+      headers,
+      ...(body === undefined ? {} : { body })
+    }
+  } catch {
+    throw new ServiceFailure("common.validate.error", 400)
+  }
+}
+
+/** 注入的 exchange 即使忽略 signal，也不能发布取消后的成功结果。 */
+export async function awaitMockExchange<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const stop = () => {
+      signal.removeEventListener("abort", stop)
+      reject(new DOMException("Cancelled", "AbortError"))
+    }
+    signal.addEventListener("abort", stop, { once: true })
+    work.then(
+      (value) => {
+        signal.removeEventListener("abort", stop)
+        if (signal.aborted) stop()
+        else resolve(value)
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", stop)
+        reject(error)
+      }
+    )
+    if (signal.aborted) stop()
+  })
+}
+
+/** 响应头大小写不敏感，追踪必须与本次 dispatch 一致。 */
+export function validateMockExchange(
+  exchange: MockServiceExchange,
+  requestId: string,
+  contentType = "application/json"
+): void {
+  let headers: Headers
+  try {
+    headers = new Headers(exchange.responseHeaders)
+  } catch {
+    throw new ServiceFailure("invalid_service_response", exchange.status)
+  }
+  if (
+    headers.get("X-Request-Id") !== requestId ||
+    headers.get("Content-Type")?.split(";")[0]?.trim() !== contentType ||
+    !Number.isInteger(exchange.status)
+  )
+    throw new ServiceFailure("invalid_service_response", exchange.status)
+}
+
+/** 所有 REST 领域解析器共用状态、追踪和原始错误边界。 */
+export function parseMockRestExchange(exchange: MockServiceExchange, requestId: string): unknown {
+  validateMockExchange(exchange, requestId)
+  if (!isRecord(exchange.response) || exchange.response.request_id !== requestId)
+    throw new ServiceFailure("invalid_service_response", exchange.status)
+  if (exchange.status >= 400 && exchange.status <= 599)
+    throw parseServiceFailure(exchange.response, exchange.status)
+  if (exchange.status !== 200) throw new ServiceFailure("invalid_service_response", exchange.status)
+  return exchange.response
+}
+
+/** 健康 DTO 使用有界字段，REST 与 GraphQL 共用同一校验。 */
+export function isServiceHealth(value: unknown): value is ServiceHealth {
+  return (
+    isRecord(value) &&
+    typeof value.available === "boolean" &&
+    [value.name, value.version].every(protocolText) &&
+    ["dev", "test", "prod"].includes(value.env as string)
+  )
+}
+
+/** GraphQL 账号投影保留秒时间、可空组织和独立字段命名。 */
+function isGraphqlMe(value: unknown): value is GraphqlMe {
+  if (!isRecord(value) || !isRecord(value.account)) return false
+  const account = value.account
+  const org = value.org
+  const stamp = (entry: unknown) =>
+    typeof entry === "number" && Number.isSafeInteger(entry) && entry >= 0
+  return (
+    [account.id, account.username, account.email, account.nickname].every(protocolText) &&
+    [0, 1].includes(account.status as number) &&
+    typeof account.lastLoginIp === "string" &&
+    (account.lastLoginTime === null || stamp(account.lastLoginTime)) &&
+    stamp(account.createdTime) &&
+    stamp(account.updatedTime) &&
+    (org === null ||
+      (isRecord(org) &&
+        [org.id, org.name].every(protocolText) &&
+        typeof org.isDefault === "boolean" &&
+        stamp(org.createdTime) &&
+        stamp(org.updatedTime)))
+  )
+}
+
+/** 固定账号查询拒绝 partial data、错误列表和畸形成功响应。 */
+export function parseMockAccountExchange(
+  exchange: MockServiceExchange,
+  requestId: string
+): { health: ServiceHealth; me: GraphqlMe } {
+  validateMockExchange(exchange, requestId)
+  const result = exchange.response
+  if (![200, 422].includes(exchange.status) || !isRecord(result))
+    throw new ServiceFailure("invalid_service_response", exchange.status)
+  if (Array.isArray(result.errors) && result.errors.length) {
+    if (
+      !result.errors.every(
+        (entry) =>
+          isRecord(entry) &&
+          typeof entry.message === "string" &&
+          isRecord(entry.extensions) &&
+          protocolText(entry.extensions.code)
+      )
+    )
+      throw new ServiceFailure("invalid_service_response", exchange.status)
+    const first = result.errors[0] as { extensions: { code: string } }
+    throw new ServiceFailure(first.extensions.code, exchange.status, requestId)
+  }
+  if (
+    exchange.status !== 200 ||
+    "errors" in result ||
+    !isRecord(result.data) ||
+    !isServiceHealth(result.data.health) ||
+    !isGraphqlMe(result.data.me)
+  )
+    throw new ServiceFailure("invalid_service_response", exchange.status)
+  return { health: result.data.health, me: result.data.me }
+}

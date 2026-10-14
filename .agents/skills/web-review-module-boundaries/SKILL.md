@@ -25,3 +25,7 @@ description: 只读审查 Web Harness 工具与模板或 React Web、Plasmo Exte
 ## 返回结果
 
 返回有文件/符号依据的职责地图、依赖与拥有者问题、按风险排序的建议及不宜拆分的部分；未知项明确标注。调用方选择范围后实施，不能把审查建议当作修改授权、行为保持或正式验收结论。
+
+## 职责参考
+
+[能力实现地图](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 展示app装配、feature协调、API协议/服务、Storage和纯权限的单向边界。评审须对照当前源码，不因采用目录结构就宣称无环或行为通过。

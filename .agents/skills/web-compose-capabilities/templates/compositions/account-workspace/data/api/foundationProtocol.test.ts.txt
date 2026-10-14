@@ -1,0 +1,75 @@
+import { expect, test } from "vitest"
+import {
+  parseServiceEmpty,
+  parseServiceFailure,
+  parseServiceGrid,
+  servicePageQuery
+} from "./foundationProtocol"
+
+/** 原始分页字段只在数据边界映射，字符串雪花 ID 保持精度。 */
+test("maps grid results and rejects inconsistent or unsafe pagination", () => {
+  const value = {
+    model: "grid.result",
+    page: { model: "page", current: 1, size: 20, total: 1, total_page: 1 },
+    result: { model: "data.set", datas: [{ id: "2108046372081659904" }], total: 1 },
+    request_id: "request-example"
+  }
+  const valid = (item: unknown): item is { id: string } =>
+    typeof item === "object" && item !== null && "id" in item && typeof item.id === "string"
+  expect(servicePageQuery(1, 20, { field: "id", order: "desc" })).toEqual({
+    current: 1,
+    size: 20,
+    order_by: "id",
+    order: "desc"
+  })
+  expect(parseServiceGrid(value, valid)).toEqual({
+    page: 1,
+    pageSize: 20,
+    items: [{ id: "2108046372081659904" }],
+    total: 1
+  })
+  expect(() =>
+    parseServiceGrid({ ...value, result: { ...value.result, total: 2 } }, valid)
+  ).toThrow()
+  expect(() =>
+    parseServiceGrid({ ...value, page: { ...value.page, total_page: 2 } }, valid)
+  ).toThrow()
+  expect(() =>
+    parseServiceGrid(
+      { ...value, page: { ...value.page, total: Number.MAX_SAFE_INTEGER + 1 } },
+      valid
+    )
+  ).toThrow()
+  expect(() => servicePageQuery(0, 20)).toThrow()
+  expect(() => servicePageQuery(1, 201)).toThrow()
+})
+
+/** 空结果和错误均保留服务封装，非法错误体不能变成认证成功。 */
+test("checks empty and errors envelopes without trusting translated messages", () => {
+  expect(parseServiceEmpty({ model: "empty", request_id: "request-example" })).toEqual({
+    model: "empty",
+    request_id: "request-example"
+  })
+  expect(() => parseServiceEmpty(undefined)).toThrow()
+  const error = parseServiceFailure(
+    {
+      model: "errors",
+      errors: {
+        model: "data.set",
+        datas: [{ model: "error", code: "auth.password.wrong", message: "任意语言" }],
+        total: 1
+      },
+      request_id: "request-example"
+    },
+    401
+  )
+  expect(error).toMatchObject({
+    code: "auth.password.wrong",
+    status: 401,
+    requestId: "request-example"
+  })
+  expect(error.message).not.toContain("任意语言")
+  expect(parseServiceFailure({ model: "errors", errors: { datas: [] } }, 401).code).toBe(
+    "invalid_service_response"
+  )
+})

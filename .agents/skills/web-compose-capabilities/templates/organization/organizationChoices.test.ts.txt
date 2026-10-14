@@ -1,0 +1,9 @@
+import { expect, test } from "vitest"
+import { otherOrganizations } from "./organizationChoices"
+/** 候选排除当前组织，不制造新成员关系，重复项只显示一次。 */
+test("derives only other distinct member organizations", () => {
+  const a = { id: "a", name: "A" },
+    b = { id: "b", name: "B" }
+  expect(otherOrganizations([a, b, b], "a")).toEqual([b])
+  expect(otherOrganizations([], null)).toEqual([])
+})

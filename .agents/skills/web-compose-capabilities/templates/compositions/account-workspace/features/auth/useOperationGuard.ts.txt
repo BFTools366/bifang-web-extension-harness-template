@@ -1,0 +1,15 @@
+import { useCallback, useEffect, useRef } from "react"
+/** 只撤销组件回调权；会话协调器继续完成已接受的恢复或清理。 */
+export function useOperationGuard(boundary?: unknown) {
+  const revision = useRef(0)
+  useEffect(() => {
+    revision.current++
+    return () => {
+      revision.current++
+    }
+  }, [boundary])
+  return useCallback(() => {
+    const ticket = ++revision.current
+    return () => revision.current === ticket
+  }, [])
+}

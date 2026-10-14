@@ -1,0 +1,9 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { AuthPage } from "../../features/auth/AuthPage"
+import { authSearch } from "../../features/auth/search"
+
+/** 登录 search 只接收安全内部目标和有限成功状态，不携带凭据。 */
+export const Route = createFileRoute("/_auth/login")({
+  validateSearch: authSearch,
+  component: () => <AuthPage mode="login" />
+})

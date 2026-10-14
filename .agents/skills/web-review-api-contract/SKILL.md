@@ -31,3 +31,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，只读�
 ## 返回结果
 
 返回核对范围、逐操作对应关系、已确认来源、差异/缺口及其影响和未验证项。无需落盘报告；调用方已有唯一需求或模块文档时由其增量记录，不建立第二份契约正文。不自动运行全仓检查、构建、浏览器或最终候选验收。
+
+## 核对样例
+
+[原始服务合同与协议回归](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 展示wire DTO、TokenPair、追踪和领域结果的关联；本Skill只读核对，示例不能当作当前服务事实。

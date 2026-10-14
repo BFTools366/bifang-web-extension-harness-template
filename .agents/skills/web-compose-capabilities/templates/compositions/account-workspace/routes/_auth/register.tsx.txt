@@ -1,0 +1,9 @@
+import { createFileRoute } from "@tanstack/react-router"
+import { AuthPage } from "../../features/auth/AuthPage"
+import { authReturnSearch } from "../../features/auth/search"
+
+/** 客户端邮箱验证码注册入口。 */
+export const Route = createFileRoute("/_auth/register")({
+  validateSearch: authReturnSearch,
+  component: () => <AuthPage mode="register" />
+})
