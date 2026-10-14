@@ -411,3 +411,39 @@ test("accepts links to repeated ordinary headings", async () => {
   )
   await expect(checkExport(root)).resolves.toMatchObject({ operations: 2 })
 })
+
+/** GraphQL 注释保留引号内容，但真实字符串内井号与资源名称属于协议示例。 */
+test("checks quoted GraphQL comment paths without inspecting wire string comments", async () => {
+  const root = await bundle()
+  await change(
+    root,
+    "api/items.md",
+    (source) => source + '\n```graphql\nquery Resource { asset(path: "src/images#logo") }\n```'
+  )
+  await expect(checkExport(root)).resolves.toMatchObject({ operations: 2 })
+  await change(
+    root,
+    "api/items.md",
+    (source) =>
+      source +
+      '\n```graphql\n# Schema source: "src/data/api/items/schema.graphql"\ntype Query { health: String }\n```'
+  )
+  await expect(checkExport(root)).rejects.toThrow(/本地代码或路径/)
+})
+
+/** 远端完整下载 URL 不因路径与本地目录重名而误报，JSON 转义斜线亦可解析。 */
+test.each([false, true])("allows remote wire URLs and links: escaped=%s", async (escaped) => {
+  const root = await bundle()
+  await change(
+    root,
+    "api/common.md",
+    (source) =>
+      source +
+      "\n```json\n" +
+      (escaped
+        ? '{"download_url":"https:\\/\\/cdn.example.invalid\\/home\\/reports\\/report.pdf"}'
+        : '{"download_url":"https://cdn.example.invalid/home/reports/report.pdf"}') +
+      "\n```\n[远程文件](https://cdn.example.invalid/Users/reports/report.pdf)"
+  )
+  await expect(checkExport(root)).resolves.toMatchObject({ operations: 2 })
+})

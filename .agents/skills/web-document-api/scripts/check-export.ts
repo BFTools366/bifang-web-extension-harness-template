@@ -52,6 +52,41 @@ function splitMarkdown(
   return { prose: prose.join("\n"), blocks }
 }
 
+/** 远端 HTTP(S) 地址的路径属于协议值，不应被当作本地磁盘路径。 */
+function withoutRemoteUrls(source: string): string {
+  return source.replaceAll("\\/", "/").replace(/https?:\/\/[^\s"'<>`]+/giu, "")
+}
+
+/** 逐字符识别 GraphQL 注释，保留注释中的引号并排除字符串内的井号。 */
+function graphqlComments(source: string): string {
+  const comments: string[] = []
+  let quoted: "string" | "block" | undefined
+  for (const line of source.split("\n")) {
+    for (let index = 0; index < line.length; index += 1) {
+      const character = line[index]
+      if (quoted !== undefined && character === "\\") {
+        index += 1
+        continue
+      }
+      if (quoted === "block") {
+        if (line.startsWith('"""', index)) {
+          quoted = undefined
+          index += 2
+        }
+      } else if (quoted === "string") {
+        if (character === '"') quoted = undefined
+      } else if (character === "#") {
+        comments.push(line.slice(index))
+        break
+      } else if (line.startsWith('"""', index)) {
+        quoted = "block"
+        index += 2
+      } else if (character === '"') quoted = "string"
+    }
+  }
+  return comments.join("\n")
+}
+
 /** 从合法 wire JSON 中收集值，只用于豁免字段表内同一个示例值。 */
 function collectExampleValues(value: unknown, examples: Set<string>): void {
   const encoded = JSON.stringify(value)
@@ -139,7 +174,7 @@ function parseDocument(file: string, source: string, errors: string[]): Document
     .join("\n")
   if (
     /(?:file:\/\/|\/(?:Users|home|tmp|private\/var|var\/folders)\/|~[/\\]|[A-Za-z]:[/\\]|\\\\[^\\\s]+\\)/u.test(
-      protocolText
+      withoutRemoteUrls(protocolText)
     )
   )
     errors.push(`${file}：包含本地代码或路径`)
@@ -158,16 +193,9 @@ function parseDocument(file: string, source: string, errors: string[]): Document
     "\n" +
     blocks
       .filter((block) => block.language !== "json")
-      .map((block) =>
-        block.language === "graphql"
-          ? block.body
-              .split("\n")
-              .map((line) => line.replace(/"(?:\\.|[^"\\])*"/gu, ""))
-              .filter((line) => line.includes("#"))
-              .join("\n")
-          : block.body
-      )
+      .map((block) => (block.language === "graphql" ? graphqlComments(block.body) : block.body))
       .join("\n")
+  inspectionText = withoutRemoteUrls(inspectionText)
   // HTTP 动作后的相对路径是协议事实，例如 GET /home/items，并非磁盘路径。
   inspectionText = inspectionText.replace(
     /\b(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\/[^\s`]+/gu,
