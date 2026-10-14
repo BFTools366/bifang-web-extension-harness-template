@@ -1,0 +1,262 @@
+/** 描述服务确认的最小身份，不携带组织、权限或会话凭据。 */
+export interface Identity {
+  readonly id: string
+  readonly displayName?: string
+}
+
+/** 描述由真实服务 adapter 实现的独立身份认证契约。 */
+export interface IdentityApi<Input> {
+  login(input: Input, signal?: AbortSignal): Promise<string>
+  validate(credential: string, signal?: AbortSignal): Promise<Identity>
+  logout(credential: string): Promise<void>
+  /** 可选窄化吊销：只撤销本次未采用的签发，不影响其他会话。 */
+  revokeIssued?(credential: string): Promise<void>
+}
+
+/** 注入凭据存储；比较与写入必须由宿主 adapter 原子执行并核实结果。 */
+export interface CredentialStorage {
+  read(): string | null
+  compareAndSet(expected: string | null, next: string | null): boolean
+}
+
+/** 定义稳定错误码，服务 adapter 仅将已确认的失效映射为 expired。 */
+export type IdentityErrorCode =
+  | "anonymous"
+  | "expired"
+  | "superseded"
+  | "storage"
+  | "invalidIdentity"
+  | "unexpected"
+  | "remoteLogoutUnknown"
+
+/** 仅保存稳定错误标识，避免将输入、凭据或服务原文传给 UI。 */
+export class IdentityError extends Error {
+  readonly code: IdentityErrorCode
+  constructor(code: IdentityErrorCode) {
+    super(code)
+    this.name = "IdentityError"
+    this.code = code
+  }
+}
+
+/** 发布最小会话状态；凭据只留在协调者闭包与注入存储。 */
+export interface IdentitySnapshot {
+  readonly phase: "anonymous" | "authenticating" | "restoring" | "checking" | "authenticated" | "error"
+  readonly identity: Identity | null
+  readonly error: IdentityErrorCode | null
+  readonly revision: number
+}
+
+/** 创建按需装配的认证协调者；不会创建页面、获取权限或选择持久化介质。 */
+export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: CredentialStorage) {
+  let generation = 0
+  let validation = 0
+  let transition: number | undefined
+  let credential: string | null = null
+  let blockedCredential: string | undefined
+  let snapshot: IdentitySnapshot = Object.freeze({
+    phase: "anonymous", identity: null, error: null, revision: 0
+  })
+  const listeners = new Set<() => void>()
+
+  /** 保持订阅只观察状态；观察者异常不能破坏已完成的会话提交。 */
+  function publish(phase: IdentitySnapshot["phase"], identity: Identity | null = null, error: IdentityErrorCode | null = null): void {
+    snapshot = Object.freeze({ phase, identity, error, revision: snapshot.revision + 1 })
+    for (const listener of listeners) {
+      try { listener() } catch { /* 订阅方自行报告其 UI 错误，认证状态不回滚。 */ }
+    }
+  }
+
+  /** 存储异常统一为无敏感内容的错误，不继续放行旧身份。 */
+  function read(): string | null {
+    try { return storage.read() } catch { throw new IdentityError("storage") }
+  }
+
+  /** 核实最小身份形状并仅保留允许公开的字段。 */
+  function identityValue(value: Identity): Identity {
+    if (typeof value !== "object" || value === null || typeof value.id !== "string" || value.id.trim() === "" || (value.displayName !== undefined && typeof value.displayName !== "string"))
+      throw new IdentityError("invalidIdentity")
+    return Object.freeze({ id: value.id, ...(value.displayName === undefined ? {} : { displayName: value.displayName }) })
+  }
+
+  /** 在发布和写入前拒绝旧代次、旧导航和已取消请求。 */
+  function assertCurrent(owned: number, signal?: AbortSignal, request?: number): void {
+    if (owned !== generation || signal?.aborted || (request !== undefined && request !== validation))
+      throw new IdentityError("superseded")
+  }
+
+  /** 仅删除精确旧凭据；删除失败的记录禁止在同一实例中重新恢复。 */
+  function remove(expected: string | null): void {
+    if (expected === null) return
+    blockedCredential = expected
+    try {
+      if (storage.compareAndSet(expected, null) || read() !== expected) blockedCredential = undefined
+      else throw new IdentityError("storage")
+    } catch { throw new IdentityError("storage") }
+  }
+
+  /** 丢弃未知异常原文，只保留被契约识别的错误码。 */
+  function normalized(error: unknown): IdentityError {
+    return error instanceof IdentityError ? error : new IdentityError("unexpected")
+  }
+
+  /** 只回收本次签发且未被当前或外部会话采用的凭据。 */
+  async function discardIssued(issued: string | undefined, baseline: string | null): Promise<void> {
+    if (issued === undefined || issued === baseline || issued === credential) return
+    try {
+      if (read() === issued) return
+      await api.revokeIssued?.(issued)
+    } catch { /* 失败清理不掩盖登录的原始失败，且不会恢复任何身份。 */ }
+  }
+
+  /** 登录先校验签发结果，再原子持久化；失败不回写原凭据。 */
+  async function login(input: Input, signal?: AbortSignal): Promise<Identity> {
+    const owned = ++generation
+    transition = owned
+    validation += 1
+    credential = null
+    publish("authenticating")
+    let baseline: string | null = null
+    let issued: string | undefined
+    try {
+      assertCurrent(owned, signal)
+      baseline = read()
+      issued = await api.login(input, signal)
+      assertCurrent(owned, signal)
+      if (typeof issued !== "string" || issued.trim() === "") throw new IdentityError("invalidIdentity")
+      const identity = identityValue(await api.validate(issued, signal))
+      assertCurrent(owned, signal)
+      try {
+        if (!storage.compareAndSet(baseline, issued)) throw new IdentityError("superseded")
+      } catch (error) {
+        if (error instanceof IdentityError) throw error
+        // adapter 写入后核验失败时，阻断本次记录并尝试删除，不接受未知提交结果。
+        try { remove(issued) } catch { /* 删除失败由 blockedCredential 保持恢复阻断。 */ }
+        throw new IdentityError("storage")
+      }
+      transition = undefined
+      credential = issued
+      blockedCredential = undefined
+      publish("authenticated", identity)
+      return identity
+    } catch (error) {
+      const failure = normalized(error)
+      if (owned === generation) {
+        credential = null
+        publish(failure.code === "storage" ? "error" : "anonymous", null, failure.code)
+      }
+      await discardIssued(issued, baseline)
+      throw owned === generation ? failure : new IdentityError("superseded")
+    } finally {
+      if (transition === owned) transition = undefined
+    }
+  }
+
+  /** 恢复与导航校验只读取凭据，校验成功也不重新写入或延长本地会话。 */
+  async function check(signal?: AbortSignal): Promise<Identity> {
+    if (signal?.aborted || transition === generation) throw new IdentityError("superseded")
+    const owned = generation
+    const request = ++validation
+    const previous = snapshot
+    let current: string | null = null
+    try {
+      assertCurrent(owned, signal, request)
+      current = read()
+      if (current !== null && current === blockedCredential) throw new IdentityError("storage")
+      if (current !== blockedCredential) blockedCredential = undefined
+      if (current === null) throw new IdentityError("anonymous")
+      publish(current === credential && previous.identity !== null ? "checking" : "restoring", current === credential ? previous.identity : null)
+      const identity = identityValue(await api.validate(current, signal))
+      assertCurrent(owned, signal, request)
+      if (read() !== current) throw new IdentityError("superseded")
+      credential = current
+      publish("authenticated", identity)
+      return identity
+    } catch (error) {
+      if (owned !== generation || request !== validation) throw new IdentityError("superseded")
+      let failure = normalized(error)
+      if (signal?.aborted && !(error instanceof IdentityError)) failure = new IdentityError("superseded")
+      if (failure.code === "superseded" && signal?.aborted && current === credential && previous.identity !== null) {
+        try {
+          if (read() === current) {
+            publish("authenticated", previous.identity)
+            throw failure
+          }
+        } catch (error) {
+          failure = normalized(error)
+          if (failure.code === "superseded") throw failure
+        }
+      }
+      if ((failure.code === "expired" || failure.code === "invalidIdentity") && current !== null) {
+        generation += 1
+        try { remove(current) } catch (error) { failure = normalized(error) }
+      }
+      credential = null
+      publish(failure.code === "anonymous" || failure.code === "expired" || failure.code === "superseded" ? "anonymous" : "error", null, failure.code)
+      throw failure
+    }
+  }
+
+  /** 服务明确报告失效时立即撤下身份，只移除该身份拥有的精确凭据。 */
+  function invalidate(): void {
+    const owned = ++generation
+    validation += 1
+    let previous = credential
+    credential = null
+    publish("anonymous", null, "expired")
+    if (owned !== generation) return
+    try {
+      previous ??= read()
+      remove(previous)
+    } catch (error) {
+      publish("error", null, "storage")
+      throw normalized(error)
+    }
+  }
+
+  /** 退出立即撤下身份；远端吊销失败不会把本地身份恢复为已登录。 */
+  async function logout(): Promise<boolean> {
+    const owned = ++generation
+    validation += 1
+    let previous = credential
+    credential = null
+    publish("anonymous")
+    if (owned !== generation) return false
+    try {
+      previous ??= read()
+      remove(previous)
+    } catch (error) {
+      publish("error", null, "storage")
+      throw normalized(error)
+    }
+    if (previous !== null) {
+      try { await api.logout(previous) } catch {
+        if (owned === generation) publish("anonymous", null, "remoteLogoutUnknown")
+        return false
+      }
+    }
+    return owned === generation
+  }
+
+  /** 宿主转交外部存储变化信号，旧身份先失效，再读取并校验新记录。 */
+  async function storageChanged(): Promise<Identity> {
+    generation += 1
+    transition = undefined
+    validation += 1
+    credential = null
+    publish("anonymous")
+    return check()
+  }
+
+  return {
+    login, check, restore: check, logout, invalidate, storageChanged,
+    getSnapshot: (): IdentitySnapshot => snapshot,
+    subscribe(listener: () => void): () => void {
+      listeners.add(listener)
+      return () => { listeners.delete(listener) }
+    }
+  }
+}
+
+/** 描述装配后供消费者使用的独立认证会话，不暴露 API 或凭据。 */
+export type IdentitySession<Input> = ReturnType<typeof createIdentitySession<Input>>

@@ -31,15 +31,9 @@ import {
 /** 验证 minimal public instantiation inputs 的完整回归场景。 */
 describe("minimal public instantiation inputs", () => {
   /** 验证公开入口凭基础信息与宿主条件选择生成项目，未提供地址保持空值。 */
-  test.each([
-    ["web", "tool-site", undefined],
-    ["web", "saas-client", "enabled"],
-    ["web", "saas-client", "disabled"],
-    ["web", "saas-admin", undefined],
-    ["extension", undefined, undefined]
-  ] as const)(
-    "creates %s %s with only required public inputs",
-    async (projectType, webType, saasCommerce) => {
+  test.each(["web", "extension"] as const)(
+    "creates neutral %s with only required public inputs",
+    async (projectType) => {
       const parent = await temporaryDirectory("harness-minimal-public-")
       const id = `minimal-${projectType}`
       const targetRoot = path.join(parent, id)
@@ -48,8 +42,6 @@ describe("minimal public instantiation inputs", () => {
           parent,
           "--type",
           projectType,
-          ...(webType === undefined ? [] : ["--web-type", webType]),
-          ...(saasCommerce === undefined ? [] : ["--saas-commerce", saasCommerce]),
           "--name",
           "示例项目",
           "--english-name",
@@ -91,40 +83,24 @@ describe("minimal public instantiation inputs", () => {
       expect(identity).not.toHaveProperty("webType")
       expect(identity).not.toHaveProperty("saasCommerce")
       const readme = await readFile(path.join(targetRoot, "README.md"), "utf8")
-      if (webType !== undefined) {
-        expect(readme).toContain(`创建时明确选择：\`${webType}\``)
-        expect(readme).toContain("来源：本次创建输入")
-        expect(readme).toContain("首次需求工作直接复用此选择")
-        expect(readme).toContain("prd-outline.md#创建与开发-sop")
-        if (saasCommerce !== undefined) {
-          expect(readme).toContain(`saas-commerce: ${saasCommerce}`)
-          expect(readme).toContain("商品选择、订单管理、钱包管理")
-          expect(readme).toContain("首次 PRD 沿用此选择")
-          expect(readme).toContain(config.initializedAt)
-        }
-        expect((await readdir(path.join(targetRoot, "src/routes"))).sort()).toEqual(
-          webType === "saas-client"
-            ? [
-                "__root.tsx",
-                "_auth.forgot-password.tsx",
-                "_auth.login.tsx",
-                "_auth.register.tsx",
-                "_auth.tsx",
-                "app.account.tsx",
-                "app.dashboard.tsx",
-                "app.index.tsx",
-                "app.tsx",
-                "index.tsx",
-                "no-access.tsx"
-              ]
-            : ["__root.tsx", "index.tsx"]
+      expect(readme).toContain("功能组合")
+      expect(readme).not.toContain("saas-commerce:")
+      expect(
+        await readFile(
+          path.join(targetRoot, ".agents/skills/web-compose-capabilities/catalog.json"),
+          "utf8"
         )
-        expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toContain(
-          "### 创建与开发 SOP"
+      ).toBe(
+        await readFile(
+          path.join(repositoryRoot, ".agents/skills/web-compose-capabilities/catalog.json"),
+          "utf8"
         )
-      } else {
-        expect(readme).not.toContain("## 创建交接")
-      }
+      )
+      if (projectType === "web")
+        expect((await readdir(path.join(targetRoot, "src/routes"))).sort()).toEqual([
+          "__root.tsx",
+          "index.tsx"
+        ])
       for (const directory of ["product_spec", "prototypes"]) {
         await expect(readdir(path.join(targetRoot, "docs", directory))).rejects.toMatchObject({
           code: "ENOENT"
@@ -135,20 +111,8 @@ describe("minimal public instantiation inputs", () => {
         const entry = await readFile(entryPath, "utf8")
         expect(entry).not.toMatch(/SaaS.*(?:预留|暂未开放|待开放|不开放)/)
         expect(entry).toContain("$web-document-api")
-        if (projectType === "web") {
-          expect(entry).toContain("prd-outline.md#web-类型与可选能力")
-          for (const skill of ["auth", "commerce", "admin"]) {
-            await expect(
-              readFile(
-                path.join(targetRoot, `.agents/skills/web-implement-saas-${skill}/SKILL.md`),
-                "utf8"
-              )
-            ).resolves.not.toBe("")
-          }
-        } else {
-          expect(entry).not.toContain("web-implement-saas-")
-          expect(entry).not.toContain("prd-outline.md#web-类型与可选能力")
-        }
+        expect(entry).toContain("web-compose-capabilities")
+        expect(entry).not.toContain("web-implement-saas-")
         for (const [, destination] of entry.matchAll(/\]\(([^)]+)\)/g)) {
           if (!destination || /^(?:https?:|#)/.test(destination)) continue
           const [linkedPath] = destination.split("#")

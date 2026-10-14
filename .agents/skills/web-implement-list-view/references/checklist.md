@@ -4,6 +4,8 @@
 
 ## 必需项：数据与状态
 
+- [ ] 远端列表使用真实 GraphQL operation 与可信 Schema，筛选/排序/分页 variables 一致；REST 列表为不符合项，不能仅以 TanStack Query 证明协议。纯本地集合注明无远端 API，不虚构服务。
+
 - [ ] `listId` 全应用唯一稳定；业务 id 类型在所有页和选择状态一致，React key 使用带类型前缀的业务 id，不用 index。
 - [ ] 默认排序确定；允许的排序字段有白名单，服务端对同值追加稳定业务 id 作为同值排序的决胜条件。
 - [ ] 复用 `src/pagination/` 的 1-based page/pageSize 契约；page、pageSize、total、响应行数和数值业务 id 均验证为安全整数。

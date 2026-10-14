@@ -1,4 +1,5 @@
 import path from "node:path"
+import { readCapabilityCatalog } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { pathToFileURL } from "node:url"
 import { inspectProjectChineseComments } from "../.harness/tooling/comment-policy.ts"
 import type { HarnessValidationReport } from "./harness-validation/contracts.ts"
@@ -35,6 +36,11 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
     await loadDesignSkillBundle(root)
   } catch (error) {
     errors.push(error instanceof Error ? error.message : String(error))
+  }
+  try {
+    readCapabilityCatalog(path.join(root, ".agents/skills/web-compose-capabilities"))
+  } catch (error) {
+    errors.push(`Capability library: ${error instanceof Error ? error.message : String(error)}`)
   }
   await validateListViewSkillContracts(root, errors)
   await validateAgentsEntrypoint(root, errors)

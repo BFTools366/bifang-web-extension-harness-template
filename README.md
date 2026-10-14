@@ -39,8 +39,6 @@ Bifang Web Harness Template 是用于创建和维护独立前端项目的 TypeSc
 | 信息                  | 提供方式与适用条件                                                                                        |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | 项目类型              | 必须明确选择 React Web 或 Chrome MV3 / Firefox MV2 扩展，无默认值。                                       |
-| Web 类型              | 仅 Web 必选：工具站点、SaaS 客户端或 SaaS 大后台，无默认值。                                              |
-| 商品购买模块          | 仅 SaaS 客户端选择启用或关闭，覆盖商品选择、订单管理和钱包管理；建议关闭，等待实际回答。                  |
 | 项目显示名称          | 页面或扩展中显示的非空名称。                                                                              |
 | 源 Harness 外的父目录 | 提供模板之外的绝对父路径；最终目录为“父目录/项目标识”，该子目录须不存在或为空。                           |
 | 项目说明              | Extension 必填非空简短说明；Web 缺省使用显示名称。                                                        |
@@ -74,7 +72,7 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 
 打开创建成功的新项目目录后，项目使用者可以直接提出需求、功能修改、问题修复或品牌更新。Agent 先读取该项目的 `AGENTS.md`，复用已经确认的决定，并执行与改动相称的检查。
 
-新产品、新页面或显著交互改版按“需求澄清 → 产品规格（PRD）确认 → 单一桌面交互原型 → 自查登记 → 按已有授权实施”推进，日常小修复直接处理。创建阶段选择的 Web 类型和购买开关保留在下游 README 的“创建交接”，首次需求沿用；当前产品决定随后由唯一 PRD 记录。流程见[创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop)。
+新产品、新页面或显著交互改版按“需求澄清 → 产品规格（PRD）确认 → 单一桌面交互原型 → 自查登记 → 按已有授权实施”推进，日常小修复直接处理。创建保持中性；下游按具体操作选择功能模块，由唯一 PRD 记录当前范围。流程见[创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop)。
 
 以下命令在生成的新项目目录中运行：
 
@@ -89,18 +87,11 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 
 构建与发布的授权、候选及验证规则见[发布说明](docs/RELEASE.md)。Extension 的 Chrome MV3 / Firefox MV2 兼容约束见[技术基线](docs/TS_WEB_TEMPLATE.md#5-extension-技术基线)。
 
-### SaaS 基础设计与创建选择
+### 按需组合功能
 
-选择 SaaS 客户端时，创建流程直接生成通用登录、邮箱验证码注册、找回密码和受保护主工作区，复用既有认证与 UI 知识库。未接入真实服务时使用明确标注的认证 Mock；工具站点和 SaaS 大后台保持中性工程基线。产品专属功能仍在下游定义，通用基线不授予真实服务权限。
+Harness 提供独立的知识库和模板库：[身份认证、组织、权限、商品目录、订单、钱包支付、审计](.agents/skills/web-compose-capabilities/SKILL.md)。模块可以单独采用，按具体操作组合；不再提供 Web 产品分类。创建只生成中性工程，模块选择在下游唯一 PRD 中记录，未选功能不生成。
 
-| Web 类型与能力  | 后续开发范围                                   | 详细合同                                                                                               |
-| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 工具站点        | 按实际产品需求组织页面和功能。                 | [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力) |
-| SaaS 客户端认证 | 登录、退出、注册、密码找回与组织切换。         | [SaaS 认证 Skill](.agents/skills/web-implement-saas-auth/SKILL.md)                                     |
-| SaaS 客户端购买 | 明确启用后实施商品购买、订单与钱包管理。       | [SaaS 购买 Skill](.agents/skills/web-implement-saas-commerce/SKILL.md)                                 |
-| SaaS 大后台     | 认证、商品与分类、组织与成员、订单管理及审计。 | [SaaS 后台 Skill](.agents/skills/web-implement-saas-admin/SKILL.md)                                    |
-
-SaaS 客户端和大后台共用 [UI 基础设计](docs/MANTINE_UI_GUIDELINES.md#81-saas-基础设计与页面闭环)，需求、原型和实施沿用同一页面与操作约定。服务接入前核对 [SaaS API 关联与契约缺口](docs/API.md#saas-能力与-api-关联)；需要结合实现与服务契约整理模块文档时使用 [API 文档 Skill](.agents/skills/web-document-api/SKILL.md)。
+模板明确区分代码、操作设计表单和离线演示。身份认证有独立代码模板；账户工作区与购买流程是显式组合参考，不能冒充真实服务。两类宿主共用业务知识，按模板索引适配宿主。接口按 [功能模块与 API 关联](docs/API.md#功能模块与-api-关联) 核对，所有远端列表查询走 GraphQL。API 导出继续按实际业务聚合并核对代码差异。
 
 ## 技术与目录
 

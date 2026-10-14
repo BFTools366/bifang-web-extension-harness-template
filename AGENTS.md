@@ -20,12 +20,10 @@
 | 下游需求澄清、PRD 与桌面原型                  | 已初始化下游的 `docs/product_spec/`；原型任务再读当前宿主 UI 规范和对应原型记录                  | `$web-define-product` → `$web-design-prototype` → 原型登记后 `$web-implement-change`；产品流程仅下游 |
 | 范围清楚的实现、问题修复或 i18n 整理          | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实                                | `$web-implement-change`、`$web-extract-i18n-strings`                                                 |
 | React Web 列表、数据表格或搜索结果            | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约                              | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用                                |
-| Web SaaS 客户端/大后台认证与用户 SOP          | `docs/DATA_ACCESS.md` 认证规则与真实服务契约                                                     | `$web-implement-saas-auth`；仅已初始化 Web，源只维护通用 Skill                                       |
-| 可选 SaaS 客户端购买、订单与钱包 SOP          | 购买 Skill 的需求、订单/钱包合同与中性设计；真实服务契约                                         | `$web-implement-saas-commerce`；默认关闭，明确选中后才应用，仅已初始化 Web SaaS 客户端               |
-| SaaS 大后台商品分类、组织成员与订单管理       | 管理 Skill 的页面/SOP、领域合同与中性设计；真实服务能力                                          | `$web-implement-saas-admin`；仅已初始化 Web 明确采用大后台时应用，源只维护通用能力                   |
 | UI、页面、Popup、Options、响应式或无障碍      | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                                   | `$web-implement-change`                                                                              |
+| 功能模块组合                                  | 当前 PRD、所选模块知识与模板索引、真实契约                                                       | `$web-compose-capabilities`；按具体操作组合，不按产品分类启用                                        |
 | 下游真实 HTTP 接入或 Mock 迁移                | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约                      | `$web-connect-http-service`；实施与列表流程按接入事件委托                                            |
-| 结合实现与服务契约完善模块文档                | 当前实现、业务需求、已选服务契约与既有模块文档                                                   | `$web-document-api`；在下游写入 `docs/api/`，每个模块独立成文                                        |
+| 同步导出 API 与已实现业务说明                 | 当前实现、业务需求、已选服务契约与既有模块文档                                                   | `$web-document-api`；在下游 `docs/api/` 按业务聚合接口与流程，维护关联并核对漂移                     |
 | Extension 宿主边界兼容审查                    | 当前下游工程规则、受影响消费者与双目标证据                                                       | `$web-review-extension-compatibility`；仅 Extension，只读                                            |
 | 环境、数据、认证、基础 API 契约、事件流或日志 | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`；基础契约另读 `docs/API.md` | `$web-implement-change`                                                                              |
 | API 契约核对或漂移审查                        | 当前操作的可信来源、API 实现/类型/消费者/测试；相关数据章节                                      | `$web-review-api-contract`，只读                                                                     |
@@ -65,8 +63,9 @@
 
 - 初始化与身份：`$web-instantiate-project`、`$web-check-development-environment`、`$web-prepare-brand-identity`。创建仅源；环境检查仅首次初始化或真实环境故障。
 - 需求与原型：`$web-define-product`、`$web-design-prototype`。已初始化下游的产品定义与桌面原型。
+- 功能组合：`$web-compose-capabilities`。两类宿主按操作选择独立知识与模板；Web 列表另用 `$web-implement-list-view`。
 - 实施与重构：`$web-implement-change`、`$web-refactor-code`、`$web-extract-i18n-strings`。范围清楚的变更；i18n 整理仅下游。
-- Web 业务：`$web-implement-list-view`、`$web-implement-saas-auth`、`$web-implement-saas-commerce`、`$web-implement-saas-admin`。仅 Web；购买须明确选中客户端能力，管理仅大后台。
+
 - 接入、文档与宿主审查：`$web-connect-http-service`、`$web-document-api`、`$web-review-extension-compatibility`。已初始化下游；兼容审查仅 Extension、只读。
 - 独立领域能力：`$web-review-api-contract`、`$web-review-module-boundaries`、`$web-implement-access-control`、`$web-implement-write-recovery`、`$web-implement-browser-storage`、`$web-implement-event-stream`。按真实契约与当前受影响范围触发。
 - Task、Worktree 与 Git：`$web-manage-user-tasks`、`$web-audit-worktrees`、`$web-run-parallel-worktrees`、`$web-configure-git-commits`。Task、并行与提交各自满足对应触发条件。
@@ -74,7 +73,7 @@
 - Harness 升级：`$web-preview-harness-upgrade`、`$web-upgrade-harness`。已初始化下游，先只读预演再按已批准范围应用。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。显式候选、完整验收或真实硬要求。
 
-源 Harness 共保留 33 个 规范标识为 `web-*` 的 Skills；两类终端均删除实例化与源记忆整理能力。Web 另删除 Extension 专属 `$web-review-extension-compatibility`，保留 30 个维护 Skills；Extension 另删除 Web 专属 `$web-implement-list-view`、`$web-implement-saas-auth`、`$web-implement-saas-commerce` 与 `$web-implement-saas-admin`，保留 27 个维护 Skills（均不含设计支持）。初始化只分发能力，不生成业务记录。两类下游另在项目内默认补装缺失的 `design-taste-frontend`，有效已有版本保留，不额外问询、不全局安装；规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。Skill 目录、文件头元数据、发现元数据与实际文件必须一致。
+源 Harness 共保留 31 个 `web-*` Skills；两类终端均删除实例化与源记忆整理能力。Web 删除 Extension 兼容审查，Extension 删除 Web 列表 Skill，均保留 28 个维护 Skills（不含设计支持）。两宿主均分发 `$web-compose-capabilities` 的独立知识库与模板库，未选能力不生成。下游默认在项目内补装缺失的 `design-taste-frontend`，有效已有版本保留，规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。目录、文件头、发现元数据与实际文件必须一致。
 
 ## 约束地图
 

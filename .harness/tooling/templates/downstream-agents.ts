@@ -8,7 +8,7 @@ export function downstreamAgents(config: ProjectConfig): string {
       : ""
   const hostSkills =
     config.projectType === "web"
-      ? "- `$web-implement-list-view`：创建、修改或审查可恢复、可访问的 React Web 列表页。\n- `$web-implement-saas-auth`：仅在明确采用 SaaS 的 Web 中完善或实施客户端/大后台认证 SOP。\n- `$web-implement-saas-commerce`：默认关闭，仅明确选中的 SaaS 客户端购买、订单与钱包 SOP。\n- `$web-implement-saas-admin`：仅明确采用 SaaS 大后台时设计与实施商品分类、组织成员、订单、权限与审计管理。\n"
+      ? "- `$web-implement-list-view`：创建、修改或审查可恢复、可访问的 React Web 列表页。\n"
       : "- `$web-review-extension-compatibility`：只读审查受影响宿主消费者的 Chrome MV3 / Firefox MV2 兼容证据。\n"
   const versionDescription =
     config.projectType === "web"
@@ -16,17 +16,7 @@ export function downstreamAgents(config: ProjectConfig): string {
       : "`package.json.version` 的稳定 SemVer（`X.Y.Z`）"
   const hostMinimumReading =
     config.projectType === "web"
-      ? `Web 业务工作按 [Web 类型与可选能力](.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力) 复用已确认 PRD 的业务模式和可选能力。宿主身份保持 \`web\`；首次需求读取 README 的“创建交接”并复用明确类型，已有已确认 PRD 时以其当前模式为准，不重复询问。按 [创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 交接；需求、原型、实施与 HTTP 接入复用同一事实。读取领域 Skill 只补充当前阶段的合同，随后返回调用方，不重新启动整套流程。
-
-列表、数据表格、后台列表或搜索结果任务读取 \`docs/MANTINE_UI_GUIDELINES.md\` 与 \`docs/DATA_ACCESS.md\`，并在实施流程中调用 \`$web-implement-list-view\`。
-
-明确采用 SaaS 客户端或大后台认证时，调用 \`$web-implement-saas-auth\`，复用用户操作流程和限定范围的 LocalStorage 凭据例外；SaaS 客户端创建已生成通用认证与主工作区，先检查现有实现再完善；普通站点和大后台创建仍为中性基线。
-
-明确选中 SaaS 客户端可选购买能力时，调用 \`$web-implement-saas-commerce\`。购买默认关闭，功能选择不授予权限。复用服务端钱包支付选项，重试支付前恢复原订单，确认成功后刷新账户数据；该能力不适用于 SaaS 大后台。
-
-明确采用 SaaS 大后台管理时，调用 \`$web-implement-saas-admin\`。管理目标组织不切换操作者身份；保留历史订单快照，钱包/支付默认只读查询，管理命令遵守服务端权限与审计合同。
-
-`
+      ? "列表任务读取 UI 与数据规范并调用 `$web-implement-list-view`。\n\n"
       : "Extension 变更涉及浏览器 API、消息、存储、后台生命周期、权限、CSP 或资源时，调用 `$web-review-extension-compatibility`；修复、测试与候选门禁由实施流程负责。\n\n"
   return `# 项目 Agent 指令
 
@@ -36,11 +26,11 @@ export function downstreamAgents(config: ProjectConfig): string {
 
 先检查工作区并保护已有修改。读取本文件、\`.harness/project.json\` 和 \`docs/AGENT_POLICY.md\` 中的能力偏好、标题生命周期、持久计划、并行、冒烟与 E2E 规则。修改代码、测试、文档或配置前读取 \`docs/ENGINEERING_RULES.md\` 及命中的 Skill。主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍工作读取 \`docs/MANTINE_UI_GUIDELINES.md\`；环境工作读取 \`docs/RUNTIME_CONFIGURATION.md\`；日志/错误处理读取 \`docs/LOGGING.md\`；分页、HTTP 请求头、认证、REST/OpenAPI、GraphQL、SSE、多个远端接口、多来源事件流或 RxJS 工作读取 \`docs/DATA_ACCESS.md\`。查阅或采用可选基础 API 与数据模型合同才读取 \`docs/API.md\`，收录文档不代表服务已配置或接入；其他事实按需读取。
 
-${hostMinimumReading}授权范围包含有限 REST/GraphQL HTTP 接入或 API Mock 迁移时，调用 \`$web-connect-http-service\`；UI/路由呈现与候选验收仍由调用流程负责。\n\n既有工作树或登记表审计从主检出目录调用 \`$web-audit-worktrees\`，只读检查不授权清理。比较 Harness 或重新规划升级时调用 \`$web-preview-harness-upgrade\`；已批准的应用与基线登记由 \`$web-upgrade-harness\` 负责。\n\n独立事件分别委托 \`$web-review-api-contract\`、\`$web-review-module-boundaries\`、\`$web-implement-access-control\`、\`$web-implement-write-recovery\`、\`$web-implement-browser-storage\` 与 \`$web-implement-event-stream\`；未命中不调用。传入已确认范围、当前阶段和有效证据，叶子只完成当前职责后返回，不反向重启编排。完整读取命中的 Skill，参考资料只读适用阶段/宿主/协议章节。
+${hostMinimumReading}业务能力按当前需求调用 \`$web-compose-capabilities\`，只读已选知识与模板，不按产品分类自动生成。选择与操作范围复用唯一 PRD；模板类型与宿主限制以索引为准。\n\n授权范围包含有限 REST/GraphQL HTTP 接入或 API Mock 迁移时，调用 \`$web-connect-http-service\`；UI/路由呈现与候选验收仍由调用流程负责。\n\n既有工作树或登记表审计从主检出目录调用 \`$web-audit-worktrees\`，只读检查不授权清理。比较 Harness 或重新规划升级时调用 \`$web-preview-harness-upgrade\`；已批准的应用与基线登记由 \`$web-upgrade-harness\` 负责。\n\n独立事件分别委托 \`$web-review-api-contract\`、\`$web-review-module-boundaries\`、\`$web-implement-access-control\`、\`$web-implement-write-recovery\`、\`$web-implement-browser-storage\` 与 \`$web-implement-event-stream\`；未命中不调用。传入已确认范围、当前阶段和有效证据，叶子只完成当前职责后返回，不反向重启编排。完整读取命中的 Skill，参考资料只读适用阶段/宿主/协议章节。
 
 ## 事件驱动执行
 
-新产品、新页面、显著交互改版或用户要求原型时，先用 \`$web-define-product\` 澄清并记录唯一产品规格（PRD），再用 \`$web-design-prototype\` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实施前运行 \`pnpm prototype:check <scope>\` 核对 \`docs/prototypes/<scope>/review.json\`。登记不代替原有开发授权；已授权实施时无需用户选择或再次批准原型。已有有效登记直接复用；PRD/原型变化会使旧摘要失效。初始化分发项目级 Skills，客户端另有通用认证基线；不生成业务 PRD、原型或登记记录。范围清楚的日常修复和无界面变更直接实施，只运行受影响检查与相关非空测试，但不能绕过同一范围内尚未完成的原型自查登记。多步骤、多模块、中等风险或用户可见本身不触发工作计划、全仓检查、构建、冒烟或 E2E。只有用户明确要求、跨会话交接或发布/高风险协调确有需要时才创建持久计划。行为保持重构运行全量单元测试。
+新产品、新页面、显著交互改版或用户要求原型时，先用 \`$web-define-product\` 澄清并记录唯一产品规格（PRD），再用 \`$web-design-prototype\` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实施前运行 \`pnpm prototype:check <scope>\` 核对 \`docs/prototypes/<scope>/review.json\`。登记不代替原有开发授权；已授权实施时无需用户选择或再次批准原型。已有有效登记直接复用；PRD/原型变化会使旧摘要失效。初始化只分发项目级 Skills 与中性工程；功能按需组合；不生成业务 PRD、原型或登记记录。范围清楚的日常修复和无界面变更直接实施，只运行受影响检查与相关非空测试，但不能绕过同一范围内尚未完成的原型自查登记。多步骤、多模块、中等风险或用户可见本身不触发工作计划、全仓检查、构建、冒烟或 E2E。只有用户明确要求、跨会话交接或发布/高风险协调确有需要时才创建持久计划。行为保持重构运行全量单元测试。
 
 安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容合同、完整候选验收和发布分别进入对应专用门禁。并行写入工作树必须同时满足用户本轮明确要求及 \`parallel_worktree_subagents: enabled\`。同一发布的构建、打包和修复复用已确认的 E2E 选择；没有选择也没有硬要求时才询问。每个新产物重新验证。明确发布请求覆盖既有目标与范围内必要的提交、推送和发布步骤，无需重复确认；仅新增目标或范围外副作用需要另行授权。
 
@@ -59,11 +49,11 @@ Node.js、pnpm 与独立 CLI 全局安装/升级；项目依赖按 manifest/锁�
 - \`package.json\` 与 \`pnpm-lock.yaml\`：命令与依赖版本。
 - 产品源码与测试：可执行行为。
 ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页纠正合同。
-- \`src/data/\`：API 及 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 访问；REST 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。本地能力无需 BaseURL，直接真实实现；只有未配置地址的远端 API 操作使用 Mock，详见 \`docs/DATA_ACCESS.md\` §3.1。
+- \`src/data/\`：API 及 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 访问；REST 负责单对象详情与主要交互，GraphQL 强制负责远端列表查询，并负责复杂查询与订阅，Dexie 仅用于 IndexedDB。本地能力无需 BaseURL，直接真实实现；只有未配置地址的远端 API 操作使用 Mock，详见 \`docs/DATA_ACCESS.md\` §3.1。
 - \`src/data/storage/\`：集中的浏览器存储适配，保持独立生命周期并明确处理失败。
 - \`src/data/api/client/\`：不含业务接口的 Ky HTTP、请求上下文、语言、凭据、错误和未授权处理基础。
 - \`docs/API.md\`：完整的可选基础 API 与数据模型参考，包含来源和适配边界；仅按真实需求采用和拆解。
-- \`docs/api/\`：按请求或公开 API 实际变化，由 \`$web-document-api\` 结合当前实现、采用的服务契约与已确认需求生成模块文档、通用模型与索引；全量重生成保留尚未实施的有效设计并标明待确认。实施/HTTP 流程只传入受影响模块与必要索引；参考合同、Mock 和已实现 HTTP 分别标明。
+- \`docs/api/\`：由 \`$web-document-api\` 同步聚合 API 与已实现业务文档，维护关联并每次核对代码差异；一份通用结构、一份元数据与 N 份接口，API 和业务分文件夹；局部仅同步受影响范围，不输出本地代码或路径。
 - \`docs/DATA_ACCESS.md\`：分页、请求头、认证、数据访问、SSE、可选 RxJS 与状态归属。
 - \`docs/MANTINE_UI_GUIDELINES.md\`：Mantine 主题、令牌、布局、组件语义、交互状态、响应式、无障碍与当前宿主 UI 规范。
 - \`docs/RUNTIME_CONFIGURATION.md\`：三环境、公开配置结构与构建映射。
@@ -75,11 +65,12 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 
 - \`$web-audit-worktrees\`：从主检出目录只读审计 Worktree 与并行登记，不自动清理。
 - \`$web-check-development-environment\`：只在首次初始化或命令已报出环境错误时检查 Node.js、pnpm 与按需使用的 Google Chrome/Firefox。
+- \`$web-compose-capabilities\`：按具体操作选择独立知识与模板，显式组合，未选功能不生成。
 - \`$web-configure-git-commits\`：只在用户明确要求，或下一步将实际创建提交时，检查并配置仓库本地 Git 身份与受管提交模板。
 - \`$web-connect-http-service\`：在已初始化下游接入已批准服务，验证域 API、Mock 退出与缓存切换。
 - \`$web-define-product\`：在下游澄清需求，将范围和验收标准记录为唯一产品规格（PRD）。
 - \`$web-design-prototype\`：在下游产出一个桌面端可交互 HTML 原型，自查、展示并登记后按已有授权交接开发。
-- \`$web-document-api\`：结合当前实现、需求与服务契约整理 \`docs/api/\`，每个模块独立成文并明确 Mock 和未知边界。
+- \`$web-document-api\`：按业务聚合接口与已实现流程，维护双向关联并核对差异，格式与验证以 Skill 为准。
 - \`$web-extract-i18n-strings\`：维护基于 i18next 的完整前端国际化文案。
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-review-api-contract\`：只读核对当前接口来源、实现关联与差异，不联网或写文档。

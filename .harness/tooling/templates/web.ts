@@ -1,6 +1,5 @@
 import { renderIdentityBrand } from "../identity.ts"
-import type { EnvironmentBaseUrls, ProjectConfig, WebCreationType } from "../types.ts"
-import { saasClientFiles } from "./saas-client.ts"
+import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
 import { escapeHtml } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
@@ -46,8 +45,7 @@ export function renderWebBrand(config: ProjectConfig): string {
 // 执行 webFiles 函数的处理逻辑。
 export function webFiles(
   config: ProjectConfig,
-  baseUrls: EnvironmentBaseUrls,
-  webType?: WebCreationType
+  baseUrls: EnvironmentBaseUrls
 ): Map<string, string> {
   const files = new Map<string, string>([
     ...environmentFiles(config, baseUrls),
@@ -512,10 +510,5 @@ body {
 `
     ]
   ])
-  if (webType === "saas-client") {
-    files.delete("src/features/welcome/WelcomePage.tsx")
-    files.delete("src/features/welcome/WelcomePage.test.tsx")
-    for (const [name, contents] of saasClientFiles(files)) files.set(name, contents)
-  }
   return files
 }

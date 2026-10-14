@@ -16,11 +16,9 @@ describe("Harness template validator", () => {
   /** 验证 accepts the complete clean template contract 场景。 */
   test("accepts the complete clean template contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     const report = await validateHarness(repositoryRoot)
-    expect(report.skills).toHaveLength(33)
+    expect(report.skills).toHaveLength(31)
+    expect(report.skills).toContain("web-compose-capabilities")
     expect(report.skills).toContain("web-implement-list-view")
-    expect(report.skills).toContain("web-implement-saas-auth")
-    expect(report.skills).toContain("web-implement-saas-commerce")
-    expect(report.skills).toContain("web-implement-saas-admin")
     const verifyDelivery = await readFile(
       path.join(repositoryRoot, ".agents/skills/web-verify-delivery/SKILL.md"),
       "utf8"

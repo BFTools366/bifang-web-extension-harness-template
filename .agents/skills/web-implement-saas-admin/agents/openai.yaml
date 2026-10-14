@@ -1,4 +1,0 @@
-interface:
-  display_name: "Web Harness：设计与实施 SaaS 大后台管理"
-  short_description: "完善 SaaS 大后台商品分类、组织成员、订单与钱包查询及权限审计 SOP"
-  default_prompt: "使用 $web-implement-saas-admin 为明确采用 SaaS 大后台的 Web 完善管理页面与 SOP，保持商品历史快照、组织权限边界、订单对账与服务端审计一致。"

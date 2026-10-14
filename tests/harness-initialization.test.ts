@@ -108,8 +108,6 @@ describe("single-package Harness initialization", () => {
       parseArgs([
         "--type",
         "web",
-        "--web-type",
-        "tool-site",
         "--name",
         "Default Brand",
         "--id",
@@ -146,8 +144,6 @@ describe("single-package Harness initialization", () => {
         parseArgs([
           "--type",
           "web",
-          "--web-type",
-          "tool-site",
           "--name",
           "Missing URLs",
           "--id",
@@ -169,21 +165,21 @@ describe("single-package Harness initialization", () => {
   /** 验证逐项普通回答与建议值可完成初始化，可选字段无需补问。 */
   test("collects only required identity and Chinese preset fields", async () => {
     const questions: string[] = []
-    const answers = ["web", "1", "Simple Web", path.join(repositoryRoot, "..", "simple-web"), ""]
+    const answers = ["web", "Simple Web", path.join(repositoryRoot, "..", "simple-web"), ""]
     const resolved = await collectPromptedIdentity({ confirmedBy: " " }, async (question) => {
       questions.push(question)
       const answer = answers.shift()
       if (answer === undefined) throw new Error("Unexpected extra initialization question")
       return answer
     })
-    const fields = ["projectType", "webType", "name", "targetRoot", "policyMode"]
+    const fields = ["projectType", "name", "targetRoot", "policyMode"]
     expect(questions).toHaveLength(fields.length)
     for (const [index, field] of fields.entries()) {
       expect(questions[index]).toContain(`字段： ${field}`)
       expect(questions[index]?.match(/字段：/g)).toHaveLength(1)
     }
     expect(resolved.id).toBe("simple-web")
-    expect(questions[4]).toContain("建议/默认：预设；回车采用")
+    expect(questions[3]).toContain("建议/默认：预设；回车采用")
     for (const key of [
       "description",
       "identityI18n",
@@ -221,7 +217,6 @@ describe("single-package Harness initialization", () => {
         parseArgs([
           "--type",
           projectType,
-          ...(projectType === "web" ? ["--web-type", "tool-site"] : []),
           "--name",
           "Deferred API",
           "--id",

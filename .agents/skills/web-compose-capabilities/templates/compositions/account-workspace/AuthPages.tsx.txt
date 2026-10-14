@@ -1,0 +1,289 @@
+import {
+  Alert,
+  Anchor,
+  Button,
+  Container,
+  Group,
+  Image,
+  Paper,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  PasswordInput,
+  Title
+} from "@mantine/core"
+import { Link, Outlet, useNavigate, useSearch } from "@tanstack/react-router"
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react"
+import { useTranslation } from "react-i18next"
+import { BRAND } from "../../brand"
+import { APP_CONFIG } from "../../config/environment"
+import { ColorSchemeControl } from "../../theme/ColorSchemeControl"
+import { AuthFailure, safeReturnTarget } from "../../data/api/auth/contracts"
+import { useAccountSession } from "./SessionProvider"
+
+/** 共享认证布局和偏好控件，语言/外观变化不卸载表单。 */
+export function AuthLayout() {
+  const { t, i18n } = useTranslation()
+  return (
+    <main className="page-shell">
+      <Container size="lg" w="100%">
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
+          <Stack justify="center">
+            <Image src={BRAND.logoPath} alt="" w={80} h={80} />
+            <Title>{t("projectName")}</Title>
+            <Text c="dimmed">{t("projectDescription")}</Text>
+          </Stack>
+          <Paper p="xl" withBorder radius="lg">
+            <Stack gap="lg">
+              <Group justify="space-between" align="flex-end">
+                <Select
+                  label={t("authLanguage")}
+                  w={140}
+                  value={i18n.resolvedLanguage?.startsWith("zh") ? "zh" : "en"}
+                  data={[
+                    { value: "en", label: "English" },
+                    { value: "zh", label: "中文" }
+                  ]}
+                  onChange={(language) => {
+                    if (language) void i18n.changeLanguage(language)
+                  }}
+                />
+                <ColorSchemeControl />
+              </Group>
+              <Outlet />
+            </Stack>
+          </Paper>
+        </SimpleGrid>
+      </Container>
+    </main>
+  )
+}
+/** 登录、注册和找回共用表单行为，各自保留独立路由与临时输入。 */
+export function AuthPage({ mode }: { mode: "login" | "register" | "reset" }) {
+  const { t } = useTranslation()
+  const session = useAccountSession()
+  const state = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot)
+  const navigate = useNavigate()
+  const search = useSearch({ strict: false })
+  const returnTo = safeReturnTarget("returnTo" in search ? search.returnTo : undefined)
+  const notice =
+    "notice" in search && (search.notice === "registered" || search.notice === "reset")
+      ? search.notice
+      : undefined
+  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmation, setConfirmation] = useState("")
+  const [code, setCode] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [resendAt, setResendAt] = useState(0)
+  const [now, setNow] = useState(Date.now())
+  const [codeSent, setCodeSent] = useState(false)
+  const operation = useRef(new AbortController())
+  const emailRevision = useRef(0)
+  const submitting = useRef(false)
+  const sendingCode = useRef(false)
+  useEffect(() => {
+    const controller = new AbortController()
+    operation.current = controller
+    return () => controller.abort()
+  }, [mode])
+  const seconds = Math.max(0, Math.ceil((resendAt - now) / 1000))
+  useEffect(() => {
+    if (resendAt === 0) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [resendAt])
+  /** 提交期间不重复写；成功清理临时输入，注册和找回均不自动登录。 */
+  async function submit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault()
+    if (submitting.current) return
+    setError(null)
+    if (
+      !password ||
+      (mode !== "reset" && !username.trim()) ||
+      (mode !== "login" && (!email || !code))
+    ) {
+      setError("authRequired")
+      return
+    }
+    if (mode === "reset" && password !== confirmation) {
+      setError("authPasswordMismatch")
+      return
+    }
+    setBusy(true)
+    submitting.current = true
+    const signal = operation.current.signal
+    try {
+      if (mode === "login") {
+        const context = await session.login(username, password, signal)
+        if (signal.aborted) return
+        setPassword("")
+        await navigate({ to: context.organization === null ? "/no-access" : returnTo })
+      } else if (mode === "register") {
+        await session.api.register(username, email, password, code)
+        if (signal.aborted) return
+        setPassword("")
+        setCode("")
+        await navigate({ to: "/login", search: { returnTo, notice: "registered" } })
+      } else {
+        const current = await session.resetPassword(email, password, code)
+        if (!current || signal.aborted) return
+        setPassword("")
+        setCode("")
+        setConfirmation("")
+        await navigate({ to: "/login", search: { returnTo, notice: "reset" } })
+      }
+    } catch (failure) {
+      if (!signal.aborted) setError(failure instanceof AuthFailure ? failure.key : "authUnexpected")
+    } finally {
+      submitting.current = false
+      if (!signal.aborted) setBusy(false)
+    }
+  }
+  /** 演示发送与服务时效分别处理；更换邮箱使旧验证码 UI 状态失效。 */
+  async function sendCode(): Promise<void> {
+    if (sendingCode.current || seconds > 0) return
+    sendingCode.current = true
+    const signal = operation.current.signal
+    const revision = emailRevision.current
+    setSending(true)
+    setError(null)
+    try {
+      await session.api.sendCode(email, mode === "register" ? "register" : "reset")
+      if (signal.aborted || revision !== emailRevision.current) return
+      setCodeSent(true)
+      setNow(Date.now())
+      setResendAt(Date.now() + 30_000)
+    } catch (failure) {
+      if (!signal.aborted && revision === emailRevision.current)
+        setError(failure instanceof AuthFailure ? failure.key : "authUnexpected")
+    } finally {
+      sendingCode.current = false
+      if (!signal.aborted) setSending(false)
+    }
+  }
+  const title = mode === "login" ? "authLogin" : mode === "register" ? "authRegister" : "authReset"
+  return (
+    <Stack>
+      <Title order={2}>{t(title)}</Title>
+      {notice && mode === "login" && (
+        <Alert role="status">
+          {t(notice === "registered" ? "authRegistered" : "authResetDone")}
+        </Alert>
+      )}
+      {state.errorKey === "authRemoteLogoutUnknown" && (
+        <Alert role="status">{t(state.errorKey)}</Alert>
+      )}
+      {error && (
+        <Alert color="red" role="alert">
+          {t(error)}
+        </Alert>
+      )}
+      <form onSubmit={(event) => void submit(event)}>
+        <Stack>
+          {mode !== "reset" && (
+            <TextInput
+              label={t("authUsername")}
+              autoComplete="username"
+              value={username}
+              onChange={(event) => setUsername(event.currentTarget.value)}
+              required
+            />
+          )}
+          {mode !== "login" && (
+            <TextInput
+              label={t("authEmail")}
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => {
+                setEmail(event.currentTarget.value)
+                emailRevision.current += 1
+                setCode("")
+                setResendAt(0)
+                setCodeSent(false)
+              }}
+              required
+            />
+          )}
+          <PasswordInput
+            label={t(mode === "reset" ? "authNewPassword" : "authPassword")}
+            autoComplete={mode === "login" ? "current-password" : "new-password"}
+            value={password}
+            onChange={(event) => setPassword(event.currentTarget.value)}
+            required
+          />
+          {mode === "reset" && (
+            <PasswordInput
+              label={t("authConfirmPassword")}
+              autoComplete="new-password"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.currentTarget.value)}
+              required
+            />
+          )}
+          {mode !== "login" && (
+            <>
+              <TextInput
+                label={t("authCode")}
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(event) => setCode(event.currentTarget.value)}
+                required
+              />
+              <Button
+                type="button"
+                variant="default"
+                loading={sending}
+                disabled={seconds > 0 || busy}
+                onClick={() => void sendCode()}
+              >
+                {seconds > 0 ? t("authResendSeconds", { seconds }) : t("authSendCode")}
+              </Button>
+              {codeSent && <Text role="status">{t("authCodeSent")}</Text>}
+            </>
+          )}
+          <Button type="submit" loading={busy} disabled={sending}>
+            {t(title)}
+          </Button>
+        </Stack>
+      </form>
+      <Group>
+        {mode === "login" ? (
+          <>
+            <Anchor
+              renderRoot={(props) => <Link {...props} to="/register" search={{ returnTo }} />}
+            >
+              {t("authRegister")}
+            </Anchor>
+            <Anchor
+              renderRoot={(props) => (
+                <Link {...props} to="/forgot-password" search={{ returnTo }} />
+              )}
+            >
+              {t("authReset")}
+            </Anchor>
+          </>
+        ) : (
+          <Anchor renderRoot={(props) => <Link {...props} to="/login" search={{ returnTo }} />}>
+            {t("authBackLogin")}
+          </Anchor>
+        )}
+      </Group>
+      {!APP_CONFIG.apiBaseUrl && (
+        <details>
+          <summary>{t("authDemoMode")}</summary>
+          <Text size="sm">{t("authDemoDescription")}</Text>
+          <Text size="sm">{t("authDemoCredentials")}</Text>
+          <Text size="sm">{t("authDemoLifecycle")}</Text>
+        </details>
+      )}
+      {APP_CONFIG.apiBaseUrl && <Alert>{t("authServiceNotConnected")}</Alert>}
+    </Stack>
+  )
+}

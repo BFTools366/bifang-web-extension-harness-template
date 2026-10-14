@@ -1,6 +1,6 @@
 # 数据层、存储与 API 职责
 
-本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成基于 Ky 的无业务 endpoint HTTP client、语言偏好、分页基础与非空测试；`ky` 是两种宿主共有的运行时依赖，不生成占位业务请求、业务列表页或事件总线；SaaS 客户端按创建契约另生成通用认证基线，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
+本文档是 Bifang Web Harness Template 及其生成下游在统一分页、Web 列表状态所有权、HTTP 请求上下文、REST/OpenAPI、GraphQL、Server-Sent Events（SSE）与可选事件流编排上的唯一详细事实来源。初始化器为 Web 与 Extension 都生成基于 Ky 的无业务 endpoint HTTP client、语言偏好、分页基础与非空测试；`ky` 是两种宿主共有的运行时依赖，不生成占位业务请求、业务列表页或事件总线；初始化不注入认证等业务，也不为 Extension 预置网络或 Storage 权限。只有真实 endpoint、Schema、跨上下文认证或复杂事件流出现时才增加相应适配器、依赖与权限。环境字段和日志安全分别由 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 与 [`LOGGING.md`](LOGGING.md) 约束。
 
 固定生成的 HTTP/分页基础（`.harness/tooling/templates/http.ts`、`pagination.ts`）体量明显大于"不生成空壳"原则通常允许的规模，这是刻意例外而非疏漏：动态 header、乱序 revision、迟到 401 与 single-flight 是认证/并发正确性问题，一旦交给每个下游各自实现，出错代价（安全绕过、竞态覆盖新状态）远高于集中维护的成本；因此即便当前项目零业务 endpoint，也在初始化阶段一次性生成并测试，而不是等首个真实 endpoint 出现才补。这套正确性契约由请求上下文维护，默认使用 Ky 的 Fetch 传输；OpenAPI/GraphQL/SSE/RxJS 协议适配器仍按真实消费者加入并复用该契约。
 
@@ -13,7 +13,7 @@
 | 请求前缓存与有限查询状态      | `@tanstack/react-query`，REST / GraphQL 复用同一 QueryClient | feature 声明 key 与新鲜度，Ky 只负责实际传输；本地偏好和 IndexedDB 领域数据保持独立所有权                          |
 | 无可靠 OpenAPI 契约的 REST    | 生成的 Ky HTTP 基础                                          | 统一复用请求上下文；已有必须保留的 Axios 生态或 Ky/Fetch 无法满足的能力才使用 `axios`                              |
 | 有可靠 OpenAPI 契约的 REST    | `openapi-typescript` + 受管 Ky 领域 adapter                  | 已有可靠 `openapi-fetch` 消费者且迁移无收益时保留协议 adapter，不复制请求上下文；运行时仍校验外部响应              |
-| GraphQL 复杂查询              | `graphql-request` + `@graphql-codegen/client-preset` + Query | Apollo 会改变统一缓存所有权，仅在用户明确批准规范化缓存例外时采用                                                  |
+| GraphQL 列表及复杂查询        | `graphql-request` + `@graphql-codegen/client-preset` + Query | 列表查询必须使用 GraphQL；Apollo 缓存所有权仍须明确批准例外                                                        |
 | 简单 SSE                      | 浏览器原生 `EventSource`                                     | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
 | Fetch 风格 SSE 备选           | `@microsoft/fetch-event-source`                              | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
 | 多来源持续事件编排            | RxJS（按需）                                                 | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
@@ -50,13 +50,21 @@ src/data/
 
 ### 1.2 REST 与 GraphQL 分工
 
-| 场景                                                        | 责任                 | 传输与状态                                                                        |
-| ----------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------- |
-| 常规详情/列表、创建/修改/删除、登录登出、上传及主要业务动作 | REST 为主入口        | 受管 Ky client；Query 管读取与 mutation 缓存生命周期                              |
-| 多实体关联、聚合、按需字段裁剪等复杂读取                    | GraphQL Query        | `graphql-request` + Codegen，HTTP adapter 复用受管 Ky 请求上下文                  |
-| 服务端向客户端连续推送数据变化                              | GraphQL Subscription | 按服务端协议选 `graphql-ws` 或 `graphql-sse`；feature 管订阅生命周期和 Query 投影 |
+| 场景                                                     | 责任                  | 传输与状态                                                                        |
+| -------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------- |
+| 单对象详情、创建/修改/删除、登录登出、上传及主要业务动作 | REST 为主入口         | 受管 Ky client；Query 管读取与 mutation 缓存生命周期                              |
+| 远端列表、集合、搜索、筛选、排序及分页读取               | GraphQL Query，强约定 | 条件、排序与分页按可信 Schema 经 variables/参数传递；Query 统一缓存               |
+| 多实体关联、聚合、按需字段裁剪等复杂读取                 | GraphQL Query         | `graphql-request` + Codegen，HTTP adapter 复用受管 Ky 请求上下文                  |
+| 服务端向客户端连续推送数据变化                           | GraphQL Subscription  | 按服务端协议选 `graphql-ws` 或 `graphql-sse`；feature 管订阅生命周期和 Query 投影 |
 
 默认写操作全部走 REST，不为同一业务动作再建立 GraphQL Mutation。已有服务只能提供 Mutation 时，按明确的真实契约记录例外、幂等和缓存所有者，不能悄悄改变默认分工。复杂查询的传输 POST 不代表业务写入，其安全重试必须按 operation 语义判断。REST 读取和 GraphQL 查询访问相同实体时，feature 明确缓存键、失效与投影关系，避免维护无法对账的副本。
+
+#### 列表查询协议强约定
+
+- **远端列表查询必须使用 GraphQL**，接口设计、Mock 协议设计、接入与文档导出均适用，Web 与 Extension 一致。列表包括独立获取集合、搜索结果、筛选/排序/分页结果、树与候选项；首次无筛选、固定列表或数据量小也不能改走 REST。按操作的业务用途判断，不从 GET/POST、函数名或 JSON 中出现数组机械推断。
+- 列表实际需要的条件、排序与分页必须有真实 Schema 或明确标注的设计 SDL/variables；遵循实际参数、输入类型、可空性和分页方式，不拼接用户条件到查询字符串，不补造服务已支持的筛选字段。尚无可信 GraphQL 契约时，设计阶段可在授权范围内提出待确认建议；真实接入保持阻断，不借用 REST 列表绕过。
+- 单对象详情内的子数组、写操作返回的结果集合以及纯客户端本地集合处理，不因此成为远端列表查询；不为本地列表虚构 GraphQL 服务。服务端查询库、TanStack Query 缓存与 HTTP POST 都不能单独证明采用 GraphQL，必须核对实际 operation 与 Schema。
+- 已有 REST 列表实现或已采用 REST 列表契约按事实保留，明确登记为**不符合列表协议强约定**；导出不能改写成已实现 GraphQL、隐藏该操作或把新 GraphQL 设计建议当作迁移完成。此类材料可作为差异/迁移评审文档保存，但协议检查失败，不能宣布本轮导出符合规范。迁移只在获得实现范围授权与可信 GraphQL 契约后执行；既有服务限制不构成自动例外。
 
 推送指客户端主动订阅后的服务端事件，不等同于浏览器 Push API、离线通知或自动双向同步。GraphQL 本身不提供传输实现：Ky 处理 HTTP，不承担 WebSocket；`graphql-request` 处理有限请求，不承担长期订阅。服务端没有 Subscription schema 与协议时，不能从查询接口推断支持推送。当前 [`API.md`](API.md) 的参考契约只定义只读 GraphQL 查询，没有订阅契约；采用时须保持这项事实。
 
@@ -77,11 +85,11 @@ Dexie 只封装 IndexedDB，不能替换 Cookie、LocalStorage 或 SessionStorag
 - Dexie 依赖只在真实 IndexedDB 消费者出现时声明并固定 lockfile；初始化不生成空表、离线队列、Cookie 策略或占位 repository。迁移需覆盖升级失败/事务回滚、blocked/versionchange、多连接与数据 scope 清理；本地结构化数据不自动成为服务器 Query 缓存的第二权威。
 - Extension service worker 没有 Window/DOM，不能使用 Web Storage 或 `document.cookie`；IndexedDB/Memory 的可用性和生命周期按实际上下文核对。跨上下文或浏览器同步使用受控 `chrome.storage`/消息 adapter，权限和 Chrome/Firefox 差异仍需对应评审，统一目录不授予权限。
 
-### 1.3.1 Web SaaS 会话凭据持久化例外
+### 1.3.1 Web 身份认证凭据持久化例外
 
-仅 `projectType=web` 且明确采用 SaaS 客户端或 SaaS 大后台认证时，按用户要求将服务端会话凭据写入 LocalStorage。由认证 feature 经 `src/data/storage/` 维护版本化、项目/模式/环境隔离的必要记录，并恢复到受管 client；默认基础 client、普通站点和 Extension 不启用此行为，continuation 始终只留内存。此段是上文 Token 默认禁持久化规则的限定例外。
+仅 `projectType=web` 且已明确选择身份认证及 LocalStorage 凭据方案时，按已确认需求将服务端会话凭据写入 LocalStorage。由认证 feature 经 `src/data/storage/` 维护版本化、项目/服务/环境隔离的必要记录，并恢复到受管 client；默认基础 client、未选择持久化方案的 Web 和 Extension 不启用此行为，continuation 始终只留内存。此段是上文 Token 默认禁持久化规则的限定例外。
 
-使用 `$web-implement-saas-auth`；需求/SOP 与会话实施合同分别位于其 `references/requirements-and-sop.md` 和 `references/session-contract.md`。后者规定写入/删除失败、轮换、跨标签页、XSS 风险和恢复条件；用户/权限不持久化，密码/验证码/日志/URL 不携带凭据。凭据校验操作返回错误时退出，network/timeout 无 HTTP 响应时保留凭据但不新增授权；普通业务 403 仍保留会话。此策略仅在真实 SaaS feature 中装配，不改下文基础 client 默认行为，创建为 SaaS 类型也不代表本地认证或真实服务已实现。
+使用 [身份认证知识库](../.agents/skills/web-compose-capabilities/knowledge/identity.md) 的会话合同。唯一所有者负责写入/删除失败、轮换、跨标签页和恢复。用户/权限不持久化；密码、验证码和 continuation 不写入记录。普通业务 403 保留会话；凭据校验错误与无响应网络失败分别按已确认策略处理。仅实际选择并装配此方案时生效，初始化和模板分发不授予持久化能力。
 
 已采用的 Mock 会话如需跨刷新恢复，只按此例外与认证会话合同保存最小演示引用，不保存原始 TokenPair，并说明服务重置后的恢复边界；这不授予真实凭据或额外持久化权限，不能凭演示引用重建用户或权限。
 
@@ -182,7 +190,7 @@ React 项目使用已声明的 `@tanstack/react-query`。REST 读取与 GraphQL 
 - 本地能力：计算、转换、浏览器存储与本地数据操作按真实需求直接实现。纯业务逻辑留在对应 feature，存储访问通过 `src/data/storage/`，真实读取、写入、校验与失败处理不能替换为 Mock；不为本地操作包装假 HTTP 请求、等待远端配置或创建占位 endpoint。
 - 混合流程：本地部分照常执行，仅隔离缺少地址的远端 API 边界。一个远端服务未配置，不影响独立的本地能力或已配置的其他服务；Mock 结果不能冒充真实远端响应或本地已保存数据。
 
-Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不把模拟凭据、continuation 或调用结果当成真实会话及网络成功证据。SaaS 客户端初始化包含明确标注的认证域 Mock，固定演示账户、组织与权限只用于该通用基线；其他创建类型保持中性。没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
+Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不把模拟凭据、continuation 或调用结果当成真实会话及网络成功证据。初始化只提供中性工程；显式账户工作区组合模板含标注的认证域 Mock，固定账户、组织与权限仅用于该示例。没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
 
 当前功能已采用可信服务协议，且依赖 Header、原始封装、错误码或 DTO 映射时，产品 Mock 也经过对应的请求序列化、内存 exchange、原始响应边界校验与领域投影，复用 API 模块的解析器；不能直接返回领域对象后声称协议适配已覆盖。测试在可注入的 exchange 边界观察请求与响应，证明公开操作隔离、适用报文及最高风险错误分支，同时断言零网络调用。只模拟本次采用的操作和协议支持面，不复制完整服务器或自建通用解析框架；来源 Schema、协议合同与当前 Mock 的实际支持范围分别说明。
 
@@ -213,11 +221,11 @@ Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定�
 
 每次真正 dispatch 时动态读取上下文，只有值通过校验且非空时才设置 header：
 
-| 请求头           | 请求值来源                                     | 成功响应处理                                                                                                        | 存储边界                                                                       |
-| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `X-Http-Request` | 当前内存中的服务端 continuation/correlation 值 | 只从同一受控 API 边界的 2xx 响应提取并供后续请求携带；它不是客户端生成或复用的每请求唯一 request-id                 | 当前执行上下文内存；不写 Storage、环境或默认日志                               |
-| `X-Lang`         | 每次 dispatch 动态读取的规范化当前语言         | 不以任意响应值静默改写用户偏好；若响应内容随语言变化，Query key 必须包含语言                                        | 项目命名空间 localStorage，只保存支持的语言标识                                |
-| `X-AUTH-TOKEN`   | 当前 Token revision 的内存值                   | 默认从同名 header 提取；真实协议可注入异步 `extractAuthToken(response.clone())`，但必须保留相同信任、并发和存储规则 | 当前执行上下文内存；默认禁止 local/sessionStorage 与 env，Web SaaS 例外见 §1.3 |
+| 请求头           | 请求值来源                                     | 成功响应处理                                                                                                        | 存储边界                                                                          |
+| ---------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `X-Http-Request` | 当前内存中的服务端 continuation/correlation 值 | 只从同一受控 API 边界的 2xx 响应提取并供后续请求携带；它不是客户端生成或复用的每请求唯一 request-id                 | 当前执行上下文内存；不写 Storage、环境或默认日志                                  |
+| `X-Lang`         | 每次 dispatch 动态读取的规范化当前语言         | 不以任意响应值静默改写用户偏好；若响应内容随语言变化，Query key 必须包含语言                                        | 项目命名空间 localStorage，只保存支持的语言标识                                   |
+| `X-AUTH-TOKEN`   | 当前 Token revision 的内存值                   | 默认从同名 header 提取；真实协议可注入异步 `extractAuthToken(response.clone())`，但必须保留相同信任、并发和存储规则 | 当前执行上下文内存；默认禁止 local/sessionStorage 与 env，Web 身份认证例外见 §1.3 |
 
 语言偏好以 `<project-id>:language:v1` 保存当前支持的 `en|zh`。读取顺序是：项目命名空间下可识别的 localStorage 值、规范化浏览器语言、回退为英文。非法/未知语言、Storage 异常或浏览器拒绝访问时回退且不阻断应用；i18next 的真实语言变化同步更新该偏好，下一次请求才读取新值。不得把语言存储与认证 Token 混在同一个对象中。
 

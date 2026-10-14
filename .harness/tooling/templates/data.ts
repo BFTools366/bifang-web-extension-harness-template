@@ -75,9 +75,9 @@ export const colorSchemeManager = localStorageColorSchemeManager({
 
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 的访问统一归入本目录，详细规则见项目根的 \`docs/DATA_ACCESS.md\` §1.1–1.3。
 
-- \`api/client/\`：Ky HTTP、认证与错误边界；Token/continuation 默认留在当前 client 的上下文内存；仅明确采用 Web SaaS 认证时由 feature 按根规范的范围例外持久化会话凭据，continuation 不适用。
+- \`api/client/\`：Ky HTTP、认证与错误边界；Token/continuation 默认留在当前 client 的上下文内存；仅明确选择 Web 身份认证持久化方案时由 feature 按根规范的范围例外持久化会话凭据，continuation 不适用。
 - \`api/<domain>/\`：按真实业务域组织类型、REST 主交互、远端 API Mock 与响应校验。
-- \`api/graphql/\`：真实 Schema 出现后放复杂查询、生成文档与 Subscription 协议 adapter；初始化不生成该目录或假端点。
+- \`api/graphql/\`：真实 Schema 出现后放列表及复杂查询、生成文档与 Subscription 协议 adapter；初始化不生成该目录或假端点。
 - \`storage/\`：浏览器存储访问与领域持久化；各机制保持独立生命周期。
 
 UI、分页和 i18n 保留呈现与状态职责，存储访问经本层完成。TanStack Query 统一管理 REST/GraphQL 有限读取的请求前缓存与服务器状态，Jotai 只管理客户端交互状态。feature Query options、QueryClient 复用与新鲜度见 \`docs/DATA_ACCESS.md\` §2.7；持久存储不自动保存 Query 结果副本。
@@ -93,7 +93,7 @@ UI、分页和 i18n 保留呈现与状态职责，存储访问经本层完成。
 
 - \`client/\`：已批准基地址、动态认证、取消、超时与规范化 API 错误；不声明业务接口或登录地址。
 - \`<domain>/\`：类型化远端接口函数、请求与响应合同、运行时边界校验，以及只用于未配置 BaseURL 的远端 API 的 Mock。本地能力无需 BaseURL，直接真实实现；本地业务逻辑留在功能模块，真实持久化放在 \`../storage/\`。混合流程只模拟不可用的远端边界。
-- REST 负责普通读取、命令、认证、上传与主要业务交互。GraphQL 负责复杂聚合查询及服务端推送的 Subscription 更新，不另建第二套写入 API。
+- REST 负责单对象读取、命令、认证、上传与主要业务交互。远端列表查询必须使用 GraphQL，条件、排序与分页按真实 Schema 传变量；GraphQL 也负责复杂聚合查询及服务端推送的 Subscription 更新，不另建第二套写入 API。
 - \`graphql/\` 只在有真实 Schema 与接口时加入。HTTP 查询复用受管 Ky 传输；订阅采用服务端的 \`graphql-ws\` 或 \`graphql-sse\` 协议，明确清理与认证生命周期。
 - 功能 hooks 在组件、路由加载器和命令式读取间共享 queryOptions 与当前上下文的 QueryClient。TanStack Query 负责 REST/GraphQL 缓存查询、在途读取去重、新鲜度、失效与事件投影；Ky 和协议适配只负责传输。缓存已解析校验的领域数据，不缓存会被消费的 Response 响应体。入口与 staleTime 语义见项目根 \`docs/DATA_ACCESS.md\` §2.7。
 - 写操作更新或失效精确查询键；订阅将已校验事件投影到同一 Query 缓存。不得把服务器状态镜像到 Jotai 或存储。Extension 各上下文具有独立 QueryClient 与生命周期，不因此获得跨上下文或持久缓存。
@@ -108,7 +108,7 @@ Mock 迁移、协议适配与存储边界遵循项目根 \`docs/DATA_ACCESS.md\`
 
 - LocalStorage / SessionStorage：复用 \`webStorage.ts\` 的原生入口；消费方校验内容、处理操作异常，保留已有键与数据格式。\`colorScheme.ts\` 复用 Mantine 管理外观偏好。
 - Cookie：真实需要时在 \`cookie/\` 按域增加实现，复杂非敏感 Cookie 操作可用 js-cookie；HttpOnly 认证 Cookie 由服务端设置与浏览器传输，前端不可读取。
-- Memory：仅当前执行上下文，真实内存仓库放 \`memory/\`；HTTP Token/continuation 保留在 \`../api/client/\` 的会话闭包，不新建第二份会话。仅 Web SaaS 会话凭据的 LocalStorage 例外由认证 feature 按根规范协调，continuation 与 Extension 不适用。
+- Memory：仅当前执行上下文，真实内存仓库放 \`memory/\`；HTTP Token/continuation 保留在 \`../api/client/\` 的会话闭包，不新建第二份会话。仅 Web 身份认证凭据的 LocalStorage 例外由认证 feature 按根规范协调，continuation 与 Extension 不适用。
 - IndexedDB：真实本地结构化数据使用 Dexie，在 \`indexeddb/\` 定义领域表、版本与迁移；Dexie 不封装 LocalStorage、SessionStorage 或 Cookie。数据库不可用时应明确失败，不能假装持久化成功。
 
 Cookie、Memory 和 IndexedDB 没有消费者时不生成空实现或安装可选依赖。Extension 的跨上下文存储按真实消息与权限合同另行设计；普通 Web Storage 和 Memory 不跨上下文共享。完整合同见项目根 \`docs/DATA_ACCESS.md\` §1.3。

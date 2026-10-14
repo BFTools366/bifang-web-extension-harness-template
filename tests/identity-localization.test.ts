@@ -96,7 +96,6 @@ describe("localized identity and visible brand initialization", () => {
       {
         targetRoot: path.resolve("..", "long-web"),
         projectType: "web",
-        webType: "tool-site",
         name: "N".repeat(76),
         id: "long-web",
         description: "D".repeat(133),

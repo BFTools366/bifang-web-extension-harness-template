@@ -13,7 +13,7 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 2. 初始化仅分发 Skills，不执行需求澄清、PRD、原型或登记，不增加初始化问题，也不读写全局 Skills。
 3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；按 [PRD 结构](references/prd-outline.md) 补齐当前范围。只逐项澄清影响当前设计的关键缺口，复用已确认事实，不重启整套问卷。
 4. Product Spec 是唯一 PRD，不另建 `docs/prd/`。需求须为 `Approved`；原型摘要只登记在 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。登记不代表用户新增授权或交互质量已验证。
-5. Web 按 [Web 类型与可选能力](references/prd-outline.md#web-类型与可选能力) 继承业务类型、购买开关与相关 SaaS 合同；关闭的购买能力不进入原型，后台目标组织不模拟为切换操作者身份。Extension 跳过业务类型规则。
+5. 按 [功能模块组合](references/prd-outline.md#功能模块组合) 继承已选模块与具体操作，只读对应知识和设计参考；未选能力不进入原型。管理目标组织与操作者身份分开，Extension 按实际 surface 适配。
 
 ## 产出与自查
 
@@ -21,7 +21,7 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 2. 原型是可离线打开的独立 HTML，内联 CSS/JS 与所需小型资源，不引用 CDN、远程脚本或真实接口，不新增依赖。覆盖本轮主线、按钮目的地及相关加载、空、成功、错误、禁用与恢复交互；清楚标识示例数据和模拟结果。不得交付只有截图或失效按钮的原型。
 3. 仅面向桌面端，不规划、生成或验证 Mobile 支持：不增加手机/平板布局、移动断点、触控专用交互或移动端验收项。Web 遵循现有品牌、Mantine 令牌和桌面窗口尺寸；Extension 按桌面浏览器的 Popup、Options 等真实 surface 尺寸设计，紧凑 Popup 不等于 Mobile。通用 UI 规范中的移动优先建议不扩张本 Skill 的原型范围；产品实现的设备支持仍由产品范围及其工程规则决定。
    HTML 是设计媒介，开发仍使用既有 React/Mantine/TypeScript/i18n。`design-taste-frontend` 只在 UI 规范允许的范围内调用，不让其多方案或移动偏好覆盖本 Skill。
-   明确采用 SaaS 的 Web 按 UI 规范“路由布局与插槽”展示父布局、叶页面与 URL 对应；菜单切换及模拟慢加载保持账号区、底部身份和外壳连续。已采用的认证页覆盖安全返回与失败恢复，注册仅客户端；离线模拟不能证明真实鉴权。
+   Web 采用工作区时按 UI 规范“路由布局与插槽”展示父布局、叶页面与 URL 对应；慢加载保持外壳。只为已选操作展示认证页、安全返回与失败恢复，离线模拟不证明真实鉴权。
 4. 展示前自查主线、跳转、关键状态、键盘/焦点、标签及桌面窗口溢出；将实际证据、问题和未执行项写入版本目录 `review.md`。有浏览器能力时走查原型；没有时保留可打开文件并明确浏览器未检查，不伪造交互或桌面布局通过。此步骤不触发发布构建、候选验收或 E2E。
 5. 将影响规则、数据、状态及验收的发现回写 PRD；实质需求变化须复用或取得用户确认。自查完成、消除阻断后展示唯一原型链接和最短试用路径，不提出 A/B 选择题，也不把修改意见变成新增方案。
 6. 在下游根运行以下命令，替换为真实路径：

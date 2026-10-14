@@ -15,7 +15,9 @@ function control<T extends HTMLElement>(selector: string): T {
 beforeEach(async () => {
   vi.restoreAllMocks()
   // 保存离线资源目录与 HTML 内容，使用项目已声明的 jsdom 环境。
-  const assetRoot = path.resolve(".agents/skills/web-implement-saas-commerce/assets")
+  const assetRoot = path.resolve(
+    ".agents/skills/web-compose-capabilities/templates/compositions/purchase-checkout"
+  )
   const html = await readFile(path.join(assetRoot, "commerce-reference.html"), "utf8")
   history.replaceState(null, "", "/#purchase")
   document.open()
@@ -36,7 +38,7 @@ beforeEach(async () => {
 })
 
 /** 验证可选启用、选择失效、原单恢复与账户视图更新。 */
-describe("optional SaaS commerce reference", () => {
+describe("explicit purchase checkout reference", () => {
   /** 验证默认关闭和关闭进行中的演示都不会产生交易副作用。 */
   test("hides commerce until selected and blocks payment after disabling", () => {
     expect(control<HTMLInputElement>("#enabled").checked).toBe(false)

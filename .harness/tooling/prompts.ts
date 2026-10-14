@@ -1,4 +1,3 @@
-import { resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
@@ -9,8 +8,7 @@ import type {
   AgentPolicyMode,
   AgentPolicySelection,
   InitOptions,
-  ProjectType,
-  WebCreationType
+  ProjectType
 } from "./types.ts"
 
 import {
@@ -18,9 +16,7 @@ import {
   formatInitializationQuestion,
   INITIALIZATION_QUESTIONS,
   parsePolicyMode,
-  parseWebCreationType,
-  requiredText,
-  WEB_TYPE_LABELS
+  requiredText
 } from "./initialization-input.ts"
 import type { InteractiveQuestion, PromptDefaults } from "./initialization-input.ts"
 
@@ -30,8 +26,6 @@ export interface PromptedIdentity {
   policyMode: AgentPolicyMode
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
-  webType?: WebCreationType
-  saasCommerce?: InitOptions["saasCommerce"]
   name: string
   englishName?: string
   id: string
@@ -56,7 +50,6 @@ export interface InstantiationSummary {
   init: Pick<
     InitOptions,
     | "projectType"
-    | "saasCommerce"
     | "name"
     | "englishName"
     | "id"
@@ -68,7 +61,7 @@ export interface InstantiationSummary {
     | "testBaseUrl"
     | "releaseBaseUrl"
     | "agentPolicy"
-  > & { webType?: WebCreationType }
+  >
 }
 
 /** 描述自定义策略值及其最终输入来源。 */
@@ -170,8 +163,6 @@ export async function collectPromptedIdentity(
     policyMode,
     inputSources: { ...collected.inputSources, ...policySources },
     projectType,
-    webType: projectType === "web" ? parseWebCreationType(basic.webType ?? "") : undefined,
-    saasCommerce: resolveSaasCommerceChoice(projectType, basic.webType, basic.saasCommerce),
     name: requiredText(basic.name, "项目名称"),
     englishName: basic.englishName || undefined,
     id: requiredText(basic.id, "项目标识"),
@@ -209,8 +200,8 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（原始）：${summary.rawTargetRoot}
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
-- 项目类型：${summary.init.projectType}${summary.init.webType === undefined ? "" : `\n- Web 类型：${WEB_TYPE_LABELS[summary.init.webType]}（${summary.init.webType}）`}
-${summary.init.webType === "saas-client" ? "- 创建基线：通用登录、注册、找回和受保护主工作区；空服务地址使用明确标注的认证 Mock\n" : ""}${summary.init.saasCommerce === undefined ? "" : `- 商品购买模块：${summary.init.saasCommerce}（商品选择、订单管理、钱包管理）\n`}- 展示名称：${summary.init.name}
+- 项目类型：${summary.init.projectType}
+- 展示名称：${summary.init.name}
 - 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}
 - 项目说明：${summary.init.description}

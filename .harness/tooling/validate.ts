@@ -1,6 +1,7 @@
 import { validateHttpFoundation } from "./validate-http.ts"
 import { readFile } from "node:fs/promises"
 import path from "node:path"
+import { readCapabilityCatalog } from "../../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import { HARNESS_ONLY_PATHS, loadProjectConfig, MASTER_LOGO_PATH } from "./config.ts"
 import { pathExists, readJson } from "./files.ts"
@@ -113,9 +114,19 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   const root = path.resolve(rootInput)
   const config = await loadProjectConfig(root)
   const errors: string[] = []
+  try {
+    readCapabilityCatalog(path.join(root, ".agents/skills/web-compose-capabilities"))
+  } catch (error) {
+    errors.push(`Capability library: ${error instanceof Error ? error.message : String(error)}`)
+  }
   await requirePaths(
     root,
     [
+      ".agents/skills/web-compose-capabilities/catalog.json",
+      ".agents/skills/web-compose-capabilities/scripts/capabilities.ts",
+      ".agents/skills/web-document-api/references/export-contract.md",
+      ".agents/skills/web-document-api/references/protocol-formats.md",
+      ".agents/skills/web-document-api/scripts/check-export.ts",
       ".agents/skills/web-design-prototype/references/prd-outline.md",
       ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
       ".harness/tooling/cli.ts",
@@ -135,17 +146,6 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       ".harness/tooling/version.ts",
       ...(config.projectType === "web"
         ? [
-            ".agents/skills/web-implement-saas-auth/references/requirements-and-sop.md",
-            ".agents/skills/web-implement-saas-auth/references/session-contract.md",
-            ".agents/skills/web-implement-saas-admin/references/pages-and-sop.md",
-            ".agents/skills/web-implement-saas-admin/references/management-contract.md",
-            ".agents/skills/web-implement-saas-admin/references/neutral-ui-design.md",
-            ".agents/skills/web-implement-saas-commerce/references/requirements-and-sop.md",
-            ".agents/skills/web-implement-saas-commerce/references/order-and-wallet-contract.md",
-            ".agents/skills/web-implement-saas-commerce/references/neutral-ui-design.md",
-            ".agents/skills/web-implement-saas-commerce/assets/commerce-reference.html",
-            ".agents/skills/web-implement-saas-commerce/assets/commerce-reference.css",
-            ".agents/skills/web-implement-saas-commerce/assets/commerce-reference.js",
             ".agents/skills/web-implement-list-view/assets/ListPage.contracts.test.ts",
             ".agents/skills/web-implement-list-view/assets/listPageState.ts",
             ".agents/skills/web-implement-list-view/assets/listPageStorage.ts",

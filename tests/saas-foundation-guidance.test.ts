@@ -19,8 +19,8 @@ test("SaaS 基础设计按宿主传播", async () => {
     `### 3.3 源码可读性与类型化组合\n\n${styleMarker}`
   )
   const updated = mantineUiGuidelines.replace(
-    "### 8.1 SaaS 基础设计与页面闭环",
-    `### 8.1 SaaS 基础设计与页面闭环\n\n${marker}`
+    "### 8.1 功能组合的页面与布局",
+    `### 8.1 功能组合的页面与布局\n\n${marker}`
   )
   for (const projectType of ["web", "extension"] as const) {
     const config = createProjectConfig(options(repositoryRoot, projectType))
@@ -51,11 +51,72 @@ test("SaaS 基础设计按宿主传播", async () => {
         expect(document).toContain(text)
     } else {
       expect(document).not.toContain(marker)
-      expect(document).not.toContain("### 8.1 SaaS 基础设计与页面闭环")
+      expect(document).not.toContain("### 8.1 功能组合的页面与布局")
       expect(document).not.toContain("### 8.4 导航路由与当前项")
       expect(document).not.toContain("### 8.5 路由布局与插槽")
       expect(document).not.toContain("/app/dashboard")
       expect(engineering).not.toContain("src/routes/")
     }
   }
+})
+
+/** 验证列表协议强约定在两宿主原文传播，且 Extension 不依赖 Web 列表状态章节。 */
+test("GraphQL 列表强约定按两宿主完整传播", async () => {
+  const [dataAccess, mantineUiGuidelines, engineeringRules] = await Promise.all([
+    readFile(path.join(repositoryRoot, "docs/DATA_ACCESS.md"), "utf8"),
+    readFile(path.join(repositoryRoot, "docs/MANTINE_UI_GUIDELINES.md"), "utf8"),
+    readFile(path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"), "utf8")
+  ])
+  const policy = dataAccess
+    .split("#### 列表查询协议强约定\n")[1]
+    ?.split("### 1.3 存储机制与选型")[0]
+    ?.trim()
+  expect(policy).toContain("远端列表查询必须使用 GraphQL")
+  for (const projectType of ["web", "extension"] as const) {
+    const documents = downstreamGovernanceFiles(
+      createProjectConfig(options(repositoryRoot, projectType)),
+      { dataAccess, mantineUiGuidelines, engineeringRules }
+    )
+    const emitted = documents.get("docs/DATA_ACCESS.md")
+    expect(emitted).toContain(policy)
+    expect(emitted).not.toContain("常规详情/列表")
+    expect(documents.get("docs/ENGINEERING_RULES.md")).toContain("GraphQL 强制负责远端列表查询")
+    if (projectType === "extension") expect(emitted).not.toContain("### 2.5 React Web 路由列表契约")
+  }
+})
+
+/** 验证按模块选择只返回自身资源，组合要求与宿主限制都明确且只读。 */
+test("capability selection keeps independent modules and explicit recipes", async () => {
+  const { selectCapabilities } =
+    await import("../.agents/skills/web-compose-capabilities/scripts/capabilities.ts")
+  const standalone = selectCapabilities([
+    "resolve",
+    "--host",
+    "extension",
+    "--modules",
+    "orders"
+  ]) as { modules: { id: string }[]; recipe?: unknown }
+  expect(standalone.modules.map((item) => item.id)).toEqual(["orders"])
+  expect(standalone.recipe).toBeUndefined()
+  const combined = selectCapabilities([
+    "resolve",
+    "--host",
+    "web",
+    "--recipe",
+    "account-workspace"
+  ]) as { modules: { id: string }[] }
+  expect(combined.modules.map((item) => item.id)).toEqual([
+    "identity",
+    "organization",
+    "permissions"
+  ])
+  for (const args of [
+    ["resolve", "--host", "web", "--modules", "unknown"],
+    ["resolve", "--host", "web", "--modules", "identity,identity"],
+    ["resolve", "--host", "web", "--modules", "identity", "--recipe", "account-workspace"],
+    ["resolve", "--host", "extension", "--recipe", "account-workspace"],
+    ["resolve", "--host", "web", "--recipe", "unknown"],
+    ["resolve", "--host", "web", "--modules", "identity", "--enable", "yes"]
+  ])
+    expect(() => selectCapabilities(args)).toThrow()
 })

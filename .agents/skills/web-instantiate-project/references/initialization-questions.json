@@ -5,50 +5,15 @@
       "question": "请选择要创建的项目类型。",
       "hint": "输入 1 或 2，也可输入 web 或 extension；无默认值。",
       "options": [
-        { "value": "web", "label": "1.Web", "description": "React 网页项目，创建独立单包网站" },
+        {
+          "value": "web",
+          "label": "1.Web",
+          "description": "React 网页项目，创建独立单包网站"
+        },
         {
           "value": "extension",
           "label": "2.Extension",
           "description": "浏览器扩展项目，同时支持 Chrome MV3 与 Firefox MV2"
-        }
-      ]
-    },
-    "webType": {
-      "title": "Web 类型",
-      "question": "请选择 Web 项目的类型。",
-      "hint": "输入 1、2 或 3，也可输入中文名称或 tool-site、saas-client、saas-admin；无默认值。",
-      "options": [
-        {
-          "value": "tool-site",
-          "label": "1.工具站点",
-          "description": "面向工具或普通网站，按具体需求组织功能"
-        },
-        {
-          "value": "saas-client",
-          "label": "2.SaaS客户端",
-          "description": "面向最终用户，创建通用登录、注册、找回与主工作区，业务在下游完善"
-        },
-        {
-          "value": "saas-admin",
-          "label": "3.SaaS大后台",
-          "description": "面向管理人员，后续在下游完善组织、成员、商品和订单管理"
-        }
-      ]
-    },
-    "saasCommerce": {
-      "title": "商品购买模块",
-      "question": "是否需要商品购买模块？",
-      "hint": "仅 SaaS 客户端适用；输入 1/2、enabled/disabled 或启用/关闭。",
-      "options": [
-        {
-          "value": "enabled",
-          "label": "1.启用",
-          "description": "包含商品选择、订单管理和钱包管理，创建后在下游定义与实施"
-        },
-        {
-          "value": "disabled",
-          "label": "2.关闭",
-          "description": "本次不选择商品购买、订单和钱包能力，后续可明确启用"
         }
       ]
     },
@@ -233,7 +198,11 @@
         "label": "确认",
         "description": "按完整汇总创建项目，开始写入目标与暂存目录、安装依赖并建立 Git 基线"
       },
-      { "value": "cancel", "label": "取消", "description": "结束本次创建，不写入目标或暂存目录" }
+      {
+        "value": "cancel",
+        "label": "取消",
+        "description": "结束本次创建，不写入目标或暂存目录"
+      }
     ]
   }
 }

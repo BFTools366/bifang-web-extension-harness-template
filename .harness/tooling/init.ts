@@ -30,8 +30,6 @@ import { runCommand } from "./process.ts"
 import { finalizeDownstream, prepareDownstreamFinalization } from "./finalize.ts"
 import { prepareDesignSkillInstallation } from "./install-design-skill.ts"
 import { inspectDesignSkill } from "./design-skill.ts"
-import { resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
-import { assertWebCreationType } from "./initialization-input.ts"
 import { extensionFiles } from "./templates/extension.ts"
 import { webFiles } from "./templates/web.ts"
 import type { InitOptions, ProjectConfig } from "./types.ts"
@@ -233,8 +231,6 @@ export async function initializeProject(
 ): Promise<ProjectConfig> {
   const root = path.resolve(options.root)
   await assertDownstreamInitializationRoot(root)
-  if (options.webType !== undefined) assertWebCreationType(options.projectType, options.webType)
-  resolveSaasCommerceChoice(options.projectType, options.webType, options.saasCommerce)
   const resolvedOptions = { ...options, ...validateBaseUrls(options), root }
   const config = createProjectConfig(resolvedOptions)
   await assertSinglePackageRoot(root)
@@ -264,18 +260,12 @@ export async function initializeProject(
       : Buffer.from(preparedLogo)
   const projectFiles =
     config.projectType === "web"
-      ? webFiles(config, resolvedOptions, resolvedOptions.webType)
+      ? webFiles(config, resolvedOptions)
       : extensionFiles(config, resolvedOptions)
   const [normalizedTsconfig, logoAssets, finalizationPlan, designSkillFiles] = await Promise.all([
     prepareProjectTsconfig(root, config.projectType),
     deriveLogoAssets(config.projectType, logo),
-    prepareDownstreamFinalization(
-      root,
-      config,
-      resolvedOptions.agentPolicy,
-      resolvedOptions.webType,
-      resolvedOptions.saasCommerce
-    ),
+    prepareDownstreamFinalization(root, config, resolvedOptions.agentPolicy),
     prepareDesignSkillInstallation(root)
   ])
 

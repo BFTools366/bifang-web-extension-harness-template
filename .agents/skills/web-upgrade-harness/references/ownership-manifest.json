@@ -3,6 +3,10 @@
   "defaultMode": "protected",
   "rules": [
     {
+      "pattern": ".agents/skills/web-compose-capabilities/**",
+      "mode": "managed"
+    },
+    {
       "pattern": ".agents/skills/design-taste-frontend/**",
       "mode": "protected"
     },
@@ -96,15 +100,15 @@
     },
     {
       "pattern": ".agents/skills/web-implement-saas-auth/**",
-      "mode": "conditional"
+      "mode": "tombstone"
     },
     {
       "pattern": ".agents/skills/web-implement-saas-admin/**",
-      "mode": "conditional"
+      "mode": "tombstone"
     },
     {
       "pattern": ".agents/skills/web-implement-saas-commerce/**",
-      "mode": "conditional"
+      "mode": "tombstone"
     },
     {
       "pattern": ".agents/skills/web-implement-list-view/**",
@@ -707,6 +711,10 @@
     },
     {
       "pattern": "tests/prototype-workflow.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/harness-api-document-export.test.ts",
       "mode": "tombstone"
     }
   ]

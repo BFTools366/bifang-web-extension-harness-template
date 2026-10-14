@@ -101,7 +101,7 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 - React 组件负责渲染与局部交互；TanStack Query 管理远端或异步服务状态；Jotai 只管理确需跨组件共享的纯客户端状态，不镜像 Query 数据。
 - \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/data/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
 - 未配置对应 BaseURL 时，仅依赖该远端 API 的操作由 API 层 Mock 提供；本地能力直接真实实现，不要求 BaseURL。混合流程只隔离远端边界，真实联网迁移及失败不回落 Mock 的规则以 \`docs/DATA_ACCESS.md\` §3.1 为准。
-- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。REST 负责主要交互与写入，GraphQL 负责复杂查询与 Subscription；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
+- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。REST 负责单对象详情、主要交互与写入，GraphQL 强制负责远端列表查询，并负责复杂查询与 Subscription；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
 - Ky 为默认 HTTP 传输；OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
 - Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。
@@ -289,18 +289,18 @@ function dataAccess(config: ProjectConfig, canonical: string): string {
   const sectionStart = canonical.indexOf(sectionMarker)
   if (sectionStart < 0) throw new Error(`Canonical DATA_ACCESS.md is missing ${sectionMarker}`)
   const allCanonicalSections = canonical.slice(sectionStart).trim()
-  // SaaS 持久认证是 Web 专用例外；Extension 仅继承其原有内存会话规则。
-  const saasMarker = "### 1.3.1 Web SaaS 会话凭据持久化例外"
+  // 身份认证凭据持久化是 Web 专用例外；Extension 仅继承其原有内存会话规则。
+  const identityMarker = "### 1.3.1 Web 身份认证凭据持久化例外"
   const commonMarker = "## 2. 共同边界与统一分页"
-  const saasStart = allCanonicalSections.indexOf(saasMarker)
+  const identityStart = allCanonicalSections.indexOf(identityMarker)
   const commonStart = allCanonicalSections.indexOf(commonMarker)
-  if (saasStart < 0 || commonStart <= saasStart) {
-    throw new Error("Canonical DATA_ACCESS.md has invalid Web SaaS section markers")
+  if (identityStart < 0 || commonStart <= identityStart) {
+    throw new Error("Canonical DATA_ACCESS.md has invalid Web 身份认证 section markers")
   }
   const hostCanonicalSections =
     config.projectType === "web"
       ? allCanonicalSections
-      : `${allCanonicalSections.slice(0, saasStart).trimEnd()}\n\n${allCanonicalSections
+      : `${allCanonicalSections.slice(0, identityStart).trimEnd()}\n\n${allCanonicalSections
           .slice(commonStart)
           .trimStart()}`
   const webListStart = hostCanonicalSections.indexOf(webListMarker)
@@ -426,7 +426,9 @@ function docsReadme(config: ProjectConfig): string {
 
 按任务读取最少事实；终端仓库只维护当前项目类型的产品与工程流程。独立契约/模块审查、访问控制、写入恢复、存储、持续事件与左侧 Task 入口见 \`AGENTS.md\` 的 Skills 地图。组合与参考资料按需读取遵循 \`ENGINEERING_RULES.md\`，不因分发 Skill 自动启用功能。
 
-${config.projectType === "web" ? "Web 业务类型与可选能力以唯一 PRD 为准，遵循 [统一记录与流程关联](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)。工具站点沿用通用流程；SaaS 客户端使用认证及明确选中的购买能力；SaaS 大后台使用认证与管理能力。首次需求复用 [README 创建交接](../README.md#创建交接) 的明确类型，再按 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 进入唯一 PRD、原型与实施。真实服务接入前核对 [SaaS API 关联与契约缺口](API.md#saas-能力与-api-关联)。\n\n" : ""}需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。\`API.md\` 仍是可选基础契约参考，不能替代当前实现证据。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。全量重生成按当前实现、采用的服务契约与已确认设计需求的并集核对模块，保留尚未实施的有效商品/订单等设计并标明待确认；离线原型不当作产品 API Mock，文档生成不越过原型登记或真实接入门禁。
+功能组合复用唯一 PRD 的模块与具体操作，使用 [组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md) 按需读取知识与模板。创建只提供中性工程；两类宿主不按产品分类启用业务。
+
+需要同步导出 API 与业务说明或相关行为变化时，调用 [\`$web-document-api\`](../.agents/skills/web-document-api/SKILL.md)，在 \`docs/api/\` 导出统一文档包：根关联说明、\`api/\` 内一份通用结构与一份 API 元数据及按业务聚合的接口文档、\`business/\` 内已实现业务目标/调用流程/设计思路。每次对照已有文档、当前接口与真实消费者核对差异；局部委托仅同步受影响范围与关联。REST 保持六项与 JSON 加字段表，GraphQL 保留有来源的 Schema；导出不含本地代码或路径。未接入契约与设计建议仍保留并标明状态，不冒充已实现业务或联调通过。布局、迁移与检查以 Skill 为准，初始化只分发能力，不生成业务文档。
 `
 }
 

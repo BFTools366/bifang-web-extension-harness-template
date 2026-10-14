@@ -18,7 +18,9 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 
 读取 `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 的 HTTP/认证、迁移与测试章节；仅按真实传输需要扩大读取。没有消费者时不新增依赖、跨上下文架构或通用 adapter。
 
-Web 按 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力) 复用当前 PRD 的业务类型与购买开关，只为受影响且已采用的 SaaS 范围读取对应 Skill 合同与 `docs/API.md` 关联表。接入服务本身不启用购买、不扩大后台管理命令；契约缺口须由真实服务证据补齐，不能从参考文档或 Mock 推断。Extension 不采用 Web 业务类型规则。
+远端列表查询必须使用 GraphQL，先读取数据规则的“列表查询协议强约定”并核对实际 Query、Schema 与条件/排序/分页变量；TanStack Query 或 HTTP POST 不等于 GraphQL。只有 REST 列表的服务保持协议阻断，不降级绕过或猜造 GraphQL 能力；单对象与写操作仍按现有分工，迁移不超出当前实现授权。
+
+按 [功能模块组合](../web-design-prototype/references/prd-outline.md#功能模块组合) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
 持续 SSE/GraphQL Subscription 由 `$web-implement-event-stream` 拥有连接与恢复；收到这类接入时传递已有配置、契约和授权范围给它，不套用有限 `requestHttpQuery`、不建立第二连接。混合流程只在此接入有限请求部分，两者返回当前调用方。
 
@@ -31,7 +33,7 @@ Web 按 [Web 类型与可选能力](../web-design-prototype/references/prd-outli
 4. 按配置加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，防止样例数据或迟到响应覆盖真实结果。
 5. 复用既有认证及反馈所有者；真实登录入口存在时才装配批准的导航。新增凭据刷新、Cookie、自动重放、跨上下文认证或权限变化交回调用方处理范围和专用门禁。
 6. 网络验证仅使用已授权环境、身份及操作，不扩张生产、付费、凭据或不可逆写入授权。Extension 的 BaseURL 不授予 host 权限；相关兼容审查调用 `$web-review-extension-compatibility`，真实双浏览器硬门禁交回调用方的既有候选验收链。
-7. 真实接入改变公开 API 契约或实现方式后，委托 `$web-document-api` 仅更新本次受影响模块和独立索引。REST 纯 Markdown 仅含接口名称、接口说明、请求头、请求动作、请求体、响应体；请求动作合写 HTTP 方法与相对路径，JSON 体均有示例与字段表，不混入文件地址或工程信息。GraphQL 保留有来源的 Schema 与未确认边界。由调用方已同步的同一变更直接复用，不重复全项目生成。
+7. 真实接入改变公开 API、传输或消费者业务流程后，委托 `$web-document-api` 同步受影响接口、已实现业务说明与关联，并核对旧文档和当前代码差异。沿用其聚合布局、协议格式与只读检查；调用方已同步的同一变更复用，不重复全项目生成。
 
 ## 验证与交付
 

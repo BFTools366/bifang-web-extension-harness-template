@@ -11,12 +11,12 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，为真�
 
 - 仅已初始化下游新增或修改实际存储消费者时应用；初始化已有语言、外观和分页存储不重复生成。源 Harness 只维护通用资产。
 - 存储访问归 `src/data/storage/`，feature 拥有交互与状态投影；不建立万能 repository、第二套 services 或透明后端 fallback。
-- 凭据默认只留受管 client 内存。SaaS 的限定 LocalStorage 例外与列表偏好/Router 恢复合同由各自领域拥有者传入；本 Skill 不扩大例外、不持久化密码、验证码、continuation 或权限副本。
+- 凭据默认只留受管 client 内存。Web 身份认证的限定 LocalStorage 例外与列表偏好/Router 恢复合同由各自领域拥有者传入；本 Skill 不扩大例外、不持久化密码、验证码、continuation 或权限副本。
 - 复用调用方的范围、来源和已有检查，完成后返回；不反向启动认证、列表、产品定义或实施编排。
 
 ## 按需读取
 
-必读 `docs/DATA_ACCESS.md` 的“统一数据层结构”“存储机制与选型”及现有相关存储代码。命中 SaaS 会话时再读该限定例外；涉及 Query/Router/Jotai 投影再读状态所有权。Extension 再核对实际执行上下文与兼容规则；权限/宿主边界审查由调用方按现有专用流程处理。
+必读 `docs/DATA_ACCESS.md` 的“统一数据层结构”“存储机制与选型”及现有相关存储代码。命中 Web 身份认证会话时再读该限定例外；涉及 Query/Router/Jotai 投影再读状态所有权。Extension 再核对实际执行上下文与兼容规则；权限/宿主边界审查由调用方按现有专用流程处理。
 
 ## 实施流程
 

@@ -32,8 +32,6 @@ describe("目录段级路径包含关系", () => {
           path.join(sourceRoot, "..ordinary-directory"),
           "--type",
           "web",
-          "--web-type",
-          "tool-site",
           "--name",
           "Boundary Probe",
           "--policy-mode",

@@ -33,12 +33,7 @@ const PROJECT_CONFIG_RELATIVE_PATH = ".harness/project.json"
 
 /** 本地保存宿主专用 Skill 根，保持旧 policy 与新 planner 可共同启动。 */
 const HOST_SPECIFIC_SKILL_ROOTS = {
-  web: [
-    ".agents/skills/web-implement-list-view",
-    ".agents/skills/web-implement-saas-auth",
-    ".agents/skills/web-implement-saas-admin",
-    ".agents/skills/web-implement-saas-commerce"
-  ],
+  web: [".agents/skills/web-implement-list-view"],
   extension: [".agents/skills/web-review-extension-compatibility"]
 } as const
 
@@ -346,7 +341,15 @@ export async function createUpgradePlan(
       continue
     }
     const baselineEntry = lock?.files[relativePath]
-    if (baselineEntry !== undefined && baselineEntry.ownership !== rule.mode) {
+    // 已清理的墓碑不再拥有目标内容，允许新基线移除废弃所有权；残留仍失败关闭。
+    const retiredAndAbsent =
+      rule.mode === "tombstone" &&
+      !unsafeNode &&
+      !candidateInventory.files.has(relativePath) &&
+      !targetInventory.files.has(relativePath) &&
+      !candidateInventory.directories.has(relativePath) &&
+      !targetInventory.directories.has(relativePath)
+    if (baselineEntry !== undefined && baselineEntry.ownership !== rule.mode && !retiredAndAbsent) {
       entries.push({
         path: relativePath,
         ownership: rule.mode,

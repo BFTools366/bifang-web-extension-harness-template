@@ -37,6 +37,7 @@ describe("terminal identity, skills and UI governance", () => {
         `## 文件结构与模块依赖\n\n${moduleStructure}\n`
       )
       const common = [
+        "web-compose-capabilities",
         "web-review-api-contract",
         "web-review-module-boundaries",
         "web-implement-access-control",
@@ -58,6 +59,19 @@ describe("terminal identity, skills and UI governance", () => {
           )
         )
       }
+      // 验证两宿主均分发完整文档合同和自包含检查器，且缺失资源会阻断。
+      for (const resource of [
+        "references/export-contract.md",
+        "references/protocol-formats.md",
+        "scripts/check-export.ts"
+      ]) {
+        const relative = path.join(".agents/skills/web-document-api", resource)
+        const original = await readFile(path.join(repositoryRoot, relative), "utf8")
+        expect(await readFile(path.join(root, relative), "utf8")).toBe(original)
+        await rm(path.join(root, relative))
+        await expect(validateProject(root)).rejects.toThrow(/Missing|missing/)
+        await writeFile(path.join(root, relative), original)
+      }
       const recoveryFile = path.join(root, ".agents/skills/web-implement-write-recovery/SKILL.md")
       const recoverySource = await readFile(recoveryFile, "utf8")
       await writeFile(recoveryFile, recoverySource.replace("写操作不自动重放", "写操作可自动重放"))
@@ -65,16 +79,19 @@ describe("terminal identity, skills and UI governance", () => {
       await writeFile(recoveryFile, recoverySource)
       // 验证真实分发后仍拒绝弱化权限恢复、差异身份或 Mock 协议边界。
       const accessContracts: [string, string][] = [
+        ["web-compose-capabilities", "知识库与模板库独立索引"],
         ["web-implement-access-control", "已识别但无权限的目标"],
         ["web-implement-access-control", "不依赖被拒绝的业务权限"],
         ["web-document-api", "客户端控制参数不属于 wire 字段"],
-        ["web-document-api", "HTTP 待确认项"]
+        ["web-document-api", "HTTP 待确认项"],
+        ["web-document-api", "远端列表查询必须使用 GraphQL"],
+        ["web-review-api-contract", "远端列表查询必须使用 GraphQL"],
+        ["web-connect-http-service", "远端列表查询必须使用 GraphQL"],
+        ["web-document-api", "沿真实消费者追踪业务流程"],
+        ["web-document-api", "每次导出都核对已有文档与当前代码差异"]
       ]
       if (projectType === "web")
-        accessContracts.push(
-          ["web-implement-saas-auth", "权限差异测试矩阵"],
-          ["web-implement-saas-auth", "导航与会话生命周期分离"]
-        )
+        accessContracts.push(["web-implement-list-view", "远端列表查询必须使用 GraphQL"])
       for (const [skill, fragment] of accessContracts) {
         const file = path.join(root, ".agents/skills", skill, "SKILL.md")
         const source = await readFile(file, "utf8")
@@ -92,23 +109,9 @@ describe("terminal identity, skills and UI governance", () => {
         `## Skill 职责、复用与渐进披露\n\n${composition}\n`
       )
       const expected =
-        projectType === "web"
-          ? [
-              "web-implement-list-view",
-              "web-implement-saas-auth",
-              "web-implement-saas-commerce",
-              "web-implement-saas-admin"
-            ]
-          : ["web-review-extension-compatibility"]
+        projectType === "web" ? ["web-implement-list-view"] : ["web-review-extension-compatibility"]
       const forbidden =
-        projectType === "web"
-          ? ["web-review-extension-compatibility"]
-          : [
-              "web-implement-list-view",
-              "web-implement-saas-auth",
-              "web-implement-saas-commerce",
-              "web-implement-saas-admin"
-            ]
+        projectType === "web" ? ["web-review-extension-compatibility"] : ["web-implement-list-view"]
       for (const skill of [...common, ...expected]) {
         const skillRoot = path.join(root, ".agents/skills", skill)
         await rm(skillRoot, { recursive: true })
@@ -128,6 +131,11 @@ describe("terminal identity, skills and UI governance", () => {
       await expect(validateProject(root)).resolves.toContain(projectType)
       const agents = await readFile(path.join(root, "AGENTS.md"), "utf8")
       expect(agents).toContain("$web-connect-http-service")
+      expect(agents).toContain("初始化只分发项目级 Skills 与中性工程")
+      expect(agents).not.toContain("客户端另有通用认证基线")
+      expect(agents.split("## Web Harness 前端 Skill 地图")[1]).toContain(
+        "$web-compose-capabilities"
+      )
       for (const [skill, reference] of [
         ["web-audit-worktrees", "inspection-contract.md"],
         ["web-preview-harness-upgrade", "preview-contract.md"]
@@ -144,63 +152,17 @@ describe("terminal identity, skills and UI governance", () => {
       }
       for (const skill of [...common, ...expected]) expect(agents).toContain(`$${skill}`)
       for (const skill of forbidden) expect(agents).not.toContain(`$${skill}`)
-      if (projectType === "web") {
-        for (const reference of [
-          "pages-and-sop.md",
-          "management-contract.md",
-          "neutral-ui-design.md"
-        ]) {
-          const file = path.join(
-            root,
-            ".agents/skills/web-implement-saas-admin/references",
-            reference
-          )
-          const contents = await readFile(file, "utf8")
-          await rm(file)
-          await expect(validateProject(root)).rejects.toThrow(/Missing/)
-          await writeFile(file, contents)
-        }
-        const adminSkill = path.join(root, ".agents/skills/web-implement-saas-admin/SKILL.md")
-        const adminSource = await readFile(adminSkill, "utf8")
-        await writeFile(
-          adminSkill,
-          adminSource.replace("组织管理不切换管理员登录组织或冒充客户", "自动切换客户身份")
-        )
-        await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
-        await writeFile(adminSkill, adminSource)
-        for (const resource of [
-          "references/requirements-and-sop.md",
-          "references/order-and-wallet-contract.md",
-          "references/neutral-ui-design.md",
-          "assets/commerce-reference.html",
-          "assets/commerce-reference.css",
-          "assets/commerce-reference.js"
-        ]) {
-          const file = path.join(root, ".agents/skills/web-implement-saas-commerce", resource)
-          const contents = await readFile(file, "utf8")
-          await rm(file)
-          await expect(validateProject(root)).rejects.toThrow(/Missing/)
-          await writeFile(file, contents)
-        }
-        const commerceSkill = path.join(root, ".agents/skills/web-implement-saas-commerce/SKILL.md")
-        const commerceSource = await readFile(commerceSkill, "utf8")
-        await writeFile(
-          commerceSkill,
-          commerceSource.replace("默认关闭，只有明确选中后才应用", "默认自动应用")
-        )
-        await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
-        await writeFile(commerceSkill, commerceSource)
-        for (const reference of ["requirements-and-sop.md", "session-contract.md"]) {
-          const file = path.join(
-            root,
-            ".agents/skills/web-implement-saas-auth/references",
-            reference
-          )
-          const contents = await readFile(file, "utf8")
-          await rm(file)
-          await expect(validateProject(root)).rejects.toThrow(/Missing/)
-          await writeFile(file, contents)
-        }
+      for (const resource of [
+        "knowledge/identity.md",
+        "templates/identity/session.test.ts.txt",
+        "templates/compositions/account-workspace/session.ts.txt",
+        "templates/compositions/purchase-checkout/commerce-reference.js"
+      ]) {
+        const file = path.join(root, ".agents/skills/web-compose-capabilities", resource)
+        const contents = await readFile(file, "utf8")
+        await rm(file)
+        await expect(validateProject(root)).rejects.toThrow(/Capability library/)
+        await writeFile(file, contents)
       }
     }
   )

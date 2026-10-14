@@ -6,7 +6,7 @@
 
 候选只包含 `managed`、`managed-self`、`merge-sections`、`conditional` 允许的路径；混合文件仍需人工合并，不授权覆盖目标产品值。产品源码、测试、品牌、项目身份、Agent Policy、项目记忆、许可证、未登记本地文件及 `design-taste-frontend` 设计支持不进入投影。源实例化、源验证、源记忆治理、另一宿主模板等 tombstone 不能进入候选或目标。
 
-固定目标 `.harness/project.json.projectType`；Web 的宿主专用 Skills 包含 `$web-implement-list-view`、`$web-implement-saas-auth`、`$web-implement-saas-commerce` 与 `$web-implement-saas-admin`，Extension 只包含 `$web-review-extension-compatibility`。分发购买 Skill 不启用可选业务。错宿主 Skill、required 缺失/陈旧、所有权漂移、符号链接、特殊文件/权限或越界会阻断。候选必须由真实渲染流程提供；本 CLI 没有 render 子命令，本 Skill 不创建或修正候选。
+固定目标 `.harness/project.json.projectType`；Web 的宿主专用 Skills 只有 `$web-implement-list-view`，Extension 只包含 `$web-review-extension-compatibility`。两类宿主均分发功能组合知识与模板，资源存在不代表功能启用。错宿主 Skill、required 缺失/陈旧、所有权漂移、符号链接、特殊文件/权限或越界会阻断。候选必须由真实渲染流程提供；本 CLI 没有 render 子命令，本 Skill 不创建或修正候选。
 
 ## 冻结与命令
 

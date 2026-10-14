@@ -1,4 +1,0 @@
-interface:
-  display_name: "Web Harness：规范与实施 SaaS 认证"
-  short_description: "完善 SaaS 客户端与大后台认证 SOP，统一持久会话、路由及权限控制"
-  default_prompt: "使用 $web-implement-saas-auth 按已选的 SaaS 客户端或大后台模式完善认证需求与 SOP；需要实施时核对真实契约并验证持久会话、组织边界和权限控制。"

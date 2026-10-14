@@ -1,14 +1,11 @@
-import { resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
 import { parseIdentityI18n } from "./identity.ts"
 import { refreshBrand } from "./brand.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
-  assertWebCreationType,
   deriveProjectId,
   parseProjectType,
   parsePolicyMode,
-  parseWebCreationType,
   type PromptDefaults,
   validateProjectId
 } from "./initialization-input.ts"
@@ -20,8 +17,6 @@ import { isMainModule } from "./files.ts"
 
 const INIT_OPTIONS = [
   "type",
-  "web-type",
-  "saas-commerce",
   "name",
   "english-name",
   "id",
@@ -48,8 +43,6 @@ function usage(): string {
 创建项目（目标必须位于本 Harness 仓库之外）：
   pnpm instantiate -- <absolute-parent> --type web|extension --name <name> \\
     [--english-name <English translation>] [--id <id>] \\
-    [--web-type tool-site|saas-client|saas-admin（Web 必填）] \\
-    [--saas-commerce enabled|disabled（SaaS 客户端必填）] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
     [--description <description>（Extension 必填）] [--identity-i18n <json>] \\
@@ -64,7 +57,6 @@ function usage(): string {
 
 禁止原地初始化；创建项目必须且只能选择一种宿主类型。
 项目类型：1.Web；2.Extension，可输入编号；最终目录为 <absolute-parent>/<id>。
-Web 类型：1.工具站点；2.SaaS客户端；3.SaaS大后台，均创建中性 Web 工程并交接对应开发 SOP。
 `
 }
 
@@ -155,8 +147,6 @@ export async function resolveInitOptions(
   const supplied = {
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
-    webType: readStringOption(args, "web-type"),
-    saasCommerce: readStringOption(args, "saas-commerce"),
     name: readStringOption(args, "name"),
     englishName: readStringOption(args, "english-name"),
     id: readStringOption(args, "id"),
@@ -177,9 +167,6 @@ export async function resolveInitOptions(
   const required = [
     ["<absolute-parent>", supplied.targetRoot],
     ["--type", supplied.projectType],
-    ...(["web", "1"].includes(supplied.projectType ?? "")
-      ? [["--web-type", supplied.webType] as const]
-      : []),
     ["--name", supplied.name],
     ["--policy-mode", supplied.policyMode]
   ] as const
@@ -202,9 +189,6 @@ export async function resolveInitOptions(
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
   const projectType = parseProjectType(identity.projectType)
-  assertWebCreationType(projectType, identity.webType)
-  const webType = projectType === "web" ? parseWebCreationType(identity.webType ?? "") : undefined
-  const saasCommerce = resolveSaasCommerceChoice(projectType, webType, identity.saasCommerce)
   const id = identity.id ?? deriveProjectId(identity.name, identity.englishName)
   if (id === undefined) {
     throw new Error("无法从项目名称生成标识，请提供项目名称的英文翻译（--english-name）或显式 --id")
@@ -223,8 +207,6 @@ export async function resolveInitOptions(
   return {
     root: identity.targetRoot ?? root,
     projectType,
-    webType,
-    saasCommerce,
     name: identity.name ?? "",
     englishName: identity.englishName,
     id,

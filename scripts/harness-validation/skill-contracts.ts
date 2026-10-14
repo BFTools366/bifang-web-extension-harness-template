@@ -1,5 +1,6 @@
-/** 保存源 Harness 唯一允许的 33 个 Web Skill canonical id。 */
+/** 保存源 Harness 唯一允许的 31 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
+  "web-compose-capabilities",
   "web-implement-access-control",
   "web-implement-browser-storage",
   "web-implement-event-stream",
@@ -18,9 +19,6 @@ export const EXPECTED_SKILLS = [
   "web-extract-i18n-strings",
   "web-implement-change",
   "web-implement-list-view",
-  "web-implement-saas-admin",
-  "web-implement-saas-auth",
-  "web-implement-saas-commerce",
   "web-instantiate-project",
   "web-plan-change",
   "web-prepare-brand-identity",
@@ -49,7 +47,7 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 33 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 31 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
   "web-implement-access-control": {
     description:
@@ -113,33 +111,6 @@ export const SKILL_CONTRACTS = {
     shortDescription: "只读定位模块职责、依赖方向与状态归属问题，给出有证据的拆分建议",
     defaultPrompt:
       "使用 $web-review-module-boundaries 只读梳理指定范围的职责、依赖和状态拥有者，给出有代码证据的模块边界与拆分建议。"
-  },
-  "web-implement-saas-admin": {
-    description:
-      "在已初始化 React Web 的 SaaS 大后台中设计或实施商品与树形分类、组织与成员、订单管理，以及钱包支付查询、访问控制和审计 SOP；仅在明确采用大后台模式时应用，不用于客户端或 Extension。",
-    title: "# Web Harness：设计与实施 SaaS 大后台管理",
-    displayName: "Web Harness：设计与实施 SaaS 大后台管理",
-    shortDescription: "完善 SaaS 大后台商品分类、组织成员、订单与钱包查询及权限审计 SOP",
-    defaultPrompt:
-      "使用 $web-implement-saas-admin 为明确采用 SaaS 大后台的 Web 完善管理页面与 SOP，保持商品历史快照、组织权限边界、订单对账与服务端审计一致。"
-  },
-  "web-implement-saas-commerce": {
-    description:
-      "在已初始化 React Web 的 SaaS 客户端中设计或实施明确选中的可选购买能力，覆盖树形分类、商品、服务端钱包支付选项、订单续付、钱包管理与支付后账户刷新；不自动应用于后台、普通站点或 Extension。",
-    title: "# Web Harness：设计与实施可选 SaaS 购买",
-    displayName: "Web Harness：设计与实施可选 SaaS 购买",
-    shortDescription: "为选中的 SaaS 客户端购买能力定义分类商品、订单续付与钱包支付 SOP",
-    defaultPrompt:
-      "使用 $web-implement-saas-commerce 为明确选中的 SaaS 客户端购买能力完善中性设计与 SOP，按服务端契约处理订单续付、钱包支付和支付后账户刷新。"
-  },
-  "web-implement-saas-auth": {
-    description:
-      "在已初始化 React Web 下游中完善或实施 SaaS 客户端及 SaaS 大后台的认证需求与用户 SOP，覆盖登录、退出登录、密码找回、LocalStorage 凭据、路由校验和权限码；客户端另含邮箱验证码注册及组织切换。仅用于明确采用 SaaS 认证的 Web，不用于 Extension；客户端创建复用通用认证基线。",
-    title: "# Web Harness：规范与实施 SaaS 认证",
-    displayName: "Web Harness：规范与实施 SaaS 认证",
-    shortDescription: "完善 SaaS 客户端与大后台认证 SOP，统一持久会话、路由及权限控制",
-    defaultPrompt:
-      "使用 $web-implement-saas-auth 按已选的 SaaS 客户端或大后台模式完善认证需求与 SOP；需要实施时核对真实契约并验证持久会话、组织边界和权限控制。"
   },
   "web-preview-harness-upgrade": {
     description:
@@ -215,12 +186,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-document-api": {
     description:
-      "在已初始化 React Web 或 Plasmo Extension 下游中，结合当前实现、业务需求和已提供服务契约生成或完善 API Markdown；REST 固定六项与 JSON 加字段表，区分已实现、契约未接入和设计建议，独立记录通用异常与分页模型。",
-    title: "# Web Harness：从代码整理 API 文档",
-    displayName: "Web Harness：从代码整理 API 文档",
-    shortDescription: "结合实现与服务契约完善六项 API 文档，独立说明通用异常和分页",
+      "在已初始化 React Web 或 Plasmo Extension 下游中，同步导出按业务聚合的 API 与已实现业务流程说明；每次核对已有文档和当前代码差异，以通用结构、API 元数据、接口文档及业务关联交付，不输出本地代码和路径。",
+    title: "# Web Harness：同步导出 API 与业务文档",
+    displayName: "Web Harness：同步导出 API 与业务文档",
+    shortDescription: "按业务聚合 API 与已实现流程，每次核对代码差异并维护双向关联",
     defaultPrompt:
-      "使用 $web-document-api 按当前实现、采用的服务契约与已确认需求完整整理 API Markdown，保留尚未实施的有效设计模块并标明待确认；REST 保持六项与 JSON 加字段表，索引、通用模型和客户端说明分别成文，不混入文件地址。"
+      "使用 $web-document-api 同步导出 API 与已实现业务说明：一份通用结构、一份 API 元数据与按业务聚合的接口文档，维护业务关联，每次核对已有文档和代码差异，不输出本地代码与路径。"
   },
   "web-extract-i18n-strings": {
     description:
@@ -347,6 +318,15 @@ export const SKILL_CONTRACTS = {
     shortDescription: "验收 Web Harness、Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 前端候选",
     defaultPrompt:
       "使用 $web-verify-delivery 验收 Web Harness 源码候选、React Web Vite dist 或 Plasmo Chrome MV3 / Firefox MV2 前端候选。"
+  },
+  "web-compose-capabilities": {
+    description:
+      "在已初始化 React Web 或 Plasmo Extension 下游中，按具体操作组合身份认证、组织、权限、商品、订单、钱包支付与审计的独立知识库和模板库；用于需求、设计或实施涉及这些能力时，不按产品分类自动启用功能。",
+    title: "# Web Harness：组合功能模块",
+    displayName: "Web Harness：组合功能模块",
+    shortDescription: "按需选择独立业务知识与模板，显式组合身份、组织、权限和交易能力",
+    defaultPrompt:
+      "使用 $web-compose-capabilities 按当前需求选择功能模块及具体操作，读取对应知识与模板，核对真实契约、数据范围和宿主边界，再接回当前需求、设计或实施流程。"
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
 
@@ -354,9 +334,16 @@ export const SKILL_CONTRACTS = {
 export const SKILL_BODY_REQUIREMENTS: Partial<
   Record<(typeof EXPECTED_SKILLS)[number], readonly string[]>
 > = {
+  "web-compose-capabilities": [
+    "知识库与模板库独立索引",
+    "远端列表查询必须使用 GraphQL",
+    "功能选择不授予权限",
+    "结果未知时先查询，不自动重放创建订单或支付"
+  ],
   "web-review-api-contract": [
     "只读核对不证明服务可达",
     "不修改代码、配置、测试或文档",
+    "远端列表查询必须使用 GraphQL",
     "完成后返回调用方"
   ],
   "web-review-module-boundaries": [
@@ -372,8 +359,13 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "业务 403",
     "返回调用方"
   ],
-  "web-implement-saas-auth": ["权限差异测试矩阵", "导航与会话生命周期分离"],
-  "web-document-api": ["客户端控制参数不属于 wire 字段", "HTTP 待确认项"],
+  "web-document-api": [
+    "客户端控制参数不属于 wire 字段",
+    "HTTP 待确认项",
+    "沿真实消费者追踪业务流程",
+    "每次导出都核对已有文档与当前代码差异",
+    "远端列表查询必须使用 GraphQL"
+  ],
   "web-implement-write-recovery": [
     "写操作不自动重放",
     "未知时先通过已确认",
@@ -400,22 +392,6 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "git worktree list --porcelain",
     "git status --porcelain=v1 --untracked-files=all",
     "不置顶"
-  ],
-  "web-implement-saas-admin": [
-    "仅已初始化 Web 且明确采用 saas-admin 模式时应用",
-    "组织管理不切换管理员登录组织或冒充客户",
-    "钱包与支付记录默认只读查询",
-    "改价与下架不改写历史订单快照",
-    "菜单、路由与操作复用服务端权限判断",
-    "管理写操作由服务端校验并留存审计"
-  ],
-  "web-implement-saas-commerce": [
-    "默认关闭，只有明确选中后才应用",
-    "功能选择不授予权限",
-    "支付方式由服务端提供，当前仅实现钱包支付",
-    "结果未知时先查询，不自动重放创建订单或支付",
-    "服务端确认支付成功后刷新订单、钱包和当前账户数据",
-    "真实付费、生产账户和扣款没有因编写 Skill 或运行演示获得授权"
   ],
   "web-audit-worktrees": [
     "只运行既有 helper 的 `inspect`",
@@ -444,6 +420,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "$web-manage-user-tasks"
   ],
   "web-connect-http-service": [
+    "远端列表查询必须使用 GraphQL",
     "仅用于已初始化且 `projectType=web|extension`",
     "本地实现继续真实运行，不纳入 Mock 迁移",
     "真实请求失败不得回落 Mock",
@@ -466,6 +443,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
     "旧摘要失效"
   ],
   "web-implement-list-view": [
+    "远端列表查询必须使用 GraphQL",
     "仅用于 projectType=web",
     "完全无 owned key",
     "不是双向状态同步",

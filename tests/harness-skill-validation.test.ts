@@ -13,10 +13,16 @@ describe("Harness Skill and Agent policy validation", () => {
     ["web-implement-access-control", "权限未加载、不可解析或缺失时默认拒绝"],
     ["web-implement-access-control", "已识别但无权限的目标"],
     ["web-implement-access-control", "不依赖被拒绝的业务权限"],
-    ["web-implement-saas-auth", "权限差异测试矩阵"],
-    ["web-implement-saas-auth", "导航与会话生命周期分离"],
+    ["web-compose-capabilities", "知识库与模板库独立索引"],
+    ["web-compose-capabilities", "远端列表查询必须使用 GraphQL"],
     ["web-document-api", "客户端控制参数不属于 wire 字段"],
     ["web-document-api", "HTTP 待确认项"],
+    ["web-document-api", "远端列表查询必须使用 GraphQL"],
+    ["web-review-api-contract", "远端列表查询必须使用 GraphQL"],
+    ["web-connect-http-service", "远端列表查询必须使用 GraphQL"],
+    ["web-implement-list-view", "远端列表查询必须使用 GraphQL"],
+    ["web-document-api", "沿真实消费者追踪业务流程"],
+    ["web-document-api", "每次导出都核对已有文档与当前代码差异"],
     ["web-implement-write-recovery", "刷新失败只重试读取"],
     ["web-implement-browser-storage", "不扩大例外"],
     ["web-implement-event-stream", "不能从查询接口推断支持"],
@@ -28,62 +34,29 @@ describe("Harness Skill and Agent policy validation", () => {
     await expect(validateHarness(root)).rejects.toThrow(/missing required workflow/)
   })
 
-  /** 验证后台管理三份合同缺一都会阻断源分发。 */
-  test.each(["pages-and-sop.md", "management-contract.md", "neutral-ui-design.md"])(
-    "requires SaaS admin resource %s",
-    async (reference) => {
-      const root = await copyRepository()
-      await rm(path.join(root, ".agents/skills/web-implement-saas-admin/references", reference))
-      await expect(validateHarness(root)).rejects.toThrow(/Missing required file/)
-    }
-  )
-
-  /** 验证管理目标不冒充身份、历史保护与服务端审计不能静默丢失。 */
+  /** 验证 API 导出的协议、业务合同与检查器缺一都不能继续分发。 */
   test.each([
-    "组织管理不切换管理员登录组织或冒充客户",
-    "改价与下架不改写历史订单快照",
-    "管理写操作由服务端校验并留存审计"
-  ])("requires SaaS admin workflow %s", async (fragment) => {
+    "references/export-contract.md",
+    "references/protocol-formats.md",
+    "scripts/check-export.ts"
+  ])("requires API export resource %s", async (resource) => {
     const root = await copyRepository()
-    const file = path.join(root, ".agents/skills/web-implement-saas-admin/SKILL.md")
-    await writeFile(file, (await readFile(file, "utf8")).replace(fragment, "缺失的管理边界"))
-    await expect(validateHarness(root)).rejects.toThrow(/missing required workflow/)
-  })
-
-  /** 验证可选购买的每份参考与离线资产均属于完整源分发合同。 */
-  test.each([
-    "references/requirements-and-sop.md",
-    "references/order-and-wallet-contract.md",
-    "references/neutral-ui-design.md",
-    "assets/commerce-reference.html",
-    "assets/commerce-reference.css",
-    "assets/commerce-reference.js"
-  ])("requires commerce resource %s", async (resource) => {
-    const root = await copyRepository()
-    await rm(path.join(root, ".agents/skills/web-implement-saas-commerce", resource))
+    await rm(path.join(root, ".agents/skills/web-document-api", resource))
     await expect(validateHarness(root)).rejects.toThrow(/Missing required file/)
   })
 
-  /** 验证默认关闭与未知结果先查询不能在维护中被移除。 */
-  test.each(["默认关闭，只有明确选中后才应用", "结果未知时先查询，不自动重放创建订单或支付"])(
-    "requires commerce workflow %s",
-    async (fragment) => {
-      const root = await copyRepository()
-      const file = path.join(root, ".agents/skills/web-implement-saas-commerce/SKILL.md")
-      await writeFile(file, (await readFile(file, "utf8")).replace(fragment, "缺失的购买合同"))
-      await expect(validateHarness(root)).rejects.toThrow(/missing required workflow/)
-    }
-  )
+  /** 验证知识库与间接模板资源缺失均阻断源分发。 */
+  test.each([
+    "knowledge/organization.md",
+    "templates/identity/session.test.ts.txt",
+    "templates/compositions/account-workspace/session.ts.txt",
+    "templates/compositions/purchase-checkout/commerce-reference.js"
+  ])("requires capability library resource %s", async (resource) => {
+    const root = await copyRepository()
+    await rm(path.join(root, ".agents/skills/web-compose-capabilities", resource))
+    await expect(validateHarness(root)).rejects.toThrow(/Capability library/)
+  })
 
-  /** 验证 SaaS 的需求/SOP 与会话合同均为不可缺失的源分发资源。 */
-  test.each(["requirements-and-sop.md", "session-contract.md"])(
-    "requires SaaS reference %s",
-    async (reference) => {
-      const root = await copyRepository()
-      await rm(path.join(root, ".agents/skills/web-implement-saas-auth/references", reference))
-      await expect(validateHarness(root)).rejects.toThrow(/Missing required file/)
-    }
-  )
   // 验证新工作流不能缺失单原型合同、参考或可执行工具而仍被声明完整。
   test("requires single desktop prototype guidance and complete project-local resources", async () => {
     for (const requirement of [

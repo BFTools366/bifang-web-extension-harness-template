@@ -6,6 +6,7 @@ import { DESIGN_SKILL_NAME, validateDesignSkill } from "./design-skill.ts"
 
 /** 保存两类终端项目必须精确保留的通用 Web Harness 前端维护 Skill。 */
 const EXPECTED_COMMON_TERMINAL_SKILLS = [
+  "web-compose-capabilities",
   "web-implement-access-control",
   "web-implement-browser-storage",
   "web-implement-event-stream",
@@ -35,12 +36,7 @@ const EXPECTED_COMMON_TERMINAL_SKILLS = [
 ] as const
 
 /** 保存仅 React Web 终端项目保留的宿主专用 Skill。 */
-export const EXPECTED_WEB_ONLY_TERMINAL_SKILLS = [
-  "web-implement-list-view",
-  "web-implement-saas-auth",
-  "web-implement-saas-admin",
-  "web-implement-saas-commerce"
-] as const
+export const EXPECTED_WEB_ONLY_TERMINAL_SKILLS = ["web-implement-list-view"] as const
 
 /** 保存仅 Extension 终端项目保留的双目标审查 Skill。 */
 export const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = [
@@ -49,7 +45,12 @@ export const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = [
 
 /** 按能力拥有者保存终端正文门禁，不让发现信息替代行为约束。 */
 const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]>> = {
-  "web-review-api-contract": ["只读核对不证明服务可达", "不修改代码、配置、测试或文档"],
+  "web-compose-capabilities": ["知识库与模板库独立索引", "远端列表查询必须使用 GraphQL"],
+  "web-review-api-contract": [
+    "只读核对不证明服务可达",
+    "不修改代码、配置、测试或文档",
+    "远端列表查询必须使用 GraphQL"
+  ],
   "web-review-module-boundaries": ["只读，不移动文件", "源门禁与运行时门禁"],
   "web-implement-access-control": [
     "功能选择不授予权限",
@@ -57,8 +58,15 @@ const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]
     "已识别但无权限的目标",
     "不依赖被拒绝的业务权限"
   ],
-  "web-implement-saas-auth": ["权限差异测试矩阵", "导航与会话生命周期分离"],
-  "web-document-api": ["客户端控制参数不属于 wire 字段", "HTTP 待确认项"],
+  "web-connect-http-service": ["远端列表查询必须使用 GraphQL"],
+  "web-implement-list-view": ["远端列表查询必须使用 GraphQL"],
+  "web-document-api": [
+    "客户端控制参数不属于 wire 字段",
+    "HTTP 待确认项",
+    "沿真实消费者追踪业务流程",
+    "每次导出都核对已有文档与当前代码差异",
+    "远端列表查询必须使用 GraphQL"
+  ],
   "web-implement-write-recovery": ["写操作不自动重放", "未知时先通过已确认"],
   "web-implement-browser-storage": ["本地能力直接真实实现，不要求 BaseURL"],
   "web-implement-event-stream": ["不能从查询接口推断支持"],
@@ -71,19 +79,9 @@ const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]
     "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
     "用户、产品、安全或渠道硬要求优先于持久值",
     "源 Harness 的 `pending` 不授权可选 smoke"
-  ],
-  // 锁定可选购买的启用边界、安全续付与付费授权语义。
-  "web-implement-saas-commerce": [
-    "默认关闭，只有明确选中后才应用",
-    "结果未知时先查询，不自动重放创建订单或支付",
-    "真实付费、生产账户和扣款没有因编写 Skill 或运行演示获得授权"
-  ],
-  // 锁定管理目标与身份隔离、权限与审计边界。
-  "web-implement-saas-admin": [
-    "仅已初始化 Web 且明确采用 saas-admin 模式时应用",
-    "组织管理不切换管理员登录组织或冒充客户",
-    "管理写操作由服务端校验并留存审计"
   ]
+  // 锁定可选购买的启用边界、安全续付与付费授权语义。
+  // 锁定管理目标与身份隔离、权限与审计边界。
 }
 
 /** 将 Skill 与发现元数据换行规范化后再做跨平台语义校验。 */

@@ -2,12 +2,10 @@ import { describe, test } from "vitest"
 import { realpath } from "node:fs/promises"
 import { collectPromptedIdentity, confirmInstantiation } from "../.harness/tooling/prompts.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
-import { createProjectConfig } from "../.harness/tooling/config.ts"
 import {
   TEST_BASE_URLS,
   expect,
   initializeProject,
-  mkdir,
   options,
   parseArgs,
   path,
@@ -20,215 +18,40 @@ import {
 
 /** 验证 single-package Harness validation and governance 的完整回归场景。 */
 describe("single-package Harness validation and governance", () => {
-  /** 验证首轮选择 Web 后只补问 Web 类型，非法值重问且编号可选工具站点。 */
-  test("requires a Web type after choosing Web without defaulting", async () => {
+  /** 验证宿主选择不隐含业务分类，旧参数在写入前拒绝。 */
+  test("neutral Web creation has no business category prompt", async () => {
     const questions: string[] = []
-    const answers = ["", "1", "", "unknown", "1"]
     const identity = await collectPromptedIdentity(
       {
-        targetRoot: path.join(repositoryRoot, "..", "chosen-web"),
-        name: "Chosen Web",
-        id: "chosen-web",
+        targetRoot: path.join(repositoryRoot, "..", "neutral-web"),
+        name: "Neutral Web",
         policyMode: "预设"
       },
       async (question) => {
         questions.push(question)
-        const answer = answers.shift()
-        if (answer === undefined) throw new Error("Unexpected extra question")
-        return answer
+        return "web"
       }
     )
-    expect(questions).toHaveLength(5)
-    for (const question of questions.slice(0, 2)) {
-      expect(question).toContain("字段： projectType")
-      expect(question).toContain("1.Web")
-      expect(question).toContain("2.Extension")
-      expect(question).not.toContain("回车采用")
-    }
-    for (const question of questions.slice(2)) {
-      expect(question).not.toContain("回车采用")
-      expect(question.match(/字段：/g)).toHaveLength(1)
-      expect(question).toContain("字段： webType")
-      expect(question).toContain("1.工具站点")
-      expect(question).toContain("2.SaaS客户端")
-      expect(question).toContain("3.SaaS大后台")
-      expect(question).not.toContain("流程待开放")
-    }
-    expect(identity).toMatchObject({
-      webType: "tool-site",
-      inputSources: { webType: "交互问答" }
-    })
-  })
-
-  /** 验证两种 SaaS 类型都通过公开入口，并准确确认及透传已选模式。 */
-  test.each([
-    ["saas-client", "2"],
-    ["saas-admin", "3"]
-  ])("accepts %s in interactive and non-interactive creation", async (webType, number) => {
-    for (const interactive of [false, true]) {
-      const parent = await temporaryDirectory("harness-saas-web-")
-      const targetRoot = path.join(parent, "saas-web")
-      let instantiated = false
-      let confirmed = false
-      let questions = 0
-      const output: string[] = []
-      await runInstantiateCli(
-        [
-          parent,
-          "--type",
-          "web",
-          "--name",
-          "SaaS Web",
-          "--id",
-          "saas-web",
-          "--policy-mode",
-          "预设",
-          ...(interactive ? [] : ["--web-type", webType]),
-          ...(webType === "saas-client" ? ["--saas-commerce", "disabled"] : [])
-        ],
-        {
-          sourceRoot: repositoryRoot,
-          interactive,
-          output: (message) => output.push(message),
-          promptIdentity: (defaults) =>
-            collectPromptedIdentity(defaults, async (question) => {
-              questions += 1
-              expect(question).toContain("字段： webType")
-              return JSON.stringify({ webType: number })
-            }),
-          confirm: async (summary) => {
-            confirmed = true
-            expect(summary.init.webType).toBe(webType)
-            expect(summary.inputSources.webType).toBe("交互表单")
-            return true
-          },
-          instantiate: async (supplied) => {
-            instantiated = true
-            expect(supplied.targetRoot).toBe(targetRoot)
-            expect(supplied.init.webType).toBe(webType)
-            expect(supplied.init.projectType).toBe("web")
-            return createProjectConfig(supplied.init)
-          }
-        }
-      )
-      expect(questions).toBe(interactive ? 1 : 0)
-      expect(confirmed).toBe(interactive)
-      expect(instantiated).toBe(true)
-      expect(output.join("\n")).toContain(webType)
-      expect(output.join("\n")).toContain("需求确认 → 原型登记 → 实施")
-    }
-  })
-
-  /** 验证 SaaS 选择继续补齐缺项，既有合法模式不会被重复询问。 */
-  test.each(["saas-client", "saas-admin"])("collects remaining basics for %s", async (webType) => {
-    const parent = await temporaryDirectory("harness-saas-basics-")
-    const targetRoot = path.join(parent, "saas-basics")
-    const answers = [
-      JSON.stringify({
-        projectType: "web",
-        webType,
-        ...(webType === "saas-client" ? { saasCommerce: "disabled" } : {})
-      }),
-      "SaaS Basics",
-      targetRoot,
-      "预设"
-    ]
-    const questions: string[] = []
-    const identity = await collectPromptedIdentity({}, async (question) => {
-      questions.push(question)
-      const answer = answers.shift()
-      if (answer === undefined) throw new Error("Unexpected extra initialization question")
-      return answer
-    })
-    expect(identity.webType).toBe(webType)
-    expect(questions).toHaveLength(4)
-    expect(questions.slice(1).every((question) => !question.includes("字段： webType"))).toBe(true)
-    await expect(
-      runInstantiateCli([targetRoot, "--type", "web", "--web-type", webType], {
-        sourceRoot: repositoryRoot,
-        interactive: false,
-        instantiate: async () => {
-          throw new Error("Must not write with missing basics")
-        }
-      })
-    ).rejects.toThrow(/missing required option/)
-    expect(await readdir(parent)).toEqual([])
-  })
-
-  /** 验证两种 SaaS 仍在最终确认取消时保护缺席或已存在空目标。 */
-  test.each(["saas-client", "saas-admin"])("cancels %s before writes", async (webType) => {
-    for (const exists of [false, true]) {
-      const parent = await temporaryDirectory("harness-saas-cancel-")
-      const targetRoot = path.join(parent, "saas-cancel")
-      if (exists) await mkdir(targetRoot)
-      await expect(
-        runInstantiateCli(
-          [
-            parent,
-            "--type",
-            "web",
-            "--web-type",
-            webType,
-            ...(webType === "saas-client" ? ["--saas-commerce", "disabled"] : []),
-            "--name",
-            "SaaS Cancel",
-            "--id",
-            "saas-cancel",
-            "--policy-mode",
-            "预设"
-          ],
-          {
-            sourceRoot: repositoryRoot,
-            interactive: true,
-            promptIdentity: (defaults) =>
-              collectPromptedIdentity(defaults, async () => {
-                throw new Error("Must reuse all supplied fields")
-              }),
-            confirm: async (summary) => {
-              expect(summary.init.webType).toBe(webType)
-              return false
-            },
-            instantiate: async () => {
-              throw new Error("Must not instantiate after cancellation")
-            }
-          }
-        )
-      ).rejects.toThrow(/cancelled before any target write/)
-      expect(await readdir(parent)).toEqual(exists ? ["saas-cancel"] : [])
-      if (exists) expect(await readdir(targetRoot)).toEqual([])
-    }
-  })
-
-  /** 验证非交互 Web 必须提供分类，Extension 拒绝混入该字段。 */
-  test("requires an explicit CLI Web type and rejects it for Extension", async () => {
-    const basics = ["--name", "Typed Project", "--id", "typed-project", "--policy-mode", "预设"]
-    await expect(
-      resolveInitOptions(parseArgs(["--type", "web", ...basics]), repositoryRoot, {
-        interactive: false
-      })
-    ).rejects.toThrow(/--web-type/)
-    for (const interactive of [false, true]) {
+    expect(questions).toHaveLength(1)
+    expect(questions[0]).toContain("字段： projectType")
+    expect(identity.projectType).toBe("web")
+    for (const flag of ["--web-type", "--saas-commerce"]) {
       await expect(
         resolveInitOptions(
           parseArgs([
             "--type",
-            "extension",
-            "--description",
-            "Typed extension",
-            "--web-type",
-            "tool-site",
-            ...basics
+            "web",
+            "--name",
+            "Neutral Web",
+            "--policy-mode",
+            "预设",
+            flag,
+            "disabled"
           ]),
           repositoryRoot,
-          {
-            interactive,
-            promptIdentity: (defaults) =>
-              collectPromptedIdentity(defaults, async () => {
-                throw new Error("Must not ask about Web types for Extension")
-              })
-          }
+          { interactive: false }
         )
-      ).rejects.toThrow(/仅适用于 Web/)
+      ).rejects.toThrow(/Unknown|未知|unsupported/i)
     }
   })
 
@@ -239,7 +62,6 @@ describe("single-package Harness validation and governance", () => {
       JSON.stringify({
         targetRoot: path.join(repositoryRoot, "..", "interactive-web"),
         projectType: "web",
-        webType: "tool-site",
         name: "Interactive Web",
         id: "Invalid_ID",
         description: "Interactive form contract.",
@@ -352,8 +174,6 @@ describe("single-package Harness validation and governance", () => {
         [
           "--type",
           "web",
-          "--web-type",
-          "tool-site",
           "--description",
           "Collects the target with missing identity fields.",
           "--development-base-url",
@@ -411,8 +231,6 @@ describe("single-package Harness validation and governance", () => {
         parent,
         "--type",
         "web",
-        "--web-type",
-        "tool-site",
         "--name",
         "Confirmed Web",
         "--id",
@@ -449,7 +267,6 @@ describe("single-package Harness validation and governance", () => {
               path.join(await realpath(parent), "confirmed-web")
             )
             expect(summary.inputSources.targetRoot).toBe("命令行父目录 + 项目标识")
-            expect(summary.inputSources.webType).toBe("命令行参数")
             expect(summary.inputSources.brandColor).toBe("Harness 默认值")
             expect(summary.inputSources.superpowers).toBe("recommended 确定性预设")
             expect(summary.init.agentPolicy.confirmedBy).toBe("interactive-owner")
@@ -459,7 +276,8 @@ describe("single-package Harness validation and governance", () => {
               expect(question).toContain(`目标路径（原始）：${targetRoot}`)
               expect(question).toContain(`父目录（原始）：${parent}`)
               expect(question).toContain("targetRoot: 命令行父目录 + 项目标识")
-              expect(question).toContain("Web 类型：工具站点（tool-site）")
+              expect(question).toContain("项目类型：web")
+              expect(question).not.toContain("Web 类型：")
               expect(question).toContain("按此创建？")
               return answer
             })

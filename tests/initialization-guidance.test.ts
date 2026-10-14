@@ -16,21 +16,18 @@ import {
 const BASE_INPUT = {
   targetRoot: path.resolve("..", "guided-web"),
   projectType: "web",
-  webType: "tool-site",
   name: "Guided Web",
   id: "guided-web",
   policyMode: "预设"
 }
 
 describe("初始化渐进式引导", () => {
-  /** 验证整条客户端自定义流程每次只问一个固定题目，错误重问不改题面。 */
-  test("固定题名和题面贯穿逐项询问与错误重问", async () => {
+  /** 验证移除业务分类后仍按固定题目逐项收集，并只重问非法项。 */
+  test("中性创建保留固定题面与逐项策略询问", async () => {
     const questions: string[] = []
     const answers = [
       "invalid",
       "1",
-      "2",
-      "",
       "Guided Example",
       BASE_INPUT.targetRoot,
       "custom",
@@ -51,8 +48,6 @@ describe("初始化渐进式引导", () => {
     expect(questions.map((question) => question.split("\n")[0])).toEqual([
       "问题名称：项目类型",
       "问题名称：项目类型",
-      "问题名称：Web 类型",
-      "问题名称：商品购买模块",
       "问题名称：项目显示名称",
       "问题名称：源 Harness 外的父目录",
       "问题名称：Agent 策略模式",
@@ -63,42 +58,19 @@ describe("初始化渐进式引导", () => {
       "问题名称：完整候选冒烟",
       "问题名称：发布首次 E2E 建议"
     ])
-    expect(questions[0]?.split("\n")[1]).toBe("请选择要创建的项目类型。")
-    expect(questions[2]?.split("\n")[1]).toBe("请选择 Web 项目的类型。")
-    expect(questions[3]?.split("\n")[1]).toBe("是否需要商品购买模块？")
-    expect(questions[6]?.split("\n")[1]).toBe("请选择 Agent 策略模式。")
-    // 校验失败只改变错误块，固定题名、题面与选项顺序保持不变。
     expect(questions[0]?.split("\n").slice(0, 4)).toEqual(questions[1]?.split("\n").slice(0, 4))
-    expect(questions[8]?.split("\n").slice(0, 4)).toEqual(questions[9]?.split("\n").slice(0, 4))
+    expect(questions[6]?.split("\n").slice(0, 4)).toEqual(questions[7]?.split("\n").slice(0, 4))
     for (const question of questions) {
       expect(question.match(/^问题名称：/gm)).toHaveLength(1)
       expect(question.match(/^字段：/gm)).toHaveLength(1)
     }
-    const choiceIndexes = [0, 2, 3, 6, 7, 8, 10, 11, 12]
-    for (const index of choiceIndexes) {
-      const options = questions[index]?.split("\n").filter((line) => line.startsWith("- "))
-      expect(options).toHaveLength(index === 2 ? 3 : 2)
-      for (const option of options ?? []) {
-        expect(option).toMatch(/^- [^（）]+（[^（）]*[\p{Script=Han}][^（）]*）$/u)
-      }
-    }
-    // 选项后解释实际能力，不能只用协议值代替含义。
-    expect(questions[0]).toContain("1.Web（React 网页项目，创建独立单包网站）")
-    expect(questions[2]).toContain(
-      "2.SaaS客户端（面向最终用户，创建通用登录、注册、找回与主工作区，业务在下游完善）"
-    )
-    expect(questions[3]).toContain("2.关闭（本次不选择商品购买、订单和钱包能力，后续可明确启用）")
-    expect(questions[10]).toContain(
-      "1.启用（仅用户明确要求并行时，允许 Worktree 与写入型 Subagent）"
-    )
     expect(identity).toMatchObject({
       projectType: "web",
-      webType: "saas-client",
-      saasCommerce: "disabled",
       id: "guided-example",
-      inputSources: { saasCommerce: "交互接受默认值" },
       agentPolicy: { superpowers: "disabled", acceptanceSmoke: "enabled" }
     })
+    expect(identity).not.toHaveProperty("webType")
+    expect(identity).not.toHaveProperty("saasCommerce")
   })
 
   /** 验证已有决定改变建议值时，只更新建议块而不改问题或重排选项。 */
@@ -168,7 +140,7 @@ describe("初始化渐进式引导", () => {
         "My Notes",
         "--policy-mode",
         "预设",
-        ...(projectType === "web" ? ["--web-type", "1"] : ["--description", "My Notes"])
+        ...(projectType === "extension" ? ["--description", "My Notes"] : [])
       ],
       {
         sourceRoot: repositoryRoot,
@@ -188,7 +160,7 @@ describe("初始化渐进式引导", () => {
   /** 验证缺译名、非法标识和非空最终目录都在任何创建写入前失败。 */
   test("生成标识和最终子目录的错误保持父目录内容", async () => {
     const parent = await temporaryDirectory("creation-conflict-")
-    const basics = [parent, "--type", "web", "--web-type", "1", "--policy-mode", "预设"]
+    const basics = [parent, "--type", "web", "--policy-mode", "预设"]
     const runtime = {
       sourceRoot: repositoryRoot,
       interactive: false,
@@ -220,8 +192,6 @@ describe("初始化渐进式引导", () => {
         [
           parent,
           "--type",
-          "1",
-          "--web-type",
           "1",
           "--name",
           "笔记",
@@ -359,7 +329,7 @@ describe("初始化渐进式引导", () => {
       JSON.stringify({ targetRoot: BASE_INPUT.targetRoot, englishName: "Bookmark Manager" })
     ]
     const resolved = await collectPromptedIdentity(
-      { projectType: "web", webType: "tool-site", policyMode: "预设" },
+      { projectType: "web", policyMode: "预设" },
       async () => {
         const answer = answers.shift()
         if (answer === undefined) throw new Error("不应询问自动生成的标识")
@@ -382,9 +352,9 @@ describe("初始化渐进式引导", () => {
   /** 验证错误的主动 JSON 不丢失既有事实，仍可返回普通问答继续。 */
   test("JSON 解析失败只重问当前字段且保留合法输入", async () => {
     const questions: string[] = []
-    const answers = ["{bad", "web", "1"]
+    const answers = ["{bad", "web"]
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, projectType: undefined, webType: undefined },
+      { ...BASE_INPUT, projectType: undefined },
       async (question) => {
         questions.push(question)
         const answer = answers.shift()
@@ -392,11 +362,10 @@ describe("初始化渐进式引导", () => {
         return answer
       }
     )
-    expect(questions).toHaveLength(3)
+    expect(questions).toHaveLength(2)
     expect(questions[1]).toContain("上次回答无法解析")
     expect(questions[1]).toContain("字段： projectType")
     expect(questions[0]?.split("\n").slice(0, 4)).toEqual(questions[1]?.split("\n").slice(0, 4))
-    expect(questions[2]).toContain("字段： webType")
     expect(resolved.inputSources.name).toBe("命令行参数")
     expect(resolved.name).toBe(BASE_INPUT.name)
   })

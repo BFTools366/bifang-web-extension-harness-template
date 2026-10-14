@@ -1,0 +1,349 @@
+import assert from "node:assert/strict"
+import { test } from "node:test"
+import { createIdentitySession, IdentityError, type CredentialStorage, type Identity, type IdentityApi } from "./session.ts"
+
+/** 构造可控制完成次序的真实异步请求。 */
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((accepted, failed) => { resolve = accepted; reject = failed })
+  return { promise, resolve, reject }
+}
+
+/** 提供可观察原子写入与删除的内存凭据 adapter。 */
+function memoryStorage(initial: string | null = null) {
+  let value = initial
+  const changes: (string | null)[] = []
+  const storage: CredentialStorage = {
+    read: () => value,
+    compareAndSet(expected, next) {
+      if (expected !== value) return false
+      value = next
+      changes.push(next)
+      return true
+    }
+  }
+  return { storage, changes, external(next: string | null) { value = next } }
+}
+
+/** 建立按凭据投影最小身份的 API，不引入网络或运行时依赖。 */
+function identityApi(overrides: Partial<IdentityApi<string>> = {}) {
+  const revoked: string[] = []
+  const api: IdentityApi<string> = {
+    login: async (input) => `token:${input}`,
+    validate: async (token) => ({ id: token.replace("token:", "") }),
+    logout: async (token) => { revoked.push(token) },
+    revokeIssued: async (token) => { revoked.push(token) },
+    ...overrides
+  }
+  return { api, revoked }
+}
+
+test("登录凭据在服务校验完成前不写入，状态不暴露凭据", async () => {
+  const persisted = memoryStorage()
+  const confirmed = deferred<Identity>()
+  const { api } = identityApi({ validate: () => confirmed.promise })
+  const session = createIdentitySession(api, persisted.storage)
+  const result = session.login("alice")
+  await Promise.resolve()
+  assert.equal(persisted.storage.read(), null)
+  assert.equal(session.getSnapshot().identity, null)
+  confirmed.resolve({ id: "alice", displayName: "Alice" })
+  assert.deepEqual(await result, { id: "alice", displayName: "Alice" })
+  assert.deepEqual(persisted.changes, ["token:alice"])
+  assert.equal(session.getSnapshot().phase, "authenticated")
+  assert.equal(JSON.stringify(session.getSnapshot()).includes("token:"), false)
+  assert.equal("api" in session, false)
+})
+
+test("校验失败不持久化签发凭据，不回写已有记录", async () => {
+  const persisted = memoryStorage("token:previous")
+  const { api, revoked } = identityApi({ validate: async () => { throw new IdentityError("expired") } })
+  const session = createIdentitySession(api, persisted.storage)
+  await assert.rejects(session.login("alice"), { code: "expired" })
+  assert.equal(persisted.storage.read(), "token:previous")
+  assert.deepEqual(persisted.changes, [])
+  assert.deepEqual(revoked, ["token:alice"])
+  assert.equal(session.getSnapshot().phase, "anonymous")
+})
+
+test("恢复与重复导航校验不会回写凭据", async () => {
+  const persisted = memoryStorage("token:alice")
+  const session = createIdentitySession(identityApi().api, persisted.storage)
+  assert.deepEqual(await session.restore(), { id: "alice" })
+  assert.deepEqual(await session.check(), { id: "alice" })
+  assert.deepEqual(persisted.changes, [])
+  assert.equal(session.getSnapshot().phase, "authenticated")
+})
+
+test("恢复发现会话失效时删除精确旧记录并撤下身份", async () => {
+  const persisted = memoryStorage("token:alice")
+  const { api } = identityApi({ validate: async () => { throw new IdentityError("expired") } })
+  const session = createIdentitySession(api, persisted.storage)
+  await assert.rejects(session.restore(), { code: "expired" })
+  assert.equal(persisted.storage.read(), null)
+  assert.equal(session.getSnapshot().identity, null)
+  assert.equal(session.getSnapshot().phase, "anonymous")
+})
+
+test("退出先撤下身份并删除记录，不依赖远端吊销成功", async () => {
+  const persisted = memoryStorage("token:alice")
+  const remote = deferred<void>()
+  const session = createIdentitySession(identityApi({ logout: () => remote.promise }).api, persisted.storage)
+  await session.restore()
+  const result = session.logout()
+  assert.equal(session.getSnapshot().phase, "anonymous")
+  assert.equal(persisted.storage.read(), null)
+  remote.reject(new Error("remote unavailable"))
+  assert.equal(await result, false)
+  assert.equal(session.getSnapshot().error, "remoteLogoutUnknown")
+})
+
+test("两个登录乱序完成只接受后发登录，旧签发只回收自身", async () => {
+  const persisted = memoryStorage()
+  const first = deferred<string>()
+  const { api, revoked } = identityApi({ login: (input) => input === "first" ? first.promise : Promise.resolve("token:second") })
+  const session = createIdentitySession(api, persisted.storage)
+  const oldResult = session.login("first")
+  const oldFailure = assert.rejects(oldResult, { code: "superseded" })
+  await session.login("second")
+  first.resolve("token:first")
+  await oldFailure
+  assert.equal(persisted.storage.read(), "token:second")
+  assert.equal(session.getSnapshot().identity?.id, "second")
+  assert.deepEqual(persisted.changes, ["token:second"])
+  assert.deepEqual(revoked, ["token:first"])
+})
+
+test("登录校验期间退出，迟到登录不能重新写入会话", async () => {
+  const persisted = memoryStorage()
+  const late = deferred<Identity>()
+  const { api, revoked } = identityApi({ validate: () => late.promise })
+  const session = createIdentitySession(api, persisted.storage)
+  const login = session.login("alice")
+  const failed = assert.rejects(login, { code: "superseded" })
+  await Promise.resolve()
+  await session.logout()
+  late.resolve({ id: "alice" })
+  await failed
+  assert.equal(persisted.storage.read(), null)
+  assert.deepEqual(persisted.changes, [])
+  assert.deepEqual(revoked, ["token:alice"])
+})
+
+test("旧导航的失效结果不能删除后来登录的新凭据", async () => {
+  const persisted = memoryStorage("token:old")
+  const late = deferred<Identity>()
+  const session = createIdentitySession(identityApi({ validate: (token) => token === "token:old" ? late.promise : Promise.resolve({ id: "new" }) }).api, persisted.storage)
+  const check = session.check()
+  const failed = assert.rejects(check, { code: "superseded" })
+  await session.login("new")
+  late.reject(new IdentityError("expired"))
+  await failed
+  assert.equal(persisted.storage.read(), "token:new")
+  assert.equal(session.getSnapshot().identity?.id, "new")
+})
+
+test("校验期间外部记录变化不被旧结果覆盖或删除", async () => {
+  const persisted = memoryStorage("token:old")
+  const late = deferred<Identity>()
+  const session = createIdentitySession(identityApi({ validate: () => late.promise }).api, persisted.storage)
+  const check = session.check()
+  const failed = assert.rejects(check, { code: "superseded" })
+  persisted.external("token:external")
+  late.resolve({ id: "old" })
+  await failed
+  assert.equal(persisted.storage.read(), "token:external")
+  assert.equal(session.getSnapshot().identity, null)
+  assert.deepEqual(persisted.changes, [])
+})
+
+test("登录校验期间外部记录变化使 CAS 失败，不覆盖外部会话", async () => {
+  const persisted = memoryStorage()
+  const late = deferred<Identity>()
+  const session = createIdentitySession(identityApi({ validate: () => late.promise }).api, persisted.storage)
+  const login = session.login("alice")
+  const failed = assert.rejects(login, { code: "superseded" })
+  await Promise.resolve()
+  persisted.external("token:external")
+  late.resolve({ id: "alice" })
+  await failed
+  assert.equal(persisted.storage.read(), "token:external")
+  assert.deepEqual(persisted.changes, [])
+})
+
+test("删除失败会阻断旧凭据恢复，外部清理后可以重新恢复", async () => {
+  const persisted = memoryStorage("token:alice")
+  let failing = true
+  const storage: CredentialStorage = { read: persisted.storage.read, compareAndSet(expected, next) {
+    if (failing) throw new Error("storage denied")
+    return persisted.storage.compareAndSet(expected, next)
+  } }
+  let validations = 0
+  const session = createIdentitySession(identityApi({ validate: async () => { validations += 1; return { id: "alice" } } }).api, storage)
+  await session.restore()
+  await assert.rejects(session.logout(), { code: "storage" })
+  await assert.rejects(session.restore(), { code: "storage" })
+  assert.equal(validations, 1)
+  assert.equal(session.getSnapshot().phase, "error")
+  failing = false
+  persisted.external("token:bob")
+  await session.storageChanged()
+  assert.equal(validations, 2)
+})
+
+test("取消旧导航不会永久留在 checking，后续导航仍能校验", async () => {
+  const persisted = memoryStorage("token:alice")
+  const late = deferred<Identity>()
+  let delayed = false
+  const session = createIdentitySession(identityApi({ validate: () => delayed ? late.promise : Promise.resolve({ id: "alice" }) }).api, persisted.storage)
+  await session.restore()
+  delayed = true
+  const controller = new AbortController()
+  const check = session.check(controller.signal)
+  const failed = assert.rejects(check, { code: "superseded" })
+  controller.abort()
+  late.resolve({ id: "alice" })
+  await failed
+  assert.equal(session.getSnapshot().phase, "authenticated")
+  assert.deepEqual(persisted.changes, [])
+})
+
+test("外部存储信号先撤下身份，恢复后不回写新凭据", async () => {
+  const persisted = memoryStorage("token:alice")
+  const late = deferred<Identity>()
+  const session = createIdentitySession(identityApi({ validate: (token) => token === "token:bob" ? late.promise : Promise.resolve({ id: "alice" }) }).api, persisted.storage)
+  await session.restore()
+  persisted.external("token:bob")
+  const changed = session.storageChanged()
+  assert.equal(session.getSnapshot().identity, null)
+  late.resolve({ id: "bob" })
+  assert.deepEqual(await changed, { id: "bob" })
+  assert.deepEqual(persisted.changes, [])
+})
+
+test("未知服务错误仅输出稳定错误码，观察者异常不破坏提交", async () => {
+  const persisted = memoryStorage()
+  const session = createIdentitySession(identityApi().api, persisted.storage)
+  session.subscribe(() => { throw new Error("UI error") })
+  await session.login("alice")
+  assert.equal(session.getSnapshot().phase, "authenticated")
+  const broken = createIdentitySession(identityApi({ login: async () => { throw new Error("password: secret") } }).api, memoryStorage().storage)
+  await assert.rejects(broken.login("alice"), { message: "unexpected" })
+  assert.equal(JSON.stringify(broken.getSnapshot()).includes("secret"), false)
+})
+
+test("存储提交后的核验失败回收已验证的新凭据，不保留未知会话", async () => {
+  const persisted = memoryStorage()
+  const storage: CredentialStorage = { read: persisted.storage.read, compareAndSet(expected, next) {
+    const changed = persisted.storage.compareAndSet(expected, next)
+    if (next !== null) throw new Error("post-write verification failed")
+    return changed
+  } }
+  const { api, revoked } = identityApi()
+  const session = createIdentitySession(api, storage)
+  await assert.rejects(session.login("alice"), { code: "storage" })
+  assert.equal(persisted.storage.read(), null)
+  assert.deepEqual(persisted.changes, ["token:alice", null])
+  assert.deepEqual(revoked, ["token:alice"])
+  assert.equal(session.getSnapshot().phase, "error")
+})
+
+test("导航取消同时发生外部会话变化时，不重新公布旧身份", async () => {
+  const persisted = memoryStorage("token:alice")
+  const late = deferred<Identity>()
+  let delay = false
+  const session = createIdentitySession(identityApi({ validate: () => delay ? late.promise : Promise.resolve({ id: "alice" }) }).api, persisted.storage)
+  await session.restore()
+  delay = true
+  const controller = new AbortController()
+  const check = session.check(controller.signal)
+  const failed = assert.rejects(check, { code: "superseded" })
+  persisted.external("token:bob")
+  controller.abort()
+  late.resolve({ id: "alice" })
+  await failed
+  assert.equal(session.getSnapshot().identity, null)
+  assert.equal(persisted.storage.read(), "token:bob")
+})
+
+test("恢复前显式失效也删除记录，避免再次使用已知失效凭据", async () => {
+  const persisted = memoryStorage("token:expired")
+  const session = createIdentitySession(identityApi().api, persisted.storage)
+  session.invalidate()
+  assert.equal(persisted.storage.read(), null)
+  await assert.rejects(session.restore(), { code: "anonymous" })
+})
+
+test("连续校验取消最新导航保留已确认身份，预取消不改变状态", async () => {
+  const persisted = memoryStorage("token:alice")
+  const { api } = identityApi()
+  const session = createIdentitySession(api, persisted.storage)
+  await session.restore()
+  const first = deferred<Identity>(), second = deferred<Identity>()
+  let calls = 0
+  api.validate = () => ++calls === 1 ? first.promise : second.promise
+  const a = session.check()
+  const controller = new AbortController()
+  const b = session.check(controller.signal)
+  controller.abort()
+  second.resolve({ id: "alice" })
+  await assert.rejects(b, { code: "superseded" })
+  first.resolve({ id: "alice" })
+  await assert.rejects(a, { code: "superseded" })
+  assert.equal(session.getSnapshot().phase, "authenticated")
+  assert.equal(session.getSnapshot().identity?.id, "alice")
+  const snapshot = session.getSnapshot()
+  await assert.rejects(session.check(controller.signal), { code: "superseded" })
+  assert.equal(session.getSnapshot(), snapshot)
+  assert.equal(calls, 2)
+})
+
+test("取消导航不覆盖明确失效或非法身份", async () => {
+  for (const invalid of [false, true]) {
+    const persisted = memoryStorage("token:alice")
+    const { api } = identityApi()
+    const session = createIdentitySession(api, persisted.storage)
+    await session.restore()
+    const response = deferred<Identity>()
+    api.validate = () => response.promise
+    const controller = new AbortController()
+    const pending = session.check(controller.signal)
+    controller.abort()
+    if (invalid) response.resolve({ id: "" })
+    else response.reject(new IdentityError("expired"))
+    await assert.rejects(pending, { code: invalid ? "invalidIdentity" : "expired" })
+    assert.equal(session.getSnapshot().identity, null)
+    assert.equal(persisted.storage.read(), null)
+  }
+})
+
+test("未提供窄化吊销时不以全账号退出回收迟到签发", async () => {
+  const persisted = memoryStorage()
+  const old = deferred<string>()
+  const { api, revoked } = identityApi({ login: input => input === "first" ? old.promise : Promise.resolve("token:second") })
+  delete api.revokeIssued
+  const session = createIdentitySession(api, persisted.storage)
+  const pending = session.login("first")
+  await session.login("second")
+  old.resolve("token:first")
+  await assert.rejects(pending, { code: "superseded" })
+  assert.deepEqual(revoked, [])
+  assert.equal(persisted.storage.read(), "token:second")
+  assert.equal(session.getSnapshot().identity?.id, "second")
+})
+
+test("登录转换期间导航校验不能复活存储中的旧身份", async () => {
+  const persisted = memoryStorage("token:old")
+  const issued = deferred<string>()
+  const { api } = identityApi({ login: () => issued.promise })
+  const session = createIdentitySession(api, persisted.storage)
+  await session.restore()
+  const pending = session.login("new")
+  await assert.rejects(session.check(), { code: "superseded" })
+  assert.equal(session.getSnapshot().phase, "authenticating")
+  assert.equal(session.getSnapshot().identity, null)
+  issued.resolve("token:new")
+  await pending
+  assert.equal(session.getSnapshot().identity?.id, "new")
+})

@@ -1,10 +1,9 @@
 import path from "node:path"
 import initializationQuestions from "../../.agents/skills/web-instantiate-project/references/initialization-questions.json" with { type: "json" }
-import { parseSaasCommerceChoice, resolveSaasCommerceChoice } from "./saas-commerce-choice.ts"
 import { assertExtensionIdentityText, parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
-import type { AgentPolicyMode, ProjectType, WebCreationType } from "./types.ts"
+import type { AgentPolicyMode, ProjectType } from "./types.ts"
 
 /** 将创建类型编号或名称解析为唯一宿主，不提供默认类型。 */
 export function parseProjectType(value: string): ProjectType {
@@ -33,35 +32,6 @@ export function validateProjectId(value: string): string {
   return value
 }
 
-/** 保存创建表单与汇总共用的 Web 类型名称。 */
-export const WEB_TYPE_LABELS: Record<WebCreationType, string> = {
-  "tool-site": "工具站点",
-  "saas-client": "SaaS客户端",
-  "saas-admin": "SaaS大后台"
-}
-
-/** 将编号、中文名称或 CLI 值解析为显式 Web 类型，不设置默认值。 */
-export function parseWebCreationType(value: string): WebCreationType {
-  const normalized = value.trim().toLowerCase()
-  const types = Object.keys(WEB_TYPE_LABELS) as WebCreationType[]
-  const selected = types.find((type, index) =>
-    [type, String(index + 1), WEB_TYPE_LABELS[type].toLowerCase()].includes(normalized)
-  )
-  if (selected !== undefined) return selected
-  throw new Error(
-    "Web 类型必须选择：1.工具站点（tool-site）/ 2.SaaS客户端（saas-client）/ 3.SaaS大后台（saas-admin）"
-  )
-}
-
-/** 校验显式 Web 类型，并拒绝 Extension 混入不适用的字段。 */
-export function assertWebCreationType(projectType: ProjectType, value?: string): void {
-  if (projectType === "extension") {
-    if (value?.trim()) throw new Error("--web-type / webType 仅适用于 Web 项目")
-    return
-  }
-  parseWebCreationType(value ?? "")
-}
-
 /** 将中文初始化策略选项与命令行模式统一为稳定内部值。 */
 export function parsePolicyMode(value: string): AgentPolicyMode {
   const normalized = value.trim().toLowerCase()
@@ -74,8 +44,6 @@ export function parsePolicyMode(value: string): AgentPolicyMode {
 export interface PromptDefaults {
   targetRoot?: string
   projectType?: string
-  webType?: string
-  saasCommerce?: string
   name?: string
   englishName?: string
   id?: string
@@ -150,8 +118,6 @@ const BASIC_FIELDS = (Object.keys(INITIALIZATION_QUESTIONS.basic) as BasicField[
 
 /** 保存无需主动询问、但可提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
-  "webType",
-  "saasCommerce",
   "englishName",
   "description",
   "identityI18n",
@@ -196,17 +162,6 @@ function normalizeBasicField(
       throw new Error("请提供以英文字母开头的英文名称，用于生成项目标识")
     }
     return englishName
-  }
-  if (field === "webType") {
-    return ["web", "1"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
-      ? parseWebCreationType(requiredText(value, "Web 类型（--web-type）"))
-      : (value?.trim() ?? "")
-  }
-  if (field === "saasCommerce") {
-    return ["web", "1"].includes(allValues.projectType?.trim().toLowerCase() ?? "") &&
-      ["saas-client", "2", "saas客户端"].includes(allValues.webType?.trim().toLowerCase() ?? "")
-      ? parseSaasCommerceChoice(value ?? "")
-      : (value?.trim() ?? "")
   }
   if (field === "id") {
     return validateProjectId(
@@ -260,7 +215,6 @@ function normalizeBasicField(
 
 /** 从已知身份推荐可接受的默认值，不猜项目类型、路径或服务地址。 */
 function suggestedBasicValue(field: BasicField, values: PromptDefaults): string | undefined {
-  if (field === "saasCommerce") return "disabled"
   if (field === "policyMode") {
     return [
       values.superpowers,
@@ -385,18 +339,7 @@ export async function collectBasicFields(
     if (values.id === undefined && normalized.id !== undefined && !issues.has("id")) {
       inputSources.id = "英文名称自动生成"
     }
-    if (!issues.has("projectType") && !issues.has("webType")) {
-      const projectType = normalized.projectType
-      if (projectType === "web" || projectType === "extension") {
-        assertWebCreationType(projectType, normalized.webType)
-        if (!issues.has("saasCommerce"))
-          resolveSaasCommerceChoice(projectType, normalized.webType, normalized.saasCommerce)
-      }
-    }
     if (issues.size === 0) {
-      if (normalized.projectType === "extension") inputSources.webType = "不适用"
-      if (normalized.projectType !== "web" || normalized.webType !== "saas-client")
-        inputSources.saasCommerce = "不适用"
       if (!values.description?.trim()) inputSources.description = "默认使用显示名称"
       for (const key of ["developmentBaseUrl", "testBaseUrl", "releaseBaseUrl"] as const) {
         if (normalized[key] === "") inputSources[key] = "未配置（可后续补齐）"

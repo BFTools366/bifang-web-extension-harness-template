@@ -2,31 +2,25 @@
 
 本目录维护 TypeScript Web/Chrome MV3/Firefox MV2 Extension Harness 当前有效的长期工程事实。
 
-| 文档                                                   | 何时读取                                                               |
-| ------------------------------------------------------ | ---------------------------------------------------------------------- |
-| [`AGENT_POLICY.md`](AGENT_POLICY.md)                   | 读取能力偏好、统一标题、持久计划、并行与候选门禁                       |
-| [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)         | 修改代码、测试、文档或配置                                             |
-| [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) | 修改主题、页面、组件、布局、交互状态或 UI 无障碍                       |
-| [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)             | 初始化、维护 Web 或 Extension 模板与品牌派生                           |
-| [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) | 初始化、读取或验证 development/test/release 配置                       |
-| [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物                              |
-| [`API.md`](API.md)                                     | 查阅基础 API 契约及 [SaaS 操作映射与缺口](API.md#saas-能力与-api-关联) |
-| [`DATA_ACCESS.md`](DATA_ACCESS.md)                     | 分页、HTTP/认证、数据访问或事件流变化                                  |
-| [`RELEASE.md`](RELEASE.md)                             | 准备版本、候选或发布                                                   |
-| [`VERIFICATION.md`](VERIFICATION.md)                   | 完整验收或候选证据                                                     |
-| [`TECH_DEBT.md`](TECH_DEBT.md)                         | 记录当前范围外的已知限制                                               |
-| [`HARNESS_ENGINEERING.md`](HARNESS_ENGINEERING.md)     | 需要理解模板方法、生命周期和扩展边界                                   |
+| 文档                                                   | 何时读取                                                             |
+| ------------------------------------------------------ | -------------------------------------------------------------------- |
+| [`AGENT_POLICY.md`](AGENT_POLICY.md)                   | 读取能力偏好、统一标题、持久计划、并行与候选门禁                     |
+| [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)         | 修改代码、测试、文档或配置                                           |
+| [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) | 修改主题、页面、组件、布局、交互状态或 UI 无障碍                     |
+| [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)             | 初始化、维护 Web 或 Extension 模板与品牌派生                         |
+| [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) | 初始化、读取或验证 development/test/release 配置                     |
+| [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物                            |
+| [`API.md`](API.md)                                     | 查阅基础 API 契约及 [功能模块映射与缺口](API.md#功能模块与-api-关联) |
+| [`DATA_ACCESS.md`](DATA_ACCESS.md)                     | 分页、HTTP/认证、数据访问或事件流变化                                |
+| [`RELEASE.md`](RELEASE.md)                             | 准备版本、候选或发布                                                 |
+| [`VERIFICATION.md`](VERIFICATION.md)                   | 完整验收或候选证据                                                   |
+| [`TECH_DEBT.md`](TECH_DEBT.md)                         | 记录当前范围外的已知限制                                             |
+| [`HARNESS_ENGINEERING.md`](HARNESS_ENGINEERING.md)     | 需要理解模板方法、生命周期和扩展边界                                 |
 
 按任务读取，不要为了“完整”一次性加载全部文档。职责与调用地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。接口契约、模块边界、访问控制、写入恢复、存储、持续事件与左侧 Task 已有独立入口，由当前流程按事件委托并返回。
 
-工具站点、SaaS 客户端与 SaaS 大后台的 PRD 事实、可选能力和流程交接见 [Web 类型与可选能力](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)；创建期选择、固定宿主身份与下游业务模式分别取证，购买未选择时保持关闭。
+功能按具体操作组合，知识库与模板库见 [功能组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md)，当前选择归下游唯一 PRD；创建只提供中性工程。
 
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3 为准。
 
-已初始化 React Web 的 SaaS 客户端/大后台认证需求、用户 SOP 与实施合同见 [`$web-implement-saas-auth`](../.agents/skills/web-implement-saas-auth/SKILL.md)。源只维护通用能力；三种 Web 类型均可创建中性工程，产品页面在成功下游按 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop) 完成。
-
-可选 SaaS 客户端购买能力见 [`$web-implement-saas-commerce`](../.agents/skills/web-implement-saas-commerce/SKILL.md)：默认关闭，明确选中后才应用树形分类、商品、钱包支付、原订单续付和账户刷新；附[中性设计说明](../.agents/skills/web-implement-saas-commerce/references/neutral-ui-design.md)与[离线交互示例](../.agents/skills/web-implement-saas-commerce/assets/commerce-reference.html)。
-
-SaaS 大后台管理见 [`$web-implement-saas-admin`](../.agents/skills/web-implement-saas-admin/SKILL.md)，页面与 SOP 覆盖商品分类、组织成员、订单，以及钱包支付查询、访问控制和审计；[中性页面设计](../.agents/skills/web-implement-saas-admin/references/neutral-ui-design.md)按真实服务和权限裁剪。
-
-下游需要从当前代码整理 API 文档或公开 API 实际变化时，调用 [`$web-document-api`](../.agents/skills/web-document-api/SKILL.md)，在 `docs/api/` 维护模块文档与索引；实现/接入流程仅同步受影响模块。REST 导出为纯 Markdown，仅依次展示接口名称、接口说明、请求头、请求动作（HTTP 方法与相对路径）、请求体、响应体；JSON 请求体与响应体均须包含 JSON 示例和字段表，不混入文件地址、源码链接或工程信息，索引单独维护；GraphQL 按接口名称、接口说明和有来源的 Schema 展示。`API.md` 仍是可选基础契约参考，不能替代当前实现证据。 结合当前实现、业务需求和已提供服务契约补全请求头、动作及报文，明确区分已实现、契约未接入与设计建议；通用异常、空结果和分页等已定义模型独立成文。全量重生成按当前实现、采用的服务契约与已确认设计需求的并集核对模块，保留尚未实施的有效商品/订单等设计并标明待确认；离线原型不当作产品 API Mock，文档生成不越过原型登记或真实接入门禁。
+下游需要导出 API 与业务说明时，调用 [`$web-document-api`](../.agents/skills/web-document-api/SKILL.md)，在 `docs/api/` 导出统一文档包：根关联说明、`api/` 内一份通用结构与一份 API 元数据及按业务聚合的接口文档、`business/` 内已实现业务目标/调用流程/设计思路。每次对照已有文档、当前接口与真实消费者核对差异；局部委托仅同步受影响范围与关联。REST 保持六项与 JSON 加字段表，GraphQL 保留有来源的 Schema；导出不含本地代码或路径。未接入契约与设计建议仍保留并标明状态，不冒充已实现业务或联调通过。布局、迁移与检查以 Skill 为准，初始化只分发能力，不生成业务文档。 `API.md` 仍是可选基础契约参考。

@@ -56,7 +56,7 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(31)
+    expect(skills).toHaveLength(29)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
@@ -75,12 +75,10 @@ describe("terminal source projection", () => {
         "web-define-product",
         "web-design-prototype",
         "web-document-api",
+        "web-compose-capabilities",
         "web-extract-i18n-strings",
         "web-implement-change",
         "web-implement-list-view",
-        "web-implement-saas-auth",
-        "web-implement-saas-admin",
-        "web-implement-saas-commerce",
         "web-plan-change",
         "web-prepare-brand-identity",
         "web-prepare-release",
@@ -100,52 +98,31 @@ describe("terminal source projection", () => {
     expect(skills).not.toContain("web-review-extension-compatibility")
     expect(skills).not.toContain("manage-project-surfaces")
 
-    // SaaS 的入口、发现和两份合同必须完整且原样分发到 Web 终端。
+    // 两库及显式组合模板按原文分发，产品源码仍为中性起点。
     for (const file of [
       "SKILL.md",
       "agents/openai.yaml",
-      "references/requirements-and-sop.md",
-      "references/session-contract.md"
+      "catalog.json",
+      "scripts/capabilities.ts",
+      "knowledge/identity.md",
+      "knowledge/organization.md",
+      "knowledge/permissions.md",
+      "knowledge/catalog.md",
+      "knowledge/orders.md",
+      "knowledge/wallet-payments.md",
+      "knowledge/audit.md",
+      "templates/identity/session.ts.txt",
+      "templates/compositions/account-workspace/files.ts",
+      "templates/compositions/purchase-checkout/commerce-reference.js"
     ]) {
-      const relativePath = path.join(".agents/skills/web-implement-saas-auth", file)
+      const relativePath = path.join(".agents/skills/web-compose-capabilities", file)
       expect(await readFile(path.join(targetRoot, relativePath), "utf8")).toBe(
         await readFile(path.join(repositoryRoot, relativePath), "utf8")
       )
     }
     expect(await readFile(path.join(targetRoot, "docs/DATA_ACCESS.md"), "utf8")).toContain(
-      "### 1.3.1 Web SaaS 会话凭据持久化例外"
+      "### 1.3.1 Web 身份认证凭据持久化例外"
     )
-
-    // 可选购买仅分发能力，入口、三个参考与离线资产完整且原样保留。
-    for (const file of [
-      "SKILL.md",
-      "agents/openai.yaml",
-      "references/requirements-and-sop.md",
-      "references/order-and-wallet-contract.md",
-      "references/neutral-ui-design.md",
-      "assets/commerce-reference.html",
-      "assets/commerce-reference.css",
-      "assets/commerce-reference.js"
-    ]) {
-      const relativePath = path.join(".agents/skills/web-implement-saas-commerce", file)
-      expect(await readFile(path.join(targetRoot, relativePath), "utf8")).toBe(
-        await readFile(path.join(repositoryRoot, relativePath), "utf8")
-      )
-    }
-
-    // 大后台管理入口、发现与三份合同须原样分发，不执行管理业务。
-    for (const file of [
-      "SKILL.md",
-      "agents/openai.yaml",
-      "references/pages-and-sop.md",
-      "references/management-contract.md",
-      "references/neutral-ui-design.md"
-    ]) {
-      const relativePath = path.join(".agents/skills/web-implement-saas-admin", file)
-      expect(await readFile(path.join(targetRoot, relativePath), "utf8")).toBe(
-        await readFile(path.join(repositoryRoot, relativePath), "utf8")
-      )
-    }
 
     const listViewSkillRoot = path.join(targetRoot, ".agents/skills/web-implement-list-view")
     const listViewSkillFiles = [

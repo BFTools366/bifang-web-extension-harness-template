@@ -6,7 +6,7 @@ Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、
 
 ```text
 pnpm instantiate -- <absolute-parent-outside-harness> ...
-├── --type web --web-type tool-site → 独立 Vite React 单包
+├── --type web → 独立 Vite React 单包
 └── --type extension → 独立 Plasmo Chrome MV3 / Firefox MV2 单包
 ```
 

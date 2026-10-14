@@ -2,29 +2,15 @@
 
 本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：一次初始化只选择 `web` 或 `extension`，生成一个独立、平铺、可直接开发和发布的 pnpm 单包。
 
-## SaaS 基础设计与创建选择
+## 功能组合与中性创建
 
-SaaS 客户端和大后台共用 [UI 基础设计](MANTINE_UI_GUIDELINES.md)：未登录默认登录、表单内紧凑偏好、完整工作区侧栏与账号菜单、底部身份/作用域、窄屏等价导航和可恢复状态。需求、可交互原型、实施复用同一 SOP；营销首页独立确认，客户端注册/组织切换与后台管理目标严格区分。
-
-创建 `web + saas-client` 必须明确询问商品购买模块，包含商品选择、订单管理和钱包管理。交互建议关闭但等待实际回答；非交互必须传 `--saas-commerce enabled|disabled`。显式值复用，其他模式拒绝该参数。选择、来源与日期保留在 README 创建交接，首次 PRD 沿用；SaaS 客户端初始化生成通用认证与主工作区，仍不生成产品专属业务、PRD 或支付调用。
-
-### SaaS 客户端生成基线
-
-仅 `webType=saas-client` 使用 `.harness/tooling/templates/saas-client.ts` 及同名资产目录；其余 Web 类型与 Extension 保持各自原有基线。创建输入、staging 安全事务、独立 Git 根和终端剪裁仍共用唯一入口。
-
-- 路由：匿名 `/` 进入 `/login`；登录、注册、找回共用 pathless 认证布局；`/app` 转到 `/app/dashboard`；工作台、账户页先校验身份及当前组织权限，无权限进入 `/no-access`。工作区提供真实空态、账号菜单、组织切换和窄屏侧栏，普通叶导航保留外壳。
-- 认证域：`src/data/api/auth/` 提供类型化边界；`src/features/auth/session.ts` 是唯一会话协调者；用户、组织与权限由 Query 拥有。`src/data/storage/auth.ts` 只持久化版本和凭据，按项目/环境/服务隔离并核实读写删除；浏览器同源锁与提交时记录复核阻止迟到签发覆盖后来会话。`storage` 事件撤下旧上下文并重新执行路由守卫。
-- 空 BaseURL 使用可见标注、零 Fetch 的认证 Mock。演示账号为 `demo` / `Demo-only-24`，邮箱 `demo@example.test`；`viewer` 使用同一演示密码但只有账户权限。验证码 `246810` 绑定邮箱及用途，演示有效期五分钟、重发间隔三十秒。注册和找回成功返回登录，不自动登录；注册账号没有默认组织。
-- Mock 的会话引用与吊销登记持久化，账号、密码更改和验证码只在内存，刷新后回到固定 fixture。组织和权限从 Mock 服务的账户/成员关系恢复，不从客户端凭据记录恢复。它只用于生成基线的交互与状态回归，不能证明真实服务授权。
-- 非空 BaseURL 在尚无真实认证适配时明确显示“服务未接入”，认证操作失败关闭，不静默回退 Mock、不猜 endpoint。真实接入使用认证 Skill 和可信服务契约；购买选择只交接，创建不生成商品、订单、钱包或支付操作。
-- 通用基线不创建业务 PRD、产品原型或登记记录；产品专属页面与认证变化进入成功下游。生成的非空测试覆盖认证、存储失败、迟到结果、权限/组织、路由及界面流程；类型与单元回归不等同于真实浏览器或发布候选验收。
+初始化只提供唯一宿主的中性工程，不按 Web 产品分类注入业务。成功下游使用 [功能组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md) 按操作选择独立知识与模板；选择归唯一 PRD。身份、组织、权限、目录、订单、钱包支付和审计可以独立采用，显式组合示例不自动启用。
 
 ## 1. 不变量
 
 - 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-parent-outside-harness> ...`；在用户提供的源外父目录下，以项目标识创建子目录。
 - 源 Harness 不提供 `pnpm harness:init` script；`pnpm harness init` 明确拒绝原地初始化。底层 initializer 只作为 `instantiate` 在目标同级 同级暂存目录 中调用的内部步骤。
 - 非交互 CLI 必须传入 `--type web` 或 `--type extension`；交互式 TTY 必须提示用户选择且不得提供默认类型。
-- 选择 Web 后必须显式选择 `webType`，不设默认值；SaaS 客户端生成下述通用认证与工作区，工具站点和大后台生成中性 Web 工程；三者交接对应开发 SOP。该选择不增加宿主或改变 `.harness/project.json` 的 Schema。
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
 - 不支持 `both`，不提供默认类型，也不提供下游 target add/remove。
 - Web 与 Extension 是两个独立模板；它们不在同一仓库共存，不共享源码、状态、测试、品牌派生或构建产物。
@@ -37,7 +23,7 @@ SaaS 客户端和大后台共用 [UI 基础设计](MANTINE_UI_GUIDELINES.md)：�
 从源 Harness 根创建独立 Web 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path --type web --web-type tool-site \
+pnpm instantiate -- /absolute/path --type web \
   --name "示例 Web" --english-name "Example Web" --policy-mode 预设
 ```
 
@@ -52,7 +38,6 @@ pnpm instantiate -- /absolute/path --type extension \
 
 - 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`，无默认值。
 - `--name` 是用户可见名称。
-- `--web-type` 仅用于 Web，必填且无默认值：`tool-site`（1.工具站点）、`saas-client`（2.SaaS客户端）和 `saas-admin`（3.SaaS大后台）沿用安全 Web 工程初始化事务；SaaS 客户端同时生成通用认证与主工作区，不生成产品页面或业务 PRD。交互字段为 `webType`，接受编号、中文名称或稳定值；已提供的选择直接复用，明确 Web 后优先逐项补问。Extension 不接受该字段。明确选择保留在下游 README 创建交接，首次需求直接复用，不写入下游身份配置。
 - 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
 - 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
@@ -69,9 +54,9 @@ pnpm instantiate -- /absolute/path --type extension \
 
 ## 3. 项目身份与品牌事实
 
-### Web 业务类型与创建选项的区别
+### 中性创建与下游功能选择
 
-三种创建期 `webType` 均可生成 Web 工程，选择保留在下游 README 的“创建交接”；不新增身份 Schema 字段或预建业务记录。首次需求复用明确选择，已有已确认 PRD 时以其当前模式为准。创建后的阶段与模式 SOP 统一见 [创建与开发 SOP](../.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop)。已初始化 Web 的业务模式另在下游唯一 PRD 中明确采用 `tool-site|saas-client|saas-admin`，客户端购买默认关闭，选择依据与日期一并记录。需求、原型、实施、服务接入和模块文档统一遵循 [Web 类型与可选能力](../.agents/skills/web-design-prototype/references/prd-outline.md#web-类型与可选能力)；通用能力分发不代表产品模式已采用或真实服务已接入。
+创建后的需求、原型、实施、服务接入与文档统一复用 [功能模块组合](../.agents/skills/web-design-prototype/references/prd-outline.md#功能模块组合) 的当前选择；通用能力分发不代表功能已启用或服务已接入。
 
 ### 3.1 单一事实源
 
@@ -139,12 +124,12 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ### 3.6 分页、语言与 HTTP 基线
 
-两种项目都生成 `src/pagination/`、`src/data/api/client/`、`src/i18n/language.ts` 和对应非空测试，但基础 client 不生成真实 endpoint、refresh/replay 或占位网络调用；SaaS 客户端另生成独立认证域基线：
+两种项目都生成 `src/pagination/`、`src/data/api/client/`、`src/i18n/language.ts` 和对应非空测试，但基础 client 不生成真实 endpoint、refresh/replay 或占位网络调用：
 
 - 分页以 1-based `page`、`10|20|50|100` 的受控 `pageSize`、`items` 与非负安全整数 `total` 为内部结构，默认 `{ page: 1, pageSize: 20 }`。sessionStorage 只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；切换 `pageSize` 回第一页。
 - 只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；旧响应、错误和暂时空态保持当前位置。这是通用 session 分页状态机；Web 路由列表按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 的封闭 Router 恢复契约特化。生成的组件/hook 不自动挂进非分页 Landing、404、Popup 或 Options。
 - Ky HTTP client 当前只接受冻结 `APP_CONFIG` 单一 BaseURL 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；未来多 target 由真实域 adapter 与只读 registry 加入。每次 dispatch 动态发送有值的 `X-Http-Request`、`X-Lang` 与 `X-AUTH-TOKEN`；continuation 和 Token 自动更新只从同一受控 API 边界的 2xx 响应提取，真实登录成功另可经校验后调用 `applicationHttp.setAuthToken` 显式建立会话，并用 sequence/revision 防止乱序覆盖。
-- `X-Http-Request` 是服务端签发、供后续请求传播的 opaque continuation/correlation 值，不是客户端 request-id。语言偏好按项目命名空间写入 localStorage，异常时回退浏览器语言与英文；基础 client 的 Token/continuation 只保存在当前执行上下文内存，禁止写入环境、localStorage、sessionStorage 或日志。明确采用 SaaS 认证的 Web 可由认证 feature 按 `DATA_ACCESS.md` §1.3 的限定例外持久化会话凭据；continuation 与 Extension 不适用。
+- `X-Http-Request` 是服务端签发、供后续请求传播的 opaque continuation/correlation 值，不是客户端 request-id。语言偏好按项目命名空间写入 localStorage，异常时回退浏览器语言与英文；基础 client 的 Token/continuation 只保存在当前执行上下文内存，禁止写入环境、localStorage、sessionStorage 或日志。明确选择身份认证持久化方案的 Web 可由认证 feature 按 `DATA_ACCESS.md` §1.3 的限定例外持久化会话凭据；continuation 与 Extension 不适用。
 - 401 只在当前请求使用的 Token 仍为当前 revision 时清理它与同一会话的 continuation，并通过 single-flight `UnauthorizedHandler` 调用真实宿主 adapter。同一失效周期只调用一次；Web 只有存在真实登录 route 后才注入 `router.navigate`，Extension 只有存在真实登录入口后才接入本入口 Router 或宿主 adapter，也不虚构 background、登录页或跨 Popup/Options 共享会话。
 - `applicationHttp` 惰性创建当前上下文的唯一会话；`requestHttpQuery` 把中间尝试交给 Query，读取只对安全可重试错误最多重试两次，mutation 不自动重试。Providers 已挂载固定翻译的持续反馈，Web/Extension Router 接入统一错误页：401 提示认证，403 保留会话，无虚构登录动作；其他错误按恢复能力显示读取重试。详情以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3 为准。
 - 基线声明 Ky 运行时依赖，关闭传输层重试、超时与 HTTP 抛错，复用既有 client 安全语义。真实 openapi-fetch adapter、CORS、Cookie、跨域 endpoint 与 Extension 跨上下文认证仍按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 单独落地；配置 BaseURL 不自动新增 `permissions` 或 `host_permissions`。
@@ -163,7 +148,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 - 初始化不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
 - 列表页仍复用 `src/pagination/` 的 1-based page/pageSize 契约；Router search 的封闭启动恢复、Query 对 rows/`total` 的唯一所有权和稳定排序详见 [`DATA_ACCESS.md`](DATA_ACCESS.md)，Table/卡片/搜索形态与条件 DnD 详见 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)。
 
-两宿主均分发 API 契约核对、模块边界审查、访问控制、写入恢复、浏览器存储、持续事件流及用户可见 Task 的独立 Skill；只按事件调用，叶子返回当前流程，不反向重启编排。源 33 个、Web 30 个、Extension 27 个维护 Skills，设计支持另计；职责地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。
+两宿主均分发 API 契约核对、模块边界审查、访问控制、写入恢复、浏览器存储、持续事件流及用户可见 Task 的独立 Skill；只按事件调用，叶子返回当前流程，不反向重启编排。源 31 个、Web 28 个、Extension 28 个维护 Skills，设计支持另计；职责地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。
 
 ### 3.9 项目级设计支持基线
 
@@ -178,24 +163,23 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ## 4. Web 技术基线
 
-| 能力            | 选型                                           | 边界                                                                                    |
-| --------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 构建与开发      | Vite                                           | 只服务当前 Web 单包                                                                     |
-| UI              | React + TypeScript + Mantine                   | theme 与 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) 承载统一视觉语言        |
-| 路由            | TanStack Router 文件路由                       | Vite plugin 生成路由树并自动 route 拆包                                                 |
-| 异步数据        | TanStack Query                                 | 负责远端数据、缓存、重试和失效                                                          |
-| HTTP 与分页     | Ky HTTP + 统一分页基础                         | 生成 client/测试但不生成业务 endpoint                                                   |
-| SaaS 认证       | `$web-implement-saas-auth`                     | 客户端创建生成通用认证；成功下游复用创建选择进入 SOP，后台在下游实施                    |
-| 可选 SaaS 购买  | `$web-implement-saas-commerce`                 | 默认关闭，仅已初始化 Web SaaS 客户端明确选中后应用；提供购买、订单与钱包 SOP 和中性参考 |
-| SaaS 大后台管理 | `$web-implement-saas-admin`                    | 仅已初始化 Web 明确采用大后台时应用；提供商品分类、组织成员、订单与权限审计 SOP         |
-| 列表页          | `$web-implement-list-view`                     | 仅真实重复记录页触发；不强制 Table/DnD，不在初始化中生成业务 UI                         |
-| 实时数据        | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端                                                                 |
-| 事件流编排      | RxJS（按需）                                   | 只有真实多来源或复杂时序需求时安装                                                      |
-| 客户端状态      | Jotai                                          | 只保存需要跨组件共享的客户端状态                                                        |
-| 国际化          | i18next                                        | 用户可见文案使用翻译键                                                                  |
-| 运行时配置      | 类型化 `APP_CONFIG`                            | `VITE_` 三环境公开配置，不承载秘密                                                      |
-| 日志            | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                        |
-| 测试            | Vitest + Testing Library                       | 测用户可观察行为；E2E、完整验收 smoke 或硬要求需要时加真实浏览器验证                    |
+| 能力        | 选型                         | 边界                                                                             |
+| ----------- | ---------------------------- | -------------------------------------------------------------------------------- |
+| 构建与开发  | Vite                         | 只服务当前 Web 单包                                                              |
+| UI          | React + TypeScript + Mantine | theme 与 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) 承载统一视觉语言 |
+| 路由        | TanStack Router 文件路由     | Vite plugin 生成路由树并自动 route 拆包                                          |
+| 异步数据    | TanStack Query               | 负责远端数据、缓存、重试和失效                                                   |
+| HTTP 与分页 | Ky HTTP + 统一分页基础       | 生成 client/测试但不生成业务 endpoint                                            |
+| 功能组合    | `$web-compose-capabilities`  | 已初始化下游按具体操作选择知识与模板，不按产品类别自动启用                       |
+
+| 列表页 | `$web-implement-list-view` | 仅真实重复记录页触发；不强制 Table/DnD，不在初始化中生成业务 UI |
+| 实时数据 | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端 |
+| 事件流编排 | RxJS（按需） | 只有真实多来源或复杂时序需求时安装 |
+| 客户端状态 | Jotai | 只保存需要跨组件共享的客户端状态 |
+| 国际化 | i18next | 用户可见文案使用翻译键 |
+| 运行时配置 | 类型化 `APP_CONFIG` | `VITE_` 三环境公开配置，不承载秘密 |
+| 日志 | 统一结构化 logger | Release 裁剪、脱敏并扫描最终产物 |
+| 测试 | Vitest + Testing Library | 测用户可观察行为；E2E、完整验收 smoke 或硬要求需要时加真实浏览器验证 |
 
 Web 输出是普通浏览器页面，不携带 Chrome Extension 权限、manifest、Popup 或 Options。需要浏览器特有能力时，应先判断产品是否应该作为新的独立 Extension 项目初始化。生成的分页/Ky HTTP 基础与未来 REST/OpenAPI、GraphQL、SSE、可选 RxJS 的认证、CORS、缓存和状态所有权边界以 [`DATA_ACCESS.md`](DATA_ACCESS.md) 为准；模板没有真实登录 route 时不得宣称 401 已能跳转。
 
@@ -245,7 +229,7 @@ src/
 ```
 
 - `app/` 只装配全局 Provider、主题、QueryClient 与 Router；`routes/` 使用 TanStack 文件命名约定声明 URL、loader/search/context 等路由契约；具体业务 UI、hooks、Jotai atom 和测试留在 `features/`。
-- 初始化的 `__root.tsx` 与 `index.tsx` 只是中性起点，产品可用布局和子路由替换首页，不要求永久保留 `index.tsx`。持续 shell、pathless 认证布局、叶页面与正文插槽按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §8.5 实施，SaaS 客户端初始化直接复用该布局生成通用认证与主工作区。
+- 初始化的 `__root.tsx` 与 `index.tsx` 只是中性起点，产品可用布局和子路由替换首页，不要求永久保留 `index.tsx`。持续 shell、pathless 认证布局、叶页面与正文插槽按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §8.5 实施，按所选功能适配。
 - `src/routes/` 只放路由模块，不使用 `.test.tsx`、`.spec.tsx` 等测试后缀命名生产路由。业务页面需要 `test` URL 段时可用嵌套的 `app/test.tsx`，测试留在对应 feature；中性 Vite 配置也明确忽略测试后缀，防止误收路由。
 - Vite 配置必须把 TanStack Router plugin 放在 React plugin 之前，并显式启用 `autoCodeSplitting`。route 组件按路由边界形成异步 chunk；共享依赖由 Vite/Rollup 根据真实引用处理，不在模板中预设手工 vendor 分组。
 - `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`typecheck` script 先生成它；Web 的 `test`、`test:related` 与 `typecheck` 入口先运行 `pnpm routes:generate`，让刚创建或刚检出的仓库可直接执行真实文件路由测试；Extension 保持代码路由。
@@ -265,9 +249,9 @@ src/
 | 页面与路由状态               | 已生成 Landing、404、统一 pending/error、显式重试和真实 Router 测试           | 首次多页面定义标题、焦点、导航、滚动与离开阻断，见 UI 规范 §8                                                                                |
 | 表单与设置                   | Mantine 输入及基础提交/错误/草稿规则；不生成业务表单                          | 真实字段与校验协议明确后实现；复杂表单才评估 `@mantine/form`，见 UI 规范 §5.2                                                                |
 | 远端读写与缓存               | 已生成 Ky HTTP、ApiError、Query 有界读取重试、mutation 不重试、统一反馈和分页 | 首次 endpoint 确定 Schema、运行时校验、Query key、mutation 与缓存策略，见数据规范 §2.6/§3                                                    |
-| 登录、授权与私有会话         | 已生成 Token setter/revision、401/403 handler 与本地化状态                    | SaaS 客户端另有认证与权限基线；真实协议接入及产品范围在下游确认                                                                              |
+| 登录、授权与私有会话         | 已生成 Token setter/revision、401/403 handler 与本地化状态                    | 认证、权限等能力按需组合，真实协议在下游确认                                                                                                 |
 | 文件、富交互与实时数据       | 只保留现有组件与按需选型规则                                                  | 真实消费者明确后设计大小/格式/取消、渲染边界或连接生命周期；不预装上传、编辑器、图表或事件流包                                               |
-| 导航与应用布局               | 工具站点/后台中性布局；客户端含 AppShell                                      | 客户端已有工作台/账户实页和移动导航；产品新增导航按真实功能设计                                                                              |
+| 导航与应用布局               | 中性起点，按需采用 AppShell                                                   | 按所选操作与实际设备范围设计页面和导航                                                                                                       |
 | 部署、SEO 与运行性能         | 根路径 Vite SPA、路由自动拆包、Release 扫描                                   | 首次真实渠道确定深链接回退、CSP、缓存、资源地址；需要搜索索引或分享预览时先评估静态 SPA 能否满足，再决定预渲染/SSR，不把框架切换当初始化步骤 |
 
 ### 4.3 站点路径边界
@@ -460,7 +444,7 @@ pnpm harness validate
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 同级暂存目录 内容到目标，且必须保持原目标不存在或为空。
-12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，Web 含 `$web-implement-list-view`、`$web-implement-saas-auth`、`$web-implement-saas-commerce` 与 `$web-implement-saas-admin` 且不含 `$web-review-extension-compatibility`，Extension 裁掉前四项并保留后者；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
+12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，两宿主均含 `$web-compose-capabilities`，Web 另含 `$web-implement-list-view`，Extension 另含 `$web-review-extension-compatibility`；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 
 ## 9. Harness 未来增减能力

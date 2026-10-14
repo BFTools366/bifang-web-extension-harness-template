@@ -68,7 +68,8 @@ export const HARNESS_ONLY_PATHS = [
   "tests/initialization-source-boundary.test.ts",
   "tests/path-containment.test.ts",
   "tests/node-tooling.test.ts",
-  "tests/prototype-workflow.test.ts"
+  "tests/prototype-workflow.test.ts",
+  "tests/harness-api-document-export.test.ts"
 ] as const
 
 /** 保存只在实例化时排除、但终端后续事件可以合法创建的记忆与验证路径。 */

@@ -29,11 +29,11 @@
 Harness 候选至少满足：
 
 - [`README.md`](../README.md)、[`AGENTS.md`](../AGENTS.md)、[`Version.md`](../Version.md)、[`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)、[`LOGGING.md`](LOGGING.md)、本目录其他长期文档与现存 Skills 链接一致；
-- 源 Harness、Web 下游与 Extension 下游保留的 Skills 数量，以及创建/源记忆治理 Skill 和 Extension 中 Web-only `$web-implement-list-view`、`$web-implement-saas-auth`、`$web-implement-saas-commerce` 与 `$web-implement-saas-admin` 的删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
+- 源 Harness、Web 下游与 Extension 下游保留的 Skills 数量，以及创建/源记忆治理 Skill 和 Extension 中 Web-only `$web-implement-list-view` 的删除结果符合 [`AGENTS.md`](../AGENTS.md) 的 `web-*` canonical id、目录、中文元数据和前端语义合同；
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <absolute-parent-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
-- 在源 Harness 之外的两个全新隔离目标分别以精简必填参数执行 `--type web --web-type tool-site` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型，只询问缺失的基础信息及宿主条件字段；另覆盖两种 SaaS 的交互/非交互创建、README 交接及首次 PRD 复用边界，遵循 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2，三地址留空时仍可创建；正式构建前补齐 HTTPS 正式地址；初始化命令不接受 E2E 选择、不运行 Release 构建且不产生 `dist/`、`build/` 或 zip，两种输出均为单 package 且只包含一个 `projectType`；
+- 在源 Harness 之外的两个全新隔离目标分别以精简必填参数执行 `--type web` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型，只询问缺失的基础信息及宿主条件字段；另覆盖功能组合资源分发、中性创建无业务注入及下游 PRD 选择边界，遵循 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2，三地址留空时仍可创建；正式构建前补齐 HTTPS 正式地址；初始化命令不接受 E2E 选择、不运行 Release 构建且不产生 `dist/`、`build/` 或 zip，两种输出均为单 package 且只包含一个 `projectType`；
 - 成功下游不再包含 `instantiate`、`harness:init`、源专用创建 Skill、内部 init/instantiate tooling 或其他项目派生入口，不能继续从自身生成项目；
 - `both`、类型缺失、类型列表、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标、源 Harness 根/子路径和路径越界等预检失败保持目标零写入；`instantiate` 只在目标同级 sibling staging 中调用内部 initializer，并在生成、定向格式化、静态结构/三环境/终端化校验、一次安装和 Git 初始化成功后原子发布，任何失败都保持目标不存在或为空；
 - Web 结果的 `public/logo.png`、`public/favicon.png`、根 `index.html` 与 Landing 身份一致；

@@ -12,7 +12,7 @@
 
 ## 全部能力地图
 
-以下 33 个 `web-*` Skill 为源能力；实际下游只分发当前宿主适用部分。表中名称均对应 `.agents/skills/<名称>/SKILL.md`。
+以下 31 个 `web-*` Skill 为源能力；实际下游只分发当前宿主适用部分。表中名称均对应 `.agents/skills/<名称>/SKILL.md`。
 
 | 职责组     | 独立入口                                                                                       | 结果与保留边界                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -27,7 +27,7 @@
 | 本地存储   | [`web-implement-browser-storage`](../../.agents/skills/web-implement-browser-storage/SKILL.md) | 真实存储访问、校验、迁移与失败语义；凭据例外和列表 key 仍归领域      |
 | 持续事件   | [`web-implement-event-stream`](../../.agents/skills/web-implement-event-stream/SKILL.md)       | 实际协议的连接、恢复与投影；不默认采用 RxJS 或持续后台               |
 | UI 专项    | `web-implement-list-view`、`web-extract-i18n-strings`                                          | Web 列表行为与既有语言资源迁移各自内聚，不按控件/语言碎片化          |
-| SaaS 领域  | `web-implement-saas-auth`、`web-implement-saas-commerce`、`web-implement-saas-admin`           | 两模式认证、明确选中的客户端购买、平台管理分别拥有 SOP 与不变量      |
+| 功能组合   | `web-compose-capabilities`                                                                     | 按操作选择独立知识与模板，显式组合，返回当前流程                     |
 | 宿主审查   | `web-review-extension-compatibility`                                                           | 只读受影响消费者的双目标证据；修复与真实候选仍归调用方               |
 | 用户 Task  | [`web-manage-user-tasks`](../../.agents/skills/web-manage-user-tasks/SKILL.md)                 | 左侧 Task 编号、身份绑定和真实进度；不代做业务或开启长期开关         |
 | 计划与 Git | `web-plan-change`、`web-configure-git-commits`                                                 | 独立事件触发的持久计划与实际提交配置，不成为日常必经步骤             |
@@ -41,7 +41,7 @@
 ```mermaid
 flowchart TD
   request[当前授权请求] --> entry[定义 / 原型 / 实施 / 接入 / 文档入口]
-  entry --> domain[仅命中时消费 SaaS 或列表领域合同]
+  entry --> domain[仅命中时消费 功能模块或列表合同]
   entry --> review[契约或模块只读审查]
   domain --> review
   entry --> leaf[权限 / 写入恢复 / 存储 / 事件实施叶子]

@@ -20,7 +20,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 6. 下游的新产品、新页面、显著交互改版或用户要求原型时，先由 `$web-define-product` 澄清并记录唯一 PRD，再由 `$web-design-prototype` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实现前读取本轮 `docs/prototypes/<scope>/review.json` 并运行 `pnpm prototype:check <scope>`；PRD、原型漂移或尚未登记时不能进入该范围开发。已有有效登记且检查通过就复用，不要求用户选择方案或追加原型批准；用户要求暂缓开发时仍暂缓。范围清楚的日常小修复、无界面变更及 Harness 自身维护不强制重做 PRD/原型，但不能绕过尚未完成自查登记的同一设计范围。
 7. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 
-已初始化 Web 的业务工作按 [Web 类型与可选能力](../web-design-prototype/references/prd-outline.md#web-类型与可选能力) 恢复唯一 PRD 的类型和购买开关，仅对本次受影响的 SaaS 认证、已选客户端购买或后台管理读取对应 Skill 合同。范围清楚的日常修复直接复用，不重启产品定义；未选择购买不生成相应菜单、路由或 API。此规则不适用于 Harness 自身维护或 Extension。
+按 [功能模块组合](../web-design-prototype/references/prd-outline.md#功能模块组合) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
 ## 实现边界
 
@@ -29,7 +29,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
    - 文件结构与模块边界遵循 `docs/ENGINEERING_RULES.md` 的“文件结构与模块依赖”（源 §3.2）：按功能或工具职责拆解，保持单一职责、单向无环依赖和明确公共契约；不以行数达标代替结构判断。
    - React 组件拥有展示、表单输入和局部交互；可复用 feature hook/service 拥有该功能的请求、缓存、持久化和协调。
    - TanStack Query 统一管理 REST/GraphQL 有限读取的请求前缓存与远端/异步服务状态；feature 共享 Query options 和当前上下文 QueryClient，缓存已校验领域数据，Ky/client 不建结果缓存。新鲜度与入口按 `docs/DATA_ACCESS.md` §2.7；Jotai 只管理确需跨组件共享的客户端交互状态，不镜像 Query 数据。
-   - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一在 `src/data/`；存储访问经 `data/storage/`，REST 主交互、GraphQL 复杂查询/订阅与 Dexie 的 IndexedDB 边界按 `docs/DATA_ACCESS.md` §1.1–1.3 执行。
+   - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一在 `src/data/`；存储访问经 `data/storage/`，REST 单对象读取与主交互、GraphQL 强制列表查询及复杂查询/订阅与 Dexie 的 IndexedDB 边界按 `docs/DATA_ACCESS.md` §1.1–1.3 执行。
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
 3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。路由布局、正文插槽、稳定 shell 与类型化 Link 组合按 UI 规范；路由目录只放生产路由，不使用测试后缀命名业务页。源码可读性与类型化组合按工程规则，不以断言或压缩格式规避合同。
@@ -39,7 +39,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
 9. 集合分页与 HTTP client 基础维护读取 `DATA_ACCESS.md`，复用 `src/pagination/` 与 `src/data/api/client/`。Query 使用 `requestHttpQuery` 并只反馈最终失败；通用集合使用 session 状态机，Web 路由列表按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 只在原始 URL 无 owned key 时启动恢复。业务行与 `total` 归 Query/feature；真实接入的响应/分页映射由 `$web-connect-http-service` 在域 API 边界完成。
 10. 未配置对应 BaseURL 时，按 `DATA_ACCESS.md` §3.1 只将依赖该远端 API 的操作放在 `src/data/api/<domain>/` 的类型化异步 Mock API；UI、route、hook 和 Query 只消费这些 API 函数。本地能力直接真实实现，不要求 BaseURL，纯业务逻辑留在 feature，真实存储访问经 `src/data/storage/`；混合流程仅隔离未配置的远端边界，不把本地部分一并 Mock。Mock 是当前远端 API 契约的完整实现，不是 stub 或占位；已接入真实 HTTP 的服务移除运行路径中的 Mock，失败不回落 Mock。不得留下 stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力，也不得把 Mock 结果声明为真实联网通过。
-11. 下游公开 API 操作新增、移除或请求/响应、认证、错误、副作用及传输方式实际变化时，委托 `$web-document-api` 同步**受影响模块与必要索引**，明确传入范围，避免默认扫描全项目。仅内部重构且公开契约未变时不强制重写文档；参考契约仍不能作为实现证据。
+11. 下游公开 API 契约/传输或已实现业务的调用条件、顺序、分支、结果与恢复变化时，委托 `$web-document-api` 同步**受影响接口、业务描述与关联**并核对已有文档和代码差异，明确传入范围。纯内部重构且契约与业务流程均未变时不强制重写；格式与验证以该 Skill 为准，参考契约不能作为实现证据。
 
 ## 按事件委托独立能力
 

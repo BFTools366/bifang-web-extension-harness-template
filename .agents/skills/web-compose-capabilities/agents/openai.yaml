@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：组合功能模块"
+  short_description: "按需选择独立业务知识与模板，显式组合身份、组织、权限和交易能力"
+  default_prompt: "使用 $web-compose-capabilities 按当前需求选择功能模块及具体操作，读取对应知识与模板，核对真实契约、数据范围和宿主边界，再接回当前需求、设计或实施流程。"

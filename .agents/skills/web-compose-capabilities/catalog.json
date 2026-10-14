@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "modules": [
+    {
+      "id": "identity",
+      "title": "身份认证",
+      "knowledge": "knowledge/identity.md",
+      "templates": [
+        {
+          "path": "templates/identity/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/identity/session.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/identity/session.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    },
+    {
+      "id": "organization",
+      "title": "组织管理",
+      "knowledge": "knowledge/organization.md",
+      "templates": [
+        {
+          "path": "templates/organization/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    },
+    {
+      "id": "permissions",
+      "title": "权限管理",
+      "knowledge": "knowledge/permissions.md",
+      "templates": [
+        {
+          "path": "templates/permissions/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    },
+    {
+      "id": "catalog",
+      "title": "商品目录",
+      "knowledge": "knowledge/catalog.md",
+      "templates": [
+        {
+          "path": "templates/catalog/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    },
+    {
+      "id": "orders",
+      "title": "订单管理",
+      "knowledge": "knowledge/orders.md",
+      "templates": [
+        {
+          "path": "templates/orders/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    },
+    {
+      "id": "wallet-payments",
+      "title": "钱包支付",
+      "knowledge": "knowledge/wallet-payments.md",
+      "templates": [
+        {
+          "path": "templates/wallet-payments/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    },
+    {
+      "id": "audit",
+      "title": "审计",
+      "knowledge": "knowledge/audit.md",
+      "templates": [
+        {
+          "path": "templates/audit/operation-plan.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        }
+      ]
+    }
+  ],
+  "recipes": [
+    {
+      "id": "account-workspace",
+      "modules": ["identity", "organization", "permissions"],
+      "templates": [
+        {
+          "path": "templates/compositions/account-workspace/AuthPages.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/Workspace.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/api.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/files.ts",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/provider.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/router.test.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/session.test.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/session.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/storage.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/translations.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        }
+      ]
+    },
+    {
+      "id": "purchase-checkout",
+      "modules": ["catalog", "orders", "wallet-payments"],
+      "templates": [
+        {
+          "path": "templates/compositions/purchase-checkout/commerce-reference.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/commerce-reference.html",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/commerce-reference.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        }
+      ]
+    }
+  ]
+}

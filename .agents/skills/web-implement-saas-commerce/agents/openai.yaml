@@ -1,4 +1,0 @@
-interface:
-  display_name: "Web Harness：设计与实施可选 SaaS 购买"
-  short_description: "为选中的 SaaS 客户端购买能力定义分类商品、订单续付与钱包支付 SOP"
-  default_prompt: "使用 $web-implement-saas-commerce 为明确选中的 SaaS 客户端购买能力完善中性设计与 SOP，按服务端契约处理订单续付、钱包支付和支付后账户刷新。"
