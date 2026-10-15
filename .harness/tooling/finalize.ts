@@ -6,7 +6,11 @@ import {
   validateAgentPolicyBody,
   validateAgentPolicyDocument
 } from "./agent-policy.ts"
-import { HARNESS_ONLY_PATHS, INSTANTIATION_ONLY_EXCLUDED_PATHS } from "./config.ts"
+import {
+  HARNESS_ONLY_PATHS,
+  INSTANTIATION_ONLY_EXCLUDED_PATHS,
+  RETIRED_PRD_OUTLINE_PATH
+} from "./config.ts"
 import { lstatIfPresent, writeAtomic } from "./files.ts"
 import {
   EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS,
@@ -223,6 +227,8 @@ import type { ProjectConfig, ProjectType } from "./types.ts"
 export const PROJECT_CONFIG_PATH = ".harness/project.json" as const
 /** 说明 MASTER_LOGO_PATH 的稳定结构与职责边界。 */
 export const MASTER_LOGO_PATH = ".harness/brand/logo-1024.png" as const
+/** 已迁移的 PRD 参考必须在终端配置中导出，供真实校验入口拒绝旧副本。 */
+export const RETIRED_PRD_OUTLINE_PATH = ${JSON.stringify(RETIRED_PRD_OUTLINE_PATH)} as const
 /** 说明 HARNESS_ONLY_PATHS 的稳定结构与职责边界。 */
 export const HARNESS_ONLY_PATHS = ${JSON.stringify(HARNESS_ONLY_PATHS)} as const
 

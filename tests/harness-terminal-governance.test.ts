@@ -1,4 +1,6 @@
 import { describe, test } from "vitest"
+import { execFileSync } from "node:child_process"
+import { pathToFileURL } from "node:url"
 import {
   HARNESS_ONLY_PATHS,
   cp,
@@ -24,6 +26,19 @@ describe("terminal identity, skills and UI governance", () => {
     async (projectType) => {
       const root = await seedTemplateRoot()
       await initializeProject(options(root, projectType))
+      // 从生成后的模块真实链接校验器依赖，避免源函数验证绕过终端配置缺失导出。
+      const terminalConfigUrl = pathToFileURL(path.join(root, ".harness/tooling/config.ts")).href
+      const retiredPath = execFileSync(
+        process.execPath,
+        [
+          "--experimental-strip-types",
+          "--input-type=module",
+          "--eval",
+          `import { RETIRED_PRD_OUTLINE_PATH } from ${JSON.stringify(terminalConfigUrl)}; console.log(RETIRED_PRD_OUTLINE_PATH)`
+        ],
+        { cwd: root, encoding: "utf8" }
+      ).trim()
+      expect(retiredPath).toBe(".agents/skills/web-design-prototype/references/prd-outline.md")
       const canonicalRules = await readFile(
         path.join(repositoryRoot, "docs/ENGINEERING_RULES.md"),
         "utf8"
