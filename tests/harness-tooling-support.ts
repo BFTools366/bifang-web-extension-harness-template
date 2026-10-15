@@ -117,6 +117,7 @@ async function seedTemplateRoot(): Promise<string> {
     await readFile(path.join(repositoryRoot, "docs/AGENT_POLICY.md"), "utf8")
   )
   for (const module of [
+    "args.ts",
     "identity.ts",
     "extension-targets.ts",
     "files.ts",

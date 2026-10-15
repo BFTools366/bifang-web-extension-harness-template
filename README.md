@@ -46,7 +46,7 @@ Bifang Web Harness Template 是用于创建和维护独立前端项目的 TypeSc
 | Agent 策略模式        | 选择预设或自定义；自定义时逐项选择能力，建议值单独展示。                                                  |
 | 项目标识              | 通常由 Agent 根据名称的英文翻译生成小写 kebab-case，例如“示例网页”→ `example-web`；已有合法标识直接复用。 |
 
-Logo、品牌色和身份本地化可一并提供。Agent 创建流程先生成或导入 Logo 并预览；CLI 未提供 Logo 时使用离线确定性生成器。名称、说明与品牌同步规则见[初始化契约](docs/TS_WEB_TEMPLATE.md#3-项目身份与品牌事实)。
+Logo、品牌色和身份本地化可一并提供。Agent 创建流程生成并展示 3 个图标方案，用户选 1 个后导入；已有选定正式 Logo 则直接沿用。离线三选一入口见[品牌 Skill](.agents/skills/web-prepare-brand-identity/SKILL.md)，纯 CLI 直接省略 Logo 时保留单图确定性生成。名称、说明与品牌同步规则见[初始化契约](docs/TS_WEB_TEMPLATE.md#3-项目身份与品牌事实)。
 
 创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。开发 API 地址可留到下游配置，未配置的三环境地址留空；正式发布前补齐 HTTPS 正式地址。创建需求可先只读分析，原文随事务保存到新项目 `docs/requirements/source.txt`；正式产品范围确认、endpoint 与凭据在成功下游处理，不要求重贴需求。
 

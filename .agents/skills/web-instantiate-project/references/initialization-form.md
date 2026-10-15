@@ -49,7 +49,7 @@
 - `identityI18n` / `--identity-i18n`：可选 JSON 字符串，包含 `defaultLocale: en|zh_CN` 与 `translations` 对象；每份翻译必须同时包含非空 `name` 和 `description`。默认语言使用根字段，不重复记录在 translations。缺失翻译回退默认身份，未知语言/字段或不完整翻译在写入前拒绝。
 - `confirmedBy` / `--confirmed-by`：仅复用已明确来源，缺省或空白时自动记为“当前用户”，不主动询问。
 - `brandColor` / `--brand-color`：合法十六进制颜色，缺省 `#4C6EF5`。
-- `--logo`：可选本地图像，由 Logo 预检验证；缺省确定性生成。Agent 路径先按 `$web-prepare-brand-identity` 生成/导入并预览，候选临时目录位于源和目标之外；汇总列出母版及当前宿主派生文件。
+- `--logo`：可选本地图像，由 Logo 预检验证；纯 CLI 直接省略时保持单图确定性生成。Agent 路径按 `$web-prepare-brand-identity` 沿用已选正式源图，或展示三个独立候选并等待用户明确选一，离线候选也走同一流程；只导入已选路径。选图由品牌 Skill 单独管理，不增加基础表单字段，也不代替最终创建确认。候选临时目录位于源和目标之外；汇总列出已选源图、母版及当前宿主派生文件。
 
 ## 条件策略字段
 

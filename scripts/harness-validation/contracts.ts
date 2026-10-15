@@ -1,4 +1,5 @@
 export const REQUIRED_FILES = [
+  ".agents/skills/web-prepare-brand-identity/scripts/generate-candidates.ts",
   ".agents/skills/web-instantiate-project/references/initialization-questions.json",
   ".agents/skills/web-instantiate-project/references/requirements-intake.md",
   ".agents/skills/web-define-product/references/requirements-analysis.md",

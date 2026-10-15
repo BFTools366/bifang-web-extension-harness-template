@@ -31,20 +31,38 @@ function stableHash(value: string): number {
 }
 
 // 执行 generatedSvg 函数的处理逻辑。
-function generatedSvg(name: string, id: string, color: string): Buffer {
+function generatedSvg(name: string, id: string, color: string, variant = 1): Buffer {
   // 保存 rotation 变量供当前逻辑使用。
   const rotation = stableHash(`${id}:${name}`) % 90
   // 保存 inset 变量供当前逻辑使用。
   const inset = 220 + (stableHash(id) % 70)
+  const symbol =
+    variant === 2
+      ? `<rect x="280" y="280" width="360" height="360" rx="80"/><rect x="384" y="384" width="360" height="360" rx="80"/>`
+      : variant === 3
+        ? `<path d="M512 248 776 704H248Z"/><circle cx="512" cy="530" r="76" fill="#fff" stroke="none"/>`
+        : `<path d="M${inset} 512 512 ${inset} ${1024 - inset} 512 512 ${1024 - inset}Z"/><circle cx="512" cy="512" r="104" fill="#fff" stroke="none"/>`
   return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" rx="224" fill="${color}"/>
   <circle cx="820" cy="204" r="188" fill="#fff" opacity=".12"/>
   <path d="M174 768 512 174l338 594Z" fill="#000" opacity=".08"/>
   <g transform="rotate(${rotation} 512 512)" fill="none" stroke="#fff" stroke-width="88" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M${inset} 512 512 ${inset} ${1024 - inset} 512 512 ${1024 - inset}Z"/>
-    <circle cx="512" cy="512" r="104" fill="#fff" stroke="none"/>
+    ${symbol}
   </g>
 </svg>`)
+}
+
+/** 按稳定编号生成三个独立离线候选；生成失败不降级为重复或未展示的母版。 */
+export async function createLogoCandidates(
+  input: Pick<LogoInput, "name" | "id" | "color">
+): Promise<Buffer[]> {
+  return Promise.all(
+    [1, 2, 3].map((variant) =>
+      sharp(generatedSvg(input.name, input.id, input.color, variant))
+        .png({ compressionLevel: 9 })
+        .toBuffer()
+    )
+  )
 }
 
 // 执行 crc32 函数的处理逻辑。
