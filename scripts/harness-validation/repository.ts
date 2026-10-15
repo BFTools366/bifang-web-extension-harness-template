@@ -2,6 +2,7 @@ import { execFile } from "node:child_process"
 import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { promisify } from "node:util"
+import { RETIRED_PRD_OUTLINE_PATH } from "../../.harness/tooling/config.ts"
 import { pathExists, walkFiles } from "../../.harness/tooling/files.ts"
 import { DESIGN_SKILL_NAME, validateDesignSkill } from "../../.harness/tooling/design-skill.ts"
 import {
@@ -147,7 +148,7 @@ export function isSingleChineseSentence(value: string): boolean {
 export async function validateSkills(root: string, errors: string[]): Promise<string[]> {
   const skillsRoot = path.join(root, ".agents/skills")
   // PRD 结构已归需求定义，源也必须拒绝旧原型目录恢复第二份合同。
-  if (await pathExists(path.join(skillsRoot, "web-design-prototype/references/prd-outline.md"))) {
+  if (await pathExists(path.join(root, RETIRED_PRD_OUTLINE_PATH))) {
     errors.push("Retired PRD reference must remain absent from web-design-prototype")
   }
   const entries = await readdir(skillsRoot, { withFileTypes: true })

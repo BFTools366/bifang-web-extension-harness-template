@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { readCapabilityCatalog } from "../../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { derivedLogoPaths } from "./brand.ts"
-import { HARNESS_ONLY_PATHS, loadProjectConfig, MASTER_LOGO_PATH } from "./config.ts"
+import {
+  HARNESS_ONLY_PATHS,
+  loadProjectConfig,
+  MASTER_LOGO_PATH,
+  RETIRED_PRD_OUTLINE_PATH
+} from "./config.ts"
 import { pathExists, readJson } from "./files.ts"
 import type { ProjectConfig } from "./types.ts"
 import { ENVIRONMENT_FILES, validateEnvironmentFiles } from "./environment.ts"
@@ -267,10 +272,8 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   HARNESS_ONLY_PATHS.forEach((removedPath, index) => {
     if (removedPathsExist[index]) errors.push(`Terminal project retains ${removedPath}`)
   })
-  // 已迁移的受管 PRD 参考不能与需求定义中的唯一合同并存；升级按受管删除处理。
-  const retiredPrdOutline = ".agents/skills/web-design-prototype/references/prd-outline.md"
-  if (await pathExists(path.join(root, retiredPrdOutline))) {
-    errors.push(`Terminal project retains retired PRD reference: ${retiredPrdOutline}`)
+  if (await pathExists(path.join(root, RETIRED_PRD_OUTLINE_PATH))) {
+    errors.push(`Terminal project retains retired PRD reference: ${RETIRED_PRD_OUTLINE_PATH}`)
   }
   assertScripts(
     scripts,

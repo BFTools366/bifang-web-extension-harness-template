@@ -57,7 +57,7 @@ pnpm instantiate -- /absolute/path --type extension \
 
 ### 中性创建与下游功能选择
 
-有文档时在成功下游读取 `docs/requirements/source.txt` 并沿用创建建议，不要求用户重贴；没有文档继续现有逐项选择。创建后的需求、原型、实施、服务接入与文档统一复用 [功能模块组合](../.agents/skills/web-compose-capabilities/references/requirements-selection.md) 的当前选择；通用能力分发不代表功能已启用或服务已接入。
+有文档时在成功下游读取 `docs/requirements/source.txt` 并沿用创建建议，不要求用户重贴；没有文档时按渐进式需求澄清处理。创建后的需求、原型、实施、服务接入与文档统一复用 [功能模块组合](../.agents/skills/web-compose-capabilities/references/requirements-selection.md) 的当前选择；通用能力分发不代表功能已启用或服务已接入。
 
 ### 3.1 单一事实源
 

@@ -153,7 +153,7 @@ function normalizeBasicField(
     return parseProjectType(requiredText(value, "项目类型"))
   }
   if (field === "requirementsFile") {
-    if (value === undefined) throw new Error("提供需求文档绝对路径，或回车继续现有逐项选择")
+    if (value === undefined) throw new Error("提供需求文档绝对路径，或回车按原有题目继续")
     const file = value.trim()
     if (file && !path.isAbsolute(file)) throw new Error("需求文档必须提供绝对路径")
     return file

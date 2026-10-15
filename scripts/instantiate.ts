@@ -128,7 +128,9 @@ function inputSources(
     sourceRoot: "脚本固定 Harness 源入口",
     targetRoot: "命令行绝对位置参数",
     projectType: source("type"),
-    requirementsFile: optionNames.has("requirements-file") ? "命令行参数" : "未提供，逐项选择",
+    requirementsFile: optionNames.has("requirements-file")
+      ? "命令行参数"
+      : "未提供，按原有题目继续",
     name: source("name"),
     englishName: optionNames.has("english-name") ? "命令行参数" : "未单独提供",
     id: optionNames.has("id") ? "命令行参数" : "英文名称自动生成",
@@ -275,7 +277,7 @@ export async function runInstantiateCli(
   output(
     requirements === undefined
       ? "下一步：切换到新项目，按需求选择功能模块，完成需求确认 → 原型登记 → 实施。"
-      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 复用原文与已讨论建议，确认基础布局、身份认证、权限、组织及其他能力，再完成需求确认 → 原型登记 → 实施。CLI 不执行语义分析或装配业务功能。`
+      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 按同目录 README 交接继续需求确认 → 原型登记 → 实施。CLI 不执行语义分析或装配业务功能。`
   )
   output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
   output(

@@ -1,7 +1,11 @@
 import { execFile } from "node:child_process"
 import { chmod, lstat, mkdtemp, realpath } from "node:fs/promises"
 import path from "node:path"
-import { validateCreationRequirements, writeCreationRequirements } from "./creation-requirements.ts"
+import {
+  CREATION_REQUIREMENTS_DIR,
+  validateCreationRequirements,
+  writeCreationRequirements
+} from "./creation-requirements.ts"
 import { promisify } from "node:util"
 import { checkCommitConfiguration } from "../../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { normalizeAgentPolicy } from "./agent-policy.ts"
@@ -98,7 +102,7 @@ function shouldExclude(relativePath: string, name: string): boolean {
   if (!relativePath.includes("/") && !TOP_LEVEL_SEED_NAMES.has(name)) return true
   if (EXCLUDED_NAMES.has(name)) return true
   // 用户需求只来自本次输入，不复制源中遗留材料；不能加入终端记忆裁剪名单。
-  if (relativePath === "docs/requirements") return true
+  if (relativePath === CREATION_REQUIREMENTS_DIR) return true
   if (relativePath === ".agents/skills/manage-project-surfaces") return true
   if (relativePath === ".agents/skills/web-curate-harness-memory") {
     return true

@@ -205,7 +205,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}
-- 需求文档：${summary.requirements === undefined ? "未提供，继续现有逐项选择" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，Agent 在下游确认与实施）`}
+- 需求文档：${summary.requirements === undefined ? "未提供，按原有题目继续" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，Agent 在下游确认与实施）`}
 - 展示名称：${summary.init.name}
 - 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}

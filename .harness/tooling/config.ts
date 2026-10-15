@@ -5,6 +5,9 @@ import { PROJECT_TYPES, type InitOptions, type ProjectConfig, type ProjectType }
 
 export const PROJECT_CONFIG_PATH = ".harness/project.json" as const
 export const MASTER_LOGO_PATH = ".harness/brand/logo-1024.png" as const
+/** 已迁至需求定义的旧原型 PRD 参考；源与终端都必须拒绝其恢复，升级按受管删除处理。 */
+export const RETIRED_PRD_OUTLINE_PATH =
+  ".agents/skills/web-design-prototype/references/prd-outline.md" as const
 
 // Source-only project-creation paths that every terminal project must keep absent.
 export const HARNESS_ONLY_PATHS = [

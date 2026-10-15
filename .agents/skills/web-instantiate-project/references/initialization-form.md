@@ -38,7 +38,7 @@
 
 ## 可选输入与后续配置
 
-- `requirementsFile` / `--requirements-file`：详细需求文档绝对路径，CLI 接受非空 UTF-8 `.md` / `.txt`，最多 1 MiB；可选题实际回车表示不提供。Agent 可复用已给附件或全文，由需求定义分析界面需求、由功能组合选择独立能力，再将完整原文放在源与目标之外临时目录传入；创建确认只授权原文随 staging 保存到新项目 `docs/requirements/source.txt`，不把建议视为已批准 PRD。没有文档继续现有逐项选择。
+- `requirementsFile` / `--requirements-file`：详细需求文档绝对路径，CLI 接受非空 UTF-8 `.md` / `.txt`，最多 1 MiB；可选题实际回车表示不提供。Agent 可复用已给附件或全文，由需求定义分析界面需求、由功能组合选择独立能力，再将完整原文放在源与目标之外临时目录传入；创建确认只授权原文随 staging 保存到新项目 `docs/requirements/source.txt`，不把建议视为已确认 PRD。无文档时按原有题目逐项继续创建。
 
 - `englishName` / `--english-name`：项目名称的英文翻译，用于自动生成标识；英文显示名称可省略，不写入下游身份配置或自动扩充本地化。中文名称由 Agent 翻译，纯终端缺失时补问；非交互缺失且未给显式 id 时在写入前拒绝。
 - `developmentBaseUrl` / `--development-base-url`：开发 API 地址，可留空或后续配置。
