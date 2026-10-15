@@ -64,13 +64,16 @@ describe("localized identity and visible brand initialization", () => {
       const questions: string[] = []
       const resolved = await collectPromptedIdentity(
         {
-          targetRoot: path.resolve("..", "clipper"),
-          projectType: lateType ? undefined : "extension",
-          name: "Clipper",
-          id: "clipper",
-          description: "Clip useful pages.",
-          policyMode: "预设",
-          [field]: value
+          ...{
+            targetRoot: path.resolve("..", "clipper"),
+            projectType: lateType ? undefined : "extension",
+            name: "Clipper",
+            id: "clipper",
+            description: "Clip useful pages.",
+            policyMode: "预设",
+            [field]: value
+          },
+          requirementsFile: ""
         },
         async (question) => {
           questions.push(question)
@@ -94,12 +97,15 @@ describe("localized identity and visible brand initialization", () => {
   test("preserves long Web identity without extra questions", async () => {
     const resolved = await collectPromptedIdentity(
       {
-        targetRoot: path.resolve("..", "long-web"),
-        projectType: "web",
-        name: "N".repeat(76),
-        id: "long-web",
-        description: "D".repeat(133),
-        policyMode: "预设"
+        ...{
+          targetRoot: path.resolve("..", "long-web"),
+          projectType: "web",
+          name: "N".repeat(76),
+          id: "long-web",
+          description: "D".repeat(133),
+          policyMode: "预设"
+        },
+        requirementsFile: ""
       },
       async () => {
         throw new Error("Web identity must not be re-prompted")
@@ -150,12 +156,15 @@ describe("localized identity and visible brand initialization", () => {
     }
     const questions: string[] = []
     const answers = ["extension", " ", "Clip useful pages."]
-    const resolved = await collectPromptedIdentity(defaults, async (question) => {
-      questions.push(question)
-      const answer = answers.shift()
-      if (answer === undefined) throw new Error("Unexpected extra question")
-      return answer
-    })
+    const resolved = await collectPromptedIdentity(
+      { ...defaults, requirementsFile: "" },
+      async (question) => {
+        questions.push(question)
+        const answer = answers.shift()
+        if (answer === undefined) throw new Error("Unexpected extra question")
+        return answer
+      }
+    )
     expect(questions).toHaveLength(3)
     expect(questions[0]).toContain("字段： projectType")
     expect(questions[0]).not.toContain("字段： description")
@@ -165,17 +174,23 @@ describe("localized identity and visible brand initialization", () => {
     expect(resolved.inputSources.description).toBe("交互问答")
     for (const projectType of [" extension ", " 2 "]) {
       const conditionalQuestions: string[] = []
-      await collectPromptedIdentity({ ...defaults, projectType }, async (question) => {
-        conditionalQuestions.push(question)
-        return JSON.stringify({ description: "Explicit extension description" })
-      })
+      await collectPromptedIdentity(
+        { ...{ ...defaults, projectType }, requirementsFile: "" },
+        async (question) => {
+          conditionalQuestions.push(question)
+          return JSON.stringify({ description: "Explicit extension description" })
+        }
+      )
       expect(conditionalQuestions).toHaveLength(1)
       expect(conditionalQuestions[0]).toContain("字段： description")
     }
 
     await expect(
       collectPromptedIdentity(
-        { ...defaults, projectType: "extension", description: "Already supplied" },
+        {
+          ...{ ...defaults, projectType: "extension", description: "Already supplied" },
+          requirementsFile: ""
+        },
         async () => {
           throw new Error("Valid supplied description must not be asked again")
         }

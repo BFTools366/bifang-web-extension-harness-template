@@ -38,12 +38,15 @@ describe("初始化渐进式引导", () => {
       "1",
       "2"
     ]
-    const identity = await collectPromptedIdentity({}, async (question) => {
-      questions.push(question)
-      const answer = answers.shift()
-      if (answer === undefined) throw new Error("不应询问额外字段")
-      return answer
-    })
+    const identity = await collectPromptedIdentity(
+      { ...{}, requirementsFile: "" },
+      async (question) => {
+        questions.push(question)
+        const answer = answers.shift()
+        if (answer === undefined) throw new Error("不应询问额外字段")
+        return answer
+      }
+    )
     expect(answers).toEqual([])
     expect(questions.map((question) => question.split("\n")[0])).toEqual([
       "问题名称：项目类型",
@@ -78,7 +81,7 @@ describe("初始化渐进式引导", () => {
     const modeQuestions: string[] = []
     for (const userOwnedTasks of [undefined, "enabled"]) {
       await collectPromptedIdentity(
-        { ...BASE_INPUT, policyMode: undefined, userOwnedTasks },
+        { ...{ ...BASE_INPUT, policyMode: undefined, userOwnedTasks }, requirementsFile: "" },
         async (question) => {
           if (question.includes("字段： policyMode")) modeQuestions.push(question)
           return ""
@@ -95,9 +98,12 @@ describe("初始化渐进式引导", () => {
 
   /** 验证创建确认使用同一固定表单，取消和空回答均不能成为创建授权。 */
   test("固定创建确认选项说明写入边界且空回答取消", async () => {
-    const identity = await collectPromptedIdentity(BASE_INPUT, async () => {
-      throw new Error("已有字段无需补问")
-    })
+    const identity = await collectPromptedIdentity(
+      { ...BASE_INPUT, requirementsFile: "" },
+      async () => {
+        throw new Error("已有字段无需补问")
+      }
+    )
     const summary = {
       rawSourceRoot: repositoryRoot,
       canonicalSourceRoot: repositoryRoot,
@@ -204,7 +210,7 @@ describe("初始化渐进式引导", () => {
           sourceRoot: repositoryRoot,
           interactive: true,
           promptIdentity: (defaults) =>
-            collectPromptedIdentity(defaults, async () => {
+            collectPromptedIdentity({ ...defaults, requirementsFile: "" }, async () => {
               throw new Error("无需补问")
             }),
           confirm: async (summary) => {
@@ -228,7 +234,7 @@ describe("初始化渐进式引导", () => {
   test("自定义策略逐项回车接受既有预设", async () => {
     const questions: string[] = []
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, policyMode: "自定义" },
+      { ...{ ...BASE_INPUT, policyMode: "自定义" }, requirementsFile: "" },
       async (question) => {
         questions.push(question)
         return ""
@@ -265,7 +271,10 @@ describe("初始化渐进式引导", () => {
   test("已有单项策略时建议自定义并复用明确答案", async () => {
     const questions: string[] = []
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, policyMode: undefined, userOwnedTasks: "enabled" },
+      {
+        ...{ ...BASE_INPUT, policyMode: undefined, userOwnedTasks: "enabled" },
+        requirementsFile: ""
+      },
       async (question) => {
         questions.push(question)
         return ""
@@ -285,7 +294,10 @@ describe("初始化渐进式引导", () => {
     const target = path.resolve("..", "notes")
     const answers = ["", "Notes", "./notes", target]
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, name: "笔记", id: undefined, targetRoot: undefined },
+      {
+        ...{ ...BASE_INPUT, name: "笔记", id: undefined, targetRoot: undefined },
+        requirementsFile: ""
+      },
       async (question) => {
         questions.push(question)
         const answer = answers.shift()
@@ -311,7 +323,10 @@ describe("初始化渐进式引导", () => {
   test("父目录名不影响英文译名生成的项目标识", async () => {
     const questions: string[] = []
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, name: "项目名称", englishName: "Project Name", id: undefined },
+      {
+        ...{ ...BASE_INPUT, name: "项目名称", englishName: "Project Name", id: undefined },
+        requirementsFile: ""
+      },
       async (question) => {
         questions.push(question)
         return ""
@@ -329,7 +344,7 @@ describe("初始化渐进式引导", () => {
       JSON.stringify({ targetRoot: BASE_INPUT.targetRoot, englishName: "Bookmark Manager" })
     ]
     const resolved = await collectPromptedIdentity(
-      { projectType: "web", policyMode: "预设" },
+      { ...{ projectType: "web", policyMode: "预设" }, requirementsFile: "" },
       async () => {
         const answer = answers.shift()
         if (answer === undefined) throw new Error("不应询问自动生成的标识")
@@ -342,9 +357,12 @@ describe("初始化渐进式引导", () => {
 
   /** 验证已有显式标识继续复用，不因自动规则覆盖用户决定。 */
   test("复用显式标识且不要求补英文译名", async () => {
-    const resolved = await collectPromptedIdentity({ ...BASE_INPUT, name: "笔记" }, async () => {
-      throw new Error("不应重问已有标识")
-    })
+    const resolved = await collectPromptedIdentity(
+      { ...{ ...BASE_INPUT, name: "笔记" }, requirementsFile: "" },
+      async () => {
+        throw new Error("不应重问已有标识")
+      }
+    )
     expect(resolved.id).toBe(BASE_INPUT.id)
     expect(resolved.inputSources.id).toBe("命令行参数")
   })
@@ -354,7 +372,7 @@ describe("初始化渐进式引导", () => {
     const questions: string[] = []
     const answers = ["{bad", "web"]
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, projectType: undefined },
+      { ...{ ...BASE_INPUT, projectType: undefined }, requirementsFile: "" },
       async (question) => {
         questions.push(question)
         const answer = answers.shift()
@@ -375,7 +393,7 @@ describe("初始化渐进式引导", () => {
     const identity = JSON.stringify({ defaultLocale: "en", translations: {} })
     let questions = 0
     const resolved = await collectPromptedIdentity(
-      { ...BASE_INPUT, identityI18n: "{" },
+      { ...{ ...BASE_INPUT, identityI18n: "{" }, requirementsFile: "" },
       async (question) => {
         questions += 1
         expect(question).toContain("字段： identityI18n")

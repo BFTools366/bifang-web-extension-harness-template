@@ -20,7 +20,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 6. 下游的新产品、新页面、显著交互改版或用户要求原型时，先由 `$web-define-product` 澄清并记录唯一 PRD，再由 `$web-design-prototype` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实现前读取本轮 `docs/prototypes/<scope>/review.json` 并运行 `pnpm prototype:check <scope>`；PRD、原型漂移或尚未登记时不能进入该范围开发。已有有效登记且检查通过就复用，不要求用户选择方案或追加原型批准；用户要求暂缓开发时仍暂缓。范围清楚的日常小修复、无界面变更及 Harness 自身维护不强制重做 PRD/原型，但不能绕过尚未完成自查登记的同一设计范围。
 7. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 
-按 [功能模块组合](../web-design-prototype/references/prd-outline.md#功能模块组合) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
+真实页面、认证及业务代码和相关测试归本 Skill，模板装配在当前授权范围内完成；需求语义与 PRD 归需求定义，能力判据与资源选择归功能组合，实际原型归设计。按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
 ## 实现边界
 

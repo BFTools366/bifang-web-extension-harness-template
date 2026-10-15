@@ -20,7 +20,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 
 远端列表查询必须使用 GraphQL，先读取数据规则的“列表查询协议强约定”并核对实际 Query、Schema 与条件/排序/分页变量；TanStack Query 或 HTTP POST 不等于 GraphQL。只有 REST 列表的服务保持协议阻断，不降级绕过或猜造 GraphQL 能力；单对象与写操作仍按现有分工，迁移不超出当前实现授权。
 
-按 [功能模块组合](../web-design-prototype/references/prd-outline.md#功能模块组合) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
+按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
 持续 SSE/GraphQL Subscription 由 `$web-implement-event-stream` 拥有连接与恢复；收到这类接入时传递已有配置、契约和授权范围给它，不套用有限 `requestHttpQuery`、不建立第二连接。混合流程只在此接入有限请求部分，两者返回当前调用方。
 

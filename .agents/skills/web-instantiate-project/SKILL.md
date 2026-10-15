@@ -1,6 +1,6 @@
 ---
 name: web-instantiate-project
-description: 通过源 Web Harness 唯一公开入口向源外空目录创建全新的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游，安全重置模板身份并建立独立 Git 根。用于创建单一类型前端项目；不得用于原地初始化或修改已初始化项目。
+description: 通过源 Web Harness 唯一公开入口创建独立的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 项目，负责宿主选择、工程输入、原文事务交接与独立 Git 基线；需求语义委托产品定义、能力选择归功能组合，不在源定义或实施产品，不用于原地初始化。
 ---
 
 # Web Harness：实例化前端项目
@@ -12,12 +12,12 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 创建前同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用清单中的问题名称、题面、选项与顺序；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
 
 1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮只问一个：唯一项目类型、展示名称、源 Harness 之外的完整绝对父目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
-2. 要求用户明确选择唯一宿主：1.Web（`web`）或 2.Extension（`extension`），复用合法选择，不默认或推断。创建工程保持中性；功能组合在成功下游按 [创建与开发 SOP](../web-design-prototype/references/prd-outline.md#创建与开发-sop) 进行，不在源收集产品功能。
+2. 要求用户明确选择唯一宿主：1.Web（`web`）或 2.Extension（`extension`），复用合法选择，不默认或从文档推断。随后按固定题目询问可选详细需求，已给文档或全文直接复用；有文档时读取 [创建需求输入与事务交接](references/requirements-intake.md)，需求分析委托 `$web-define-product` 的创建前只读模式，能力选择由其委托 `$web-compose-capabilities`；本 Skill 只传递输入和展示返回结果，不拥有需求或能力判据。无文档时继续现有逐项选择。创建工程保持中性，原文经 `--requirements-file` 随事务交接，正式 PRD、原型与功能实施在成功下游按 [创建与开发 SOP](references/requirements-intake.md#创建与开发-sop) 进行。
 3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户登记记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
 
-1. 调用 `$web-prepare-brand-identity` 的首次实例化分支：只使用已收集的名称、id、说明、品牌色和用户提供源图。已有图像先查看；没有源图时优先使用可用图像生成能力生成项目 Logo 候选并展示，复用用户选择或当前明确生成授权。源 Harness 只处理固定品牌输入，不收集或推导产品业务。
+1. 调用 `$web-prepare-brand-identity` 的首次实例化分支：只使用已收集的名称、id、说明、品牌色和用户提供源图。已有图像先查看；没有源图时优先使用可用图像生成能力生成项目 Logo 候选并展示，复用用户选择或当前明确生成授权。创建需求分析不扩大品牌输入或授权。
 2. 候选放在源/目标之外的临时目录，作为 `--logo <absolute-path>` 导入；不向源、目标或 staging 提前写入。没有图像生成能力时明确使用离线确定性生成器，不能把通用几何图形称为已完成定制设计。创建成功后查看规范母版并展示其路径，以及 Web Logo/Favicon 或 Extension icon；不以文件存在替代视觉检查。
 3. 名称和说明使用根字段作为默认语言，可通过 `--identity-i18n` JSON 提供 `defaultLocale` 和另一语言的完整 `translations`。当前与既有 UI 对齐支持 `en` 和 `zh_CN`；不猜测翻译。精确配置见 `docs/TS_WEB_TEMPLATE.md` §3.1。
 
@@ -29,7 +29,7 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 4. 本次首次初始化调用 `$web-check-development-environment` 一次，只检查 Node.js/pnpm；同时运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Chrome/Firefox 不属于初始化门禁；Git 缺失、模板验证失败或模板状态无法可信识别时停止。
 5. 在复制前固定受维护种子文件清单，再按清单复制到目标同级 sibling staging。排除源 `.git`、`node_modules`、`dist`、`build`、`.plasmo`、缓存、覆盖率、发布产物、临时证据、下游项目、Harness 专用 `Version.md`、`docs/VERIFICATION.md`、`docs/verification/**` 及全部日期项目记忆；下游版本事实来自根 `package.json`。
 6. 保留长期规范、许可证、`instantiate` 内部生成所需 tooling、适用 Skills 和锁文件。重置模板名称、示例标识、本机绝对路径、已完成声明和 Harness 历史；法律文本只允许按许可证规则替换精确项目名称。
-7. 不预建 Product Spec、Work Plan、ADR、Status、Verification 或 Changelog。项目记忆只在负责它的后续事件触发时创建。
+7. 不预建 Product Spec、Work Plan、ADR、Status、Verification 或 Changelog。可选原文只保存为下游 `docs/requirements/source.txt` 与交接说明，且不从源复制任何既存 `docs/requirements/`。项目记忆只在负责它的后续事件触发时创建。
 
 ## 建立独立仓库
 
@@ -45,6 +45,8 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
    pnpm instantiate -- <absolute-parent-outside-harness> --type <web|extension> \
      --name "<display-name>" --english-name "<English translation>" --policy-mode <预设|自定义>
    ```
+
+   有需求文档时追加 `--requirements-file <absolute-md-or-txt>`；Agent 处理附件/全文时使用源与目标之外临时目录中的完整文本。CLI 只交接原文，需求分析与建议由对应 Skill 返回，不能把 CLI 成功声明为业务已实现。
 
    自定义策略模式必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
@@ -66,4 +68,4 @@ description: 通过源 Web Harness 唯一公开入口向源外空目录创建全
 
 ## 完成输出
 
-报告模板根、目标根、唯一项目类型、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 顶层/分支、有效身份及其来源、受管提交模板检查、唯一基线 commit、无远端与 clean 状态、Logo 来源、母版与派生路径及视觉检查、身份本地化及回退、初始化期未生成 Release 产物、验证结果及下一步。Web 下一步明确切换到成功下游，按需选择功能模块按创建与开发 SOP 完成唯一 PRD、原型登记与实施；不在源继续产品定义。不得复述源根已拒绝的产品需求。
+报告模板根、目标根、唯一项目类型、三环境/BaseURL（只报告安全摘要，不泄露不必要信息）、初始化耗时、复制与排除摘要、身份和历史重置、一次依赖安装、Agent Policy 决定、Git 顶层/分支、有效身份及其来源、受管提交模板检查、唯一基线 commit、无远端与 clean 状态、Logo 来源、母版与派生路径及视觉检查、身份本地化及回退、初始化期未生成 Release 产物、验证结果及下一步。有需求时报告原文路径与摘要、基础布局和能力建议及待确认项，并在成功下游复用原文继续；无需求时按现有逐项选择方式继续。两类宿主均按原请求授权在成功下游继续唯一 PRD、原型登记与实施；仅授权创建时交付建议和下一步，不自动进入产品开发，不在源写产品记录或业务代码。

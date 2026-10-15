@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process"
 import { chmod, lstat, mkdtemp, realpath } from "node:fs/promises"
 import path from "node:path"
+import { validateCreationRequirements, writeCreationRequirements } from "./creation-requirements.ts"
 import { promisify } from "node:util"
 import { checkCommitConfiguration } from "../../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { normalizeAgentPolicy } from "./agent-policy.ts"
@@ -96,6 +97,8 @@ function isNestedPath(parent: string, candidate: string): boolean {
 function shouldExclude(relativePath: string, name: string): boolean {
   if (!relativePath.includes("/") && !TOP_LEVEL_SEED_NAMES.has(name)) return true
   if (EXCLUDED_NAMES.has(name)) return true
+  // 用户需求只来自本次输入，不复制源中遗留材料；不能加入终端记忆裁剪名单。
+  if (relativePath === "docs/requirements") return true
   if (relativePath === ".agents/skills/manage-project-surfaces") return true
   if (relativePath === ".agents/skills/web-curate-harness-memory") {
     return true
@@ -126,6 +129,7 @@ export async function instantiateProject(
 ): Promise<ProjectConfig> {
   // 保存 requestedSourceRoot 变量，在 realpath 前拒绝符号链接源根。
   const requestedSourceRoot = path.resolve(options.sourceRoot)
+  if (options.requirements !== undefined) validateCreationRequirements(options.requirements)
   const sourceStatus = await lstat(requestedSourceRoot)
   if (sourceStatus.isSymbolicLink() || !sourceStatus.isDirectory()) {
     throw new Error(`Instantiation source must be a real directory: ${requestedSourceRoot}`)
@@ -221,6 +225,9 @@ export async function instantiateProject(
       )
       stagingSnapshot = await captureDirectorySnapshot(stagingRoot, "Staging directory")
       await copyTemplateSnapshot(sourceSnapshot, stagingRoot)
+      if (options.requirements !== undefined) {
+        await writeCreationRequirements(stagingRoot, options.requirements)
+      }
       // 保存 config 变量供当前逻辑使用。
       const config = await initialize(
         { ...options.init, logoPath, root: stagingRoot },

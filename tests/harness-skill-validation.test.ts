@@ -1,4 +1,4 @@
-import { readFile, rename, rm, writeFile } from "node:fs/promises"
+import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
 import { validateHarness } from "../scripts/validate-harness.ts"
@@ -6,6 +6,14 @@ import { copyRepository } from "./harness-validator-fixture.ts"
 
 /** 验证 Harness Skill and Agent policy validation 的完整回归场景。 */
 describe("Harness Skill and Agent policy validation", () => {
+  /** 验证源不能恢复旧 PRD 副本，即使所属 Skill 仍按 managed 规则治理。 */
+  test("rejects restored PRD guidance under the prototype owner", async () => {
+    const root = await copyRepository()
+    const file = path.join(root, ".agents/skills/web-design-prototype/references/prd-outline.md")
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, "# Retired PRD contract\n")
+    await expect(validateHarness(root)).rejects.toThrow(/Retired PRD reference/)
+  })
   /** 验证拆分后的只读、授权、恢复和绑定边界仍受源门禁约束。 */
   test.each([
     ["web-review-api-contract", "不修改代码、配置、测试或文档"],
@@ -15,6 +23,13 @@ describe("Harness Skill and Agent policy validation", () => {
     ["web-implement-access-control", "不依赖被拒绝的业务权限"],
     ["web-compose-capabilities", "知识库与模板库独立索引"],
     ["web-compose-capabilities", "远端列表查询必须使用 GraphQL"],
+    ["web-instantiate-project", "需求分析委托 `$web-define-product`"],
+    ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
+    ["web-define-product", "只读分析完成后返回调用方"],
+    ["web-define-product", "创建确认不批准产品范围"],
+    ["web-compose-capabilities", "源阶段不取代码模板、不写入工程、不调用组装器"],
+    ["web-compose-capabilities", "代码装配与测试由 `$web-implement-change` 负责"],
+    ["web-compose-capabilities", "读取后返回当前调用方"],
     ["web-document-api", "客户端控制参数不属于 wire 字段"],
     ["web-document-api", "HTTP 待确认项"],
     ["web-document-api", "远端列表查询必须使用 GraphQL"],
@@ -70,9 +85,14 @@ describe("Harness Skill and Agent policy validation", () => {
       await writeFile(skillPath, skillSource.replace(requirement, "已移除该设计约束"))
       await expect(validateHarness(targetRoot)).rejects.toThrow(/missing required workflow/)
     }
-    for (const relative of ["references/prd-outline.md", "scripts/prototype-review.ts"]) {
+    for (const [skill, relative] of [
+      ["web-define-product", "references/prd-outline.md"],
+      ["web-define-product", "references/requirements-analysis.md"],
+      ["web-compose-capabilities", "references/requirements-selection.md"],
+      ["web-design-prototype", "scripts/prototype-review.ts"]
+    ] as const) {
       const resourceRoot = await copyRepository()
-      await rm(path.join(resourceRoot, ".agents/skills/web-design-prototype", relative))
+      await rm(path.join(resourceRoot, ".agents/skills", skill, relative))
       await expect(validateHarness(resourceRoot)).rejects.toThrow(/Missing required file/)
     }
   })

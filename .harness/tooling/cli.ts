@@ -17,6 +17,7 @@ import { isMainModule } from "./files.ts"
 
 const INIT_OPTIONS = [
   "type",
+  "requirements-file",
   "name",
   "english-name",
   "id",
@@ -42,7 +43,7 @@ function usage(): string {
 
 创建项目（目标必须位于本 Harness 仓库之外）：
   pnpm instantiate -- <absolute-parent> --type web|extension --name <name> \\
-    [--english-name <English translation>] [--id <id>] \\
+    [--english-name <English translation>] [--id <id>] [--requirements-file <absolute-md-or-txt>] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
     [--description <description>（Extension 必填）] [--identity-i18n <json>] \\
@@ -147,6 +148,7 @@ export async function resolveInitOptions(
   const supplied = {
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
+    requirementsFile: readStringOption(args, "requirements-file", true),
     name: readStringOption(args, "name"),
     englishName: readStringOption(args, "english-name"),
     id: readStringOption(args, "id"),
@@ -207,6 +209,7 @@ export async function resolveInitOptions(
   return {
     root: identity.targetRoot ?? root,
     projectType,
+    requirementsFile: identity.requirementsFile || undefined,
     name: identity.name ?? "",
     englishName: identity.englishName,
     id,

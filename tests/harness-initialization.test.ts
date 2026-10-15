@@ -21,13 +21,14 @@ import {
 
 /** 验证初始化只完整分发下游原型工作流，业务记录与原型不在创建时产生。 */
 async function expectPrototypeWorkflowDistributed(root: string): Promise<void> {
-  for (const relative of [
-    "SKILL.md",
-    "agents/openai.yaml",
-    "references/prd-outline.md",
-    "scripts/prototype-review.ts"
+  for (const skillPath of [
+    ".agents/skills/web-design-prototype/SKILL.md",
+    ".agents/skills/web-design-prototype/agents/openai.yaml",
+    ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
+    ".agents/skills/web-define-product/references/prd-outline.md",
+    ".agents/skills/web-define-product/references/requirements-analysis.md",
+    ".agents/skills/web-compose-capabilities/references/requirements-selection.md"
   ]) {
-    const skillPath = ".agents/skills/web-design-prototype/" + relative
     expect(await readFile(path.join(root, skillPath), "utf8")).toBe(
       await readFile(path.join(repositoryRoot, skillPath), "utf8")
     )
@@ -166,12 +167,15 @@ describe("single-package Harness initialization", () => {
   test("collects only required identity and Chinese preset fields", async () => {
     const questions: string[] = []
     const answers = ["web", "Simple Web", path.join(repositoryRoot, "..", "simple-web"), ""]
-    const resolved = await collectPromptedIdentity({ confirmedBy: " " }, async (question) => {
-      questions.push(question)
-      const answer = answers.shift()
-      if (answer === undefined) throw new Error("Unexpected extra initialization question")
-      return answer
-    })
+    const resolved = await collectPromptedIdentity(
+      { ...{ confirmedBy: " " }, requirementsFile: "" },
+      async (question) => {
+        questions.push(question)
+        const answer = answers.shift()
+        if (answer === undefined) throw new Error("Unexpected extra initialization question")
+        return answer
+      }
+    )
     const fields = ["projectType", "name", "targetRoot", "policyMode"]
     expect(questions).toHaveLength(fields.length)
     for (const [index, field] of fields.entries()) {

@@ -678,6 +678,14 @@
       "mode": "tombstone"
     },
     {
+      "pattern": ".harness/tooling/creation-requirements.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/creation-requirements.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/node-tooling.test.ts",
       "mode": "tombstone"
     },

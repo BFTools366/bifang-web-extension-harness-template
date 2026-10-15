@@ -44,6 +44,8 @@ export function parsePolicyMode(value: string): AgentPolicyMode {
 export interface PromptDefaults {
   targetRoot?: string
   projectType?: string
+  /** 保存可选需求原文路径；空字符串表示用户选择继续逐项引导。 */
+  requirementsFile?: string
   name?: string
   englishName?: string
   id?: string
@@ -150,6 +152,12 @@ function normalizeBasicField(
   if (field === "projectType") {
     return parseProjectType(requiredText(value, "项目类型"))
   }
+  if (field === "requirementsFile") {
+    if (value === undefined) throw new Error("提供需求文档绝对路径，或回车继续现有逐项选择")
+    const file = value.trim()
+    if (file && !path.isAbsolute(file)) throw new Error("需求文档必须提供绝对路径")
+    return file
+  }
   if (field === "name") {
     const name = requiredText(value, "项目名称")
     if (isExtension) assertExtensionIdentityText(name, "name")
@@ -215,6 +223,7 @@ function normalizeBasicField(
 
 /** 从已知身份推荐可接受的默认值，不猜项目类型、路径或服务地址。 */
 function suggestedBasicValue(field: BasicField, values: PromptDefaults): string | undefined {
+  if (field === "requirementsFile") return ""
   if (field === "policyMode") {
     return [
       values.superpowers,

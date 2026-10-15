@@ -9,11 +9,11 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 
 ## 准入与事实
 
-1. 仅在已初始化下游运行：确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，在分析或记录业务需求前停止，要求切换到下游后重提。Harness 自身维护本 Skill 不受此限制。
-2. 初始化仅分发 Skills，不执行需求澄清、PRD、原型或登记，不增加初始化问题，也不读写全局 Skills。
-3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；按 [PRD 结构](references/prd-outline.md) 补齐当前范围。只逐项澄清影响当前设计的关键缺口，复用已确认事实，不重启整套问卷。
+1. 仅在已初始化下游运行：确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，停止原型工作，创建需求输入交给源实例化流程；成功后切换到下游并复用原文继续。Harness 自身维护本 Skill 不受此限制。
+2. 初始化仅分发 Skills、中性工程与可选需求原文，不执行正式 PRD、原型或登记，也不读写全局 Skills；创建需求语义与下游 PRD 归 `$web-define-product`，能力选择归 `$web-compose-capabilities`，本 Skill 只拥有实际桌面布局、交互原型与登记。
+3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；PRD 的结构和范围补齐归需求定义，记录合同见 [PRD 结构](../web-define-product/references/prd-outline.md)。只逐项澄清影响当前设计的关键缺口，复用已确认事实，不重启整套问卷。
 4. Product Spec 是唯一 PRD，不另建 `docs/prd/`。需求须为 `Approved`；原型摘要只登记在 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。登记不代表用户新增授权或交互质量已验证。
-5. 按 [功能模块组合](references/prd-outline.md#功能模块组合) 继承已选模块与具体操作，只读对应知识和设计参考；未选能力不进入原型。管理目标组织与操作者身份分开，Extension 按实际 surface 适配。
+5. 按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 继承已选模块与具体操作，只读对应知识和设计参考；未选能力不进入原型。管理目标组织与操作者身份分开，Extension 按实际 surface 适配。
 
 ## 产出与自查
 
@@ -23,7 +23,7 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
    HTML 是设计媒介，开发仍使用既有 React/Mantine/TypeScript/i18n。`design-taste-frontend` 只在 UI 规范允许的范围内调用，不让其多方案或移动偏好覆盖本 Skill。
    Web 采用工作区时按 UI 规范“路由布局与插槽”展示父布局、叶页面与 URL 对应；慢加载保持外壳。只为已选操作展示认证页、安全返回与失败恢复，离线模拟不证明真实鉴权。
 4. 展示前自查主线、跳转、关键状态、键盘/焦点、标签及桌面窗口溢出；将实际证据、问题和未执行项写入版本目录 `review.md`。有浏览器能力时走查原型；没有时保留可打开文件并明确浏览器未检查，不伪造交互或桌面布局通过。此步骤不触发发布构建、候选验收或 E2E。
-5. 将影响规则、数据、状态及验收的发现回写 PRD；实质需求变化须复用或取得用户确认。自查完成、消除阻断后展示唯一原型链接和最短试用路径，不提出 A/B 选择题，也不把修改意见变成新增方案。
+5. 将影响规则、数据、状态及验收的发现返回 `$web-define-product`，由需求定义修订唯一 PRD 并复用或取得范围确认，再返回当前原型；本 Skill 不直接决定或批准需求范围。自查完成、消除阻断后展示唯一原型链接和最短试用路径，不提出 A/B 选择题，也不把修改意见变成新增方案。
 6. 在下游根运行以下命令，替换为真实路径：
 
    ```text

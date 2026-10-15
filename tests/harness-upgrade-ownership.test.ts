@@ -22,6 +22,10 @@ import {
 } from "./harness-upgrade-fixture.ts"
 
 const REQUIRED_SOURCE_FILES = [
+  ".agents/skills/web-define-product/SKILL.md",
+  ".agents/skills/web-define-product/agents/openai.yaml",
+  ".agents/skills/web-define-product/references/requirements-analysis.md",
+  ".agents/skills/web-compose-capabilities/references/requirements-selection.md",
   ".agents/skills/web-compose-capabilities/catalog.json",
   ".agents/skills/web-compose-capabilities/knowledge/identity.md",
   ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/session.ts.txt",
@@ -56,7 +60,7 @@ const REQUIRED_SOURCE_FILES = [
   ".agents/skills/web-document-api/scripts/check-export.ts",
   ".agents/skills/web-design-prototype/SKILL.md",
   ".agents/skills/web-design-prototype/agents/openai.yaml",
-  ".agents/skills/web-design-prototype/references/prd-outline.md",
+  ".agents/skills/web-define-product/references/prd-outline.md",
   ".agents/skills/web-design-prototype/scripts/prototype-review.ts"
 ]
 
@@ -227,19 +231,21 @@ describe("upgrade ownership protection", () => {
   )
 
   /** 验证原型与 API 导出 Skill 的每个资源均被精确传播清单锚定。 */
-  test.each(["web-design-prototype", "web-document-api", "web-compose-capabilities"])(
-    "anchors every %s skill file in the required propagation list",
-    async (skill) => {
-      const skillRoot = path.resolve(".agents/skills", skill)
-      const actual = (await walkFiles(skillRoot)).map(
-        (file) =>
-          `.agents/skills/${skill}/${path.relative(skillRoot, file).split(path.sep).join("/")}`
-      )
-      for (const file of actual) {
-        expect(REQUIRED_MANAGED_SOURCE_PATHS, `${file} must be anchored`).toContain(file)
-      }
+  test.each([
+    "web-define-product",
+    "web-design-prototype",
+    "web-document-api",
+    "web-compose-capabilities"
+  ])("anchors every %s skill file in the required propagation list", async (skill) => {
+    const skillRoot = path.resolve(".agents/skills", skill)
+    const actual = (await walkFiles(skillRoot)).map(
+      (file) =>
+        `.agents/skills/${skill}/${path.relative(skillRoot, file).split(path.sep).join("/")}`
+    )
+    for (const file of actual) {
+      expect(REQUIRED_MANAGED_SOURCE_PATHS, `${file} must be anchored`).toContain(file)
     }
-  )
+  })
 
   /** 验证磁盘上的每个 Skill 目录都被所有权清单显式覆盖，新增 Skill 漏登记会失败。 */
   test("covers every on-disk skill directory with an ownership rule", async () => {

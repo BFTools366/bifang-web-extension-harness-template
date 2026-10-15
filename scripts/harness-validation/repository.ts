@@ -146,6 +146,10 @@ export function isSingleChineseSentence(value: string): boolean {
 // 执行 validateSkills 函数的处理逻辑。
 export async function validateSkills(root: string, errors: string[]): Promise<string[]> {
   const skillsRoot = path.join(root, ".agents/skills")
+  // PRD 结构已归需求定义，源也必须拒绝旧原型目录恢复第二份合同。
+  if (await pathExists(path.join(skillsRoot, "web-design-prototype/references/prd-outline.md"))) {
+    errors.push("Retired PRD reference must remain absent from web-design-prototype")
+  }
   const entries = await readdir(skillsRoot, { withFileTypes: true })
   const actual = entries
     .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())

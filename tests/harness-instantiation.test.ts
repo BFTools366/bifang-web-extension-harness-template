@@ -70,11 +70,22 @@ describe("minimal public instantiation inputs", () => {
       ).rejects.toThrow()
       expect(await readFile(path.join(targetRoot, "docs/README.md"), "utf8")).toContain("(API.md)")
       expect(await readFile(path.join(targetRoot, "AGENTS.md"), "utf8")).toContain("docs/API.md")
-      // 两宿主都分发共同 PRD 合同；只有 Web 入口暴露三类业务导航，链接必须能解析。
-      const prdOutline = ".agents/skills/web-design-prototype/references/prd-outline.md"
-      expect(await readFile(path.join(targetRoot, prdOutline), "utf8")).toBe(
-        await readFile(path.join(repositoryRoot, prdOutline), "utf8")
-      )
+      // 两宿主按拥有者分发需求、PRD 与能力合同，旧原型目录不保留第二份需求规则。
+      for (const reference of [
+        ".agents/skills/web-define-product/references/prd-outline.md",
+        ".agents/skills/web-define-product/references/requirements-analysis.md",
+        ".agents/skills/web-compose-capabilities/references/requirements-selection.md"
+      ]) {
+        expect(await readFile(path.join(targetRoot, reference), "utf8")).toBe(
+          await readFile(path.join(repositoryRoot, reference), "utf8")
+        )
+      }
+      await expect(
+        readFile(
+          path.join(targetRoot, ".agents/skills/web-design-prototype/references/prd-outline.md"),
+          "utf8"
+        )
+      ).rejects.toThrow()
       expect(config).not.toHaveProperty("webType")
       expect(config).not.toHaveProperty("saasCommerce")
       const identity = JSON.parse(

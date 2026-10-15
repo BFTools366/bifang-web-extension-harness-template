@@ -7,40 +7,40 @@
 ## 启动门禁
 
 1. **读取策略**：先读取本文件，再读取 `docs/AGENT_POLICY.md` 的 YAML 文件头元数据与字段语义；只有创建/执行左侧 Task、显式并行、构建或修改持久策略时，才继续读取对应章节。
-2. **识别工作区**：存在 `.harness/project.json` 时按其唯一 `projectType` 处理下游；没有该文件且仍有源专用实例化入口时执行源范围门禁：只接受 Harness 自身维护，以及创建下游所需的固定初始化字段。产品目的、业务功能、产品专属 UI/文案/数据、远程地址、凭据、产品构建或发布需求不得在模板源中接收、分析、记录或实施；混合请求只解析允许的初始化部分，其余要求用户在成功下游重提。身份无法确认时先查明，不猜测源/下游。
+2. **识别工作区**：存在 `.harness/project.json` 时按其唯一 `projectType` 处理下游；没有该文件且仍有源专用实例化入口时执行源范围门禁：只接受 Harness 自身维护、固定初始化字段与可选创建需求输入。创建需求输入只作只读分析与事务交接；产品目的、业务功能、产品专属 UI/文案/数据不得写入模板源，正式产品定义、产品记录与业务实施只在成功下游进行。需求原文和已讨论建议直接沿用，不要求用户重提；远程地址、凭据、构建或发布另按专用门禁。身份无法确认时先查明，不猜测源/下游。
 3. **保护现场**：写入前确认 Git 根、分支和工作区并保护已有修改；重叠无法安全处理时停止。不存在的命令、能力或验证结果不得虚构。
 4. **选择入口**：先判定任务类型，再只读取下表命中的事实来源与 Skill；冲突或缺失时才扩大读取，不一次加载全部文档、历史或 Skills。
 
 ## 按任务渐进读取
 
-| 当前任务                                      | 读取内容                                                                                         | 执行入口                                                                                             |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| Harness 文档、规则、脚本或 Skill 维护         | `docs/ENGINEERING_RULES.md`；再读直接影响的事实源、脚本和测试                                    | `$web-implement-change`；真实结构问题同时用 `$web-refactor-code`                                     |
-| 创建新下游                                    | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单                                    | `$web-instantiate-project`；品牌步骤按需用 `$web-prepare-brand-identity`                             |
-| 下游需求澄清、PRD 与桌面原型                  | 已初始化下游的 `docs/product_spec/`；原型任务再读当前宿主 UI 规范和对应原型记录                  | `$web-define-product` → `$web-design-prototype` → 原型登记后 `$web-implement-change`；产品流程仅下游 |
-| 范围清楚的实现、问题修复或 i18n 整理          | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实                                | `$web-implement-change`、`$web-extract-i18n-strings`                                                 |
-| React Web 列表、数据表格或搜索结果            | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约                              | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用                                |
-| UI、页面、Popup、Options、响应式或无障碍      | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                                   | `$web-implement-change`                                                                              |
-| 功能模块组合                                  | 当前 PRD、所选模块知识与模板索引、真实契约                                                       | `$web-compose-capabilities`；按具体操作组合，不按产品分类启用                                        |
-| 下游真实 HTTP 接入或 Mock 迁移                | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约                      | `$web-connect-http-service`；实施与列表流程按接入事件委托                                            |
-| 同步导出 API 与已实现业务说明                 | 当前实现、业务需求、已选服务契约与既有模块文档                                                   | `$web-document-api`；在下游 `docs/api/` 按业务聚合接口与流程，维护关联并核对漂移                     |
-| Extension 宿主边界兼容审查                    | 当前下游工程规则、受影响消费者与双目标证据                                                       | `$web-review-extension-compatibility`；仅 Extension，只读                                            |
-| 环境、数据、认证、基础 API 契约、事件流或日志 | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`；基础契约另读 `docs/API.md` | `$web-implement-change`                                                                              |
-| API 契约核对或漂移审查                        | 当前操作的可信来源、API 实现/类型/消费者/测试；相关数据章节                                      | `$web-review-api-contract`，只读                                                                     |
-| 职责、依赖或状态归属审查                      | 工程规则的模块边界与目标代码/消费者                                                              | `$web-review-module-boundaries`，只读                                                                |
-| 权限入口、撤权或作用域变化                    | 当前权限契约、身份与受影响入口                                                                   | `$web-implement-access-control`                                                                      |
-| 写入重复、冲突或未知恢复                      | 当前操作的幂等/版本/查询与允许状态契约                                                           | `$web-implement-write-recovery`                                                                      |
-| 真实本地存储访问或迁移                        | 数据访问的存储与状态所有权章节、实际消费者                                                       | `$web-implement-browser-storage`                                                                     |
-| 持续事件或多来源时序                          | 数据访问中实际命中的 SSE/Subscription/RxJS 与宿主章节                                            | `$web-implement-event-stream`                                                                        |
-| 创建或检查左侧 user-owned Task                | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”                                    | `$web-manage-user-tasks`；`user_owned_tasks` 启用或用户明确要求时调用                                |
-| 既有 Worktree 审计                            | 主工作区 Git 身份与既有并行登记                                                                  | `$web-audit-worktrees`，只读，不要求并行创建开关启用                                                 |
-| 当前 Task 内部并行或提交                      | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill                                        | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                                          |
-| 恢复、阻断、交接或持久计划                    | 最新产品状态；用户要求或已有活动计划时读最新工作计划                                             | `$web-plan-change`，仅在独立触发器成立时                                                             |
-| 显式候选、完整验收或 E2E                      | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则                                         | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`                       |
-| 长期决定、硬例外或源记忆整理                  | `docs/adr/README.md` 与最新架构决策记录（ADR）；只追溯其明确引用                                 | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                                              |
-| 回顾开发历程、决策沿革或未来方向              | 实际存在的记忆索引与 Git 历史；按问题限定范围                                                    | `$web-summarize-development-history`；默认只读、不改写记忆                                           |
-| 理解 Harness 方法                             | `docs/HARNESS_ENGINEERING.md`，再按索引选择一个主题卷                                            | 不因阅读自动进入计划、构建或验收                                                                     |
-| 升级已初始化下游                              | 下游事实、源版本和升级 Skill 指定资料                                                            | `$web-preview-harness-upgrade` 只读比较；`$web-upgrade-harness` 承接已批准应用                       |
+| 当前任务                                      | 读取内容                                                                                         | 执行入口                                                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Harness 文档、规则、脚本或 Skill 维护         | `docs/ENGINEERING_RULES.md`；再读直接影响的事实源、脚本和测试                                    | `$web-implement-change`；真实结构问题同时用 `$web-refactor-code`                                           |
+| 创建新下游                                    | `README.md`、`docs/TS_WEB_TEMPLATE.md`、实例化 Skill 及其表单                                    | `$web-instantiate-project`；需求只读委托 `$web-define-product` → `$web-compose-capabilities`；品牌按需处理 |
+| 下游需求澄清、PRD 与桌面原型                  | 已初始化下游的 `docs/product_spec/`；原型任务再读当前宿主 UI 规范和对应原型记录                  | `$web-define-product` → `$web-design-prototype` → `$web-implement-change`；正式 PRD、设计与实施仅下游      |
+| 范围清楚的实现、问题修复或 i18n 整理          | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实                                | `$web-implement-change`、`$web-extract-i18n-strings`                                                       |
+| React Web 列表、数据表格或搜索结果            | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约                              | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用                                      |
+| UI、页面、Popup、Options、响应式或无障碍      | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                                   | `$web-implement-change`                                                                                    |
+| 功能模块组合                                  | 当前 PRD、所选模块知识与模板索引、真实契约                                                       | `$web-compose-capabilities`；按具体操作组合，不按产品分类启用                                              |
+| 下游真实 HTTP 接入或 Mock 迁移                | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约                      | `$web-connect-http-service`；实施与列表流程按接入事件委托                                                  |
+| 同步导出 API 与已实现业务说明                 | 当前实现、业务需求、已选服务契约与既有模块文档                                                   | `$web-document-api`；在下游 `docs/api/` 按业务聚合接口与流程，维护关联并核对漂移                           |
+| Extension 宿主边界兼容审查                    | 当前下游工程规则、受影响消费者与双目标证据                                                       | `$web-review-extension-compatibility`；仅 Extension，只读                                                  |
+| 环境、数据、认证、基础 API 契约、事件流或日志 | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`；基础契约另读 `docs/API.md` | `$web-implement-change`                                                                                    |
+| API 契约核对或漂移审查                        | 当前操作的可信来源、API 实现/类型/消费者/测试；相关数据章节                                      | `$web-review-api-contract`，只读                                                                           |
+| 职责、依赖或状态归属审查                      | 工程规则的模块边界与目标代码/消费者                                                              | `$web-review-module-boundaries`，只读                                                                      |
+| 权限入口、撤权或作用域变化                    | 当前权限契约、身份与受影响入口                                                                   | `$web-implement-access-control`                                                                            |
+| 写入重复、冲突或未知恢复                      | 当前操作的幂等/版本/查询与允许状态契约                                                           | `$web-implement-write-recovery`                                                                            |
+| 真实本地存储访问或迁移                        | 数据访问的存储与状态所有权章节、实际消费者                                                       | `$web-implement-browser-storage`                                                                           |
+| 持续事件或多来源时序                          | 数据访问中实际命中的 SSE/Subscription/RxJS 与宿主章节                                            | `$web-implement-event-stream`                                                                              |
+| 创建或检查左侧 user-owned Task                | `docs/AGENT_POLICY.md` 的“用户可见 Task 开关、粒度与创建门禁”                                    | `$web-manage-user-tasks`；`user_owned_tasks` 启用或用户明确要求时调用                                      |
+| 既有 Worktree 审计                            | 主工作区 Git 身份与既有并行登记                                                                  | `$web-audit-worktrees`，只读，不要求并行创建开关启用                                                       |
+| 当前 Task 内部并行或提交                      | `docs/AGENT_POLICY.md` 的相关章节；实际提交再读提交 Skill                                        | `$web-run-parallel-worktrees`、`$web-configure-git-commits`                                                |
+| 恢复、阻断、交接或持久计划                    | 最新产品状态；用户要求或已有活动计划时读最新工作计划                                             | `$web-plan-change`，仅在独立触发器成立时                                                                   |
+| 显式候选、完整验收或 E2E                      | `docs/RELEASE.md`、`docs/VERIFICATION.md` 与当前宿主规则                                         | `$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`                             |
+| 长期决定、硬例外或源记忆整理                  | `docs/adr/README.md` 与最新架构决策记录（ADR）；只追溯其明确引用                                 | 对应记录流程；源历史整理用 `$web-curate-harness-memory`                                                    |
+| 回顾开发历程、决策沿革或未来方向              | 实际存在的记忆索引与 Git 历史；按问题限定范围                                                    | `$web-summarize-development-history`；默认只读、不改写记忆                                                 |
+| 理解 Harness 方法                             | `docs/HARNESS_ENGINEERING.md`，再按索引选择一个主题卷                                            | 不因阅读自动进入计划、构建或验收                                                                           |
+| 升级已初始化下游                              | 下游事实、源版本和升级 Skill 指定资料                                                            | `$web-preview-harness-upgrade` 只读比较；`$web-upgrade-harness` 承接已批准应用                             |
 
 ## 始终生效的边界
 
@@ -62,8 +62,8 @@
 项目 Skills 位于 `.agents/skills/`，目录名即下列名称去掉 `$`，入口为其 `SKILL.md`。先按任务路由选择最小集合；命中后必须完整读取对应 `SKILL.md`，参考资料按当前阶段、宿主和能力条件读取。组合规则见工程规则“Skill 职责、复用与渐进披露”，不得预先加载同类全部 Skills。
 
 - 初始化与身份：`$web-instantiate-project`、`$web-check-development-environment`、`$web-prepare-brand-identity`。创建仅源；环境检查仅首次初始化或真实环境故障。
-- 需求与原型：`$web-define-product`、`$web-design-prototype`。已初始化下游的产品定义与桌面原型。
-- 功能组合：`$web-compose-capabilities`。两类宿主按操作选择独立知识与模板；Web 列表另用 `$web-implement-list-view`。
+- 需求与原型：`$web-define-product` 拥有创建前受委托只读分析与下游唯一 PRD；`$web-design-prototype` 只消费 Approved PRD 并拥有实际桌面原型。
+- 功能组合：`$web-compose-capabilities` 拥有两类宿主的独立模块、具体操作、知识与模板选择；创建前只读返回建议，代码装配归实施。Web 列表另用 `$web-implement-list-view`。
 - 实施与重构：`$web-implement-change`、`$web-refactor-code`、`$web-extract-i18n-strings`。范围清楚的变更；i18n 整理仅下游。
 
 - 接入、文档与宿主审查：`$web-connect-http-service`、`$web-document-api`、`$web-review-extension-compatibility`。已初始化下游；兼容审查仅 Extension、只读。

@@ -17,7 +17,7 @@ export function downstreamReadme(config: ProjectConfig): string {
   // 保留明确的创建输入；业务范围与后续模式变更仍由唯一 PRD 管理。
   const moduleCapabilities = `## 功能组合
 
-创建阶段仅提供中性工程。下游按具体操作选用 [功能组合 Skill](.agents/skills/web-compose-capabilities/SKILL.md) 中独立的身份认证、组织、权限、商品目录、订单、钱包支付和审计知识与模板。模块可以单独使用，也可显式组合；选择结果和数据范围保存在唯一 PRD，未选功能不生成。模板类型和宿主限制以模块索引为准。
+创建阶段提供中性工程；若存在 \`docs/requirements/source.txt\`，首次由需求定义 Skill 读取原文并复用创建建议，分析界面需求并确认唯一 PRD；独立能力选择归功能组合 Skill，实际布局归原型设计，代码装配归实施，不要求重贴文档。没有文档继续现有逐项选择。下游按具体操作选用 [功能组合 Skill](.agents/skills/web-compose-capabilities/SKILL.md) 中独立的身份认证、组织、权限、商品目录、订单、钱包支付和审计知识与模板。模块可以单独使用，也可显式组合；选择结果和数据范围保存在唯一 PRD，未选功能不生成。模板类型和宿主限制以模块索引为准。
 
 `
   return `# ${config.name}

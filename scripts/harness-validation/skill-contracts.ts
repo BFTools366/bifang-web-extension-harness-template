@@ -168,12 +168,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-define-product": {
     description:
-      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游澄清需求，将用户、问题、范围、约束和验收标准记录为 Product Spec（PRD），确认后交给单一桌面原型设计或范围明确的实现。用于新产品、模糊需求或产品边界变化；不参与上游初始化，也不为日常小修复强制编写 PRD。",
+      "分析详细需求、判断基础页面或工作区需求，并在已初始化 React Web 或 Plasmo Extension 下游确认范围、记录唯一 Product Spec（PRD）。支持实例化委托的创建前只读分析，独立能力选择委托功能组合；不创建工程、不在源写产品记录、不实现业务代码，也不为日常小修复强制编写 PRD。",
     title: "# Web Harness：定义前端产品",
     displayName: "Web Harness：定义前端产品",
-    shortDescription: "在下游澄清产品需求并保存唯一 PRD，确认范围后进入单一桌面原型设计",
+    shortDescription: "拥有需求语义与界面需求分析，创建前只读返回，下游确认唯一 PRD",
     defaultPrompt:
-      "使用 $web-define-product 在当前已初始化下游澄清需求并记录 Product Spec（PRD），确认范围后进入单一桌面原型设计流程。"
+      "使用 $web-define-product 分析创建需求并只读返回建议，或在已初始化下游澄清产品需求并确认唯一 PRD 后进入单一桌面原型设计流程。"
   },
   "web-design-prototype": {
     description:
@@ -222,12 +222,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-instantiate-project": {
     description:
-      "通过源 Web Harness 唯一公开入口向源外空目录创建全新的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游，安全重置模板身份并建立独立 Git 根。用于创建单一类型前端项目；不得用于原地初始化或修改已初始化项目。",
+      "通过源 Web Harness 唯一公开入口创建独立的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 项目，负责宿主选择、工程输入、原文事务交接与独立 Git 基线；需求语义委托产品定义、能力选择归功能组合，不在源定义或实施产品，不用于原地初始化。",
     title: "# Web Harness：实例化前端项目",
     displayName: "Web Harness：实例化前端项目",
-    shortDescription: "从源 Web Harness 创建独立的 React Web 或 Plasmo MV3 前端项目",
+    shortDescription: "收集宿主和工程输入并完成原文事务交接，需求分析委托产品定义",
     defaultPrompt:
-      "使用 $web-instantiate-project 从源 Web Harness 创建独立、单一类型的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目。"
+      "使用 $web-instantiate-project 收集唯一宿主、工程输入和可选需求原文，委托需求分析后完成源外项目创建与原文事务交接。"
   },
   "web-plan-change": {
     description:
@@ -321,12 +321,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-compose-capabilities": {
     description:
-      "在已初始化 React Web 或 Plasmo Extension 下游中，按具体操作组合身份认证、组织、权限、商品、订单、钱包支付与审计的独立知识库和模板库；用于需求、设计或实施涉及这些能力时，不按产品分类自动启用功能。",
+      "按具体操作选择身份认证、组织、权限、商品、订单、钱包支付与审计的独立知识库和模板库。支持创建阶段受委托的只读能力建议及已初始化 React Web 或 Plasmo Extension 下游的资源组合；不拥有完整需求分析、PRD、UI 设计或代码装配，不按产品分类自动启用功能。",
     title: "# Web Harness：组合功能模块",
     displayName: "Web Harness：组合功能模块",
-    shortDescription: "按需选择独立业务知识与模板，显式组合身份、组织、权限和交易能力",
+    shortDescription: "拥有独立模块和操作选择，按阶段返回业务知识、设计参考与代码模板",
     defaultPrompt:
-      "使用 $web-compose-capabilities 按当前需求选择功能模块及具体操作，读取对应知识与模板，核对真实契约、数据范围和宿主边界，再接回当前需求、设计或实施流程。"
+      "使用 $web-compose-capabilities 按已分析流程选择独立模块和操作，创建前只读返回建议，下游按阶段返回知识与模板并交回当前调用方。"
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
 
@@ -334,11 +334,27 @@ export const SKILL_CONTRACTS = {
 export const SKILL_BODY_REQUIREMENTS: Partial<
   Record<(typeof EXPECTED_SKILLS)[number], readonly string[]>
 > = {
+  "web-instantiate-project": [
+    "需求分析委托 `$web-define-product`",
+    "不拥有需求或能力判据",
+    "创建工程保持中性"
+  ],
+  "web-define-product": [
+    "创建前只读分析",
+    "源阶段不写 PRD、产品记录、原型或业务代码",
+    "只读分析完成后返回调用方",
+    "创建确认不批准产品范围",
+    "references/requirements-analysis.md",
+    "references/prd-outline.md"
+  ],
   "web-compose-capabilities": [
     "知识库与模板库独立索引",
     "远端列表查询必须使用 GraphQL",
     "功能选择不授予权限",
-    "结果未知时先查询，不自动重放创建订单或支付"
+    "结果未知时先查询，不自动重放创建订单或支付",
+    "源阶段不取代码模板、不写入工程、不调用组装器",
+    "代码装配与测试由 `$web-implement-change` 负责",
+    "读取后返回当前调用方"
   ],
   "web-review-api-contract": [
     "只读核对不证明服务可达",

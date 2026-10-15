@@ -23,9 +23,12 @@ describe("single-package Harness validation and governance", () => {
     const questions: string[] = []
     const identity = await collectPromptedIdentity(
       {
-        targetRoot: path.join(repositoryRoot, "..", "neutral-web"),
-        name: "Neutral Web",
-        policyMode: "预设"
+        ...{
+          targetRoot: path.join(repositoryRoot, "..", "neutral-web"),
+          name: "Neutral Web",
+          policyMode: "预设"
+        },
+        requirementsFile: ""
       },
       async (question) => {
         questions.push(question)
@@ -82,12 +85,15 @@ describe("single-package Harness validation and governance", () => {
       "enabled",
       "disabled"
     ]
-    const resolved = await collectPromptedIdentity({}, async (question) => {
-      questions.push(question)
-      const answer = answers.shift()
-      if (answer === undefined) throw new Error("Unexpected extra initialization question")
-      return answer
-    })
+    const resolved = await collectPromptedIdentity(
+      { ...{}, requirementsFile: "" },
+      async (question) => {
+        questions.push(question)
+        const answer = answers.shift()
+        if (answer === undefined) throw new Error("Unexpected extra initialization question")
+        return answer
+      }
+    )
 
     expect(questions[0]).toContain("项目类型")
     expect(questions[0]).toContain("字段： projectType")
@@ -191,7 +197,7 @@ describe("single-package Harness validation and governance", () => {
           sourceRoot: repositoryRoot,
           interactive: true,
           promptIdentity: (defaults) =>
-            collectPromptedIdentity(defaults, async (question) => {
+            collectPromptedIdentity({ ...defaults, requirementsFile: "" }, async (question) => {
               basicQuestions.push(question)
               const answer = answers.shift()
               if (answer === undefined) throw new Error("Unexpected extra question")
@@ -255,7 +261,7 @@ describe("single-package Harness validation and governance", () => {
           sourceRoot: repositoryRoot,
           interactive: true,
           promptIdentity: (defaults) =>
-            collectPromptedIdentity(defaults, async () => {
+            collectPromptedIdentity({ ...defaults, requirementsFile: "" }, async () => {
               throw new Error("All supplied fields must be reused without another basic question")
             }),
           confirm: async (summary) => {

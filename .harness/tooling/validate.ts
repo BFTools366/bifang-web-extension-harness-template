@@ -127,7 +127,9 @@ export async function validateProject(rootInput: string): Promise<string[]> {
       ".agents/skills/web-document-api/references/export-contract.md",
       ".agents/skills/web-document-api/references/protocol-formats.md",
       ".agents/skills/web-document-api/scripts/check-export.ts",
-      ".agents/skills/web-design-prototype/references/prd-outline.md",
+      ".agents/skills/web-define-product/references/prd-outline.md",
+      ".agents/skills/web-define-product/references/requirements-analysis.md",
+      ".agents/skills/web-compose-capabilities/references/requirements-selection.md",
       ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
       ".harness/tooling/cli.ts",
       ".harness/tooling/validate-helpers.ts",
@@ -265,6 +267,11 @@ export async function validateProject(rootInput: string): Promise<string[]> {
   HARNESS_ONLY_PATHS.forEach((removedPath, index) => {
     if (removedPathsExist[index]) errors.push(`Terminal project retains ${removedPath}`)
   })
+  // 已迁移的受管 PRD 参考不能与需求定义中的唯一合同并存；升级按受管删除处理。
+  const retiredPrdOutline = ".agents/skills/web-design-prototype/references/prd-outline.md"
+  if (await pathExists(path.join(root, retiredPrdOutline))) {
+    errors.push(`Terminal project retains retired PRD reference: ${retiredPrdOutline}`)
+  }
   assertScripts(
     scripts,
     {

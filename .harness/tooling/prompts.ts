@@ -26,6 +26,7 @@ export interface PromptedIdentity {
   policyMode: AgentPolicyMode
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
+  requirementsFile?: string
   name: string
   englishName?: string
   id: string
@@ -47,6 +48,8 @@ export interface InstantiationSummary {
   canonicalTargetRoot: string
   inputSources: Readonly<Record<string, string>>
   policyMode: AgentPolicyMode
+  /** 展示原文来源与快照摘要，不在终端汇总回显完整产品需求。 */
+  requirements?: { sourcePath: string; sha256: string; byteLength: number }
   init: Pick<
     InitOptions,
     | "projectType"
@@ -163,6 +166,7 @@ export async function collectPromptedIdentity(
     policyMode,
     inputSources: { ...collected.inputSources, ...policySources },
     projectType,
+    requirementsFile: basic.requirementsFile || undefined,
     name: requiredText(basic.name, "项目名称"),
     englishName: basic.englishName || undefined,
     id: requiredText(basic.id, "项目标识"),
@@ -201,6 +205,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}
+- 需求文档：${summary.requirements === undefined ? "未提供，继续现有逐项选择" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，Agent 在下游确认与实施）`}
 - 展示名称：${summary.init.name}
 - 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}

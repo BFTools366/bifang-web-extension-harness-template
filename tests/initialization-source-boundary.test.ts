@@ -311,6 +311,8 @@ describe("initialization source isolation and snapshot protection", () => {
     const sourceRoot = await temporaryDirectory("harness-seed-source-")
     await mkdir(path.join(sourceRoot, "docs/work_plan"), { recursive: true })
     await writeFile(path.join(sourceRoot, "docs/seed-marker.md"), "maintained seed\n")
+    await mkdir(path.join(sourceRoot, "docs/requirements"))
+    await writeFile(path.join(sourceRoot, "docs/requirements/source.txt"), "old input\n")
     await writeFile(
       path.join(sourceRoot, "docs/work_plan/20260810_work_plan.md"),
       "excluded plan\n"
@@ -346,6 +348,7 @@ describe("initialization source isolation and snapshot protection", () => {
       "coverage",
       "dist",
       "docs/work_plan",
+      "docs/requirements",
       "node_modules",
       "unknown-top-level-directory",
       "unknown-top-level.txt"

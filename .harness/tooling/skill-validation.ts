@@ -45,7 +45,19 @@ export const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = [
 
 /** 按能力拥有者保存终端正文门禁，不让发现信息替代行为约束。 */
 const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]>> = {
-  "web-compose-capabilities": ["知识库与模板库独立索引", "远端列表查询必须使用 GraphQL"],
+  "web-define-product": [
+    "源阶段不写 PRD、产品记录、原型或业务代码",
+    "只读分析完成后返回调用方",
+    "创建确认不批准产品范围",
+    "references/prd-outline.md"
+  ],
+  "web-compose-capabilities": [
+    "知识库与模板库独立索引",
+    "远端列表查询必须使用 GraphQL",
+    "源阶段不取代码模板、不写入工程、不调用组装器",
+    "代码装配与测试由 `$web-implement-change` 负责",
+    "读取后返回当前调用方"
+  ],
   "web-review-api-contract": [
     "只读核对不证明服务可达",
     "不修改代码、配置、测试或文档",

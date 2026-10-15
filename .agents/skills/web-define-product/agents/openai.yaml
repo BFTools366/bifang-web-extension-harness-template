@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：定义前端产品"
-  short_description: "在下游澄清产品需求并保存唯一 PRD，确认范围后进入单一桌面原型设计"
-  default_prompt: "使用 $web-define-product 在当前已初始化下游澄清需求并记录 Product Spec（PRD），确认范围后进入单一桌面原型设计流程。"
+  short_description: "拥有需求语义与界面需求分析，创建前只读返回，下游确认唯一 PRD"
+  default_prompt: "使用 $web-define-product 分析创建需求并只读返回建议，或在已初始化下游澄清产品需求并确认唯一 PRD 后进入单一桌面原型设计流程。"

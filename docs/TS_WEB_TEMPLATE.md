@@ -38,6 +38,7 @@ pnpm instantiate -- /absolute/path --type extension \
 
 - 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`，无默认值。
 - `--name` 是用户可见名称。
+- 可选 `--requirements-file <absolute-md-or-txt>` 读取最多 1 MiB 的非空 UTF-8 文本；交互在类型之后询问，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
 - 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
 - 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
@@ -56,7 +57,7 @@ pnpm instantiate -- /absolute/path --type extension \
 
 ### 中性创建与下游功能选择
 
-创建后的需求、原型、实施、服务接入与文档统一复用 [功能模块组合](../.agents/skills/web-design-prototype/references/prd-outline.md#功能模块组合) 的当前选择；通用能力分发不代表功能已启用或服务已接入。
+有文档时在成功下游读取 `docs/requirements/source.txt` 并沿用创建建议，不要求用户重贴；没有文档继续现有逐项选择。创建后的需求、原型、实施、服务接入与文档统一复用 [功能模块组合](../.agents/skills/web-compose-capabilities/references/requirements-selection.md) 的当前选择；通用能力分发不代表功能已启用或服务已接入。
 
 ### 3.1 单一事实源
 
@@ -152,7 +153,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ### 3.9 项目级设计支持基线
 
-- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和摘要登记 helper。初始化只复制能力，不执行需求澄清/PRD/原型登记、不增加业务表单、不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
+- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和摘要登记 helper。初始化事务只分发能力与可选需求原文；事务前允许实例化委托需求定义与功能组合只读分析，正式需求澄清、PRD 与原型登记在成功下游执行。初始化不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
 - 下游实际开发才运行“澄清 → 唯一 Product Spec（PRD）→ 一个桌面交互 HTML 原型 → 自查、展示及登记 → 按已有授权开发”；详细合同在 [`web-design-prototype`](../.agents/skills/web-design-prototype/SKILL.md)。原型记录绑定 PRD 和唯一 HTML 的 SHA-256，漂移需修订、自查并重新登记；不做 A/B 选择或 Mobile 设计；日常小修复不自动重走流程。
 
 - Web 与 Extension 初始化默认检查项目内 `.agents/skills/design-taste-frontend/SKILL.md`；有效已有版本连同辅助文件原样保留，缺失时自动安装，无额外用户问询，不读取或写入全局 Skills。
@@ -433,7 +434,7 @@ pnpm harness validate
 
 初始化只有同时满足以下条件才算完成：
 
-1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；Web 已显式选择三种合法类型之一，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
+1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；已明确选择唯一 Web / Extension 宿主类型，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。

@@ -80,6 +80,9 @@ describe("terminal identity, skills and UI governance", () => {
       // 验证真实分发后仍拒绝弱化权限恢复、差异身份或 Mock 协议边界。
       const accessContracts: [string, string][] = [
         ["web-compose-capabilities", "知识库与模板库独立索引"],
+        ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
+        ["web-define-product", "创建确认不批准产品范围"],
+        ["web-compose-capabilities", "代码装配与测试由 `$web-implement-change` 负责"],
         ["web-implement-access-control", "已识别但无权限的目标"],
         ["web-implement-access-control", "不依赖被拒绝的业务权限"],
         ["web-document-api", "客户端控制参数不属于 wire 字段"],
@@ -100,6 +103,26 @@ describe("terminal identity, skills and UI governance", () => {
         await expect(validateProject(root)).rejects.toThrow(/missing required workflow/)
         await writeFile(file, source)
       }
+      // 两宿主只保留新拥有者的 PRD 与分析参考，旧受管副本会阻断终端验证。
+      for (const reference of [
+        ".agents/skills/web-define-product/references/prd-outline.md",
+        ".agents/skills/web-define-product/references/requirements-analysis.md",
+        ".agents/skills/web-compose-capabilities/references/requirements-selection.md"
+      ]) {
+        const file = path.join(root, reference)
+        const source = await readFile(file, "utf8")
+        await rm(file)
+        await expect(validateProject(root)).rejects.toThrow(/Missing|missing/)
+        await writeFile(file, source)
+      }
+      const retiredPrdOutline = path.join(
+        root,
+        ".agents/skills/web-design-prototype/references/prd-outline.md"
+      )
+      await mkdir(path.dirname(retiredPrdOutline), { recursive: true })
+      await writeFile(retiredPrdOutline, "obsolete PRD contract\n")
+      await expect(validateProject(root)).rejects.toThrow(/retired PRD reference/)
+      await rm(retiredPrdOutline)
       const composition = canonicalRules
         .split("### 7.2 Skill 职责、复用与渐进披露\n")[1]
         ?.split("## 8. 依赖与安全")[0]

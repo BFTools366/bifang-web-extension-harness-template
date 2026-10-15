@@ -80,6 +80,8 @@ export interface InitOptions extends EnvironmentBaseUrls {
   name: string
   // 保存创建期英文译名，仅用于标识生成与确认，不写入 ProjectConfig。
   englishName?: string
+  /** 保存创建期可选需求路径，仅由公开创建入口消费，不写入身份配置。 */
+  requirementsFile?: string
   // 描述 id 接口成员的结构契约。
   id: string
   // 描述 description 接口成员的结构契约。
@@ -106,6 +108,14 @@ export interface InstantiateOptions {
   targetRoot: string
   // 描述 init 接口成员的结构契约。
   init: Omit<InitOptions, "root">
+  /** 保存用户需求的冻结原文，与 staging 一起提交或回收。 */
+  requirements?: CreationRequirements
+}
+
+/** 描述与用户确认内容绑定的需求原文快照，不承载执行指令或身份配置。 */
+export interface CreationRequirements {
+  content: string
+  sha256: string
 }
 
 // 定义 ParsedArgs 接口的结构契约。

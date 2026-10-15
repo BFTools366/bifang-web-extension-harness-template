@@ -29,7 +29,7 @@ Bifang Web Harness Template 是用于创建和维护独立前端项目的 TypeSc
 创建流程分为三步：
 
 1. Agent 读取模板规则，按固定表单逐项收集并校验初始化信息。
-2. 项目使用者核对类型、最终目录、品牌和 Agent 策略，确认完整创建汇总。
+2. 可选提供详细需求文档；实例化委托 `web-define-product` 分析需求和基础页面/工作区需求，再由 `web-compose-capabilities` 选择身份、权限、组织等独立能力，给出有依据的建议。没有文档时继续现有逐项选择。项目使用者核对完整创建汇总后确认。
 3. Agent 创建独立工程并报告结果；后续在新项目目录中继续定义产品、评审原型和开发功能。
 
 ### 需要提供的信息
@@ -39,6 +39,7 @@ Bifang Web Harness Template 是用于创建和维护独立前端项目的 TypeSc
 | 信息                  | 提供方式与适用条件                                                                                        |
 | --------------------- | --------------------------------------------------------------------------------------------------------- |
 | 项目类型              | 必须明确选择 React Web 或 Chrome MV3 / Firefox MV2 扩展，无默认值。                                       |
+| 详细需求文档          | 可选，提供附件、完整文本或文件路径；CLI 使用 `--requirements-file` 接收 UTF-8 Markdown / 纯文本绝对路径。 |
 | 项目显示名称          | 页面或扩展中显示的非空名称。                                                                              |
 | 源 Harness 外的父目录 | 提供模板之外的绝对父路径；最终目录为“父目录/项目标识”，该子目录须不存在或为空。                           |
 | 项目说明              | Extension 必填非空简短说明；Web 缺省使用显示名称。                                                        |
@@ -47,7 +48,7 @@ Bifang Web Harness Template 是用于创建和维护独立前端项目的 TypeSc
 
 Logo、品牌色和身份本地化可一并提供。Agent 创建流程先生成或导入 Logo 并预览；CLI 未提供 Logo 时使用离线确定性生成器。名称、说明与品牌同步规则见[初始化契约](docs/TS_WEB_TEMPLATE.md#3-项目身份与品牌事实)。
 
-创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。开发 API 地址可留到下游配置，未配置的三环境地址留空；正式发布前补齐 HTTPS 正式地址。具体产品需求、endpoint 和凭据在成功下游处理。
+创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。开发 API 地址可留到下游配置，未配置的三环境地址留空；正式发布前补齐 HTTPS 正式地址。创建需求可先只读分析，原文随事务保存到新项目 `docs/requirements/source.txt`；正式产品范围确认、endpoint 与凭据在成功下游处理，不要求重贴需求。
 
 ### 创建后会得到什么
 
@@ -72,7 +73,7 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 
 打开创建成功的新项目目录后，项目使用者可以直接提出需求、功能修改、问题修复或品牌更新。Agent 先读取该项目的 `AGENTS.md`，复用已经确认的决定，并执行与改动相称的检查。
 
-新产品、新页面或显著交互改版按“需求澄清 → 产品规格（PRD）确认 → 单一桌面交互原型 → 自查登记 → 按已有授权实施”推进，日常小修复直接处理。创建保持中性；下游按具体操作选择功能模块，由唯一 PRD 记录当前范围。流程见[创建与开发 SOP](.agents/skills/web-design-prototype/references/prd-outline.md#创建与开发-sop)。
+新产品、新页面或显著交互改版按“需求澄清 → 产品规格（PRD）确认 → 单一桌面交互原型 → 自查登记 → 按已有授权实施”推进，日常小修复直接处理。创建保持中性并可交接需求原文；有文档时在下游直接沿用分析建议，没有文档继续逐项选择功能模块，由唯一 PRD 记录当前范围。流程见[创建与开发 SOP](.agents/skills/web-instantiate-project/references/requirements-intake.md#创建与开发-sop)。
 
 以下命令在生成的新项目目录中运行：
 
@@ -89,7 +90,9 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 
 ### 按需组合功能
 
-Harness 提供独立的知识库和模板库：[身份认证、组织、权限、商品目录、订单、钱包支付、审计](.agents/skills/web-compose-capabilities/SKILL.md)。模块可以单独采用，按具体操作组合；不再提供 Web 产品分类。创建只生成中性工程，模块选择在下游唯一 PRD 中记录，未选功能不生成。
+创建输入与原文事务归 `web-instantiate-project`，需求语义和唯一 PRD 归 `web-define-product`，模块与操作选择归 `web-compose-capabilities`；实际桌面布局和原型登记归 `web-design-prototype`，真实代码归 `web-implement-change`。完整归属见 [Skill 职责地图](docs/harness_engineering/skill_composition.md#创建需求与能力的归属)。
+
+Harness 提供独立的知识库和模板库：[身份认证、组织、权限、商品目录、订单、钱包支付、审计](.agents/skills/web-compose-capabilities/SKILL.md)。模块可以单独采用，按具体操作组合；不再提供 Web 产品分类。创建生成中性工程；可先根据需求推荐布局与独立能力，正式模块选择在下游唯一 PRD 中记录，未选功能不生成。
 
 模板明确区分代码、操作设计表单和离线演示。身份认证有独立代码模板；账户工作区与购买流程是显式组合参考，不能冒充真实服务。两类宿主共用业务知识，按模板索引适配宿主。接口按 [功能模块与 API 关联](docs/API.md#功能模块与-api-关联) 核对，所有远端列表查询走 GraphQL。API 导出继续按实际业务聚合并核对代码差异。
 

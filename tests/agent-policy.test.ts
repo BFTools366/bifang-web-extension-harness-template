@@ -92,13 +92,16 @@ describe("Agent policy contract", () => {
     })
     const interactive = await collectPromptedIdentity(
       {
-        targetRoot: path.join(repositoryRoot, "..", "simple-web"),
-        projectType: "web",
-        name: "Simple Web",
-        id: "simple-web",
-        policyMode: "预设",
-        description: " ",
-        confirmedBy: " "
+        ...{
+          targetRoot: path.join(repositoryRoot, "..", "simple-web"),
+          projectType: "web",
+          name: "Simple Web",
+          id: "simple-web",
+          policyMode: "预设",
+          description: " ",
+          confirmedBy: " "
+        },
+        requirementsFile: ""
       },
       async () => {
         throw new Error("All required fields were supplied")

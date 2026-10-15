@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
 import { resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
+import { readCreationRequirements } from "../.harness/tooling/creation-requirements.ts"
 import { validateProjectId, type PromptDefaults } from "../.harness/tooling/initialization-input.ts"
 import {
   confirmInstantiation,
@@ -16,6 +17,7 @@ import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/type
 /** 保存唯一公开创建入口允许的参数。 */
 const INSTANTIATE_OPTIONS = [
   "type",
+  "requirements-file",
   "name",
   "english-name",
   "id",
@@ -51,7 +53,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） --name <name> [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
+  return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） --name <name> [--requirements-file <absolute-md-or-txt>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
 }
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
@@ -126,6 +128,7 @@ function inputSources(
     sourceRoot: "脚本固定 Harness 源入口",
     targetRoot: "命令行绝对位置参数",
     projectType: source("type"),
+    requirementsFile: optionNames.has("requirements-file") ? "命令行参数" : "未提供，逐项选择",
     name: source("name"),
     englishName: optionNames.has("english-name") ? "命令行参数" : "未单独提供",
     id: optionNames.has("id") ? "命令行参数" : "英文名称自动生成",
@@ -204,6 +207,9 @@ export async function runInstantiateCli(
   const rawTargetRoot = path.join(rawParentRoot, init.id)
   const targetRoot = path.normalize(rawTargetRoot)
   if (init.logoPath !== undefined) init.logoPath = path.resolve(cwd, init.logoPath)
+  const requirements = init.requirementsFile
+    ? await readCreationRequirements(init.requirementsFile)
+    : undefined
 
   const canonicalSourceRoot = await realpath(sourceRoot)
   const canonicalTargetRoot = await canonicalizeProspectiveTarget(targetRoot)
@@ -216,6 +222,14 @@ export async function runInstantiateCli(
       rawTargetRoot,
       canonicalTargetRoot,
       policyMode,
+      requirements:
+        requirements === undefined || init.requirementsFile === undefined
+          ? undefined
+          : {
+              sourcePath: init.requirementsFile,
+              sha256: requirements.sha256,
+              byteLength: Buffer.byteLength(requirements.content, "utf8")
+            },
       inputSources: inputSources(
         new Set(parsed.options.keys()),
         interactive,
@@ -230,10 +244,18 @@ export async function runInstantiateCli(
     if (!confirmed) throw new Error("Project creation cancelled before any target write")
   }
 
+  if (requirements !== undefined && init.requirementsFile !== undefined) {
+    const current = await readCreationRequirements(init.requirementsFile)
+    if (current.sha256 !== requirements.sha256) {
+      throw new Error("需求文档在确认期间发生变化；请重新读取并确认后再创建")
+    }
+  }
+
   const instantiate = runtime.instantiate ?? instantiateProject
   const config = await instantiate({
     sourceRoot,
     targetRoot,
+    requirements,
     init: {
       projectType: init.projectType,
       name: init.name,
@@ -250,7 +272,11 @@ export async function runInstantiateCli(
   })
   const output = runtime.output ?? console.log
   output(`已创建 ${config.projectType} 项目：${targetRoot}`)
-  output("下一步：切换到新项目，按需求选择功能模块，完成需求确认 → 原型登记 → 实施。")
+  output(
+    requirements === undefined
+      ? "下一步：切换到新项目，按需求选择功能模块，完成需求确认 → 原型登记 → 实施。"
+      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 复用原文与已讨论建议，确认基础布局、身份认证、权限、组织及其他能力，再完成需求确认 → 原型登记 → 实施。CLI 不执行语义分析或装配业务功能。`
+  )
   output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
   output(
     config.projectType === "web"

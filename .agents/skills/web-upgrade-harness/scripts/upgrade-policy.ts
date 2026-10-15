@@ -215,6 +215,8 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   "tests/project-memory-compatibility.test.ts": "tombstone",
   "tests/initialization-atomicity-fixture.ts": "tombstone",
   "tests/initialization-source-boundary.test.ts": "tombstone",
+  ".harness/tooling/creation-requirements.ts": "tombstone",
+  "tests/creation-requirements.test.ts": "tombstone",
   "tests/path-containment.test.ts": "tombstone",
   "tests/node-tooling.test.ts": "tombstone",
   "tests/prototype-workflow.test.ts": "tombstone",
@@ -238,6 +240,10 @@ export const MINIMUM_REQUIRED_OWNERSHIP_PATTERNS = new Set([
 
 /** 保存必须从 source 精确传播到候选的关键 managed 文件。 */
 export const REQUIRED_MANAGED_SOURCE_PATHS = [
+  ...skillCorePaths("web-define-product"),
+  ".agents/skills/web-define-product/references/prd-outline.md",
+  ".agents/skills/web-define-product/references/requirements-analysis.md",
+  ".agents/skills/web-compose-capabilities/references/requirements-selection.md",
   ".agents/skills/web-compose-capabilities/SKILL.md",
   ".agents/skills/web-compose-capabilities/agents/openai.yaml",
   ".agents/skills/web-compose-capabilities/catalog.json",
@@ -354,7 +360,6 @@ export const REQUIRED_MANAGED_SOURCE_PATHS = [
   ".agents/skills/web-document-api/scripts/check-export.ts",
   ".harness/tooling/design-skill.ts",
   ...skillCorePaths("web-design-prototype"),
-  ".agents/skills/web-design-prototype/references/prd-outline.md",
   ".agents/skills/web-design-prototype/scripts/prototype-review.ts",
   ...skillCorePaths("web-configure-git-commits"),
   ".agents/skills/web-configure-git-commits/assets/commit-template.txt",
