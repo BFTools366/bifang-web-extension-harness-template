@@ -49,6 +49,7 @@ export function applicationPageSource(
     )
   if (permissions)
     imports.push(
+      'import type { ReactNode } from "react"',
       'import { Access } from "../permissions/Access"',
       'import { ForbiddenPage } from "../permissions/ForbiddenPage"'
     )
@@ -77,7 +78,7 @@ export function Login() {
 }`)
   if (permissions)
     lines.push(`/** 撤权发生时立即撤下页面；不依赖被拒绝的业务权限。 */
-export function PageAccess({ path, children }: { path: string; children: import("react").ReactNode }) {
+export function PageAccess({ path, children }: { path: string; children: ReactNode }) {
   return <Access permission={permissionSession} required={pagePermissions[path] ?? []} fallback={<ForbiddenPage />}>{children}</Access>
 }
 export { ForbiddenPage }`)

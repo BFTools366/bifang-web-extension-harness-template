@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { inspectChineseComments } from "../.harness/tooling/comment-policy.ts"
@@ -156,6 +156,10 @@ export async function runApplicationFixture(
     )
     await writeFile(path.join(root, "src/application.test.tsx"), testSource)
     await writeFile(
+      path.join(root, "eslint.config.mjs"),
+      await readFile(path.join(repository, "eslint.config.mjs"), "utf8")
+    )
+    await writeFile(
       path.join(root, "tsconfig.json"),
       JSON.stringify({
         compilerOptions: {
@@ -193,7 +197,17 @@ export async function runApplicationFixture(
       path.dirname(fileURLToPath(import.meta.resolve("vitest/package.json"))),
       "vitest.mjs"
     )
+    const eslint = path.join(
+      path.dirname(fileURLToPath(import.meta.resolve("eslint/package.json"))),
+      "bin/eslint.js"
+    )
     try {
+      execFileSync(node, [eslint, "src", "--ignore-pattern", "src/application.test.tsx"], {
+        cwd: root,
+        encoding: "utf8",
+        timeout: 30_000,
+        stdio: "pipe"
+      })
       execFileSync(node, [tsc, "--noEmit"], {
         cwd: root,
         encoding: "utf8",

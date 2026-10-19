@@ -218,6 +218,31 @@ test("refuses full initialization over an existing product", () => {
   }
 })
 
+/** 返回快照包含旧中性入口的删除差异，避免实际文件路由生成发生根首页冲突。 */
+test("replaces neutral routes while preserving unrelated baseline files", () => {
+  const base = new Map([
+    ["src/routes/index.tsx", 'export const Route = createFileRoute("/")({})'],
+    ["src/routes/__root.tsx", "neutral root"],
+    ["src/app/RootLayout.tsx", "neutral layout"],
+    ["src/app/RootLayout.test.tsx", "neutral layout test"],
+    ["src/features/local/owned.ts", "keep"]
+  ])
+  const files = applicationFiles(base, {
+    selection: { host: "web", modules: [] },
+    homePageSource: HOME_SOURCE,
+    dataMode: "mock"
+  })
+  for (const name of [
+    "src/routes/index.tsx",
+    "src/app/RootLayout.tsx",
+    "src/app/RootLayout.test.tsx"
+  ])
+    expect(files.has(name), name).toBe(false)
+  expect(files.has("src/routes/_application/index.tsx")).toBe(true)
+  expect(files.get("src/features/local/owned.ts")).toBe("keep")
+  expect(base.get("src/routes/__root.tsx")).toBe("neutral root")
+})
+
 /** 动态生成的会话、接口和接线文件同样拒绝覆盖已有实现。 */
 test.each(["web", "extension"] as const)("protects generated %s capability owners", (host) => {
   const options = {

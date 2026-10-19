@@ -2,6 +2,8 @@
 
 实施入口在成功下游读取已确认 PRD 与有效原型登记，首次工程基线以当前已发布下游文件快照构成 base Map，调用 applicationFiles(base, options) 返回文件 Map，再在授权范围写入当前宿主。该 helper 不要求终端恢复已删除的初始化器，也不调用源 webFiles/extensionFiles。已有产品按现有路由和状态 owner 增量接入固定资产，不能重复全量装配。源 Harness 只维护这些可复用资产，不装配具体产品。
 
+返回 Map 是完整结果快照，调用方须应用新增、修改与删除的差异，不能只追加文件。对 base 中存在而结果缺失的路径，先复核磁盘字节仍等于冻结 base，才删除本轮中性基线文件；漂移则停止，不能删除产品改动。Web 的旧 `src/routes/index.tsx`、`src/app/RootLayout.tsx` 及其测试会被新应用路由替代；保留旧根首页会与 `src/routes/_application/index.tsx` 冲突。既有产品不得用此流程重装。
+
 ## 必需输入
 
 - selection：明确宿主及 modules、operations、recipe 三者之一；空 modules 只选择基础布局，实际首页仍必填。

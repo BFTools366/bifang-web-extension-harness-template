@@ -8,7 +8,7 @@ declare module "@tanstack/react-router" {
 /** 设置页只返回已声明的认证或私有页面，认证查询按原合同逐项清洗。 */
 export function settingsReturnTo(input: unknown): string {
   if (typeof input !== "string" || !input.startsWith("/") || input.startsWith("//") ||
-    input.includes("\\") || /[\u0000-\u0020\u007f]/u.test(input)) return "/login"
+    input.includes("\\") || [...input].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)) return "/login"
   const url = new URL(input, "https://settings.invalid")
   if (url.origin !== "https://settings.invalid" || input.split(/[?#]/u)[0] !== url.pathname)
     return "/login"
