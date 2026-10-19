@@ -1,0 +1,19 @@
+import type { Price } from "../commerce/price"
+import type { WalletReadApi } from "./contracts"
+
+/** 只读钱包不会生成付款实现或订单依赖。 */
+export function createWalletReadMock(
+  actor: () => string | null,
+  initial: Readonly<Record<string, Price>>
+): WalletReadApi {
+  return {
+    /** 读取当前主体和范围的显式数据，缺失授权失败关闭。 */
+    async read(signal) {
+      signal?.throwIfAborted()
+      const subject = actor()
+      const balance = subject ? initial[subject] : undefined
+      if (!balance) throw new Error("wallet_unavailable")
+      return { ...balance }
+    }
+  }
+}

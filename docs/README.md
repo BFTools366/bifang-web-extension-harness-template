@@ -19,7 +19,7 @@
 
 按任务读取，不要为了“完整”一次性加载全部文档。职责与调用地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。接口契约、模块边界、访问控制、写入恢复、存储、持续事件与左侧 Task 已有独立入口，由当前流程按事件委托并返回。
 
-功能按具体操作组合，知识库与模板库见 [功能组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md)，当前选择归下游唯一 PRD；创建只提供中性工程。
+功能按具体操作组合，知识库与模板库见 [功能组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md)，当前选择归下游唯一 PRD。完整创建在下游按已确认需求持续完成首版页面、功能及开发验证；工程事务只是内部阶段。能力采用固定设计与代码接线，操作依赖由 catalog 明确计算。
 
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3 为准。
 

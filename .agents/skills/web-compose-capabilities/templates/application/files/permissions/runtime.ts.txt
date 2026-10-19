@@ -1,0 +1,101 @@
+import type { PermissionApi } from "../../data/api/permissions/contracts"
+
+/** 身份与权限作用域由认证 owner 注入，权限不另建登录或 Token。 */
+export interface PermissionOwner {
+  id: string
+  organizationId: string | null
+  scope: number
+}
+/** 固定权限状态不能用旧主体的结果授权新主体。 */
+export interface PermissionSnapshot {
+  phase: "idle" | "loading" | "ready" | "error"
+  codes: readonly string[]
+  owner: PermissionOwner | null
+}
+/** 同一权限码判定同时用于路由、导航、元素与执行前复核。 */
+export function createPermissionRuntime(
+  api: PermissionApi,
+  owner: () => PermissionOwner | null,
+  subscribeIdentity: (listener: () => void) => () => void
+) {
+  const empty: PermissionSnapshot = Object.freeze({ phase: "idle", codes: [], owner: null })
+  let state = empty
+  let revision = 0
+  const listeners = new Set<() => void>()
+  /** 只比较受信主体与当前会话作用域，不采用权限缓存中的身份。 */
+  function same(left: PermissionOwner | null, right: PermissionOwner | null) {
+    return (
+      left !== null &&
+      right !== null &&
+      left.id === right.id &&
+      left.organizationId === right.organizationId &&
+      left.scope === right.scope
+    )
+  }
+  /** 让已挂载的权限边界立即重判。 */
+  function publish(next: PermissionSnapshot) {
+    state = next
+    for (const listener of listeners) listener()
+  }
+  const unsubscribe = subscribeIdentity(() => {
+    if (state.owner !== null && !same(state.owner, owner())) {
+      revision += 1
+      publish(empty)
+    }
+  })
+  /** 从可信接口刷新权限；失败或被新主体替代时不保留旧授权。 */
+  async function refresh(signal?: AbortSignal) {
+    const current = owner()
+    const owned = ++revision
+    if (!current) {
+      publish(empty)
+      throw new Error("permission_identity_required")
+    }
+    publish({ phase: "loading", codes: [], owner: current })
+    try {
+      const codes = await api.read(
+        { subjectId: current.id, organizationId: current.organizationId },
+        signal
+      )
+      signal?.throwIfAborted()
+      if (owned !== revision || !same(current, owner())) throw new Error("permission_superseded")
+      if (
+        !Array.isArray(codes) ||
+        codes.some((code) => typeof code !== "string" || code.trim() === "")
+      )
+        throw new Error("permission_invalid")
+      publish({ phase: "ready", codes: Object.freeze([...new Set(codes)]), owner: current })
+    } catch (error) {
+      if (owned === revision) publish({ phase: "error", codes: [], owner: current })
+      throw error
+    }
+  }
+  /** 权限未知、主体变化或任一要求不满足时失败关闭。 */
+  function allow(required: readonly string[]) {
+    return (
+      required.length > 0 &&
+      state.phase === "ready" &&
+      same(state.owner, owner()) &&
+      required.every((code) => code.length > 0 && state.codes.includes(code))
+    )
+  }
+  return {
+    refresh,
+    allow,
+    /** 执行前再次核验当前 owner 的所有必需权限码。 */
+    assert(required: readonly string[]) {
+      if (!allow(required)) throw new Error("permission_denied")
+    },
+    getSnapshot: () => state,
+    /** 订阅当前 owner 的状态变化，并提供精确取消函数。 */
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    dispose: unsubscribe
+  }
+}
+/** 公开权限状态与判定，不公开后台角色写操作。 */
+export type PermissionRuntime = ReturnType<typeof createPermissionRuntime>

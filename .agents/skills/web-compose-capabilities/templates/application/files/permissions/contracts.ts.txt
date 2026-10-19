@@ -1,0 +1,9 @@
+/** 权限由可信主体和当前组织上下文读取，组织不是可由页面伪造的授权。 */
+export interface PermissionContext {
+  subjectId: string
+  organizationId: string | null
+}
+/** 读取当前上下文的可信权限码，不从名称、UI 开关或本地缓存推导授权。 */
+export interface PermissionApi {
+  read(context: PermissionContext, signal?: AbortSignal): Promise<readonly string[]>
+}

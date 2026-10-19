@@ -5,8 +5,7 @@ import assets from "./assets.json" with { type: "json" }
 export function accountWorkspaceFiles(base: ReadonlyMap<string, string>): Map<string, string> {
   const files = new Map(base)
   for (const target of files.keys()) {
-    if (target.startsWith("src/routes/") || target.startsWith("src/features/welcome/"))
-      files.delete(target)
+    if (target.startsWith("src/routes/")) files.delete(target)
   }
   for (const [target, asset] of Object.entries(assets))
     files.set(target, readFileSync(new URL(asset, import.meta.url), "utf8"))

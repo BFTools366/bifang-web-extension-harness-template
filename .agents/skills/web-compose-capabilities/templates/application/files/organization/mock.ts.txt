@@ -1,0 +1,29 @@
+import type { Organization, OrganizationApi } from "./contracts"
+
+/** Mock 组织可选范围按真实主体隔离，不允许任意组织 ID。 */
+export function createOrganizationMock(
+  actor: () => string | null,
+  choices: Readonly<Record<string, readonly Organization[]>>
+): OrganizationApi {
+  const current = new Map<string, string>()
+  return {
+    /** 读取当前主体和范围的显式数据，缺失授权失败关闭。 */
+    async read(signal) {
+      signal?.throwIfAborted()
+      const subject = actor()
+      if (!subject) throw new Error("identity_required")
+      const available = choices[subject] ?? []
+      return {
+        current: current.get(subject) ?? available[0]?.id ?? null,
+        available: structuredClone(available)
+      }
+    },
+    /** 只切换当前主体确实可访问的组织。 */
+    async switch(id) {
+      const subject = actor()
+      if (!subject || !choices[subject]?.some((row) => row.id === id))
+        throw new Error("organization_denied")
+      current.set(subject, id)
+    }
+  }
+}

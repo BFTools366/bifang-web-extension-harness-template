@@ -1,0 +1,49 @@
+import type { Price } from "../commerce/price"
+import type { Order } from "../commerce/price"
+import type { WalletApi } from "./contracts"
+
+/** 用同一 Mock 服务事务维护余额与订单，重复确认不会重复扣减。 */
+export function createWalletMock(
+  actor: () => string | null,
+  initial: Readonly<Record<string, Price>>,
+  settle: (id: string, debit: (price: Price) => void) => Order
+): WalletApi {
+  const balances = new Map(Object.entries(initial).map(([id, balance]) => [id, { ...balance }]))
+  const requests = new Map<string, { orderId: string; order: Order }>()
+  /** 钱包只读取当前认证主体，不接受页面提交的账户覆盖。 */
+  function balance() {
+    const subject = actor()
+    const value = subject ? balances.get(subject) : undefined
+    if (!subject || !value) throw new Error("wallet_unavailable")
+    return { subject, value }
+  }
+  return {
+    /** 读取当前主体和范围的显式数据，缺失授权失败关闭。 */
+    async read(signal) {
+      signal?.throwIfAborted()
+      return { ...balance().value }
+    },
+    /** 按原订单和独立幂等关联原子扣款并确认结果。 */
+    async pay(orderId, requestId) {
+      const { subject, value } = balance()
+      const key = JSON.stringify([subject, requestId])
+      const previous = requests.get(key)
+      if (previous) {
+        if (previous.orderId !== orderId) throw new Error("idempotency_conflict")
+        return structuredClone(previous.order)
+      }
+      const order = settle(orderId, (price) => {
+        if (
+          value.currency !== price.currency ||
+          !Number.isSafeInteger(price.minor) ||
+          price.minor < 0 ||
+          value.minor < price.minor
+        )
+          throw new Error("wallet_insufficient")
+        value.minor -= price.minor
+      })
+      requests.set(key, { orderId, order: structuredClone(order) })
+      return order
+    }
+  }
+}

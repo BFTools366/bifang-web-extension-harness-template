@@ -42,7 +42,7 @@
 
 | 能力                                                   | 唯一拥有者                                                                           | 输入与输出边界                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| 宿主、固定工程输入、需求来源及原文事务交接             | [`web-instantiate-project`](../../.agents/skills/web-instantiate-project/SKILL.md)   | 收集与冻结原文、委托分析、确认创建并交付中性工程；不判断产品功能 |
+| 宿主、固定工程输入、需求来源及原文事务交接             | [`web-instantiate-project`](../../.agents/skills/web-instantiate-project/SKILL.md)   | 收集与冻结原文、委托分析、确认工程输入与事务交接；不判断产品功能 |
 | 文档语义、基础页面/工作区需求与唯一 PRD                | [`web-define-product`](../../.agents/skills/web-define-product/SKILL.md)             | 创建前只读返回需求事实与界面需求；成功下游确认并记录唯一范围     |
 | 身份、权限、组织、商品、订单、钱包支付、审计的具体操作 | [`web-compose-capabilities`](../../.agents/skills/web-compose-capabilities/SKILL.md) | 根据已分析流程返回独立能力与资源；不拥有完整文档分析或业务装配   |
 | 实际桌面布局、交互原型、自查和摘要登记                 | [`web-design-prototype`](../../.agents/skills/web-design-prototype/SKILL.md)         | 只消费 Approved PRD；需求变化返回需求定义，不重新决定产品范围    |

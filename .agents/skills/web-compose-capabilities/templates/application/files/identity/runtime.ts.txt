@@ -1,0 +1,50 @@
+import {
+  createIdentitySession,
+  type CredentialStorage,
+  type IdentityTransport,
+  type Identity
+} from "./session"
+import type { LoginApi } from "../../data/api/identity/contracts"
+
+/** 组合层注入唯一请求 owner 和私有缓存清理，认证模块不导入 app 或路由。 */
+export interface IdentityRuntimeOptions {
+  api: LoginApi
+  storage: CredentialStorage
+  transport: IdentityTransport
+  clearPrivateData(): void
+}
+/** 将基础会话、HTTP Token 和请求作用域接到同一生命周期。 */
+export function createIdentityRuntime(options: IdentityRuntimeOptions) {
+  let scope = 0
+  let pending: { scope: number; work: Promise<Identity> } | undefined
+  const session = createIdentitySession(options.api, options.storage, {
+    /** 将已验证凭据交给唯一 HTTP Token owner。 */
+    setAuthToken(token) {
+      options.transport.setAuthToken(token)
+    },
+    /** 递增认证作用域并清理私有请求与缓存。 */
+    clearSession() {
+      scope += 1
+      options.transport.clearSession()
+      options.clearPrivateData()
+    }
+  })
+  return {
+    ...session,
+    scope: () => scope,
+    /** 同一导航批次复用恢复校验，拒绝后允许用户真实重试。 */
+    ensure() {
+      if (pending?.scope === scope) return pending.work
+      const work = session.check()
+      pending = { scope, work }
+      void work
+        .finally(() => {
+          if (pending?.work === work) pending = undefined
+        })
+        .catch(() => undefined)
+      return work
+    }
+  }
+}
+/** 公开当前身份与稳定操作，不向页面暴露 Token。 */
+export type IdentityRuntime = ReturnType<typeof createIdentityRuntime>

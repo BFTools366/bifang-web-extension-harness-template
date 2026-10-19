@@ -222,12 +222,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-instantiate-project": {
     description:
-      "通过源 Web Harness 唯一公开入口创建独立的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 项目，负责宿主选择、工程输入、原文事务交接与独立 Git 基线；需求语义委托产品定义、能力选择归功能组合，不在源定义或实施产品，不用于原地初始化。",
+      "通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension，并在成功下游按已确认需求完成首版页面、功能和开发验证；工程事务只是内部阶段，需求、固定能力模板、设计与实施分别委托对应 Skill，不在源实现产品。",
     title: "# Web Harness：实例化前端项目",
     displayName: "Web Harness：实例化前端项目",
-    shortDescription: "收集宿主和工程输入并完成原文事务交接，需求分析委托产品定义",
+    shortDescription: "一次确认首版范围，创建工程后在下游完成固定设计、页面功能与开发验证",
     defaultPrompt:
-      "使用 $web-instantiate-project 收集唯一宿主、工程输入和可选需求原文，委托需求分析后完成源外项目创建与原文事务交接。"
+      "使用 $web-instantiate-project 复用实际需求并确认完整范围，委托需求与能力分析，创建源外工程后继续在下游完成固定设计、代码接线及首版验证。"
   },
   "web-plan-change": {
     description:
@@ -324,9 +324,9 @@ export const SKILL_CONTRACTS = {
       "按具体操作选择身份认证、组织、权限、商品、订单、钱包支付与审计的独立知识库和模板库。支持创建阶段受委托的只读能力建议及已初始化 React Web 或 Plasmo Extension 下游的资源组合；不拥有完整需求分析、PRD、UI 设计或代码装配，不按产品分类自动启用功能。",
     title: "# Web Harness：组合功能模块",
     displayName: "Web Harness：组合功能模块",
-    shortDescription: "拥有独立模块和操作选择，按阶段返回业务知识、设计参考与代码模板",
+    shortDescription: "拥有独立模块和操作选择，按操作最小依赖返回知识、固定设计与代码接线模板",
     defaultPrompt:
-      "使用 $web-compose-capabilities 按已分析流程选择独立模块和操作，创建前只读返回建议，下游按阶段返回知识与模板并交回当前调用方。"
+      "使用 $web-compose-capabilities 按已分析流程选择操作及其最小依赖，创建前只读返回建议，下游按阶段返回知识与模板并交回当前调用方。"
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
 
@@ -337,17 +337,20 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
   "web-instantiate-project": [
     "需求分析委托 `$web-define-product`",
     "不拥有需求或能力判据",
-    "创建工程保持中性"
+    "默认欢迎页与计数器演示已移除"
   ],
   "web-define-product": [
     "创建前只读分析",
     "源阶段不写 PRD、产品记录、原型或业务代码",
     "只读分析完成后返回调用方",
-    "创建确认不批准产品范围",
+    "仅工程确认不批准产品范围；完整创建范围确认可复用",
     "references/requirements-analysis.md",
     "references/prd-outline.md"
   ],
   "web-compose-capabilities": [
+    "templates/application/files.ts",
+    "购买自动包含基础用户系统",
+    "固定设计",
     "知识库与模板库独立索引",
     "远端列表查询必须使用 GraphQL",
     "功能选择不授予权限",
@@ -451,7 +454,7 @@ export const SKILL_BODY_REQUIREMENTS: Partial<
   ],
   "web-design-prototype": [
     "仅在已初始化下游运行",
-    "初始化仅分发 Skills",
+    "正式 PRD、原型与登记只按各自事件创建",
     "每次只生成一个桌面端原型",
     "不生成 A/B/C 备选方案",
     "不规划、生成或验证 Mobile 支持",

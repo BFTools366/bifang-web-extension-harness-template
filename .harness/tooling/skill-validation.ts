@@ -48,10 +48,13 @@ const TERMINAL_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]
   "web-define-product": [
     "源阶段不写 PRD、产品记录、原型或业务代码",
     "只读分析完成后返回调用方",
-    "创建确认不批准产品范围",
+    "仅工程确认不批准产品范围；完整创建范围确认可复用",
     "references/prd-outline.md"
   ],
   "web-compose-capabilities": [
+    "templates/application/files.ts",
+    "购买自动包含基础用户系统",
+    "固定设计",
     "知识库与模板库独立索引",
     "远端列表查询必须使用 GraphQL",
     "源阶段不取代码模板、不写入工程、不调用组装器",

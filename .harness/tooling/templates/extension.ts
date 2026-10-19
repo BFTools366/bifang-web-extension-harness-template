@@ -35,12 +35,7 @@ export function extensionFiles(
     ["src/brand.ts", renderExtensionBrand(config)],
     [
       "src/plasmo.d.ts",
-      `declare module "data-base64:../assets/icon.png" {
-  const value: string
-  export default value
-}
-
-declare module "*.css"
+      `declare module "*.css"
 
 declare namespace NodeJS {
   /** 说明 ProcessEnv 的稳定结构与职责边界。 */
@@ -75,13 +70,9 @@ void i18n.use(initReactI18next).init({
       translation: {
         ...BRAND.identity.en,
         ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.en)},
-        popupReady: "Browser extension ready",
-        optionsReady: "Extension settings",
         notFoundTitle: "Page not found",
         notFoundDescription: "The requested page does not exist.",
-        action: "Test local state",
         buildVersion: "Build version: {{version}}",
-        count: "Interaction count: {{count}}",
         colorSchemeLabel: "Appearance",
         colorSchemeAuto: "System",
         colorSchemeLight: "Light",
@@ -98,13 +89,9 @@ void i18n.use(initReactI18next).init({
       translation: {
         ...BRAND.identity.zh,
         ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.zh)},
-        popupReady: "浏览器扩展已就绪",
-        optionsReady: "扩展设置",
         notFoundTitle: "页面不存在",
         notFoundDescription: "你访问的页面不存在。",
-        action: "测试本地状态",
         buildVersion: "构建版本：{{version}}",
-        count: "交互次数：{{count}}",
         colorSchemeLabel: "外观",
         colorSchemeAuto: "跟随系统",
         colorSchemeLight: "亮色",
@@ -182,23 +169,21 @@ export function Providers({ children }: PropsWithChildren) {
     ],
     [
       "src/ExtensionShell.tsx",
-      `import { Badge, Button, Group, Image, Paper, Stack, Text, Title } from "@mantine/core"
+      `import { Text } from "@mantine/core"
+import { Outlet } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { BUILD_VERSION } from "./buildVersion"
 import { createLogger } from "./observability/logger"
-import { ColorSchemeControl } from "./theme/ColorSchemeControl"
 
-/** 说明 ExtensionShellProps 的稳定结构与职责边界。 */
+/** 区分当前独立的扩展执行入口。 */
 interface ExtensionShellProps {
-  iconUrl: string
   surface: "popup" | "options"
 }
 
-/** 说明 ExtensionShell 的稳定结构与职责边界。 */
-export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
+/** 挂载真实子路由，保留入口日志与构建版本。 */
+export function ExtensionShell({ surface }: ExtensionShellProps) {
   const { t } = useTranslation()
-  const [count, setCount] = useState(0)
 
   useEffect(() => {
     const logger = createLogger("surface." + surface)
@@ -219,34 +204,10 @@ export function ExtensionShell({ iconUrl, surface }: ExtensionShellProps) {
     }
   }, [surface])
 
-  return (
-    <main className={surface === "popup" ? "popup-shell" : "options-shell"}>
-      <Paper radius="lg" p="lg" withBorder>
-        <Stack gap="md">
-          <Group justify="space-between" align="flex-start">
-            <Image src={iconUrl} alt={t("projectName")} w={64} h={64} radius="lg" />
-            <Stack gap="xs" align="flex-end" miw={0} maw="100%">
-              {surface === "popup" ? (
-                <Text c="dimmed" size="xs" fw={600}>{t("popupReady")}</Text>
-              ) : (
-                <Badge variant="default">{t("optionsReady")}</Badge>
-              )}
-              <ColorSchemeControl compact={surface === "popup"} />
-            </Stack>
-          </Group>
-          <div>
-            <Title order={1}>{t("projectName")}</Title>
-            <Text c="dimmed" mt="xs">{t("projectDescription")}</Text>
-          </div>
-          <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
-          <Text size="sm" fw={600} role="status" aria-live="polite" aria-atomic="true">
-            {t("count", { count })}
-          </Text>
-          <Text c="dimmed" size="xs">{t("buildVersion", { version: BUILD_VERSION })}</Text>
-        </Stack>
-      </Paper>
-    </main>
-  )
+  return <div className={surface === "popup" ? "popup-shell" : undefined}>
+    <Outlet />
+    <footer><Text c="dimmed" size="xs">{t("buildVersion", { version: BUILD_VERSION })}</Text></footer>
+  </div>
 }
 `
     ],
@@ -272,7 +233,6 @@ export function ExtensionNotFoundPage() {
     [
       "src/extension-router.tsx",
       `import {
-  Outlet,
   createHashHistory,
   createMemoryHistory,
   createRootRoute,
@@ -290,13 +250,12 @@ const routerLogger = createLogger("router")
 type ExtensionSurface = "popup" | "options"
 
 /** 为 Popup 和 Options 分别创建单入口路由树与历史记录。 */
-export function createExtensionRouter(surface: ExtensionSurface, iconUrl: string) {
-  const rootRoute = createRootRoute({ component: Outlet, notFoundComponent: ExtensionNotFoundPage })
-  const indexRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/",
-    component: () => <ExtensionShell iconUrl={iconUrl} surface={surface} />
+export function createExtensionRouter(surface: ExtensionSurface) {
+  const rootRoute = createRootRoute({
+    component: () => <ExtensionShell surface={surface} />,
+    notFoundComponent: ExtensionNotFoundPage
   })
+  const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/" })
   return createRouter({
     defaultErrorComponent: ExtensionRouteErrorPage,
     defaultOnCatch: (error) => routerLogger.error("route_failed", { surface, error }),
@@ -319,83 +278,42 @@ declare module "@tanstack/react-router" {
       "src/ExtensionShell.test.tsx",
       `// @vitest-environment jsdom
 import "./i18n"
-import { render, screen } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import { RouterProvider } from "@tanstack/react-router"
 import userEvent from "@testing-library/user-event"
 import { expect, test } from "vitest"
-import { BRAND } from "./brand"
 import i18n from "./i18n"
-import { ExtensionShell } from "./ExtensionShell"
 import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
 
-/** 验证当前场景的核心成功或风险边界。 */
-test("renders the branded popup interaction", async () => {
+/** 验证独立入口只挂载工程布局，不生成欢迎页或计数器。 */
+test.each(["popup", "options"] as const)("mounts the %s routing foundation", async (surface) => {
   await i18n.changeLanguage("en")
-  const user = userEvent.setup()
-  /** 说明当前方法的稳定职责与行为边界。 */
-  render(
-    <Providers><ExtensionShell iconUrl="data:image/png;base64,test" surface="popup" /></Providers>
-  )
-
-  expect(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 })).toBeInTheDocument()
-  expect(screen.getByText("Build version: development")).toBeInTheDocument()
-  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 }))
-  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByRole("button", { name: "Test local state" }))
-  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
-  await user.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "dark")
-  expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
-  expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
-})
-
-/** 验证名称与说明遵循用户应用语言而非固定根身份。 */
-test("renders localized extension identity", async () => {
+  const router = createExtensionRouter(surface)
+  const view = render(<Providers><RouterProvider router={router} /></Providers>)
+  expect(await screen.findByText("Build version: development")).toBeInTheDocument()
+  expect(screen.queryByRole("heading")).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Test local state" })).not.toBeInTheDocument()
   await i18n.changeLanguage("zh")
-  const view = render(<Providers><ExtensionShell iconUrl="data:image/png;base64,test" surface="popup" /></Providers>)
-  expect(screen.getByRole("heading", { name: BRAND.identity.zh.projectName })).toBeInTheDocument()
-  expect(screen.getByText(BRAND.identity.zh.projectDescription, { selector: "p" })).toBeInTheDocument()
+  expect(await screen.findByText("构建版本：development")).toBeInTheDocument()
+  expect(router.history.location.pathname).toBe("/")
   view.unmount()
   await i18n.changeLanguage("en")
 })
 
-/** 验证 Popup 与 Options 各自的代码路由可以挂载页面。 */
-test("mounts the popup route", async () => {
-  await i18n.changeLanguage("en")
-  const router = createExtensionRouter("popup", "data:image/png;base64,test")
-  render(<Providers><RouterProvider router={router} /></Providers>)
-  expect(await screen.findByText("Browser extension ready")).toBeInTheDocument()
-})
-
-/** 验证 Options 首次打开没有 hash 时仍进入根路由。 */
-test("mounts the options route without a hash", async () => {
-  await i18n.changeLanguage("en")
-  const originalUrl = window.location.href
-  window.history.replaceState(null, "", window.location.pathname + window.location.search)
-  try {
-    const router = createExtensionRouter("options", "data:image/png;base64,test")
-    const view = render(<Providers><RouterProvider router={router} /></Providers>)
-    expect(await screen.findByText("Extension settings")).toBeInTheDocument()
-    expect(router.history.location.pathname).toBe("/")
-    view.unmount()
-  } finally {
-    window.history.replaceState(null, "", originalUrl)
-  }
-})
-
-/** 验证 Options 深链在两语言中显示未知路由并可返回当前入口首页。 */
+/** 验证 Options 未知 hash 的恢复行为与语言一致。 */
 test.each(["en", "zh"] as const)("recovers an unknown options hash in %s", async (language) => {
   await i18n.changeLanguage(language)
   const originalUrl = window.location.href
   window.history.replaceState(null, "", window.location.pathname + window.location.search + "#/missing")
   try {
     const user = userEvent.setup()
-    const router = createExtensionRouter("options", "data:image/png;base64,test")
+    const router = createExtensionRouter("options")
     const view = render(<Providers><RouterProvider router={router} /></Providers>)
-    expect(await screen.findByRole("heading", { name: i18n.t("notFoundTitle"), level: 1 })).toBeInTheDocument()
+    const title = i18n.t("notFoundTitle")
+    expect(await screen.findByRole("heading", { name: title, level: 1 })).toBeInTheDocument()
     await user.click(screen.getByRole("link", { name: i18n.t("backHome") }))
-    expect(await screen.findByRole("heading", { name: BRAND.identity[language].projectName, level: 1 })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument())
     expect(router.history.location.pathname).toBe("/")
     view.unmount()
   } finally {
@@ -404,22 +322,21 @@ test.each(["en", "zh"] as const)("recovers an unknown options hash in %s", async
   }
 })
 
-/** 验证 Options 导航写入 hash 后新 Router 能从 URL 恢复。 */
+/** 验证 Options 的 hash 状态在重建路由后恢复。 */
 test("restores options hash navigation after a reload", async () => {
   const originalUrl = window.location.href
   window.history.replaceState(null, "", window.location.pathname + window.location.search)
   try {
-    const router = createExtensionRouter("options", "data:image/png;base64,test")
+    const router = createExtensionRouter("options")
     const view = render(<Providers><RouterProvider router={router} /></Providers>)
-    expect(await screen.findByText("Extension settings")).toBeInTheDocument()
+    expect(await screen.findByText("Build version: development")).toBeInTheDocument()
     await router.navigate({ to: "/", hash: "probe" })
     expect(window.location.hash).toContain("probe")
     view.unmount()
-
-    const reloadedRouter = createExtensionRouter("options", "data:image/png;base64,test")
-    render(<Providers><RouterProvider router={reloadedRouter} /></Providers>)
-    expect(await screen.findByText("Extension settings")).toBeInTheDocument()
-    expect(reloadedRouter.history.location.href).toContain("probe")
+    const reloaded = createExtensionRouter("options")
+    render(<Providers><RouterProvider router={reloaded} /></Providers>)
+    expect(await screen.findByText("Build version: development")).toBeInTheDocument()
+    expect(reloaded.history.location.href).toContain("probe")
   } finally {
     window.history.replaceState(null, "", originalUrl)
   }
@@ -429,12 +346,11 @@ test("restores options hash navigation after a reload", async () => {
     [
       "src/popup.tsx",
       `${entryStyles}import { RouterProvider } from "@tanstack/react-router"
-import iconUrl from "data-base64:../assets/icon.png"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
 import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
 
-const router = createExtensionRouter("popup", iconUrl)
+const router = createExtensionRouter("popup")
 
 /** 说明 Popup 的稳定结构与职责边界。 */
 export default function Popup() {
@@ -445,12 +361,11 @@ export default function Popup() {
     [
       "src/options.tsx",
       `${entryStyles}import { RouterProvider } from "@tanstack/react-router"
-import iconUrl from "data-base64:../assets/icon.png"
 import { AppErrorBoundary } from "./observability/AppErrorBoundary"
 import { createExtensionRouter } from "./extension-router"
 import { Providers } from "./providers"
 
-const router = createExtensionRouter("options", iconUrl)
+const router = createExtensionRouter("options")
 
 /** 说明 Options 的稳定结构与职责边界。 */
 export default function Options() {
@@ -462,8 +377,9 @@ export default function Options() {
       "src/style.css",
       `:root[data-mantine-color-scheme="light"] { color-scheme: light; }
 :root[data-mantine-color-scheme="dark"] { color-scheme: dark; }
-body { margin: 0; background: var(--mantine-color-body); color: var(--mantine-color-text); }
-.popup-shell { box-sizing: border-box; min-width: 320px; width: min(380px, 100%); padding: var(--mantine-spacing-md); overflow-wrap: anywhere; }
+footer { padding: var(--mantine-spacing-md); }
+body { margin: 0; min-width: 320px; overflow-wrap: anywhere; background: var(--mantine-color-body); color: var(--mantine-color-text); }
+.popup-shell { box-sizing: border-box; min-width: 320px; width: min(380px, 100%); overflow-wrap: anywhere; }
 .options-shell { box-sizing: border-box; max-width: 760px; margin: 0 auto; padding: var(--mantine-spacing-xl) var(--mantine-spacing-md); }
 `
     ]

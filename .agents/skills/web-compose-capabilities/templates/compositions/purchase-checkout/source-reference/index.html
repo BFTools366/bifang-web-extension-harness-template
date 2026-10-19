@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>商品、订单与钱包 · 中性 Mock 设计参考</title>
+    <link rel="stylesheet" href="shell.css" />
+    <link rel="stylesheet" href="commerce.css" />
+    <link rel="stylesheet" href="responsive.css" />
+    <link rel="stylesheet" href="center.css" />
+    <link rel="stylesheet" href="checkout.css" />
+    <link rel="stylesheet" href="center-responsive.css" />
+  </head>
+  <body class="variant-a" data-variant="A">
+    <a class="skip" href="#main">跳到主内容 / Skip to content</a>
+    <div class="layout">
+      <aside class="sidebar">
+        <a class="brand" href="#catalog"
+          ><span>示例应用<small id="brand-sub"></small></span
+        ></a>
+        <nav class="navigation" id="nav" aria-label="主导航"></nav>
+        <div class="context">
+          <strong id="org-label"></strong
+          ><select id="org-side" aria-label="切换演示组织"></select
+          ><small id="context-user"></small>
+        </div>
+      </aside>
+      <div class="right">
+        <header class="topbar">
+          <span id="breadcrumb"></span>
+          <div class="tools">
+            <select id="org" aria-label="切换演示组织"></select
+            ><button id="language" type="button">English</button
+            ><button id="theme" type="button"></button
+            ><button id="account" type="button" data-action="account">
+              <span class="avatar">D</span>
+            </button>
+          </div>
+        </header>
+        <main class="content" id="main" tabindex="-1"></main>
+      </div>
+    </div>
+    <dialog id="dialog" aria-labelledby="dialog-title"></dialog>
+    <div id="live" class="sr" role="status" aria-live="polite" aria-atomic="true"></div>
+    <script src="demo-data.js" defer></script>
+    <script src="catalog-view.js" defer></script>
+    <script src="records-view.js" defer></script>
+    <script src="center-view.js" defer></script>
+    <script src="checkout-view.js" defer></script>
+    <script src="order-dialog.js" defer></script>
+    <script src="page-view.js" defer></script>
+    <script src="demo-actions.js" defer></script>
+  </body>
+</html>

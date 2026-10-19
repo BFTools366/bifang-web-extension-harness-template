@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "modules": [
     {
       "id": "identity",
@@ -20,8 +20,55 @@
           "path": "templates/identity/session.test.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/identity/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/IdentityBoundary.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/IdentityMenu.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/LoginPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/identityCredentials.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/runtime.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "identity.session",
+          "requires": []
+        }
+      ],
+      "defaultOperations": ["identity.session"]
     },
     {
       "id": "organization",
@@ -42,8 +89,35 @@
           "path": "templates/organization/organizationChoices.test.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/organization/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "organization.switch",
+          "requires": ["identity.session"]
+        }
+      ],
+      "defaultOperations": ["organization.switch"]
     },
     {
       "id": "permissions",
@@ -64,8 +138,45 @@
           "path": "templates/permissions/capability.test.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/permissions/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/permissions/Access.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/permissions/ForbiddenPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/permissions/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/permissions/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/permissions/runtime.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "permissions.enforce",
+          "requires": ["identity.session"]
+        }
+      ],
+      "defaultOperations": ["permissions.enforce"]
     },
     {
       "id": "catalog",
@@ -76,8 +187,35 @@
           "path": "templates/catalog/operation-plan.md",
           "kind": "design",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/catalog/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/catalog/CatalogPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/catalog/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/catalog/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "catalog.browse",
+          "requires": []
+        }
+      ],
+      "defaultOperations": ["catalog.browse"]
     },
     {
       "id": "orders",
@@ -88,8 +226,54 @@
           "path": "templates/orders/operation-plan.md",
           "kind": "design",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/orders/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/orders/OrdersPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/orders/PurchasePanel.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/orders/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/orders/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/orders/purchase.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "orders.read",
+          "requires": []
+        },
+        {
+          "id": "orders.create",
+          "requires": ["identity.session", "catalog.browse"],
+          "internal": true
+        },
+        {
+          "id": "orders.purchase",
+          "requires": ["orders.create", "wallet-payments.pay"]
+        }
+      ],
+      "defaultOperations": ["orders.read"]
     },
     {
       "id": "wallet-payments",
@@ -100,8 +284,45 @@
           "path": "templates/wallet-payments/operation-plan.md",
           "kind": "design",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/wallet-payments/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/wallet-payments/WalletPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/wallet-payments/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/wallet-payments/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/wallet-payments/readMock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "wallet-payments.read",
+          "requires": ["identity.session"]
+        },
+        {
+          "id": "wallet-payments.pay",
+          "requires": ["identity.session", "orders.read"],
+          "internal": true
+        }
+      ],
+      "defaultOperations": ["wallet-payments.read"]
     },
     {
       "id": "audit",
@@ -112,8 +333,35 @@
           "path": "templates/audit/operation-plan.md",
           "kind": "design",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/audit/design.md",
+          "kind": "design",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/audit/AuditPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/audit/contracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/audit/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
-      ]
+      ],
+      "operations": [
+        {
+          "id": "audit.read",
+          "requires": ["identity.session"]
+        }
+      ],
+      "defaultOperations": ["audit.read"]
     }
   ],
   "recipes": [
@@ -476,11 +724,12 @@
           "kind": "code",
           "hosts": ["web"]
         }
-      ]
+      ],
+      "operations": ["identity.session", "organization.switch", "permissions.enforce"]
     },
     {
       "id": "purchase-checkout",
-      "modules": ["catalog", "orders", "wallet-payments"],
+      "modules": ["identity", "catalog", "orders", "wallet-payments"],
       "templates": [
         {
           "path": "templates/compositions/purchase-checkout/commerce-reference.css",
@@ -496,8 +745,176 @@
           "path": "templates/compositions/purchase-checkout/commerce-reference.js",
           "kind": "demo",
           "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/index.html",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/shell.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/commerce.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/responsive.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/center.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/checkout.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/center-responsive.css",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/demo-data.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/catalog-view.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/records-view.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/center-view.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/checkout-view.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/order-dialog.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/page-view.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/demo-actions.js",
+          "kind": "demo",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/purchase-checkout/source-reference/README.md",
+          "kind": "demo",
+          "hosts": ["web"]
         }
-      ]
+      ],
+      "operations": ["orders.purchase"]
+    }
+  ],
+  "application": [
+    {
+      "path": "templates/application/contracts.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/design.md",
+      "kind": "design",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/locales.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/page-source.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/route-source.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/runtime-source.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/wiring.md",
+      "kind": "design",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/ApplicationLayout.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/ModuleState.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/price.ts.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/scope.ts.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/ApplicationIcon.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/Preferences.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/application.module.css.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/extraction.md",
+      "kind": "design",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/source-map.json",
+      "kind": "design",
+      "hosts": ["web", "extension"]
     }
   ]
 }

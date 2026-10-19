@@ -1,0 +1,33 @@
+/** 共享身份/组织变化的客户端作用域，私有 Query 和写入只消费该 owner。 */
+export function createApplicationScope() {
+  let state: Readonly<{ revision: number; blocked: boolean }> = Object.freeze({
+    revision: 0,
+    blocked: false
+  })
+  const listeners = new Set<() => void>()
+  /** 在发布新上下文前撤下旧私有正文。 */
+  function publish(blocked: boolean) {
+    state = Object.freeze({ revision: state.revision + 1, blocked })
+    for (const listener of listeners) listener()
+    return state.revision
+  }
+  return {
+    getSnapshot: () => state,
+    /** 订阅当前 owner 的状态变化，并提供精确取消函数。 */
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    invalidate: () => publish(false),
+    begin: () => publish(true),
+    /** 只允许发起切换的当前作用域恢复私有正文。 */
+    finish(owned: number) {
+      if (state.revision === owned) {
+        state = Object.freeze({ ...state, blocked: false })
+        for (const listener of listeners) listener()
+      }
+    }
+  }
+}

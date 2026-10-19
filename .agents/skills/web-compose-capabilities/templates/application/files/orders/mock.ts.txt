@@ -1,0 +1,67 @@
+import type { Product } from "../commerce/price"
+import type { Order, OrdersApi } from "./contracts"
+
+/** 显式注入当前主体，Mock 服务态按主体与幂等键隔离。 */
+export function createOrdersMock(actor: () => string | null, products: readonly Product[]) {
+  const records = new Map<string, { owner: string; order: Order }>()
+  /** 写入和单笔恢复必须有受信主体，不能通过 UI 任意指定账户。 */
+  function owner() {
+    const value = actor()
+    if (!value) throw new Error("identity_required")
+    return value
+  }
+  const api: OrdersApi = {
+    /** 读取当前作用域允许查看的记录，不修改服务状态。 */
+    async list(signal) {
+      signal?.throwIfAborted()
+      return [...records.values()]
+        .filter((row) => row.owner === actor())
+        .map((row) => structuredClone(row.order))
+    },
+    /** 按原创建幂等关联读取结果，不重放写入。 */
+    async find(requestId, signal) {
+      signal?.throwIfAborted()
+      const subject = owner()
+      return structuredClone(
+        [...records.values()].find(
+          (row) => row.owner === subject && row.order.requestId === requestId
+        )?.order ?? null
+      )
+    },
+    /** 以商品当前报价和幂等关联创建当前主体订单。 */
+    async create(productId, requestId) {
+      const subject = owner()
+      const previous = [...records.values()].find(
+        (row) => row.owner === subject && row.order.requestId === requestId
+      )
+      if (previous) {
+        if (previous.order.productId !== productId) throw new Error("idempotency_conflict")
+        return structuredClone(previous.order)
+      }
+      const product = products.find((row) => row.id === productId)
+      if (!product || !Number.isSafeInteger(product.price.minor) || product.price.minor < 0)
+        throw new Error("product_unavailable")
+      const order: Order = {
+        id: crypto.randomUUID(),
+        productId,
+        total: { ...product.price },
+        status: "unpaid",
+        requestId
+      }
+      records.set(order.id, { owner: subject, order })
+      return structuredClone(order)
+    }
+  }
+  return {
+    api,
+    /** 同一 Mock 服务内部原子支付；不导出为浏览器生产 API。 */
+    settle(id: string, debit: (price: Order["total"]) => void) {
+      const row = records.get(id)
+      if (!row || row.owner !== owner()) throw new Error("order_unavailable")
+      if (row.order.status === "paid") return structuredClone(row.order)
+      debit(row.order.total)
+      row.order.status = "paid"
+      return structuredClone(row.order)
+    }
+  }
+}

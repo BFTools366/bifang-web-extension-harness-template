@@ -130,9 +130,6 @@ describe("explicit account workspace composition", () => {
           releaseBaseUrl: ""
         })
         const files = accountWorkspaceFiles(base)
-        files.delete("src/routes/index.tsx")
-        files.delete("src/features/welcome/WelcomePage.tsx")
-        files.delete("src/features/welcome/WelcomePage.test.tsx")
         for (const [name, source] of files) {
           if (!name.startsWith("src/")) continue
           await mkdir(path.dirname(path.join(root, name)), { recursive: true })

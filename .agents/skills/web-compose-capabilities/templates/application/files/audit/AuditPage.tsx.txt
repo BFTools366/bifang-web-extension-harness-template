@@ -1,0 +1,40 @@
+import { Card, Stack, Text, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
+import type { AuditApi } from "../../data/api/audit/contracts"
+import { ModuleState } from "../application/ModuleState"
+
+/** 固定审计页提供只读记录与状态反馈，不生成未授权的管理动作。 */
+export function AuditPage({ api, scope }: { api: AuditApi; scope: number }) {
+  const { t, i18n } = useTranslation()
+  const query = useQuery({
+    queryKey: ["audit", scope],
+    meta: { private: true },
+    queryFn: ({ signal }) => api.list(signal)
+  })
+  return (
+    <Stack>
+      <Title order={1}>{t("auditTitle")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.isError}
+        empty={query.data?.length === 0}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {query.data?.map((row) => (
+        <Card key={row.id} withBorder>
+          <Text>{row.action}</Text>
+          <Text>{row.actor}</Text>
+          <Text>
+            {new Intl.DateTimeFormat(i18n.language, {
+              dateStyle: "medium",
+              timeStyle: "short"
+            }).format(new Date(row.occurredAt))}
+          </Text>
+        </Card>
+      ))}
+    </Stack>
+  )
+}

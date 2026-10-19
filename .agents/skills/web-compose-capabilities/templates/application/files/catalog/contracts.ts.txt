@@ -1,0 +1,6 @@
+import type { Product } from "../commerce/price"
+export type { Product } from "../commerce/price"
+/** 商品读取由当前 API adapter 负责，远端集合须接真实 GraphQL 契约。 */
+export interface CatalogApi {
+  list(signal?: AbortSignal): Promise<readonly Product[]>
+}

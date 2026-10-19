@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "referenceProject": "bifang-mini-cb",
+  "extractedOn": "2026-10-19",
+  "snapshot": "working-tree",
+  "sources": [
+    {
+      "path": "src/features/client/ClientLayout.tsx",
+      "kind": "implementation",
+      "sha256": "87e4a1637cfcefdca7286cbb1961885f888ca2b99f016c13aa821367ff62500a"
+    },
+    {
+      "path": "src/features/client/AccountMenu.tsx",
+      "kind": "implementation",
+      "sha256": "b9292bc2357b12695976834939c15fc03c134ca601439ab55d38c968de7c916c"
+    },
+    {
+      "path": "src/features/client/Preferences.tsx",
+      "kind": "implementation",
+      "sha256": "7e8546893450fce7e3fe1da2b7b081850787c102faf477f4bde7fe5f2107737b"
+    },
+    {
+      "path": "src/features/auth/AuthPage.tsx",
+      "kind": "implementation",
+      "sha256": "c72d0ed8756331871e60a2df240eaf20cad8ae79f28328540aaaeb263216a3e8"
+    },
+    {
+      "path": "src/features/auth/session.ts",
+      "kind": "implementation",
+      "sha256": "5735fd0a010fbf41bd77f12ce0a1ceea4291538b9c9390e35eed838dace13136"
+    },
+    {
+      "path": "src/data/api/auth/mockAuth.ts",
+      "kind": "implementation",
+      "sha256": "3f3313ac9f951814b3cb7b8f55a8526970f24ac2272ecc42dd507bc73c24829d"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/catalog-view.js",
+      "kind": "interactive-prototype",
+      "sha256": "f8091dba4f62aba814e18199da212e450f80c3399746a1a924ef70037023b446"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/checkout-view.js",
+      "kind": "interactive-prototype",
+      "sha256": "baf2a1d2b866ca8525a49af90bb77445a2eb41b70452a837d72aa580f6c93d79"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/center-view.js",
+      "kind": "interactive-prototype",
+      "sha256": "a1ab997191cd2d2cb77a6762c77fa0cb47990b6e798a67bdd9c59f1a74e1c7ff"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/records-view.js",
+      "kind": "interactive-prototype",
+      "sha256": "8e957b8ea55f4a5a903592f15f88d45dc2524f6447dc5710379df4cadef2fb74"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/order-dialog.js",
+      "kind": "interactive-prototype",
+      "sha256": "7215741d63929442f52455fe45cc1d6b39ecba2ff38ccdd52292ee3c3700e04f"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/a.html",
+      "kind": "interactive-prototype",
+      "sha256": "726012b474d9aaac65d903e2363bc95305d2654eac7f093ff1627673d88fca98"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/shell.css",
+      "kind": "interactive-prototype",
+      "sha256": "d6d7546ef885c5e38d82f190292fea6158e1b84e848e16b928bf74ae01b47030"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/commerce.css",
+      "kind": "interactive-prototype",
+      "sha256": "a25bb4fe683c46fbb2a2d12c4ec16815468422e478cb1bc579079d1501949eb7"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/responsive.css",
+      "kind": "interactive-prototype",
+      "sha256": "32c529da5b0892505efeebd6d996fa1a48260fa5391d20c7296bede4e1317a47"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/center.css",
+      "kind": "interactive-prototype",
+      "sha256": "352ddcb89f45ca6b22303f814ced9ecd445a94b6c8d3d8ff26f830769ad4714a"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/checkout.css",
+      "kind": "interactive-prototype",
+      "sha256": "3a9862fb552eace57b301e947c204e8adb281e25579409af8d2747d572a238a4"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/center-responsive.css",
+      "kind": "interactive-prototype",
+      "sha256": "908e748608562a7d0a5f7fb1874e9a67f99add710892cf9730dd89e54a5a9b76"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/demo-data.js",
+      "kind": "interactive-prototype",
+      "sha256": "f8ad54d90cb8e6ef38dcb387ac8de7f55482203dbe60b922c768be2b83d10990"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/page-view.js",
+      "kind": "interactive-prototype",
+      "sha256": "7c8b538c082640403120daa84180e94a020c6c406dd1412b1573c51481664109"
+    },
+    {
+      "path": "docs/prototypes/saas-commerce/v2/demo-actions.js",
+      "kind": "interactive-prototype",
+      "sha256": "99cb4838b5cb6740f6147dc7d4490616205c732c25a1176fdd5c5889d14135cf"
+    }
+  ],
+  "excluded": [
+    "project identity and logo",
+    "endpoints and credentials",
+    "product home content",
+    "prototype review and release evidence"
+  ]
+}

@@ -380,7 +380,7 @@ describe("localized identity and visible brand initialization", () => {
     expect(JSON.parse(injected).projectName.message).toBe("Toolkit $$HOME")
   })
 
-  /** 验证双宿主 UI 消费身份翻译，扩展使用真实 Plasmo locales 入口。 */
+  /** 验证两宿主保留身份翻译资源，扩展使用真实 Plasmo locales 入口。 */
   test.each(["web", "extension"] as const)(
     "generates localized %s identity and brand summary",
     async (projectType) => {
@@ -390,11 +390,13 @@ describe("localized identity and visible brand initialization", () => {
       await expect(validateProject(root)).resolves.toContain(projectType)
       const brand = await readFile(path.join(root, "src/brand.ts"), "utf8")
       expect(brand).toContain("极光剪藏")
-      const surface =
-        projectType === "web" ? "src/features/welcome/WelcomePage.tsx" : "src/ExtensionShell.tsx"
-      const ui = await readFile(path.join(root, surface), "utf8")
-      expect(ui).toContain('t("projectName")')
-      expect(ui).toContain('t("projectDescription")')
+      const locale = await readFile(
+        path.join(root, projectType === "web" ? "src/i18n/locales/zh.ts" : "src/i18n.ts"),
+        "utf8"
+      )
+      expect(locale).toContain("...BRAND.identity.zh")
+      expect(brand).toContain("projectName")
+      expect(brand).toContain("projectDescription")
       const summary = formatInstantiationSummary({
         rawSourceRoot: repositoryRoot,
         canonicalSourceRoot: repositoryRoot,

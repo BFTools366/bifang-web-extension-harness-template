@@ -1,0 +1,12 @@
+/** 组织对象与当前操作者分离，不通过组织选择更换登录身份。 */
+export interface Organization {
+  id: string
+  name: string
+}
+/** 成员/邀请等写入不属于最小组织切换能力。 */
+export interface OrganizationApi {
+  read(
+    signal?: AbortSignal
+  ): Promise<{ current: string | null; available: readonly Organization[] }>
+  switch(id: string): Promise<void>
+}

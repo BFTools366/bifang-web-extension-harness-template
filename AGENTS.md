@@ -7,7 +7,7 @@
 ## 启动门禁
 
 1. **读取策略**：先读取本文件，再读取 `docs/AGENT_POLICY.md` 的 YAML 文件头元数据与字段语义；只有创建/执行左侧 Task、显式并行、构建或修改持久策略时，才继续读取对应章节。
-2. **识别工作区**：存在 `.harness/project.json` 时按其唯一 `projectType` 处理下游；没有该文件且仍有源专用实例化入口时执行源范围门禁：只接受 Harness 自身维护、固定初始化字段与可选创建需求输入。创建需求输入只作只读分析与事务交接；产品目的、业务功能、产品专属 UI/文案/数据不得写入模板源，正式产品定义、产品记录与业务实施只在成功下游进行。需求原文和已讨论建议直接沿用，不要求用户重提；远程地址、凭据、构建或发布另按专用门禁。身份无法确认时先查明，不猜测源/下游。
+2. **识别工作区**：存在 `.harness/project.json` 时按其唯一 `projectType` 处理下游；没有该文件且仍有源专用实例化入口时执行源范围门禁：只接受 Harness 自身维护、固定初始化字段与可选创建需求输入。创建需求输入只作只读分析与事务交接；完整创建须在成功下游按确认范围完成首版页面、功能和开发走查；产品目的、业务功能、产品专属 UI/文案/数据不得写入模板源，正式产品定义、产品记录与业务实施只在成功下游进行。需求原文和已讨论建议直接沿用，不要求用户重提；远程地址、凭据、构建或发布另按专用门禁。身份无法确认时先查明，不猜测源/下游。
 3. **保护现场**：写入前确认 Git 根、分支和工作区并保护已有修改；重叠无法安全处理时停止。不存在的命令、能力或验证结果不得虚构。
 4. **选择入口**：先判定任务类型，再只读取下表命中的事实来源与 Skill；冲突或缺失时才扩大读取，不一次加载全部文档、历史或 Skills。
 
@@ -21,7 +21,7 @@
 | 范围清楚的实现、问题修复或 i18n 整理          | `docs/ENGINEERING_RULES.md` 与直接命中的 UI、数据、配置或日志事实                                | `$web-implement-change`、`$web-extract-i18n-strings`                                                       |
 | React Web 列表、数据表格或搜索结果            | `docs/MANTINE_UI_GUIDELINES.md`、`docs/DATA_ACCESS.md` 与真实域契约                              | `$web-implement-change`、`$web-implement-list-view`；Extension 不调用                                      |
 | UI、页面、Popup、Options、响应式或无障碍      | `docs/MANTINE_UI_GUIDELINES.md`，只采用当前 `projectType` 章节                                   | `$web-implement-change`                                                                                    |
-| 功能模块组合                                  | 当前 PRD、所选模块知识与模板索引、真实契约                                                       | `$web-compose-capabilities`；按具体操作组合，不按产品分类启用                                              |
+| 功能模块组合                                  | 当前 PRD、所选模块知识与模板索引、真实契约                                                       | `$web-compose-capabilities`；固定设计与代码接线，按具体操作解析最小依赖，不按产品分类启用                  |
 | 下游真实 HTTP 接入或 Mock 迁移                | `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 与真实 endpoint 契约                      | `$web-connect-http-service`；实施与列表流程按接入事件委托                                                  |
 | 同步导出 API 与已实现业务说明                 | 当前实现、业务需求、已选服务契约与既有模块文档                                                   | `$web-document-api`；在下游 `docs/api/` 按业务聚合接口与流程，维护关联并核对漂移                           |
 | Extension 宿主边界兼容审查                    | 当前下游工程规则、受影响消费者与双目标证据                                                       | `$web-review-extension-compatibility`；仅 Extension，只读                                                  |
@@ -47,7 +47,7 @@
 - `superpowers: disabled` 时不得调用或遵循任何 `superpowers:*` Skill；其他能力开关只表示允许，不能替代当前任务的触发条件或授权。日常工作直接实施，只运行本次变化需要的相关非空测试或最小替代检查；不得因复杂、多模块、用户可见或 Agent 偏好自动增加持久计划、全仓检查、构建、浏览器或完整验收。
 - 除非用户明确说当前 Task 内部步骤、plan 或 Subagent，Task 一律指 Codex 左侧 user-owned Task，标题使用 `Task {序号} | {当前进度} | {单一结果}`，进度只取 `已分配`、`运行中`、`检查中`、`已完成`；序号分配、转换更新与复读只按 `docs/AGENT_POLICY.md`。内部 plan、Subagent、Worktree 不使用该标题合同，也不得虚写 `已完成`。
 - `user_owned_tasks: disabled` 时不得自动创建或拆分左侧 Task，但仍响应用户明确创建请求；`enabled` 时结果边界变化前自动创建。拆分条件与写入型 active Task 约束见 `docs/AGENT_POLICY.md`。
-- 新下游只能经唯一公开实例化入口在源外空目录创建，成功结果不产生最终候选；创建规则只在创建任务中读取 `docs/TS_WEB_TEMPLATE.md` 与实例化 Skill。
+- 新下游只能经唯一公开实例化入口在源外空目录创建，工程事务成功只是内部阶段，不产生最终候选；完整创建继续在下游完成首版；创建规则只在创建任务中读取 `docs/TS_WEB_TEMPLATE.md` 与实例化 Skill。
 - 下游始终平铺单包且只有一个 `projectType`；不得叠加或切换宿主、建立 monorepo/共享 core，或保留创建另一项目的入口。Web 与 Extension 的框架、路由、状态、国际化、权限和宿主边界只在相关任务中读取 `docs/TS_WEB_TEMPLATE.md` 与专题事实源。
 - 安全、隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容契约、最终候选和正式发布进入对应专用门禁；发布授权与 E2E 复用规则见 `docs/AGENT_POLICY.md` 与 `docs/RELEASE.md`。
 - 对“完成”“可用”或“已验证”的声明必须来自真实可观察证据；Mock、stub、源码片段、中性脚手架或开发预览不能替代最终候选验收，人工批准也不能把失败或未执行改判为通过。

@@ -1,0 +1,18 @@
+import { useSyncExternalStore, type ReactNode } from "react"
+import type { PermissionRuntime } from "./runtime"
+
+/** 元素和页面消费与路由相同的权限码，撤权后立即移除受限子树。 */
+export function Access({
+  permission,
+  required,
+  children,
+  fallback = null
+}: {
+  permission: PermissionRuntime
+  required: readonly string[]
+  children: ReactNode
+  fallback?: ReactNode
+}) {
+  useSyncExternalStore(permission.subscribe, permission.getSnapshot, permission.getSnapshot)
+  return permission.allow(required) ? children : fallback
+}

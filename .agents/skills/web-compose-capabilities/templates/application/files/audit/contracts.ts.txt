@@ -1,0 +1,11 @@
+/** 审计记录只展示服务允许公开的结构化字段，不回显凭据或原始异常。 */
+export interface AuditRecord {
+  id: string
+  action: string
+  actor: string
+  occurredAt: string
+}
+/** 审计集合由真实服务按当前作用域提供，远端列表使用 GraphQL。 */
+export interface AuditApi {
+  list(signal?: AbortSignal): Promise<readonly AuditRecord[]>
+}

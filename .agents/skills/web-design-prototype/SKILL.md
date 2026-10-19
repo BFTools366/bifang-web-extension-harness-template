@@ -10,7 +10,7 @@ description: 在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Ex
 ## 准入与事实
 
 1. 仅在已初始化下游运行：确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，停止原型工作，创建需求输入交给源实例化流程；成功后切换到下游并复用原文继续。Harness 自身维护本 Skill 不受此限制。
-2. 初始化仅分发 Skills、中性工程与可选需求原文，不执行正式 PRD、原型或登记，也不读写全局 Skills；创建需求语义与下游 PRD 归 `$web-define-product`，能力选择归 `$web-compose-capabilities`，本 Skill 只拥有实际桌面布局、交互原型与登记。
+2. 正式 PRD、原型与登记只按各自事件创建，也不读写全局 Skills；创建需求语义与下游 PRD 归 `$web-define-product`，能力选择归 `$web-compose-capabilities`，本 Skill 只拥有实际桌面布局、交互原型与登记。所选能力优先组合 catalog 中的固定 design.md 与页面模板，保持登录、用户区、导航、权限和购买的既定交互；按需求补齐真实首页与正文，不重新随意设计能力页。完整创建确认已授权实施时，自查登记后直接交接开发，不重复询问。
 3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；PRD 的结构和范围补齐归需求定义，记录合同见 [PRD 结构](../web-define-product/references/prd-outline.md)。只逐项澄清影响当前设计的关键缺口，复用已确认事实，不重启整套问卷。
 4. Product Spec 是唯一 PRD，不另建 `docs/prd/`。需求须为 `Approved`；原型摘要只登记在 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。登记不代表用户新增授权或交互质量已验证。
 5. 按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 继承已选模块与具体操作，只读对应知识和设计参考；未选能力不进入原型。管理目标组织与操作者身份分开，Extension 按实际 surface 适配。

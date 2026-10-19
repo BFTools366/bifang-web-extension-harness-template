@@ -728,6 +728,26 @@
     {
       "pattern": "tests/harness-api-document-export.test.ts",
       "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-wiring-fixture.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-wiring.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-capabilities.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-content.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/capability-source-reference.test.ts",
+      "mode": "tombstone"
     }
   ]
 }

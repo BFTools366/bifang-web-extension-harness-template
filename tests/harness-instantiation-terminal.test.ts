@@ -141,7 +141,7 @@ describe("terminal source projection", () => {
     expect(skills).not.toContain("web-review-extension-compatibility")
     expect(skills).not.toContain("manage-project-surfaces")
 
-    // 两库及显式组合模板按原文分发，产品源码仍为中性起点。
+    // 两库及显式组合模板按原文分发，工程基础不包含默认演示页面。
     for (const file of [
       "SKILL.md",
       "agents/openai.yaml",

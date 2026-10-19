@@ -1,0 +1,9 @@
+import type { IdentityApi } from "../../../features/identity/session"
+
+/** 基础用户系统只收集登录凭据，不隐式增加注册、找回或组织。 */
+export interface LoginInput {
+  account: string
+  password: string
+}
+/** 实际服务 adapter 必须实现独立的公开登录、会话验证与退出边界。 */
+export type LoginApi = IdentityApi<LoginInput>

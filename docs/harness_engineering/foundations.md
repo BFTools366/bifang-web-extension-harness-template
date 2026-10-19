@@ -22,7 +22,7 @@ Extension 仍是一个单包、一个 `projectType`，其固定目标是 Chrome 
 
 ## 身份与品牌
 
-`.harness/project.json` 是下游名称、标识、说明、唯一 `projectType` 与品牌事实源。用户 Logo 或基于身份确定性生成的图像先形成 `.harness/brand/logo-1024.png`，再只派生当前宿主资产：Web 的 `public/logo.png`、favicon、HTML/Landing，或 Extension 的图标、manifest、Popup/Options。派生文件可重建，不能反向成为身份源。
+`.harness/project.json` 是下游名称、标识、说明、唯一 `projectType` 与品牌事实源。用户 Logo 或基于身份确定性生成的图像先形成 `.harness/brand/logo-1024.png`，再只派生当前宿主资产：Web 的 `public/logo.png`、favicon、HTML 元数据，或 Extension 的图标、manifest、Popup/Options。派生文件可重建，不能反向成为身份源。
 
 ## 技术职责
 

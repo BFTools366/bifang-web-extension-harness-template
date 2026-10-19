@@ -23,7 +23,7 @@ const BASE_INPUT = {
 
 describe("初始化渐进式引导", () => {
   /** 验证移除业务分类后仍按固定题目逐项收集，并只重问非法项。 */
-  test("中性创建保留固定题面与逐项策略询问", async () => {
+  test("工程创建保留固定题面与逐项策略询问", async () => {
     const questions: string[] = []
     const answers = [
       "invalid",
@@ -119,7 +119,7 @@ describe("初始化渐进式引导", () => {
         await confirmInstantiation(summary, async (question) => {
           expect(question).toContain("问题名称：创建确认\n按此创建？")
           expect(question).toContain(
-            "确认（按完整汇总创建项目，开始写入目标与暂存目录、安装依赖并建立 Git 基线）"
+            "确认（按工程汇总写入目标与暂存目录、安装依赖并建立 Git 基线；首版页面功能由 Agent 在下游继续完成）"
           )
           expect(question).toContain("取消（结束本次创建，不写入目标或暂存目录）")
           expect(question).not.toContain("回车采用")

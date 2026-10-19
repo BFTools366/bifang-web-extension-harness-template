@@ -1,0 +1,30 @@
+/** 实际复用的财务领域类型，金额为安全整数最小单位，币种来自服务。 */
+export interface Price {
+  minor: number
+  currency: string
+}
+/** 钱包支付和订单查询共享同一个服务订单结果。 */
+export interface Order {
+  id: string
+  productId: string
+  total: Price
+  status: "unpaid" | "paid"
+  requestId: string
+}
+
+/** 商品报价由商品与订单的同一服务合同复用。 */
+export interface Product {
+  id: string
+  name: string
+  description: string
+  category?: string
+  price: Price
+}
+
+/** 按币种法定小数位显示金额，不把服务的最小单位暴露为界面术语。 */
+export function formatPrice(price: Price, locale: string) {
+  if (!Number.isSafeInteger(price.minor) || price.minor < 0 || !/^[A-Z]{3}$/u.test(price.currency))
+    return "—"
+  const format = new Intl.NumberFormat(locale, { style: "currency", currency: price.currency })
+  return format.format(price.minor / 10 ** (format.resolvedOptions().maximumFractionDigits ?? 2))
+}

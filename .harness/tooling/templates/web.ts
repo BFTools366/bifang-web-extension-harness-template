@@ -118,9 +118,6 @@ interface ImportMeta {
 export const en = {
   ...BRAND.identity.en,
   ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.en)},
-  eyebrow: "Harness project ready",
-  action: "Test local state",
-  count: "Interaction count: {{count}}",
   notFoundTitle: "Page not found",
   notFoundDescription: "The requested page does not exist.",
   backHome: "Back to home",
@@ -149,9 +146,6 @@ export const en = {
 export const zh = {
   ...BRAND.identity.zh,
   ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.zh)},
-  eyebrow: "Harness 项目已就绪",
-  action: "测试本地状态",
-  count: "交互次数：{{count}}",
   notFoundTitle: "页面不存在",
   notFoundDescription: "你访问的页面不存在。",
   backHome: "返回首页",
@@ -287,95 +281,56 @@ declare module "@tanstack/react-router" {
 `
     ],
     [
-      "src/features/welcome/WelcomePage.tsx",
-      `import { Badge, Button, Container, Group, Image, Paper, Stack, Text, Title } from "@mantine/core"
-import { useState } from "react"
+      "src/app/RootLayout.tsx",
+      `import { Text } from "@mantine/core"
+import { Outlet } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
-import { BRAND } from "../../brand"
-import { BUILD_VERSION } from "../../buildVersion"
-import { ColorSchemeControl } from "../../theme/ColorSchemeControl"
+import { BUILD_VERSION } from "../buildVersion"
 
-/** 说明 WelcomePage 的稳定结构与职责边界。 */
-export function WelcomePage() {
+/** 挂载真实子路由并保留工程构建版本，不生成默认产品页面。 */
+export function RootLayout() {
   const { t } = useTranslation()
-  const [count, setCount] = useState(0)
-
-  return (
-    <main className="page-shell">
-      <Container size="sm">
-        <Paper radius="lg" p="xl" withBorder>
-          <Stack gap="lg">
-            <Group justify="space-between" align="flex-start">
-              <Image src={BRAND.logoPath} alt={t("projectName")} w={88} h={88} radius="lg" />
-              <Stack gap="xs" align="flex-end">
-                <Badge variant="default">{t("eyebrow")}</Badge>
-                <ColorSchemeControl />
-              </Stack>
-            </Group>
-            <div>
-              <Title order={1}>{t("projectName")}</Title>
-              <Text c="dimmed" mt="sm" size="lg">
-                {t("projectDescription")}
-              </Text>
-            </div>
-            <Group>
-              <Button onClick={() => setCount((value) => value + 1)}>{t("action")}</Button>
-              <Text fw={600} role="status" aria-live="polite" aria-atomic="true">
-                {t("count", { count })}
-              </Text>
-            </Group>
-            <Text c="dimmed" size="xs">
-              {t("buildVersion", { version: BUILD_VERSION })}
-            </Text>
-          </Stack>
-        </Paper>
-      </Container>
-    </main>
-  )
+  return <>
+    <Outlet />
+    <footer><Text c="dimmed" size="xs">{t("buildVersion", { version: BUILD_VERSION })}</Text></footer>
+  </>
 }
 `
     ],
     [
-      "src/features/welcome/WelcomePage.test.tsx",
+      "src/app/RootLayout.test.tsx",
       `// @vitest-environment jsdom
-import "../../i18n"
+import "../i18n"
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
 import { expect, test } from "vitest"
-import { AppProviders } from "../../app/AppProviders"
-import { BRAND } from "../../brand"
-import i18n from "../../i18n"
-import { WelcomePage } from "./WelcomePage"
+import i18n from "../i18n"
+import { AppProviders } from "./AppProviders"
+import { RootLayout } from "./RootLayout"
 
-/** 验证当前场景的核心成功或风险边界。 */
-test("renders the branded landing interaction", async () => {
+/** 验证根路径的工程注册不渲染演示首页，也不会误报未知页面。 */
+test("mounts the root without a demo homepage", async () => {
   await i18n.changeLanguage("en")
-  const user = userEvent.setup()
-  /** 说明当前方法的稳定职责与行为边界。 */
-  render(
-    <AppProviders>
-      <WelcomePage />
-    </AppProviders>
-  )
-
-  expect(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 })).toBeInTheDocument()
-  expect(screen.getByText("Build version: development")).toBeInTheDocument()
-  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByRole("heading", { name: BRAND.identity.en.projectName, level: 1 }))
-  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 0")
-  await user.click(screen.getByRole("button", { name: "Test local state" }))
-  expect(screen.getByRole("status")).toHaveTextContent("Interaction count: 1")
-  await user.click(screen.getByText("Dark"))
-  expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
-  expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
+  const root = createRootRoute({ component: RootLayout, notFoundComponent: () => <h1>Missing route</h1> })
+  const index = createRoute({ getParentRoute: () => root, path: "/" })
+  const router = createRouter({ routeTree: root.addChildren([index]), history: createMemoryHistory({ initialEntries: ["/"] }) })
+  render(<AppProviders><RouterProvider router={router} /></AppProviders>)
+  expect(await screen.findByText("Build version: development")).toBeInTheDocument()
+  expect(screen.queryByRole("heading")).not.toBeInTheDocument()
+  expect(screen.queryByRole("button")).not.toBeInTheDocument()
 })
 
-/** 验证 Web 品牌名称与说明随应用语言切换。 */
-test("renders localized web identity", async () => {
+/** 验证工程布局挂载调用方页面，构建版本继续随应用语言变化。 */
+test("mounts a supplied page with the localized build version", async () => {
+  await i18n.changeLanguage("en")
+  const root = createRootRoute({ component: RootLayout })
+  const page = createRoute({ getParentRoute: () => root, path: "/", component: () => <main>Fixture content</main> })
+  const router = createRouter({ routeTree: root.addChildren([page]), history: createMemoryHistory({ initialEntries: ["/"] }) })
+  const view = render(<AppProviders><RouterProvider router={router} /></AppProviders>)
+  expect(await screen.findByText("Fixture content")).toBeInTheDocument()
+  expect(screen.getByText("Build version: development")).toBeInTheDocument()
   await i18n.changeLanguage("zh")
-  const view = render(<AppProviders><WelcomePage /></AppProviders>)
-  expect(screen.getByRole("heading", { name: BRAND.identity.zh.projectName })).toBeInTheDocument()
-  expect(screen.getByText(BRAND.identity.zh.projectDescription, { selector: "p" })).toBeInTheDocument()
+  expect(await screen.findByText("构建版本：development")).toBeInTheDocument()
   view.unmount()
   await i18n.changeLanguage("en")
 })
@@ -411,12 +366,13 @@ export function NotFoundPage() {
     ],
     [
       "src/routes/__root.tsx",
-      `import { Outlet, createRootRoute } from "@tanstack/react-router"
+      `import { createRootRoute } from "@tanstack/react-router"
+import { RootLayout } from "../app/RootLayout"
 import { NotFoundPage } from "../features/not-found/NotFoundPage"
 
 /** 说明 Route 的稳定结构与职责边界。 */
 export const Route = createRootRoute({
-  component: Outlet,
+  component: RootLayout,
   notFoundComponent: NotFoundPage
 })
 `
@@ -424,12 +380,9 @@ export const Route = createRootRoute({
     [
       "src/routes/index.tsx",
       `import { createFileRoute } from "@tanstack/react-router"
-import { WelcomePage } from "../features/welcome/WelcomePage"
 
-/** 说明 Route 的稳定结构与职责边界。 */
-export const Route = createFileRoute("/")({
-  component: WelcomePage
-})
+/** 注册根路径供宿主路由匹配，页面内容由产品实现提供。 */
+export const Route = createFileRoute("/")({})
 `
     ],
     [
@@ -487,6 +440,10 @@ createRoot(root, reactRootErrorHandlers).render(
 
 :root[data-mantine-color-scheme="dark"] {
   color-scheme: dark;
+}
+
+footer {
+  padding: var(--mantine-spacing-md);
 }
 
 body {

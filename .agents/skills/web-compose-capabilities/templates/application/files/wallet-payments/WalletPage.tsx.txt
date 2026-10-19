@@ -1,0 +1,30 @@
+import { formatPrice } from "../../data/api/commerce/price"
+import { Stack, Text, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
+import type { WalletReadApi } from "../../data/api/wallet-payments/contracts"
+import { ModuleState } from "../application/ModuleState"
+
+/** 固定钱包页只展示已接线余额，不制造充值等未授权操作。 */
+export function WalletPage({ api, scope }: { api: WalletReadApi; scope: number }) {
+  const { t, i18n } = useTranslation()
+  const query = useQuery({
+    queryKey: ["wallet", scope],
+    meta: { private: true },
+    queryFn: ({ signal }) => api.read(signal)
+  })
+  return (
+    <Stack>
+      <Title order={1}>{t("walletTitle")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.isError}
+        empty={false}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {query.data && <Text>{formatPrice(query.data, i18n.language)}</Text>}
+    </Stack>
+  )
+}

@@ -1,0 +1,17 @@
+import type { AuditApi, AuditRecord } from "./contracts"
+
+/** Mock 审计数据明确按当前主体隔离，不把前端日志当服务端审计。 */
+export function createAuditMock(
+  actor: () => string | null,
+  records: readonly AuditRecord[]
+): AuditApi {
+  return {
+    /** 读取当前作用域允许查看的记录，不修改服务状态。 */
+    async list(signal) {
+      signal?.throwIfAborted()
+      const subject = actor()
+      if (!subject) throw new Error("identity_required")
+      return structuredClone(records.filter((row) => row.actor === subject))
+    }
+  }
+}

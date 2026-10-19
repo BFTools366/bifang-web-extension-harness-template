@@ -1,4 +1,5 @@
-import { readFile, realpath, readdir } from "node:fs/promises"
+import os from "node:os"
+import { readFile, realpath, readdir, cp, mkdtemp, writeFile, rm } from "node:fs/promises"
 import path from "node:path"
 import { expect, test } from "vitest"
 import { repositoryRoot } from "./harness-tooling-support.ts"
@@ -11,11 +12,12 @@ test("opt-in capability assets are indexed, readable and governed as source", as
   const root = path.join(repositoryRoot, ".agents/skills/web-compose-capabilities")
   const recipeRoot = path.join(root, "templates/compositions/account-workspace")
   const catalog = readCapabilityCatalog(root)
-  const resources = new Set(
-    [...catalog.modules, ...catalog.recipes].flatMap((entry) =>
+  const resources = new Set([
+    ...catalog.application.map((item) => item.path),
+    ...[...catalog.modules, ...catalog.recipes].flatMap((entry) =>
       entry.templates.map((item) => item.path)
     )
-  )
+  ])
   const assets = JSON.parse(await readFile(path.join(recipeRoot, "assets.json"), "utf8")) as Record<
     string,
     string
@@ -46,6 +48,16 @@ test("opt-in capability assets are indexed, readable and governed as source", as
     }
   }
   await checkDirectory(recipeRoot)
+  await checkDirectory(path.join(root, "templates/application"))
+  for (const relative of resources) {
+    if (!relative.startsWith("templates/application/") || !/\.tsx?(?:\.txt)?$/u.test(relative))
+      continue
+    const source = await readFile(path.join(root, relative), "utf8")
+    const report = inspectChineseComments(source, relative.replace(/\.txt$/u, ""))
+    expect(report.errors, relative).toEqual([])
+    expect(report.violations, relative).toEqual([])
+    expect(source.split("\n").length - 1, relative).toBeLessThanOrEqual(600)
+  }
 })
 
 /** 完整示例包维持操作/业务关联，不把离线购买设计混入已模拟API。 */
@@ -57,4 +69,36 @@ test("neutral account API example is a complete linked export", async () => {
     )
   )
   expect(report.operations).toBe(13)
+})
+
+/** 损坏依赖、遗漏宿主代码或越界资源在任何下游装配前失败。 */
+test("rejects damaged operation graphs and missing fixed assets", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "capability-contract-"))
+  try {
+    await cp(path.join(repositoryRoot, ".agents/skills/web-compose-capabilities"), root, {
+      recursive: true
+    })
+    const original = JSON.parse(await readFile(path.join(root, "catalog.json"), "utf8"))
+    for (const mode of ["cycle", "missing-operation", "missing-host", "escape"] as const) {
+      const catalog = structuredClone(original)
+      if (mode === "cycle")
+        catalog.modules.find(
+          (item: { id: string }) => item.id === "identity"
+        ).operations[0].requires = ["permissions.enforce"]
+      if (mode === "missing-operation")
+        catalog.modules[0].operations[0].requires = ["unknown.operation"]
+      if (mode === "missing-host")
+        catalog.modules[0].templates = catalog.modules[0].templates.map(
+          (item: { hosts: string[] }) => ({ ...item, hosts: ["web"] })
+        )
+      if (mode === "escape") catalog.application[0].path = "../outside.ts"
+      await writeFile(path.join(root, "catalog.json"), JSON.stringify(catalog))
+      expect(() => readCapabilityCatalog(root), mode).toThrow()
+    }
+    await writeFile(path.join(root, "catalog.json"), JSON.stringify(original))
+    await rm(path.join(root, "templates/identity/design.md"))
+    expect(() => readCapabilityCatalog(root)).toThrow()
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })

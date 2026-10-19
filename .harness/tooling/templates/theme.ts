@@ -2,6 +2,32 @@
 export function themeFiles(): Map<string, string> {
   return new Map<string, string>([
     [
+      "src/theme/ColorSchemeControl.test.tsx",
+      `// @vitest-environment jsdom
+import "../i18n"
+import { MantineProvider } from "@mantine/core"
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { expect, test } from "vitest"
+import i18n from "../i18n"
+import { BRAND } from "../brand"
+import { colorSchemeManager } from "../data/storage/colorScheme"
+import { ColorSchemeControl } from "./ColorSchemeControl"
+
+/** 独立验证外观基础，不依赖已移除的欢迎页和演示计数器。 */
+test.each([false, true])("persists appearance with compact control %s", async (compact) => {
+  await i18n.changeLanguage("en")
+  localStorage.removeItem(BRAND.id + ":color-scheme:v1")
+  const user = userEvent.setup()
+  render(<MantineProvider defaultColorScheme="auto" colorSchemeManager={colorSchemeManager}><ColorSchemeControl compact={compact} /></MantineProvider>)
+  if (compact) await user.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "dark")
+  else await user.click(screen.getByText("Dark"))
+  expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
+  expect(localStorage.getItem(BRAND.id + ":color-scheme:v1")).toBe("dark")
+})
+`
+    ],
+    [
       "src/theme/brandScale.ts",
       `import type { MantineColorsTuple } from "@mantine/core"
 

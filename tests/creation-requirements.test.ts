@@ -122,7 +122,7 @@ describe("创建需求输入", () => {
     expect(await readdir(root)).toEqual(["brief.txt"])
   })
 
-  /** 验证真实两宿主事务交接原文、终端裁剪、身份隔离与中性页面不受文档驱动注入。 */
+  /** 验证真实两宿主事务交接原文、终端裁剪、身份隔离，原文不驱动业务注入。 */
   test.each(["web", "extension"] as const)("%s 原文进入唯一生成项目", async (projectType) => {
     const parent = await temporaryDirectory("requirements-project-")
     const file = path.join(parent, "brief.md")
@@ -156,7 +156,8 @@ describe("创建需求输入", () => {
     const target = path.join(parent, config.id)
     expect(await readFile(path.join(target, "docs/requirements/source.txt"), "utf8")).toBe(content)
     const handoff = await readFile(path.join(target, "docs/requirements/README.md"), "utf8")
-    expect(handoff).toContain("未确认的产品输入")
+    expect(handoff).toContain("原文本身不是已确认 PRD")
+    expect(handoff).toContain("完整创建汇总中已有的真实范围确认可在下游复用")
     expect(handoff).toContain((await readCreationRequirements(file)).sha256)
     expect(config).not.toHaveProperty("requirements")
     expect(config).not.toHaveProperty("requirementsFile")
@@ -212,7 +213,7 @@ describe("创建需求输入", () => {
   })
 
   /** 验证无文档的非交互调用沿用原接口，不产生需求输入文件。 */
-  test("无需求参数保持既有中性调用", async () => {
+  test("无需求参数保持既有工程调用", async () => {
     const parent = await temporaryDirectory("requirements-absent-")
     await runInstantiateCli(
       [parent, "--type", "1", "--name", "Plain Web", "--policy-mode", "预设"],

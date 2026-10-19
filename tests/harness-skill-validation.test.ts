@@ -26,7 +26,7 @@ describe("Harness Skill and Agent policy validation", () => {
     ["web-instantiate-project", "需求分析委托 `$web-define-product`"],
     ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
     ["web-define-product", "只读分析完成后返回调用方"],
-    ["web-define-product", "创建确认不批准产品范围"],
+    ["web-define-product", "仅工程确认不批准产品范围；完整创建范围确认可复用"],
     ["web-compose-capabilities", "源阶段不取代码模板、不写入工程、不调用组装器"],
     ["web-compose-capabilities", "代码装配与测试由 `$web-implement-change` 负责"],
     ["web-compose-capabilities", "读取后返回当前调用方"],

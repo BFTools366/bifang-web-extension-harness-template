@@ -231,7 +231,6 @@ export async function validateExtension(
       "src/popup.tsx",
       "src/options.tsx",
       "src/ExtensionShell.tsx",
-      "src/ExtensionShell.test.tsx",
       "src/buildVersion.ts",
       "src/i18n.ts",
       "src/providers.tsx",

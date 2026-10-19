@@ -1,0 +1,108 @@
+.shell {
+  min-height: 100dvh;
+}
+.skip {
+  position: fixed;
+  top: var(--mantine-spacing-xs);
+  left: var(--mantine-spacing-md);
+  transform: translateY(-200%);
+  z-index: 500;
+  padding: var(--mantine-spacing-sm);
+  background: var(--mantine-color-body);
+  border: 2px solid currentColor;
+}
+.skip:focus {
+  transform: translateY(0);
+}
+.sidebar {
+  overflow-y: auto;
+}
+.sidebar > * {
+  flex-shrink: 0;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  color: var(--mantine-color-text);
+  min-height: 3rem;
+  overflow-wrap: anywhere;
+}
+.nav {
+  display: grid;
+  gap: var(--mantine-spacing-xs);
+  margin-top: var(--mantine-spacing-xl);
+}
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: var(--mantine-spacing-sm);
+  min-height: 2.75rem;
+  padding: var(--mantine-spacing-xs);
+  border-radius: var(--mantine-radius-md);
+  color: var(--mantine-color-dimmed);
+}
+.navLink svg {
+  flex-shrink: 0;
+}
+.navLink:hover {
+  background: var(--mantine-color-default-hover);
+}
+.navLink[aria-current="page"] {
+  background: var(--mantine-color-brand-light);
+  color: var(--mantine-color-brand-light-color);
+  font-weight: 600;
+}
+.sidebarBottom {
+  margin-top: auto;
+  padding-top: var(--mantine-spacing-lg);
+}
+.main {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.authPage {
+  min-height: 100dvh;
+  background: var(--mantine-color-default-hover);
+  display: flex;
+  align-items: center;
+  padding-block: var(--mantine-spacing-xl);
+}
+.authLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: clamp(2rem, 6vw, 6rem);
+  padding: clamp(1.5rem, 5vw, 4rem);
+  align-items: center;
+}
+.authAside {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.authCard {
+  width: 100%;
+  max-width: 27rem;
+  justify-self: end;
+  min-width: 0;
+}
+.authHeading {
+  padding-bottom: var(--mantine-spacing-md);
+  border-bottom: 2px solid var(--mantine-color-default-border);
+}
+.catalogLayout {
+  display: grid;
+  grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
+  gap: var(--mantine-spacing-lg);
+}
+.catalogLayout > * {
+  min-width: 0;
+}
+@media (max-width: 48em) {
+  .authLayout,
+  .catalogLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .authCard {
+    max-width: none;
+  }
+}

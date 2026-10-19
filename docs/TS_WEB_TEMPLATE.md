@@ -1,10 +1,10 @@
 # TypeScript Web / Chrome Extension 单包模板
 
-本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：一次初始化只选择 `web` 或 `extension`，生成一个独立、平铺、可直接开发和发布的 pnpm 单包。
+本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：一次初始化只选择 `web` 或 `extension`，生成一个独立、平铺的 pnpm 单包。
 
-## 功能组合与中性创建
+## 工程基础与功能组合
 
-初始化只提供唯一宿主的中性工程，不按 Web 产品分类注入业务。成功下游使用 [功能组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md) 按操作选择独立知识与模板；选择归唯一 PRD。身份、组织、权限、目录、订单、钱包支付和审计可以独立采用，显式组合示例不自动启用。
+完整创建任务按已确认需求交付首版页面与功能；`pnpm instantiate` 只执行其中的工程创建事务。事务成功后，Agent 在下游继续唯一 PRD、固定设计原型、代码接线与开发浏览器流程验证。基础应用具有主界面和宿主路由，真实首页由需求实现；能力按操作自动计算并展示最小依赖，购买必须包含基础用户系统，身份不默认附带组织或权限。
 
 ## 1. 不变量
 
@@ -51,11 +51,11 @@ pnpm instantiate -- /absolute/path --type extension \
 
 创建时遵循[固定初始化表单](../.agents/skills/web-instantiate-project/references/initialization-form.md#固定问题清单)：每轮只问一项，逐字使用固定问题名称、题面和选项的括号说明；收到实际回答并校验后才继续。基础字段按依赖顺序逐项引导，直接回答普通文本；主动提供多个字段的 JSON 仍复用。项目标识按英文名称自动生成，父目录与服务地址不猜测。最终汇总同时展示原始父目录、完整项目目录与规范路径。全部解析后才展示完整汇总并询问一次最终确认，空回答取消。参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 同级暂存目录 完成复制，通过内部初始化器 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部初始化器 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
-生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。公开 CLI 不接受跳过安装或 Git 的参数；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。初始化不运行格式 CLI、lint、typecheck、全量测试或生产构建；这些完整门禁只由后续唯一 Release 构建入口拥有。
+生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。公开 CLI 不接受跳过安装或 Git 的参数；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。工程事务不运行格式 CLI、lint、typecheck、全量测试或生产构建；成功下游的首版实施执行本次需要的类型检查、相关非空行为测试和开发浏览器核心流程走查。最终 Release 构建的完整门禁仍由唯一入口拥有。
 
 ## 3. 项目身份与品牌事实
 
-### 中性创建与下游功能选择
+### 需求交接与功能选择
 
 有文档时在成功下游读取 `docs/requirements/source.txt` 并沿用创建建议，不要求用户重贴；没有文档时按渐进式需求澄清处理。创建后的需求、原型、实施、服务接入与文档统一复用 [功能模块组合](../.agents/skills/web-compose-capabilities/references/requirements-selection.md) 的当前选择；通用能力分发不代表功能已启用或服务已接入。
 
@@ -97,7 +97,7 @@ Web 初始化必须同步：
 - `public/logo.png`：页面使用的 Logo；
 - `public/favicon.png`：浏览器标签图标；
 - 根 `index.html`：title、description、favicon 引用与挂载点；
-- Landing 页面：Logo、项目名称、描述、当前主题色与当次构建版本。
+- `app/RootLayout.tsx`：路由正文插槽与当次构建版本；不生成品牌欢迎页。
 
 这些文件不得包含 Extension 项目名、Popup/Options 文案或 Chrome manifest 配置。
 
@@ -139,21 +139,21 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 两种项目都必须生成 `docs/MANTINE_UI_GUIDELINES.md`，由源 Harness 的同名唯一事实源按当前 `projectType` 派生：共同 theme、令牌、组件语义、状态、响应式、无障碍与 i18n 规则保留，只携带 Web 或 Extension 当前宿主章节，不把另一宿主的布局约定写入终端项目。生成的 `AGENTS.md`、`docs/README.md` 与 `docs/ENGINEERING_RULES.md` 必须为 UI 任务提供读取入口，`pnpm harness validate` 必须拒绝规范缺失。
 
-该规范不要求初始化器预装 `@mantine/form`、`@mantine/notifications` 等可选包，也不把最小 Landing、Popup 或 Options 宣称为完整业务设计系统。真实 UI 开始实施时以 Mantine theme 和当前包内受控样式落实规范，不建立第二套基础组件库或跨宿主源码共享层。
+该规范不要求初始化器预装 `@mantine/form`、`@mantine/notifications` 等可选包，也不把工程根布局和宿主入口 宣称为完整业务设计系统。真实 UI 开始实施时以 Mantine theme 和当前包内受控样式落实规范，不建立第二套基础组件库或跨宿主源码共享层。
 
 ### 3.8 Web 专属 列表治理基线
 
-- 源 Harness 保留 Extension 专属 `$web-review-extension-compatibility`，只分发到 Extension 下游；真实 HTTP 接入使用两宿主通用 `$web-connect-http-service`。两宿主均分发 `$web-audit-worktrees` 与 `$web-preview-harness-upgrade`，分别复用并行登记检查和升级 plan，不授予创建、清理或应用权限。初始化只分发能力，不执行产品接入或专项审查。
+- 源 Harness 保留 Extension 专属 `$web-review-extension-compatibility`，只分发到 Extension 下游；真实 HTTP 接入使用两宿主通用 `$web-connect-http-service`。两宿主均分发 `$web-audit-worktrees` 与 `$web-preview-harness-upgrade`，分别复用并行登记检查和升级 plan，不授予创建、清理或应用权限。工程事务只分发能力，不执行产品接入或专项审查。
 - 源 Harness 保留 `$web-implement-list-view` 的 Skill、references 与中性资产；`projectType=web` 终端保留该 Skill，`projectType=extension` 终端必须裁掉它。
 - 该能力只在 Web 下游真实出现列表页、数据表格、后台列表或搜索结果时调用；不把 Extension Popup/Options 视为可共享宿主。
-- 初始化不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
+- 工程事务不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
 - 列表页仍复用 `src/pagination/` 的 1-based page/pageSize 契约；Router search 的封闭启动恢复、Query 对 rows/`total` 的唯一所有权和稳定排序详见 [`DATA_ACCESS.md`](DATA_ACCESS.md)，Table/卡片/搜索形态与条件 DnD 详见 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)。
 
 两宿主均分发 API 契约核对、模块边界审查、访问控制、写入恢复、浏览器存储、持续事件流及用户可见 Task 的独立 Skill；只按事件调用，叶子返回当前流程，不反向重启编排。源 31 个、Web 28 个、Extension 28 个维护 Skills，设计支持另计；职责地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。
 
 ### 3.9 项目级设计支持基线
 
-- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和摘要登记 helper。初始化事务只分发能力与可选需求原文；事务前允许实例化委托需求定义与功能组合只读分析，正式需求澄清、PRD 与原型登记在成功下游执行。初始化不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
+- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和摘要登记 helper。工程事务只分发能力与可选需求原文；事务前允许实例化委托需求定义与功能组合只读分析，正式需求澄清、PRD 与原型登记在成功下游执行。工程事务不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
 - 下游实际开发才运行“澄清 → 唯一 Product Spec（PRD）→ 一个桌面交互 HTML 原型 → 自查、展示及登记 → 按已有授权开发”；详细合同在 [`web-design-prototype`](../.agents/skills/web-design-prototype/SKILL.md)。原型记录绑定 PRD 和唯一 HTML 的 SHA-256，漂移需修订、自查并重新登记；不做 A/B 选择或 Mobile 设计；日常小修复不自动重走流程。
 
 - Web 与 Extension 初始化默认检查项目内 `.agents/skills/design-taste-frontend/SKILL.md`；有效已有版本连同辅助文件原样保留，缺失时自动安装，无额外用户问询，不读取或写入全局 Skills。
@@ -173,7 +173,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 | HTTP 与分页 | Ky HTTP + 统一分页基础       | 生成 client/测试但不生成业务 endpoint                                            |
 | 功能组合    | `$web-compose-capabilities`  | 已初始化下游按具体操作选择知识与模板，不按产品类别自动启用                       |
 
-| 列表页 | `$web-implement-list-view` | 仅真实重复记录页触发；不强制 Table/DnD，不在初始化中生成业务 UI |
+| 列表页 | `$web-implement-list-view` | 仅真实重复记录页触发；不强制 Table/DnD，工程事务不生成业务 UI |
 | 实时数据 | 按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 按需选择 | 初始化不预装 SSE 客户端 |
 | 事件流编排 | RxJS（按需） | 只有真实多来源或复杂时序需求时安装 |
 | 客户端状态 | Jotai | 只保存需要跨组件共享的客户端状态 |
@@ -200,6 +200,8 @@ src/
 │       └── colorScheme.ts
 ├── app/
 │   ├── AppProviders.tsx
+│   ├── RootLayout.tsx
+│   ├── RootLayout.test.tsx
 │   ├── queryClient.ts
 │   ├── router.tsx
 │   └── theme.ts
@@ -209,8 +211,7 @@ src/
 │   └── environment.ts
 ├── features/
 │   ├── not-found/NotFoundPage.tsx
-│   ├── route-state/RouteState.tsx
-│   └── welcome/
+│   └── route-state/RouteState.tsx
 ├── i18n/
 │   ├── index.ts
 │   ├── language.test.ts
@@ -225,13 +226,13 @@ src/
 │   └── useSessionPagination.ts
 ├── routes/
 │   ├── __root.tsx
-│   └── index.tsx
+│   └── index.tsx              # 仅注册根路径，不提供默认页面组件
 └── main.tsx
 ```
 
 - `app/` 只装配全局 Provider、主题、QueryClient 与 Router；`routes/` 使用 TanStack 文件命名约定声明 URL、loader/search/context 等路由契约；具体业务 UI、hooks、Jotai atom 和测试留在 `features/`。
-- 初始化的 `__root.tsx` 与 `index.tsx` 只是中性起点，产品可用布局和子路由替换首页，不要求永久保留 `index.tsx`。持续 shell、pathless 认证布局、叶页面与正文插槽按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §8.5 实施，按所选功能适配。
-- `src/routes/` 只放路由模块，不使用 `.test.tsx`、`.spec.tsx` 等测试后缀命名生产路由。业务页面需要 `test` URL 段时可用嵌套的 `app/test.tsx`，测试留在对应 feature；中性 Vite 配置也明确忽略测试后缀，防止误收路由。
+- 根路由装配 `app/RootLayout.tsx` 的正文插槽与构建版本，`index.tsx` 仅注册 `/` 路径，不提供默认页面组件。产品路由由实际页面定义。持续 shell、pathless 认证布局、叶页面与正文插槽按 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) §8.5 实施，按所选功能适配。
+- `src/routes/` 只放路由模块，不使用 `.test.tsx`、`.spec.tsx` 等测试后缀命名生产路由。业务页面需要 `test` URL 段时可用嵌套的 `app/test.tsx`，测试留在对应 feature；Vite 配置也明确忽略测试后缀，防止误收路由。
 - Vite 配置必须把 TanStack Router plugin 放在 React plugin 之前，并显式启用 `autoCodeSplitting`。route 组件按路由边界形成异步 chunk；共享依赖由 Vite/Rollup 根据真实引用处理，不在模板中预设手工 vendor 分组。
 - `src/routeTree.gen.ts` 由 dev/build 的 Vite plugin 或 `pnpm routes:generate` 动态生成，被 `.gitignore`、Prettier 和 ESLint 排除，不由生成模板写入，也不得手工编辑。`typecheck` script 先生成它；Web 的 `test`、`test:related` 与 `typecheck` 入口先运行 `pnpm routes:generate`，让刚创建或刚检出的仓库可直接执行真实文件路由测试；Extension 保持代码路由。
 - `data/api/client/` 是初始化生成的 Ky HTTP 基础，统一受控 BaseURL、三个 header、timeout/取消、并发 revision、`ApiError`、Token setter 与 401/403 反馈；它不包含真实 endpoint、refresh/replay 或登录地址。真实业务出现后才在 `data/api/` 下增加按域划分的 service；Ky 传输与 OpenAPI adapter 不得复制第二套请求上下文。
@@ -247,12 +248,12 @@ src/
 | 能力                         | 当前覆盖                                                                      | 下一次真实设计触发                                                                                                                           |
 | ---------------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | 品牌、亮暗主题、语言和无障碍 | 已生成主题、外观偏好、i18n/lang、基础语义与测试                               | 新 surface、品牌或真实交互出现时按 UI 规范验证对比度、键盘与回流                                                                             |
-| 页面与路由状态               | 已生成 Landing、404、统一 pending/error、显式重试和真实 Router 测试           | 首次多页面定义标题、焦点、导航、滚动与离开阻断，见 UI 规范 §8                                                                                |
+| 页面与路由状态               | 保留根布局、404、统一 pending/error、显式重试和 Router 测试                   | 首次多页面定义标题、焦点、导航、滚动与离开阻断，见 UI 规范 §8                                                                                |
 | 表单与设置                   | Mantine 输入及基础提交/错误/草稿规则；不生成业务表单                          | 真实字段与校验协议明确后实现；复杂表单才评估 `@mantine/form`，见 UI 规范 §5.2                                                                |
 | 远端读写与缓存               | 已生成 Ky HTTP、ApiError、Query 有界读取重试、mutation 不重试、统一反馈和分页 | 首次 endpoint 确定 Schema、运行时校验、Query key、mutation 与缓存策略，见数据规范 §2.6/§3                                                    |
 | 登录、授权与私有会话         | 已生成 Token setter/revision、401/403 handler 与本地化状态                    | 认证、权限等能力按需组合，真实协议在下游确认                                                                                                 |
 | 文件、富交互与实时数据       | 只保留现有组件与按需选型规则                                                  | 真实消费者明确后设计大小/格式/取消、渲染边界或连接生命周期；不预装上传、编辑器、图表或事件流包                                               |
-| 导航与应用布局               | 中性起点，按需采用 AppShell                                                   | 按所选操作与实际设备范围设计页面和导航                                                                                                       |
+| 导航与应用布局               | 保留正文插槽，实际布局按需采用 AppShell                                       | 按所选操作与实际设备范围设计页面和导航                                                                                                       |
 | 部署、SEO 与运行性能         | 根路径 Vite SPA、路由自动拆包、Release 扫描                                   | 首次真实渠道确定深链接回退、CSP、缓存、资源地址；需要搜索索引或分享预览时先评估静态 SPA 能否满足，再决定预渲染/SSR，不把框架切换当初始化步骤 |
 
 ### 4.3 站点路径边界
@@ -276,7 +277,7 @@ src/
 | 日志        | 统一结构化 logger                              | Release 裁剪、脱敏并扫描最终产物                                                    |
 | 测试        | Vitest + Testing Library                       | 浏览器 API 按目标受控替换；适用 E2E/smoke/硬要求时逐个使用真实 Chrome/Firefox       |
 
-Extension 基线在 Popup 与 Options 分别挂载 TanStack Router，使用共享的代码路由工厂而非 Web 文件路由生成器。中性基线各只有一个根页面；真实页内导航随产品需求加入，不让两个入口共享内存路由状态。
+Extension 基线在 Popup 与 Options 分别挂载 TanStack Router，使用共享的代码路由工厂而非 Web 文件路由生成器。两个入口只保留根布局，不生成演示首页；真实页内导航随产品需求加入，不让两个入口共享内存路由状态。
 
 Extension 不保留或调用 `$web-implement-list-view`，也不复用其 Web 列表 URL/session 恢复、图标或 DnD 路径。
 
@@ -430,9 +431,9 @@ pnpm harness validate
 
 方括号表示可选参数，不应原样输入。品牌刷新只更新母版、当前宿主派生与事实源，不提供项目类型切换。
 
-## 8. 初始化完成条件
+## 8. 工程事务与完整创建完成条件
 
-初始化只有同时满足以下条件才算完成：
+以下条件只证明工程创建事务完成，不代表完整创建任务完成：
 
 1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；已明确选择唯一 Web / Extension 宿主类型，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
@@ -443,10 +444,12 @@ pnpm harness validate
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
 8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；公开 CLI 不提供跳过安装入口，内部单元测试注入跳过状态时必须明确断言安装未执行。
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
-10. 初始化成功不宣称 Release 产物、日志/敏感信息扫描或浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
+10. 工程事务成功不宣称 Release 产物、日志/敏感信息扫描或最终候选浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
 11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 同级暂存目录 内容到目标，且必须保持原目标不存在或为空。
 12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，两宿主均含 `$web-compose-capabilities`，Web 另含 `$web-implement-list-view`，Extension 另含 `$web-review-extension-compatibility`；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
+
+完整创建还须在成功下游登记已确认 PRD，按 [固定应用接线合同](../.agents/skills/web-compose-capabilities/templates/application/wiring.md) 实现真实首页、页面、路由、功能及所选身份/权限/购买链路，通过相关类型检查、非空行为测试和开发浏览器核心流程走查。产品阶段失败保留现场修复；必需真实服务或验证缺失保持未完成。最终 dist/zip、生产和发布仍按明确请求及各自门禁执行。
 
 ## 9. Harness 未来增减能力
 

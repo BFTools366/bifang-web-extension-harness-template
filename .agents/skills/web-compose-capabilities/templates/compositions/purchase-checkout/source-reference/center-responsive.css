@@ -1,0 +1,77 @@
+@media (max-width: 75em) {
+  .overview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 62em) {
+  .layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .checkout-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .checkout-grid .checkout-summary {
+    position: static;
+    width: 100%;
+  }
+}
+@media (max-width: 48em) {
+  .layout {
+    display: block;
+  }
+  .content {
+    padding: 16px;
+  }
+  .topbar {
+    padding: 12px 16px;
+  }
+  .overview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overview-card {
+    padding: 18px;
+  }
+  .metric > strong {
+    font-size: 26px;
+  }
+  .demo summary small {
+    display: block;
+    margin-left: 0;
+  }
+  .records-heading,
+  .records-panel .filters,
+  .records-panel .pagination {
+    padding: 16px;
+  }
+  dialog[data-stage="purchase"],
+  dialog[data-stage="order"] {
+    width: calc(100% - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+  .dialog-header {
+    padding: 14px 16px;
+  }
+  .dialog-content {
+    padding: 18px 16px;
+  }
+  .checkout-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+  .checkout-options .products,
+  .variant-b .checkout-options .products {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .checkout-row .categories .nested {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 8px 0 0;
+  }
+  .checkout-grid .checkout-summary {
+    padding: 20px;
+  }
+  .order-reference {
+    font-size: 20px;
+  }
+}

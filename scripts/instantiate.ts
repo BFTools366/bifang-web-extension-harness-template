@@ -273,11 +273,11 @@ export async function runInstantiateCli(
     }
   })
   const output = runtime.output ?? console.log
-  output(`已创建 ${config.projectType} 项目：${targetRoot}`)
+  output(`工程事务完成（ENGINEERING_READY），已创建 ${config.projectType} 项目：${targetRoot}`)
   output(
     requirements === undefined
-      ? "下一步：切换到新项目，按需求选择功能模块，完成需求确认 → 原型登记 → 实施。"
-      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 按同目录 README 交接继续需求确认 → 原型登记 → 实施。CLI 不执行语义分析或装配业务功能。`
+      ? "工程事务完成（ENGINEERING_READY）。下一步：在新项目继续已确认首版的 PRD → 固定设计原型 → 页面功能接线 → 开发走查；工程成功不是完整创建完成。"
+      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 复用完整创建确认，在下游继续 PRD → 固定原型 → 页面功能 → 开发走查。CLI 不执行语义分析或装配业务功能。`
   )
   output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
   output(

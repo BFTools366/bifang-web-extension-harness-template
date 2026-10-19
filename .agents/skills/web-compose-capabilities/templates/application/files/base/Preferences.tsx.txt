@@ -1,0 +1,24 @@
+import { NativeSelect, Stack } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { ColorSchemeControl } from "../../theme/ColorSchemeControl"
+
+/** 认证表单和主壳共用既有语言与主题 owner，切换偏好保留页面输入。 */
+export function Preferences() {
+  const { t, i18n } = useTranslation()
+  return (
+    <Stack gap="sm">
+      <ColorSchemeControl />
+      <NativeSelect
+        label={t("applicationLanguage")}
+        value={i18n.resolvedLanguage?.startsWith("zh") ? "zh" : "en"}
+        data={[
+          { value: "zh", label: "简体中文" },
+          { value: "en", label: "English" }
+        ]}
+        onChange={(event) => {
+          void i18n.changeLanguage(event.currentTarget.value)
+        }}
+      />
+    </Stack>
+  )
+}

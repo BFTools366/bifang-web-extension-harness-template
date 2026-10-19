@@ -1,0 +1,11 @@
+import type { Price } from "../commerce/price"
+import type { Order } from "../commerce/price"
+
+/** 钱包余额来自当前主体和实际币种，模板不提供充值、退款或调账。 */
+export interface WalletReadApi {
+  read(signal?: AbortSignal): Promise<Price>
+}
+/** 已选择付款时才接入订单支付方法。 */
+export interface WalletApi extends WalletReadApi {
+  pay(orderId: string, requestId: string): Promise<Order>
+}

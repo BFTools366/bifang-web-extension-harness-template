@@ -1,0 +1,29 @@
+/** 从客户端已有线性图标提取主壳实际使用的图形，不增加图标依赖。 */
+export function ApplicationIcon({
+  name
+}: {
+  name: "workspace" | "settings" | "collapse" | "expand"
+}) {
+  const paths = {
+    workspace: "M3 4h18v16H3ZM3 9h18M9 9v11",
+    settings: "M4 7h16M4 17h16M8 4v6M16 14v6",
+    collapse: "M3 4h18v16H3ZM8 4v16m9-12-4 4 4 4",
+    expand: "M3 4h18v16H3ZM8 4v16m5-12 4 4-4 4"
+  }
+  return (
+    <svg
+      width="22"
+      height="22"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d={paths[name]} />
+    </svg>
+  )
+}

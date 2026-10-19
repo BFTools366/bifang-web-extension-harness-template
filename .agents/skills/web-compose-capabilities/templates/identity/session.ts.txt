@@ -19,6 +19,12 @@ export interface CredentialStorage {
   compareAndSet(expected: string | null, next: string | null): boolean
 }
 
+/** 将已接受的凭据同步到当前执行上下文唯一 HTTP owner。 */
+export interface IdentityTransport {
+  setAuthToken(credential: string): void
+  clearSession(): void
+}
+
 /** 定义稳定错误码，服务 adapter 仅将已确认的失效映射为 expired。 */
 export type IdentityErrorCode =
   | "anonymous"
@@ -32,6 +38,7 @@ export type IdentityErrorCode =
 /** 仅保存稳定错误标识，避免将输入、凭据或服务原文传给 UI。 */
 export class IdentityError extends Error {
   readonly code: IdentityErrorCode
+  /** 仅构造稳定错误码，不接收原始服务或凭据内容。 */
   constructor(code: IdentityErrorCode) {
     super(code)
     this.name = "IdentityError"
@@ -48,7 +55,7 @@ export interface IdentitySnapshot {
 }
 
 /** 创建按需装配的认证协调者；不会创建页面、获取权限或选择持久化介质。 */
-export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: CredentialStorage) {
+export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: CredentialStorage, transport?: IdentityTransport) {
   let generation = 0
   let validation = 0
   let transition: number | undefined
@@ -115,6 +122,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
     transition = owned
     validation += 1
     credential = null
+    transport?.clearSession()
     publish("authenticating")
     let baseline: string | null = null
     let issued: string | undefined
@@ -125,6 +133,9 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
       assertCurrent(owned, signal)
       if (typeof issued !== "string" || issued.trim() === "") throw new IdentityError("invalidIdentity")
       const identity = identityValue(await api.validate(issued, signal))
+      assertCurrent(owned, signal)
+      // HTTP 必须先接受凭据，再提交本地状态；失败时本次签发仍可精确吊销。
+      transport?.setAuthToken(issued)
       assertCurrent(owned, signal)
       try {
         if (!storage.compareAndSet(baseline, issued)) throw new IdentityError("superseded")
@@ -143,6 +154,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
       const failure = normalized(error)
       if (owned === generation) {
         credential = null
+        transport?.clearSession()
         publish(failure.code === "storage" ? "error" : "anonymous", null, failure.code)
       }
       await discardIssued(issued, baseline)
@@ -169,6 +181,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
       const identity = identityValue(await api.validate(current, signal))
       assertCurrent(owned, signal, request)
       if (read() !== current) throw new IdentityError("superseded")
+      if (credential !== current) transport?.setAuthToken(current)
       credential = current
       publish("authenticated", identity)
       return identity
@@ -192,6 +205,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
         try { remove(current) } catch (error) { failure = normalized(error) }
       }
       credential = null
+      transport?.clearSession()
       publish(failure.code === "anonymous" || failure.code === "expired" || failure.code === "superseded" ? "anonymous" : "error", null, failure.code)
       throw failure
     }
@@ -203,6 +217,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
     validation += 1
     let previous = credential
     credential = null
+    transport?.clearSession()
     publish("anonymous", null, "expired")
     if (owned !== generation) return
     try {
@@ -220,6 +235,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
     validation += 1
     let previous = credential
     credential = null
+    transport?.clearSession()
     publish("anonymous")
     if (owned !== generation) return false
     try {
@@ -244,6 +260,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
     transition = undefined
     validation += 1
     credential = null
+    transport?.clearSession()
     publish("anonymous")
     return check()
   }
@@ -251,6 +268,7 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
   return {
     login, check, restore: check, logout, invalidate, storageChanged,
     getSnapshot: (): IdentitySnapshot => snapshot,
+    /** 订阅当前身份状态，返回精确取消函数。 */
     subscribe(listener: () => void): () => void {
       listeners.add(listener)
       return () => { listeners.delete(listener) }

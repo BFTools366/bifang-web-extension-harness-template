@@ -1,0 +1,36 @@
+import { formatPrice } from "../../data/api/commerce/price"
+import { Card, Stack, Text, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
+import type { OrdersReadApi } from "../../data/api/orders/contracts"
+import { ModuleState } from "../application/ModuleState"
+
+/** 固定订单页只展示当前 API owner 的订单，未选择购买时无写入入口。 */
+export function OrdersPage({ api, scope }: { api: OrdersReadApi; scope: number }) {
+  const { t, i18n } = useTranslation()
+  const query = useQuery({
+    queryKey: ["orders", scope],
+    meta: { private: true },
+    queryFn: ({ signal }) => api.list(signal)
+  })
+  return (
+    <Stack>
+      <Title order={1}>{t("ordersTitle")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.isError}
+        empty={query.data?.length === 0}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {query.data?.map((order) => (
+        <Card key={order.id} withBorder>
+          <Text>{order.id}</Text>
+          <Text>{t(order.status === "paid" ? "commercePaid" : "commerceUnpaid")}</Text>
+          <Text>{formatPrice(order.total, i18n.language)}</Text>
+        </Card>
+      ))}
+    </Stack>
+  )
+}

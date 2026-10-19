@@ -1,0 +1,89 @@
+import { formatPrice } from "../../data/api/commerce/price"
+import { Alert, Button, Group, Modal, Paper, SimpleGrid, Stack, Text } from "@mantine/core"
+import { useQueryClient } from "@tanstack/react-query"
+import { useEffect, useSyncExternalStore } from "react"
+import { useTranslation } from "react-i18next"
+import type { Product } from "../../data/api/catalog/contracts"
+import type { createPurchase } from "./purchase"
+
+/** 固定购买确认绑定已选商品、当前主体与可信 API，不执行真实资金默认写入。 */
+export function PurchasePanel({
+  product,
+  purchase,
+  mock,
+  close
+}: {
+  product: Product
+  purchase: ReturnType<typeof createPurchase>
+  mock: boolean
+  close(): void
+}) {
+  const { t, i18n } = useTranslation()
+  const queryClient = useQueryClient()
+  const state = useSyncExternalStore(purchase.subscribe, purchase.getSnapshot, purchase.getSnapshot)
+  useEffect(() => {
+    if (state.phase === "paid") {
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["orders"] }),
+        queryClient.invalidateQueries({ queryKey: ["wallet"] })
+      ]).catch(() => undefined)
+    }
+  }, [state.phase, queryClient])
+  const amount = state.order?.total ?? product.price
+  return (
+    <Modal
+      opened
+      onClose={close}
+      closeButtonProps={{ "aria-label": t("applicationClose") }}
+      closeOnEscape={state.phase !== "submitting"}
+      closeOnClickOutside={state.phase !== "submitting"}
+      withCloseButton={state.phase !== "submitting"}
+      title={t("commerceConfirm")}
+      size="lg"
+    >
+      <SimpleGrid cols={{ base: 1, sm: 2 }}>
+        <Stack>
+          <Text fw={600}>{product.name}</Text>
+          <Text c="dimmed">{product.description}</Text>
+          {mock && <Text size="sm">{t("commerceMock")}</Text>}
+        </Stack>
+        <Paper withBorder p="md">
+          <Stack>
+            <Text fw={600}>{t("commerceSummary")}</Text>
+            <Text>{formatPrice(amount, i18n.language)}</Text>
+            {state.phase === "paid" ? (
+              <Text role="status">{t("commercePaid")}</Text>
+            ) : state.phase === "unknown" ? (
+              <Alert role="alert">
+                <Stack>
+                  <Text>{t("commerceUnknown")}</Text>
+                  <Button
+                    onClick={() => {
+                      void purchase.recover().catch(() => undefined)
+                    }}
+                  >
+                    {t("commerceCheck")}
+                  </Button>
+                </Stack>
+              </Alert>
+            ) : state.phase === "superseded" ? (
+              <Text>{t("commerceSessionChanged")}</Text>
+            ) : (
+              <Group>
+                <Button
+                  loading={state.phase === "submitting"}
+                  disabled={state.phase === "submitting"}
+                  onClick={() => {
+                    void purchase.submit(product.id).catch(() => undefined)
+                  }}
+                >
+                  {t("commerceConfirm")}
+                </Button>
+              </Group>
+            )}
+          </Stack>
+        </Paper>
+      </SimpleGrid>
+    </Modal>
+  )
+}

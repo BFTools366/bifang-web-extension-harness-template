@@ -1,0 +1,256 @@
+/* 选购采用参考图的左右分栏关系；小屏恢复为自然单列滚动。 */
+dialog {
+  padding: 0;
+  width: min(560px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+}
+dialog[data-stage="purchase"],
+dialog[data-stage="order"] {
+  width: min(1120px, calc(100% - 48px));
+}
+.dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 20px 26px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  margin: 0;
+}
+.dialog-header h2 {
+  font-size: 21px;
+}
+.dialog-header [data-action="close"] {
+  border: 0;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  width: 42px;
+  padding: 0;
+}
+.dialog-content {
+  padding: 30px;
+}
+.checkout-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.48fr);
+  gap: 32px;
+  align-items: start;
+}
+.checkout-options {
+  min-width: 0;
+}
+.checkout-row {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+  align-items: start;
+}
+.checkout-row > h3 {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 10px 0 0;
+}
+.checkout-row .categories {
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: start;
+}
+.checkout-row .categories h2 {
+  display: none;
+}
+.checkout-row .categories button {
+  width: auto;
+  font-size: 13px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.checkout-row .categories > button {
+  min-height: 36px;
+}
+.checkout-row .categories details {
+  display: block;
+  flex-basis: 100%;
+}
+.checkout-row .categories summary {
+  font-size: 13px;
+  padding: 0 0 8px;
+}
+.checkout-row .categories details > button {
+  display: inline-block;
+}
+.checkout-row .categories .nested {
+  display: inline-flex;
+  gap: 8px;
+  padding: 0 0 0 8px;
+  margin: 0 0 0 6px;
+}
+.checkout-row .section-top {
+  margin-bottom: 10px;
+}
+.checkout-row .section-top h2 {
+  display: none;
+}
+.checkout-row .section-top small {
+  font-size: 12px;
+}
+.checkout-options .products,
+.variant-b .checkout-options .products {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.checkout-options .product,
+.variant-b .checkout-options .product {
+  padding: 12px;
+  gap: 8px;
+  grid-template-columns: 18px minmax(0, 1fr);
+  border-radius: 8px;
+}
+.checkout-options .product:has(:checked),
+.variant-b .checkout-options .product:has(:checked) {
+  padding: 11px;
+}
+.checkout-options .product strong {
+  font-size: 14px;
+}
+.checkout-options .product .price,
+.variant-b .checkout-options .product .price {
+  float: none;
+  margin: 6px 0;
+  font-size: 19px;
+}
+.checkout-options .product small {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.checkout-options .product small:last-child {
+  display: none;
+}
+.quantity-value {
+  display: inline-grid;
+  place-items: center;
+  min-width: 80px;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+.checkout-options .payment,
+.variant-b .checkout-options .payment {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  max-width: none;
+}
+.checkout-row .payment h3 {
+  display: none;
+}
+.checkout-options .payment h3 {
+  font-size: 16px;
+}
+.checkout-options .payment p,
+.checkout-options .payment small {
+  font-size: 12px;
+}
+.wallet-choice {
+  font-size: 14px;
+  background: var(--surface);
+}
+.checkout-grid .checkout-summary {
+  position: sticky;
+  top: 100px;
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 24px;
+  margin: 0;
+  max-width: none;
+  min-width: 0;
+}
+.checkout-summary h3 {
+  padding-bottom: 18px;
+  margin-bottom: 24px;
+  border-bottom: 1px dashed var(--line);
+  font-size: 17px;
+}
+.checkout-summary .facts {
+  gap: 20px 12px;
+  font-size: 13px;
+}
+.checkout-summary .total {
+  align-items: start;
+  flex-wrap: wrap;
+}
+.checkout-summary .total strong {
+  font-size: 30px;
+  color: var(--brand);
+}
+.checkout-summary > small {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.checkout-summary [data-action="create"],
+.summary-action button {
+  width: 100%;
+  margin-top: 24px;
+  min-height: 46px;
+}
+.summary-help {
+  line-height: 1.6;
+}
+.draft-hint {
+  font-size: 12px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.checkout-options .steps {
+  padding: 0 0 20px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  gap: 10px;
+}
+.checkout-options .step {
+  font-size: 13px;
+}
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+.step-review {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.step-review > strong {
+  font-size: 21px;
+}
+.step-review > p {
+  margin: 16px 0;
+  color: var(--muted);
+}
+.order-reference {
+  font-size: 24px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.order-state {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 28px;
+}
+.order-checkout .checkout-options {
+  padding-top: 4px;
+}

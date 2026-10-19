@@ -1,0 +1,71 @@
+import { Alert, NativeSelect, Stack, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { OrganizationApi } from "../../data/api/organization/contracts"
+import { ModuleState } from "../application/ModuleState"
+
+/** 固定组织页只接线当前组织和允许切换项；写入未知先重读。 */
+export function OrganizationPage({
+  api,
+  scope,
+  changed,
+  authorize,
+  canSwitch
+}: {
+  api: OrganizationApi
+  scope: number
+  changed(): Promise<void>
+  authorize(): void
+  canSwitch: boolean
+}) {
+  const { t } = useTranslation()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+  const query = useQuery({
+    queryKey: ["organization", scope],
+    meta: { private: true },
+    queryFn: ({ signal }) => api.read(signal)
+  })
+  /** 先复核动作授权，切换成功后使旧作用域缓存与权限失效。 */
+  async function select(id: string) {
+    if (busy) return
+    setBusy(true)
+    setError(false)
+    try {
+      authorize()
+      await api.switch(id)
+      await changed()
+    } catch {
+      setError(true)
+      await query.refetch()
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Stack>
+      <Title order={1}>{t("organizationTitle")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.isError}
+        empty={query.data?.available.length === 0}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {error && <Alert role="alert">{t("applicationError")}</Alert>}
+      {query.data && (
+        <NativeSelect
+          label={t("organizationCurrent")}
+          disabled={busy || !canSwitch}
+          value={query.data.current ?? ""}
+          data={query.data.available.map((row) => ({ value: row.id, label: row.name }))}
+          onChange={(event) => {
+            void select(event.currentTarget.value).catch(() => undefined)
+          }}
+        />
+      )}
+    </Stack>
+  )
+}

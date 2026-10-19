@@ -1,0 +1,33 @@
+import type { PermissionApi, PermissionContext } from "./contracts"
+
+/** 使用结构化键隔离同一主体在不同组织下的显式测试授权。 */
+export function createPermissionMock(
+  initial: readonly {
+    subjectId: string
+    organizationId?: string | null
+    codes: readonly string[]
+  }[]
+) {
+  const key = (context: PermissionContext) =>
+    JSON.stringify([context.subjectId, context.organizationId])
+  const grants = new Map(
+    initial.map((row) => [
+      key({ subjectId: row.subjectId, organizationId: row.organizationId ?? null }),
+      [...row.codes]
+    ])
+  )
+  const api: PermissionApi = {
+    /** 读取当前主体和范围的显式数据，缺失授权失败关闭。 */
+    async read(context, signal) {
+      signal?.throwIfAborted()
+      return [...(grants.get(key(context)) ?? [])]
+    }
+  }
+  return {
+    api,
+    /** 更新明确测试上下文的授权，不影响其他主体。 */
+    set(context: PermissionContext, codes: readonly string[]) {
+      grants.set(key(context), [...codes])
+    }
+  }
+}

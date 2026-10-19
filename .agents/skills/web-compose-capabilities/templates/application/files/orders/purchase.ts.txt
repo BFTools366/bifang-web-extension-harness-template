@@ -1,0 +1,104 @@
+import type { Order } from "../../data/api/commerce/price"
+import type { OrdersApi } from "../../data/api/orders/contracts"
+import type { WalletApi } from "../../data/api/wallet-payments/contracts"
+
+/** 购买协调器只描述一个已冻结主体下的一次订单与付款，不自动重放未知结果。 */
+export interface PurchaseSnapshot {
+  phase: "ready" | "submitting" | "unknown" | "unpaid" | "paid" | "superseded"
+  order: Order | null
+}
+/** 订单创建与付款使用独立幂等关联，结果未知只提供读取恢复。 */
+export function createPurchase(
+  orders: OrdersApi,
+  wallet: WalletApi,
+  scope: () => number,
+  authorize: () => void
+) {
+  const owned = scope()
+  const requestId = crypto.randomUUID()
+  const paymentId = crypto.randomUUID()
+  let state: PurchaseSnapshot = { phase: "ready", order: null }
+  let busy = false
+  const listeners = new Set<() => void>()
+  /** 旧会话、组织或权限作用域不能借迟到回调更新当前购买。 */
+  function assertOwner() {
+    if (owned !== scope()) throw new Error("purchase_superseded")
+    authorize()
+  }
+  /** 状态只归当前购买协调器，API 返回值不直接写入其他视图。 */
+  function publish(phase: PurchaseSnapshot["phase"], order = state.order) {
+    state = { phase, order }
+    for (const listener of listeners) listener()
+  }
+  /** 每次显式提交最多运行一次，失败后不会再次创建或支付。 */
+  async function submit(productId: string) {
+    if (busy || !["ready", "unpaid"].includes(state.phase)) return
+    assertOwner()
+    busy = true
+    publish("submitting")
+    try {
+      const order = state.order ?? (await orders.create(productId, requestId))
+      assertOwner()
+      publish("submitting", order)
+      const paid = order.status === "paid" ? order : await wallet.pay(order.id, paymentId)
+      assertOwner()
+      publish(paid.status === "paid" ? "paid" : "unpaid", paid)
+    } catch {
+      publish(owned === scope() ? "unknown" : "superseded")
+    } finally {
+      busy = false
+    }
+  }
+  /** 未知写入只按原幂等关联查询，查无结果时也不自动重放。 */
+  async function recover() {
+    if (busy || state.phase !== "unknown") return
+    assertOwner()
+    busy = true
+    try {
+      const order = await orders.find(requestId)
+      assertOwner()
+      if (order) publish(order.status === "paid" ? "paid" : "unpaid", order)
+    } finally {
+      busy = false
+    }
+  }
+  return {
+    submit,
+    recover,
+    getSnapshot: () => state,
+    /** 订阅当前尝试状态，不产生额外购买请求。 */
+    subscribe(listener: () => void) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    }
+  }
+}
+
+/** 未决购买归当前应用作用域所有，关闭弹窗或切换路由不会重新签发幂等键。 */
+export function createPurchaseRegistry(
+  orders: OrdersApi,
+  wallet: WalletApi,
+  scope: () => number,
+  authorize: () => void
+) {
+  let revision = scope()
+  const attempts = new Map<string, ReturnType<typeof createPurchase>>()
+  return {
+    /** 重用当前主体未决购买，只在已知完成后开启新尝试。 */
+    get(productId: string) {
+      authorize()
+      if (revision !== scope()) {
+        attempts.clear()
+        revision = scope()
+      }
+      let attempt = attempts.get(productId)
+      if (!attempt || attempt.getSnapshot().phase === "paid") {
+        attempt = createPurchase(orders, wallet, scope, authorize)
+        attempts.set(productId, attempt)
+      }
+      return attempt
+    }
+  }
+}

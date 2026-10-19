@@ -315,7 +315,7 @@ const EXTENSION_ROUTER_TEST = `for (const surface of ["popup", "options"] as con
     /** 直接使用实际 Extension 工厂，分别覆盖 memory 与 hash history 的失败和恢复。 */
     test("routes HTTP " + status + " through the " + surface + " recovery UI", async () => {
       window.history.replaceState({}, "", "/#/")
-      const configured = createExtensionRouter(surface, "data:image/png;base64,")
+      const configured = createExtensionRouter(surface)
       const root = createRootRoute({ component: configured.options.routeTree?.options.component })
       const loader = vi.fn().mockRejectedValue(failure(status))
       const home = createRoute({ getParentRoute: () => root, path: "/", component: () => <h1>Ready home</h1> })

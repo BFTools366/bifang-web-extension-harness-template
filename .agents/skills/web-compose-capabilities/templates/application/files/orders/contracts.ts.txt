@@ -1,0 +1,12 @@
+import type { Order } from "../commerce/price"
+export type { Order } from "../commerce/price"
+
+/** 订单读取和创建隔离，读取场景不因使用模板自动产生购买按钮。 */
+export interface OrdersReadApi {
+  list(signal?: AbortSignal): Promise<readonly Order[]>
+}
+/** 仅购买装配消费订单创建与恢复，读取页面不要求未选择的写操作。 */
+export interface OrdersApi extends OrdersReadApi {
+  find(requestId: string, signal?: AbortSignal): Promise<Order | null>
+  create(productId: string, requestId: string): Promise<Order>
+}

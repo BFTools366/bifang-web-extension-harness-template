@@ -19,13 +19,13 @@ import {
 /** 验证 single-package Harness validation and governance 的完整回归场景。 */
 describe("single-package Harness validation and governance", () => {
   /** 验证宿主选择不隐含业务分类，旧参数在写入前拒绝。 */
-  test("neutral Web creation has no business category prompt", async () => {
+  test("Web foundation creation has no business category prompt", async () => {
     const questions: string[] = []
     const identity = await collectPromptedIdentity(
       {
         ...{
-          targetRoot: path.join(repositoryRoot, "..", "neutral-web"),
-          name: "Neutral Web",
+          targetRoot: path.join(repositoryRoot, "..", "foundation-web"),
+          name: "Foundation Web",
           policyMode: "预设"
         },
         requirementsFile: ""
@@ -45,7 +45,7 @@ describe("single-package Harness validation and governance", () => {
             "--type",
             "web",
             "--name",
-            "Neutral Web",
+            "Foundation Web",
             "--policy-mode",
             "预设",
             flag,

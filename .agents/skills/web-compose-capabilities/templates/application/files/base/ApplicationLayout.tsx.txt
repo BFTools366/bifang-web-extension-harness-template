@@ -1,0 +1,174 @@
+import {
+  ActionIcon,
+  Anchor,
+  AppShell,
+  Burger,
+  Group,
+  Image,
+  Modal,
+  Stack,
+  Text
+} from "@mantine/core"
+import { useElementSize, useMediaQuery } from "@mantine/hooks"
+import { Link, Outlet, useLocation } from "@tanstack/react-router"
+import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { BRAND } from "../../brand"
+import { BUILD_VERSION } from "../../buildVersion"
+import { navigation } from "./navigation"
+import { ApplicationIcon } from "./ApplicationIcon"
+import { Preferences } from "./Preferences"
+import classes from "./application.module.css"
+import "../../i18n/application"
+
+/** 固定主界面只观察已接线的用户与导航权限，不自己拥有会话。 */
+export interface ApplicationLayoutProps {
+  account?: ReactNode
+  allow?: (path: string) => boolean
+}
+
+/** 从客户端主壳提取侧栏、顶部工具区和正文插槽；单页及扩展使用紧凑导航。 */
+export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
+  const { t } = useTranslation()
+  const { pathname } = useLocation()
+  const desktop = useMediaQuery("(min-width: 48em)")
+  const { ref, height } = useElementSize<HTMLDivElement>()
+  const [collapsed, setCollapsed] = useState(false)
+  const [mobileOpened, setMobileOpened] = useState(false)
+  const [preferencesOpened, setPreferencesOpened] = useState(false)
+  const preferencesButton = useRef<HTMLButtonElement>(null)
+  const useSidebar = navigation.length > 1
+  const compact = desktop && collapsed
+  const current = navigation.find((page) => page.path === pathname)
+  useEffect(() => setMobileOpened(false), [pathname])
+  const links = navigation
+    .filter((page) => !allow || allow(page.path))
+    .map((page) => (
+      <Anchor
+        key={page.path}
+        component={Link}
+        to={page.path}
+        activeOptions={{ exact: true, includeSearch: false }}
+        preload={false}
+        className={classes.navLink}
+        aria-label={t(page.title)}
+        title={compact ? t(page.title) : undefined}
+        underline="never"
+      >
+        <ApplicationIcon name="workspace" />
+        {(!useSidebar || !compact) && <span>{t(page.title)}</span>}
+      </Anchor>
+    ))
+  return (
+    <AppShell
+      className={classes.shell}
+      layout="alt"
+      header={{ height: Math.max(height, 72) }}
+      navbar={
+        useSidebar
+          ? { width: compact ? 76 : 248, breakpoint: "sm", collapsed: { mobile: !mobileOpened } }
+          : undefined
+      }
+      padding={{ base: "md", sm: "lg" }}
+    >
+      <a className={classes.skip} href="#application-main">
+        {t("applicationSkip")}
+      </a>
+      <AppShell.Header>
+        <Stack ref={ref} px="md" py="sm" gap="xs">
+          <Group justify="space-between" wrap="wrap">
+            <Group>
+              {useSidebar && (
+                <Burger
+                  hiddenFrom="sm"
+                  opened={mobileOpened}
+                  aria-label={t("applicationNavigation")}
+                  aria-expanded={mobileOpened}
+                  onClick={() => setMobileOpened((value) => !value)}
+                />
+              )}
+              <Text fw={600}>{t(current?.title ?? "projectName")}</Text>
+            </Group>
+            <Group>
+              <ActionIcon
+                ref={preferencesButton}
+                variant="default"
+                size="lg"
+                aria-label={t("applicationPreferences")}
+                onClick={() => setPreferencesOpened(true)}
+              >
+                <ApplicationIcon name="settings" />
+              </ActionIcon>
+              {account}
+            </Group>
+          </Group>
+          {!useSidebar && (
+            <nav aria-label={t("applicationNavigation")}>
+              <Group gap="xs">{links}</Group>
+            </nav>
+          )}
+        </Stack>
+      </AppShell.Header>
+      {useSidebar && (
+        <AppShell.Navbar p="md" className={classes.sidebar} aria-label={t("applicationSidebar")}>
+          <Anchor
+            component={Link}
+            to="/"
+            preload={false}
+            className={classes.brand}
+            underline="never"
+            aria-label={t("projectName")}
+          >
+            <Image src={BRAND.logoPath} w={36} h={36} alt="" />
+            {!compact && (
+              <div>
+                <Text fw={700}>{t("projectName")}</Text>
+                <Text size="xs" c="dimmed">
+                  {t("applicationSubtitle")}
+                </Text>
+              </div>
+            )}
+          </Anchor>
+          <nav className={classes.nav} aria-label={t("applicationNavigation")}>
+            {links}
+          </nav>
+          <Group className={classes.sidebarBottom} justify={compact ? "center" : "space-between"}>
+            {!compact && (
+              <Text size="sm" c="dimmed">
+                {t("applicationNavigation")}
+              </Text>
+            )}
+            <ActionIcon
+              variant="subtle"
+              visibleFrom="sm"
+              aria-label={t(collapsed ? "applicationExpand" : "applicationCollapse")}
+              aria-expanded={!collapsed}
+              onClick={() => setCollapsed((value) => !value)}
+            >
+              <ApplicationIcon name={collapsed ? "expand" : "collapse"} />
+            </ActionIcon>
+          </Group>
+        </AppShell.Navbar>
+      )}
+      <AppShell.Main id="application-main" tabIndex={-1} className={classes.main}>
+        <Stack gap="lg">
+          <Outlet />
+          <footer>
+            <Text size="xs" c="dimmed">
+              {t("buildVersion", { version: BUILD_VERSION })}
+            </Text>
+          </footer>
+        </Stack>
+      </AppShell.Main>
+      <Modal
+        opened={preferencesOpened}
+        onClose={() => setPreferencesOpened(false)}
+        title={t("applicationPreferences")}
+        returnFocus={false}
+        onExitTransitionEnd={() => preferencesButton.current?.focus()}
+      >
+        <Preferences />
+      </Modal>
+    </AppShell>
+  )
+}

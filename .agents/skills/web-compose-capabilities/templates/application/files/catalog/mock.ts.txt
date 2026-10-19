@@ -1,0 +1,12 @@
+import type { CatalogApi, Product } from "./contracts"
+
+/** Mock 商品由确认的 fixture 提供，不通过页面输入决定订单价格。 */
+export function createCatalogMock(products: readonly Product[]): CatalogApi {
+  return {
+    /** 读取当前作用域允许查看的记录，不修改服务状态。 */
+    async list(signal) {
+      signal?.throwIfAborted()
+      return structuredClone(products)
+    }
+  }
+}

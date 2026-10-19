@@ -1,0 +1,15 @@
+import { Alert, Stack, Text, Title } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+
+/** 已识别但无权限的页面保留清楚反馈，账号与退出仍由主界面提供。 */
+export function ForbiddenPage() {
+  const { t } = useTranslation()
+  return (
+    <Stack>
+      <Title order={1}>{t("permissionDenied")}</Title>
+      <Alert color="yellow">
+        <Text>{t("permissionDeniedDescription")}</Text>
+      </Alert>
+    </Stack>
+  )
+}

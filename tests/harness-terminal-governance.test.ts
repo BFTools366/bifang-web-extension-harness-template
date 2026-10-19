@@ -96,7 +96,7 @@ describe("terminal identity, skills and UI governance", () => {
       const accessContracts: [string, string][] = [
         ["web-compose-capabilities", "知识库与模板库独立索引"],
         ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
-        ["web-define-product", "创建确认不批准产品范围"],
+        ["web-define-product", "仅工程确认不批准产品范围；完整创建范围确认可复用"],
         ["web-compose-capabilities", "代码装配与测试由 `$web-implement-change` 负责"],
         ["web-implement-access-control", "已识别但无权限的目标"],
         ["web-implement-access-control", "不依赖被拒绝的业务权限"],
@@ -169,7 +169,7 @@ describe("terminal identity, skills and UI governance", () => {
       await expect(validateProject(root)).resolves.toContain(projectType)
       const agents = await readFile(path.join(root, "AGENTS.md"), "utf8")
       expect(agents).toContain("$web-connect-http-service")
-      expect(agents).toContain("初始化只分发项目级 Skills 与中性工程")
+      expect(agents).toContain("默认欢迎页与计数器演示已移除")
       expect(agents).not.toContain("客户端另有通用认证基线")
       expect(agents.split("## Web Harness 前端 Skill 地图")[1]).toContain(
         "$web-compose-capabilities"
@@ -265,7 +265,15 @@ describe("terminal identity, skills and UI governance", () => {
       let versionSurfacePath: string
 
       if (projectType === "web") {
-        await rm(path.join(root, "src/features/welcome"), { recursive: true, force: true })
+        await rm(path.join(root, "src/app/RootLayout.tsx"))
+        await writeFile(
+          path.join(root, "src/routes/__root.tsx"),
+          `import { Outlet, createRootRoute } from "@tanstack/react-router"
+import { NotFoundPage } from "../features/not-found/NotFoundPage"
+/** 测试产品自有布局，版本展示交由产品页面负责。 */
+export const Route = createRootRoute({ component: Outlet, notFoundComponent: NotFoundPage })
+`
+        )
         versionSurfacePath = path.join(root, "src/routes/index.tsx")
         await writeFile(
           versionSurfacePath,
@@ -326,11 +334,11 @@ export const Route = createFileRoute("/")({
       await initializeProject(options(root, projectType))
       const governedPath = path.join(
         root,
-        projectType === "web" ? "src/features/welcome/WelcomePage.tsx" : "src/ExtensionShell.tsx"
+        projectType === "web" ? "src/app/RootLayout.tsx" : "src/ExtensionShell.tsx"
       )
       const governedSource = await readFile(governedPath, "utf8")
       const withoutComment = governedSource.replace(
-        /\/\*\*[^*]*\*\/\nexport function (WelcomePage|ExtensionShell)/u,
+        /\/\*\*[^*]*\*\/\nexport function (RootLayout|ExtensionShell)/u,
         "export function $1"
       )
       expect(withoutComment).not.toBe(governedSource)

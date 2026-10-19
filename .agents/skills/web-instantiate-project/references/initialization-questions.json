@@ -197,12 +197,12 @@
   "confirmation": {
     "title": "创建确认",
     "question": "按此创建？",
-    "hint": "输入 yes、y 或“确认”创建，其余回答（包括回车）取消。",
+    "hint": "输入 yes、y 或“确认”执行工程创建事务，其余回答（包括回车）取消；Agent 完整创建范围须同时展示首页、功能与验收场景。",
     "options": [
       {
         "value": "yes",
         "label": "确认",
-        "description": "按完整汇总创建项目，开始写入目标与暂存目录、安装依赖并建立 Git 基线"
+        "description": "按工程汇总写入目标与暂存目录、安装依赖并建立 Git 基线；首版页面功能由 Agent 在下游继续完成"
       },
       {
         "value": "cancel",

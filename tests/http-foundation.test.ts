@@ -145,9 +145,9 @@ for (const projectType of ["web", "extension"] as const) {
     try {
       const config = createProjectConfig({
         projectType,
-        name: "Neutral fixture",
+        name: "Foundation fixture",
         id: "http-fixture",
-        description: "Neutral HTTP foundation fixture",
+        description: "HTTP foundation fixture",
         brandColor: "#2563eb"
       })
       const baseUrls = { developmentBaseUrl: "", testBaseUrl: "", releaseBaseUrl: "" }
@@ -166,8 +166,8 @@ for (const projectType of ["web", "extension"] as const) {
         "src/features/not-found/NotFoundPage.tsx",
         "src/features/route-state/RouteState.tsx",
         "src/features/route-state/RouteState.test.tsx",
-        "src/features/welcome/WelcomePage.tsx",
-        "src/features/welcome/WelcomePage.test.tsx",
+        "src/app/RootLayout.tsx",
+        "src/app/RootLayout.test.tsx",
         "src/providers.tsx",
         "src/ExtensionShell.tsx",
         "src/ExtensionShell.test.tsx",
@@ -201,7 +201,7 @@ const root = createRootRoute()
 const index = createRoute({ getParentRoute: () => root, path: "/" })
 const router = createRouter({ routeTree: root.addChildren([index]) })
 declare module "@tanstack/react-router" {
-  /** 模拟中性生产路由注册，测试局部页面必须使用自己的 Router 类型。 */
+  /** 模拟生产路由注册，测试局部页面必须使用自己的 Router 类型。 */
   interface Register { router: typeof router }
 }
 `
@@ -243,13 +243,15 @@ declare module "@tanstack/react-router" {
                       "src/i18n/language.test.ts",
                       "src/pagination/pagination.test.tsx",
                       "src/features/route-state/RouteState.test.tsx",
-                      "src/features/welcome/WelcomePage.test.tsx"
+                      "src/theme/ColorSchemeControl.test.tsx",
+                      "src/app/RootLayout.test.tsx"
                     ]
                   : [
                       "src/data/api/client/httpUi.test.tsx",
                       "src/data/storage/webStorage.test.ts",
                       "src/i18n/language.test.ts",
                       "src/pagination/pagination.test.tsx",
+                      "src/theme/ColorSchemeControl.test.tsx",
                       "src/ExtensionShell.test.tsx"
                     ],
               setupFiles: [path.resolve(import.meta.dirname, "setup.ts")]

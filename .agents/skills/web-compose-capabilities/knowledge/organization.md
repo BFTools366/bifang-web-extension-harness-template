@@ -60,3 +60,5 @@ Query key 含实际影响结果的目标、身份/scope、语言和查询参数�
 ## 可执行参考
 
 [候选计算模板](../templates/organization/organizationChoices.ts.txt) 只处理已认证成员；[工作区组合](../templates/compositions/account-workspace/README.md) 展示新scope恢复与组件后效隔离，不是组织服务授权。
+
+基础接线以 [固定设计](../templates/organization/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

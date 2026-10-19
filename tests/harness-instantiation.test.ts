@@ -32,7 +32,7 @@ import {
 describe("minimal public instantiation inputs", () => {
   /** 验证公开入口凭基础信息与宿主条件选择生成项目，未提供地址保持空值。 */
   test.each(["web", "extension"] as const)(
-    "creates neutral %s with only required public inputs",
+    "creates %s engineering foundations with only required public inputs",
     async (projectType) => {
       const parent = await temporaryDirectory("harness-minimal-public-")
       const id = `minimal-${projectType}`

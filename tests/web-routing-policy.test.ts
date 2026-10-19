@@ -1,4 +1,3 @@
-import { rename } from "node:fs/promises"
 import { test } from "vitest"
 import { validateWebRouteFiles } from "../.harness/tooling/validate-hosts.ts"
 import {
@@ -14,7 +13,7 @@ import {
   writeFile
 } from "./harness-tooling-support.ts"
 
-/** 验证产品用真实子路由替换初始化首页后仍可通过终端门禁。 */
+/** 验证工程根布局允许产品直接添加真实子路由。 */
 test("accepts a Web product without the initial index route", async () => {
   const root = await seedTemplateRoot()
   await initializeProject(options(root, "web"))
@@ -28,17 +27,15 @@ test("accepts a Web product without the initial index route", async () => {
   expect(ignorePattern.test("workspace/page.spec.ts")).toBe(true)
   expect(ignorePattern.test("workspace/test.tsx")).toBe(false)
   expect(ignorePattern.test("workspace/latest.tsx")).toBe(false)
+  await rm(path.join(root, "src/routes/index.tsx"))
   await mkdir(path.join(root, "src/routes/workspace"), { recursive: true })
-  await rename(
-    path.join(root, "src/routes/index.tsx"),
-    path.join(root, "src/routes/workspace/dashboard.tsx")
-  )
   await writeFile(
     path.join(root, "src/routes/workspace/dashboard.tsx"),
     `import { createFileRoute } from "@tanstack/react-router"
-import { WelcomePage } from "../../features/welcome/WelcomePage"
-/** 声明中性工作区页面，首页不作为永久产品要求。 */
-export const Route = createFileRoute("/workspace/dashboard")({ component: WelcomePage })
+/** 渲染本测试提供的产品页面，不依赖默认演示页面。 */
+function Dashboard() { return <main>Dashboard</main> }
+/** 声明真实子路由，工程基础不固定产品首页。 */
+export const Route = createFileRoute("/workspace/dashboard")({ component: Dashboard })
 `
   )
   await expect(validateProject(root)).resolves.toContain("web")
@@ -59,8 +56,8 @@ test.each(["workspace.test.tsx", "workspace.spec.ts", "nested/page.test.tsx"])(
   }
 )
 
-/** 验证根布局及声明/忽略文件不能冒充可访问路由，合法 test URL 段仍被接受。 */
-test("requires a non-root route and accepts nested test segments", async () => {
+/** 验证工程路由包含根路径或实际子路由，合法 test URL 段仍被接受。 */
+test("requires a registered path and accepts nested test segments", async () => {
   const root = await seedTemplateRoot()
   await mkdir(path.join(root, "src/routes"), { recursive: true })
   await writeFile(path.join(root, "src/routes/__root.tsx"), "export const Route = {}\n")

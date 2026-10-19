@@ -1,0 +1,26 @@
+import { Alert, Button, Stack, Text } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+
+/** 统一固定能力页的加载、错误与空数据反馈。 */
+export interface ModuleStateProps {
+  loading: boolean
+  error: boolean
+  empty: boolean
+  retry(): void
+}
+
+/** 只显示稳定本地化反馈，原始服务错误不进入页面。 */
+export function ModuleState({ loading, error, empty, retry }: ModuleStateProps) {
+  const { t } = useTranslation()
+  if (loading) return <Text role="status">{t("applicationLoading")}</Text>
+  if (error)
+    return (
+      <Alert color="red" role="alert">
+        <Stack>
+          <Text>{t("applicationError")}</Text>
+          <Button onClick={retry}>{t("applicationRetry")}</Button>
+        </Stack>
+      </Alert>
+    )
+  return empty ? <Text>{t("applicationEmpty")}</Text> : null
+}
