@@ -9,14 +9,15 @@ export function applicationPageSource(
   const identity = operations.includes("identity.session")
   const permissions = operations.includes("permissions.enforce")
   const purchase = operations.includes("orders.purchase")
+  const organization = operations.includes("organization.switch")
   const imports = [
     "import { useSyncExternalStore" +
       (purchase ? ", useState" : "") +
       (identity ? ", useCallback" : "") +
       ' } from "react"',
     ...(identity || operations.includes("organization.switch")
-      ? ['import { useRouter } from "@tanstack/react-router"']
-      : []),
+      ? ['import { Outlet, useRouter } from "@tanstack/react-router"']
+      : ['import { Outlet } from "@tanstack/react-router"']),
     'import { Text } from "@mantine/core"',
     'import { useTranslation } from "react-i18next"',
     'import { ApplicationLayout } from "./ApplicationLayout"',
@@ -37,9 +38,14 @@ export function applicationPageSource(
   if (identity)
     imports.push(
       'import { IdentityBoundary } from "../identity/IdentityBoundary"',
-      'import { IdentityMenu } from "../identity/IdentityMenu"',
+      'import { AccountMenu } from "./AccountMenu"',
       'import { LoginPage } from "../identity/LoginPage"',
       'import { safeReturnTo } from "./routeAccess"'
+    )
+  if (organization)
+    imports.push(
+      'import { OrganizationContext, OrganizationMenuItem } from "../organization/OrganizationContext"',
+      'import { organizationService } from "./runtime"'
     )
   if (permissions)
     imports.push(
@@ -52,7 +58,12 @@ export function MainLayout() {
   const { t } = useTranslation()
   const scope = useScope()
   ${permissions ? "useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)" : ""}
-  const layout = scope.blocked ? <Text role="status">{t("applicationLoading")}</Text> : <ApplicationLayout ${identity ? "account={<IdentityMenu session={identitySession} />}" : ""} ${permissions ? "allow={canVisit}" : ""} />
+  const layout = <ApplicationLayout
+    ${identity ? "account={<AccountMenu session={identitySession} scope={scope.revision}" + (organization ? " organization={" + (permissions ? 'canVisit("/organization") && ' : "") + "<OrganizationMenuItem api={organizationService} scope={scope.revision} blocked={scope.blocked} />}" : "") + " />}" : ""}
+    ${organization ? "context={(compact) => <OrganizationContext api={organizationService} scope={scope.revision} blocked={scope.blocked} compact={compact} canOpen={" + (permissions ? 'canVisit("/organization")' : "true") + "} />}" : ""}
+    ${permissions ? "allow={canVisit}" : ""}
+    content={scope.blocked ? <Text role="status">{t("applicationLoading")}</Text> : <Outlet />}
+  />
   ${identity ? "return <IdentityBoundary session={identitySession} onAnonymous={onAnonymous}>{layout}</IdentityBoundary>" : "return layout"}
 }`)
   if (identity)
@@ -114,5 +125,5 @@ export function ${name}() {
   }
   // 组件导入与 runtime 导入去重，同时保持显式具名边界。
   const source = [...new Set(imports)].join("\n") + "\n\n" + lines.join("\n") + "\n"
-  return source.replace("import { Outlet, useRouter }", "import { useRouter }")
+  return source
 }

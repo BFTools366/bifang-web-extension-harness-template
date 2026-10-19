@@ -10,6 +10,10 @@
 - 只保留日期最新的 Changelog；被完整取代的旧日期文件删除，历史由 Git 保存。
 - 当前文件超过 500 行或负责人明确要求时，源 Harness 可用 `$web-curate-harness-memory` 把已被完整取代且无当前引用的原文追加到 `CHANGELOG_history.md`；该 Skill 与历史卷不派生到下游。
 
-## 日期文件
+## 当前变更
 
 - [2026-10-19](20261019_CHANGELOG.md)
+
+## 历史追溯
+
+- [Changelog 历史卷](CHANGELOG_history.md)：仅 Harness 源使用，退役描述不作为当前规范。

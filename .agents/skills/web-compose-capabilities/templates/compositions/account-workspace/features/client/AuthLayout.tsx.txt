@@ -1,7 +1,8 @@
-import { Text } from "@mantine/core"
+import { Stack, Text } from "@mantine/core"
 import { Outlet } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 import { BUILD_VERSION } from "../../buildVersion"
+import { SettingsLink } from "./SettingsLink"
 import classes from "./client.module.css"
 
 /** 未登录入口直接呈现认证内容，不挂载公开站点导航。 */
@@ -14,9 +15,12 @@ export function AuthLayout() {
       </a>
       <Outlet />
       <footer className={classes.authFooter}>
-        <Text c="dimmed" size="xs" ta="center">
-          {t("buildVersion", { version: BUILD_VERSION })}
-        </Text>
+        <Stack gap="xs" align="center">
+          <SettingsLink />
+          <Text c="dimmed" size="xs" ta="center">
+            {t("buildVersion", { version: BUILD_VERSION })}
+          </Text>
+        </Stack>
       </footer>
     </div>
   )

@@ -7,6 +7,7 @@ import { applicationLocales } from "./locales.ts"
 import { applicationRoutes, accessSource } from "./route-source.ts"
 import { runtimeSource } from "./runtime-source.ts"
 import { applicationPageSource } from "./page-source.ts"
+import { settingsNavigationSource } from "./settings-source.ts"
 
 /** 固定资产到当前单包的实际落点，所有路径均纳入 catalog 管理。 */
 export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
@@ -16,6 +17,7 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
     "src/features/application/scope.ts": "base/scope.ts.txt",
     "src/features/application/ApplicationIcon.tsx": "base/ApplicationIcon.tsx.txt",
     "src/features/application/Preferences.tsx": "base/Preferences.tsx.txt",
+    "src/features/application/SettingsPage.tsx": "base/SettingsPage.tsx.txt",
     "src/features/application/application.module.css": "base/application.module.css.txt"
   },
   identity: {
@@ -24,6 +26,9 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
     "src/features/identity/runtime.ts": "identity/runtime.ts.txt",
     "src/features/identity/LoginPage.tsx": "identity/LoginPage.tsx.txt",
     "src/features/identity/IdentityMenu.tsx": "identity/IdentityMenu.tsx.txt",
+    "src/features/identity/identity.module.css": "identity/identity.module.css.txt",
+    "src/features/application/AccountMenu.tsx": "identity/AccountMenu.tsx.txt",
+    "src/features/application/SettingsLink.tsx": "identity/SettingsLink.tsx.txt",
     "src/features/identity/IdentityBoundary.tsx": "identity/IdentityBoundary.tsx.txt"
   },
   permissions: {
@@ -46,7 +51,8 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
   },
   organization: {
     "src/data/api/organization/contracts.ts": "organization/contracts.ts.txt",
-    "src/features/organization/OrganizationPage.tsx": "organization/OrganizationPage.tsx.txt"
+    "src/features/organization/OrganizationPage.tsx": "organization/OrganizationPage.tsx.txt",
+    "src/features/organization/OrganizationContext.tsx": "organization/OrganizationContext.tsx.txt"
   },
   audit: {
     "src/data/api/audit/contracts.ts": "audit/contracts.ts.txt",
@@ -163,21 +169,8 @@ export function applicationFiles(
     if (target === "src/routes/index.tsx" && /(?:component|loader|beforeLoad)\s*:/u.test(source))
       throw new Error("已有首页实现，不能覆盖初始化")
   }
-  for (const module of ["base", ...modules])
-    for (const target of Object.keys(APPLICATION_ASSETS[module] ?? {}))
-      if (base.has(target)) throw new Error(`已有能力实现，不能覆盖：${target}`)
-  const files = new Map(base)
-  for (const target of files.keys()) {
-    if (
-      target.startsWith("src/routes/") ||
-      [
-        "src/app/RootLayout.tsx",
-        "src/app/RootLayout.test.tsx",
-        "src/ExtensionShell.test.tsx"
-      ].includes(target)
-    )
-      files.delete(target)
-  }
+  // 静态资产与动态源码先在独立结果内完成装配，统一检查后再合并中性工程。
+  const files = new Map<string, string>()
   for (const module of ["base", ...modules]) {
     for (const [target, source] of Object.entries(APPLICATION_ASSETS[module] ?? {}))
       files.set(target, asset(source))
@@ -214,9 +207,10 @@ export function applicationFiles(
     else {
       const readonlyWallet =
         module === "wallet-payments" && !selected.resolved.includes("wallet-payments.pay")
+      const readonlyOrders = module === "orders" && !selected.resolved.includes("orders.create")
       files.set(
-        `src/data/api/${module}/${readonlyWallet ? "readMock" : "mock"}.ts`,
-        asset(`${module}/${readonlyWallet ? "readMock" : "mock"}.ts.txt`)
+        `src/data/api/${module}/${readonlyWallet || readonlyOrders ? "readMock" : "mock"}.ts`,
+        asset(`${module}/${readonlyWallet || readonlyOrders ? "readMock" : "mock"}.ts.txt`)
       )
     }
   }
@@ -227,6 +221,10 @@ export function applicationFiles(
     applicationPageSource(options, selected.resolved, pages)
   )
   files.set("src/features/application/routeAccess.ts", accessSource(selected.resolved))
+  files.set(
+    "src/features/application/settingsNavigation.ts",
+    settingsNavigationSource(modules.includes("identity"))
+  )
   files.set(
     "src/features/application/navigation.ts",
     `export const navigation = ${JSON.stringify(pages.map((page) => ({ path: page.path, title: page.title })))} as const\n`
@@ -291,7 +289,26 @@ export function applicationFiles(
     dataMode: options.dataMode
   }
   files.set(".harness/application-wiring.json", JSON.stringify(wiring, null, 2) + "\n")
-  return files
+  const baselineEntry =
+    selected.host === "web" ? "src/routes/__root.tsx" : "src/extension-router.tsx"
+  for (const target of files.keys()) {
+    if (base.has(target) && target !== baselineEntry)
+      throw new Error(`已有能力实现，不能覆盖：${target}`)
+  }
+  const combined = new Map(base)
+  for (const target of combined.keys()) {
+    if (
+      target.startsWith("src/routes/") ||
+      [
+        "src/app/RootLayout.tsx",
+        "src/app/RootLayout.test.tsx",
+        "src/ExtensionShell.test.tsx"
+      ].includes(target)
+    )
+      combined.delete(target)
+  }
+  for (const [target, source] of files) combined.set(target, source)
+  return combined
 }
 
 /** 提供标准路径给资源治理，固定模板不执行安装、网络或外部写入。 */

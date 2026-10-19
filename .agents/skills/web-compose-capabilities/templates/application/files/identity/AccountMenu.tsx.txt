@@ -1,0 +1,48 @@
+import { Menu, Text, useMantineColorScheme } from "@mantine/core"
+import { Link, useLocation } from "@tanstack/react-router"
+import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { IdentityMenu } from "../identity/IdentityMenu"
+import type { IdentityRuntime } from "../identity/runtime"
+import { ApplicationIcon } from "./ApplicationIcon"
+
+/** 固定账号区组合身份、偏好和已接线入口，不获取或持久化第二份账号信息。 */
+export function AccountMenu({
+  session,
+  scope,
+  avatar,
+  organization,
+  settings
+}: {
+  session: IdentityRuntime
+  scope: number
+  avatar?: string
+  organization?: ReactNode
+  settings?: ReactNode
+}) {
+  const { t, i18n } = useTranslation()
+  const { href } = useLocation()
+  const { colorScheme } = useMantineColorScheme()
+  const language = t(i18n.resolvedLanguage?.startsWith("zh") ? "applicationChinese" : "applicationEnglish")
+  const appearance = t(colorScheme === "auto" ? "colorSchemeAuto" : colorScheme === "dark" ? "colorSchemeDark" : "colorSchemeLight")
+  return (
+    <IdentityMenu session={session} avatar={avatar} scope={scope}>
+      {organization}
+      <Menu.Item
+        leftSection={<ApplicationIcon name="language" />}
+        rightSection={<Text size="sm" c="dimmed">{language}</Text>}
+        renderRoot={(props) => <Link {...props} to="/settings" hash="language" state={{ settingsOrigin: href }} />}
+      >
+        {t("applicationLanguage")}
+      </Menu.Item>
+      <Menu.Item
+        leftSection={<ApplicationIcon name="appearance" />}
+        rightSection={<Text size="sm" c="dimmed">{appearance}</Text>}
+        renderRoot={(props) => <Link {...props} to="/settings" hash="appearance" state={{ settingsOrigin: href }} />}
+      >
+        {t("colorSchemeLabel")}
+      </Menu.Item>
+      {settings}
+    </IdentityMenu>
+  )
+}

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { OrganizationApi } from "../../data/api/organization/contracts"
 import { ModuleState } from "../application/ModuleState"
+import { organizationQueryOptions } from "./OrganizationContext"
 
 /** 固定组织页只接线当前组织和允许切换项；写入未知先重读。 */
 export function OrganizationPage({
@@ -19,14 +20,10 @@ export function OrganizationPage({
   authorize(): void
   canSwitch: boolean
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState(false)
-  const query = useQuery({
-    queryKey: ["organization", scope],
-    meta: { private: true },
-    queryFn: ({ signal }) => api.read(signal)
-  })
+  const query = useQuery(organizationQueryOptions(api, scope, i18n.language))
   /** 先复核动作授权，切换成功后使旧作用域缓存与权限失效。 */
   async function select(id: string) {
     if (busy) return
@@ -48,7 +45,7 @@ export function OrganizationPage({
       <Title order={1}>{t("organizationTitle")}</Title>
       <ModuleState
         loading={query.isPending}
-        error={query.isError}
+        error={query.error}
         empty={query.data?.available.length === 0}
         retry={() => {
           void query.refetch()
@@ -58,9 +55,12 @@ export function OrganizationPage({
       {query.data && (
         <NativeSelect
           label={t("organizationCurrent")}
-          disabled={busy || !canSwitch}
+          disabled={busy || !canSwitch || !query.data.available.some((row) => row.id !== query.data.current)}
           value={query.data.current ?? ""}
-          data={query.data.available.map((row) => ({ value: row.id, label: row.name }))}
+          data={[
+            ...(query.data.current === null ? [{ value: "", label: t("organizationNone"), disabled: true }] : []),
+            ...query.data.available.map((row) => ({ value: row.id, label: row.name }))
+          ]}
           onChange={(event) => {
             void select(event.currentTarget.value).catch(() => undefined)
           }}

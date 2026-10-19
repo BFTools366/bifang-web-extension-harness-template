@@ -67,6 +67,8 @@ describe("terminal source projection", () => {
     // 源模板装配与离线参考回归不能携带到缺少源 fixture 的终端项目。
     for (const sourceTest of [
       "tests/application-content.test.ts",
+      "tests/application-shell.test.ts",
+      "tests/application-settings.test.ts",
       "tests/capability-source-reference.test.ts"
     ]) {
       expect(git(["ls-files", sourceTest])).toBe("")
@@ -212,6 +214,8 @@ describe("terminal source projection", () => {
     const terminalTypes = await readFile(path.join(targetRoot, ".harness/tooling/types.ts"), "utf8")
     expect(terminalTypes).toContain('export type AgentPolicyChoice = "enabled" | "disabled"')
     expect(terminalTypes).toContain("export interface AgentPolicySelection")
+    expect(terminalTypes).toContain("export interface IdentityI18n")
+    expect(terminalTypes).not.toContain('from "./identity.ts"')
     for (const removedCreationPath of [
       ".harness/tooling/init.ts",
       ".harness/tooling/initialization-input.ts",

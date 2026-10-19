@@ -17,7 +17,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
 import type { RegisterInput } from "../../data/api/auth/contracts"
-import { Preferences } from "../client/Preferences"
 import classes from "../client/client.module.css"
 import { useAuth } from "./AuthProvider"
 import { authIssue, isCancelled } from "./session"
@@ -213,9 +212,6 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
       {showRecovery ? (
         <Stack w="100%">
           <AuthStatePanel />
-          <Container size="sm" w="100%">
-            <Preferences plain compact />
-          </Container>
         </Stack>
       ) : (
         <Container size="xl">
@@ -290,6 +286,8 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
                   {mode !== "reset" && (
                     <TextInput
                       label={t(mode === "login" ? "auth.loginIdentifier" : "auth.username")}
+                      placeholder={t(mode === "login" ? "auth.placeholders.account" : "auth.placeholders.username")}
+                      classNames={{ input: classes.authPlaceholder }}
                       name="username"
                       autoComplete="username"
                       maxLength={mode === "login" ? 128 : 32}
@@ -305,6 +303,8 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
                   {mode !== "login" && (
                     <TextInput
                       label={t("auth.email")}
+                      placeholder={t("auth.placeholders.email")}
+                      classNames={{ input: classes.authPlaceholder }}
                       name="email"
                       type="email"
                       autoComplete="email"
@@ -320,6 +320,8 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
                   )}
                   <PasswordInput
                     label={t(`auth.${passwordLabel}`)}
+                    placeholder={t(mode === "login" ? "auth.placeholders.password" : "auth.placeholders.newPassword")}
+                    classNames={{ innerInput: classes.authPlaceholder }}
                     description={mode === "login" ? undefined : t("auth.passwordRequirement")}
                     name="password"
                     autoComplete={mode === "login" ? "current-password" : "new-password"}
@@ -336,6 +338,8 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
                   {mode === "reset" && (
                     <PasswordInput
                       label={t("auth.confirmPassword")}
+                      placeholder={t("auth.placeholders.confirmation")}
+                      classNames={{ innerInput: classes.authPlaceholder }}
                       name="confirmation"
                       autoComplete="new-password"
                       maxLength={64}
@@ -356,6 +360,8 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
                       <div className={classes.codeRow}>
                         <TextInput
                           label={t("auth.code")}
+                          placeholder={t("auth.placeholders.code")}
+                          classNames={{ input: classes.authPlaceholder }}
                           name="code"
                           inputMode="numeric"
                           autoComplete="one-time-code"
@@ -427,9 +433,6 @@ export function AuthPage({ mode }: { mode: AuthPageMode }) {
                       </Anchor>
                     )}
                   </Group>
-                  <div className={classes.authPreferences}>
-                    <Preferences plain compact />
-                  </div>
                 </form>
                 <details className={classes.demoDetails}>
                   <summary>{t("auth.demoTitle")}</summary>

@@ -73,7 +73,7 @@ import { RouterProvider${host === "web" ? ", createRouter, createMemoryHistory" 
 import "./i18n/application"
 import i18n from "./i18n"
 ${host === "web" ? 'import { routeTree } from "./routeTree.gen"\nimport { AppProviders as Providers } from "./app/AppProviders"' : 'import { createExtensionRouter } from "./extension-router"\nimport { Providers } from "./providers"'}
-/** 内容覆盖不跳过匿名守卫；切换偏好不清空凭据输入。 */
+/** 内容覆盖不跳过匿名守卫；偏好进入公开设置，离开认证页销毁凭据输入。 */
 test("custom content stays guarded and mocked", async () => {
   const fetch = vi.fn(); vi.stubGlobal("fetch", fetch)
   await i18n.changeLanguage("en")
@@ -83,16 +83,24 @@ test("custom content stays guarded and mocked", async () => {
   expect(await screen.findByText("Access project tools")).toBeInTheDocument()
   expect(screen.queryByText("Custom item")).not.toBeInTheDocument()
   await user.type(screen.getByLabelText(/Account/), "demo")
-  await user.selectOptions(screen.getByLabelText("Language"), "zh")
-  expect(screen.getByLabelText(/账号/)).toHaveValue("demo")
-  await user.selectOptions(screen.getByLabelText("语言"), "en")
+  expect(screen.queryByRole("combobox", { name: "Language" })).not.toBeInTheDocument()
+  expect(screen.getByLabelText(/Account/)).toHaveAttribute("placeholder", "Enter your account")
+  await user.click(screen.getByRole("link", { name: "Settings" }))
+  await screen.findByRole("heading", { name: "Settings", level: 1 })
+  await user.selectOptions(screen.getByRole("combobox", { name: "Language" }), "zh")
+  await user.selectOptions(screen.getByRole("combobox", { name: "语言" }), "en")
+  await user.click(screen.getByRole("link", { name: "Back" }))
+  await screen.findByRole("heading", { name: "Sign in", level: 1 })
+  expect(screen.getByLabelText(/Account/)).toHaveValue("")
+  await user.type(screen.getByLabelText(/Account/), "demo")
   await user.type(screen.getByLabelText(/Password/), "demo")
   await user.click(screen.getByRole("button", { name: "Sign in" }))
   await user.click(await screen.findByRole("link", { name: "Subscriptions" }))
   expect(await screen.findByRole("heading", { name: "Project inventory" })).toBeInTheDocument()
   expect(await screen.findByText("Custom item")).toBeInTheDocument()
   expect(fetch).not.toHaveBeenCalled()
-  await user.click(screen.getByRole("button", { name: "Sign out" }))
+  await user.click(screen.getByRole("button", { name: /User center/ }))
+  await user.click(await screen.findByRole("menuitem", { name: "Sign out" }))
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument()
   expect(screen.queryByText("Custom item")).not.toBeInTheDocument()
   vi.unstubAllGlobals()

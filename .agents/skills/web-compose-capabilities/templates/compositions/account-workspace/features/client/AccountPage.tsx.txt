@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth/AuthProvider"
 import { canAccess } from "../auth/access"
 import { AuthStatePanel } from "../auth/AuthStatePanel"
-import { Preferences } from "./Preferences"
+import { SettingsLink } from "./SettingsLink"
 import classes from "./client.module.css"
 
 /** 当前账号为只读页面，不扩展资料修改、成员管理或删除账号能力。 */
@@ -46,7 +46,7 @@ export function AccountPage() {
             </Text>
           </Stack>
         </Paper>
-        <Preferences />
+        <SettingsLink />
       </div>
     </Stack>
   )

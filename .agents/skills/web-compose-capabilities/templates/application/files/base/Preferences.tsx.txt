@@ -2,23 +2,23 @@ import { NativeSelect, Stack } from "@mantine/core"
 import { useTranslation } from "react-i18next"
 import { ColorSchemeControl } from "../../theme/ColorSchemeControl"
 
-/** 认证表单和主壳共用既有语言与主题 owner，切换偏好保留页面输入。 */
-export function Preferences() {
+/** 公开设置页按分区复用既有语言与主题拥有者，不创建第二套偏好状态。 */
+export function Preferences({ section }: { section?: "language" | "appearance" }) {
   const { t, i18n } = useTranslation()
   return (
     <Stack gap="sm">
-      <ColorSchemeControl />
-      <NativeSelect
+      {section !== "language" && <ColorSchemeControl />}
+      {section !== "appearance" && <NativeSelect
         label={t("applicationLanguage")}
         value={i18n.resolvedLanguage?.startsWith("zh") ? "zh" : "en"}
         data={[
-          { value: "zh", label: "简体中文" },
-          { value: "en", label: "English" }
+          { value: "zh", label: t("applicationChinese") },
+          { value: "en", label: t("applicationEnglish") }
         ]}
         onChange={(event) => {
           void i18n.changeLanguage(event.currentTarget.value)
         }}
-      />
+      />}
     </Stack>
   )
 }

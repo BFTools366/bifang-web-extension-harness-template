@@ -1,0 +1,64 @@
+import { Button, Container, Divider, Group, Paper, Stack, Text, Title } from "@mantine/core"
+import { Link, useLocation } from "@tanstack/react-router"
+import { useEffect, useRef } from "react"
+import { useTranslation } from "react-i18next"
+import { BRAND } from "../../brand"
+import "../../i18n/application"
+import { Preferences } from "./Preferences"
+import { settingsReturnTo } from "./settingsNavigation"
+import classes from "./application.module.css"
+
+/** 设置公开挂载，只消费已有偏好，不恢复身份或挂载私有应用外壳。 */
+export function SettingsPage() {
+  const { t } = useTranslation()
+  const { state, pathname, hash } = useLocation()
+  const heading = useRef<HTMLHeadingElement>(null)
+  const appearance = useRef<HTMLHeadingElement>(null)
+  const language = useRef<HTMLHeadingElement>(null)
+  const title = t("applicationSettings")
+  const backTo = settingsReturnTo("settingsOrigin" in state ? state.settingsOrigin : undefined)
+  useEffect(() => {
+    const previousTitle = document.title
+    return () => { document.title = previousTitle }
+  }, [])
+  useEffect(() => { document.title = title + " · " + BRAND.name }, [title])
+  useEffect(() => {
+    const target = hash === "language" ? language : hash === "appearance" ? appearance : heading
+    target.current?.focus({ preventScroll: true })
+  }, [pathname, hash])
+  return (
+    <main className={classes.settingsPage}>
+      <Container size="sm" w="100%">
+        <Paper withBorder className={classes.settingsPanel}>
+          <Stack gap="xl">
+            <div>
+              <Group justify="space-between">
+                <Title ref={heading} tabIndex={-1} order={1}>{title}</Title>
+                <Button variant="subtle" color="gray" size="sm"
+                  renderRoot={(props) => <Link {...props} to={backTo} />}>
+                  {t("applicationSettingsBack")}
+                </Button>
+              </Group>
+              <Text c="dimmed" mt="xs">{t("applicationSettingsDescription")}</Text>
+            </div>
+            <Stack component="section" gap="sm" aria-labelledby="appearance">
+              <Title ref={appearance} id="appearance" tabIndex={-1} order={2} size="h4">
+                {t("colorSchemeLabel")}
+              </Title>
+              <Text size="sm" c="dimmed">{t("applicationAppearanceDescription")}</Text>
+              <Preferences section="appearance" />
+            </Stack>
+            <Divider />
+            <Stack component="section" gap="sm" aria-labelledby="language">
+              <Title ref={language} id="language" tabIndex={-1} order={2} size="h4">
+                {t("applicationLanguage")}
+              </Title>
+              <Preferences section="language" />
+            </Stack>
+          </Stack>
+        </Paper>
+        <Text c="dimmed" size="xs" ta="center" mt="md">{t("applicationSettingsImmediate")}</Text>
+      </Container>
+    </main>
+  )
+}

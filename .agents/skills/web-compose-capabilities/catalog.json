@@ -37,6 +37,16 @@
           "hosts": ["web", "extension"]
         },
         {
+          "path": "templates/application/files/identity/identity.module.css.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/AccountMenu.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
           "path": "templates/application/files/identity/LoginPage.tsx.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
@@ -97,6 +107,11 @@
         },
         {
           "path": "templates/application/files/organization/OrganizationPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationContext.tsx.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
         },
@@ -249,6 +264,11 @@
         },
         {
           "path": "templates/application/files/orders/mock.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/orders/readMock.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
         },
@@ -590,12 +610,32 @@
           "hosts": ["web"]
         },
         {
-          "path": "templates/compositions/account-workspace/features/client/Preferences.tsx.txt",
+          "path": "templates/compositions/account-workspace/features/client/SettingsPage.tsx.txt",
           "kind": "code",
           "hosts": ["web"]
         },
         {
-          "path": "templates/compositions/account-workspace/features/client/PreferencesDialog.tsx.txt",
+          "path": "templates/compositions/account-workspace/features/client/SettingsLink.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/settingsNavigation.ts.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/SettingsPage.test.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/routes/settings.tsx.txt",
+          "kind": "code",
+          "hosts": ["web"]
+        },
+        {
+          "path": "templates/compositions/account-workspace/features/client/Preferences.tsx.txt",
           "kind": "code",
           "hosts": ["web"]
         },
@@ -831,6 +871,21 @@
     }
   ],
   "application": [
+    {
+      "path": "templates/application/settings-source.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/base/SettingsPage.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/identity/SettingsLink.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
     {
       "path": "templates/application/contracts.ts",
       "kind": "code",

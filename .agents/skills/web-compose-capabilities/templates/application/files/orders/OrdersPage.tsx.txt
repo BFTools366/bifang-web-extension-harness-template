@@ -9,7 +9,7 @@ import { ModuleState } from "../application/ModuleState"
 export function OrdersPage({ api, scope }: { api: OrdersReadApi; scope: number }) {
   const { t, i18n } = useTranslation()
   const query = useQuery({
-    queryKey: ["orders", scope],
+    queryKey: ["orders", scope, i18n.language],
     meta: { private: true },
     queryFn: ({ signal }) => api.list(signal)
   })
@@ -18,7 +18,7 @@ export function OrdersPage({ api, scope }: { api: OrdersReadApi; scope: number }
       <Title order={1}>{t("ordersTitle")}</Title>
       <ModuleState
         loading={query.isPending}
-        error={query.isError}
+        error={query.error}
         empty={query.data?.length === 0}
         retry={() => {
           void query.refetch()

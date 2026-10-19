@@ -72,11 +72,17 @@ export const identityActor = () => identitySession.getSnapshot().identity?.id ??
       'import { createCatalogMock } from "../../data/api/catalog/mock"',
       `export const catalogApi = createCatalogMock(${JSON.stringify(fixtures.products ?? [])})`
     )
-  if (modules.has("orders"))
+  if (modules.has("orders") && operations.includes("orders.create"))
     api(
       "orders",
       'import { createOrdersMock } from "../../data/api/orders/mock"',
       `const ordersMock = createOrdersMock(actor, ${JSON.stringify(fixtures.products ?? [])})\nexport const ordersApi = ordersMock.api`
+    )
+  else if (modules.has("orders"))
+    api(
+      "orders",
+      'import { createOrdersReadMock } from "../../data/api/orders/readMock"',
+      `export const ordersApi = createOrdersReadMock(actor, ${JSON.stringify(fixtures.orders ?? {})})`
     )
   if (modules.has("wallet-payments")) {
     if (operations.includes("wallet-payments.pay"))
@@ -104,17 +110,26 @@ export const identityActor = () => identitySession.getSnapshot().identity?.id ??
       'import { createOrganizationMock } from "../../data/api/organization/mock"',
       `const organizationApi = createOrganizationMock(identityActor, ${JSON.stringify(fixtures.organizations ?? {})})`
     )
-    lines.push(`/** 导航和切换均先确认组织上下文；异步旧结果无权恢复新作用域。 */
+    lines.push(`/** 在所有消费者共享的 API 边界校验组织上下文，不采用损坏或不在可选集中的身份。 */
+async function readOrganizationContext(signal?: AbortSignal) {
+  const context = await organizationApi.read(signal)
+  if (!context || !Array.isArray(context.available) ||
+    context.available.some((row) => !row || typeof row.id !== "string" || !row.id.trim() || typeof row.name !== "string" || !row.name.trim()) ||
+    new Set(context.available.map((row) => row.id)).size !== context.available.length ||
+    (context.current !== null && (typeof context.current !== "string" || !context.available.some((row) => row.id === context.current)))) throw new Error("organization_invalid")
+  return context
+}
+/** 导航和切换均先确认组织上下文；异步旧结果无权恢复新作用域。 */
 export async function ensureOrganization() {
   const subject = identityActor()
   const revision = currentScope()
-  const context = await organizationApi.read()
+  const context = await readOrganizationContext()
   if (subject !== identityActor() || revision !== currentScope()) throw new Error("organization_superseded")
   if (organizationId !== context.current) { organizationId = context.current; clearPrivateData() }
 }
 /** 切换期间撤下全部私有正文，未知结果先重读，不能继续沿用旧组织。 */
 export const organizationService = {
-  read: organizationApi.read,
+  read: readOrganizationContext,
   /** 只提交当前主体的组织切换，再确认权限和作用域。 */
   async switch(id: string) {
     const subject = identityActor()
@@ -122,14 +137,16 @@ export const organizationService = {
     void queryClient.cancelQueries({ predicate: (query) => query.meta?.private === true }).catch(() => undefined)
     queryClient.removeQueries({ predicate: (query) => query.meta?.private === true })
     try {
-      await organizationApi.switch(id)
-      const context = await organizationApi.read()
+      let switchError: unknown
+      try { await organizationApi.switch(id) } catch (error) { switchError = error }
+      const context = await readOrganizationContext()
       if (owned !== currentScope() || subject !== identityActor()) throw new Error("organization_superseded")
       organizationId = context.current
       ${permissions ? "await permissionSession.refresh()" : ""}
       applicationScope.finish(owned)
+      if (context.current !== id) throw switchError ?? new Error("organization_switch_unconfirmed")
     } catch (error) {
-      if (owned === currentScope()) { identitySession.invalidate() }
+      if (owned === currentScope() && applicationScope.getSnapshot().blocked) { identitySession.invalidate() }
       throw error
     }
   }

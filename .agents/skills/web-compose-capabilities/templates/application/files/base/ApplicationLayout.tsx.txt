@@ -5,19 +5,17 @@ import {
   Burger,
   Group,
   Image,
-  Modal,
   Stack,
   Text
 } from "@mantine/core"
 import { useElementSize, useMediaQuery } from "@mantine/hooks"
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
 import { BUILD_VERSION } from "../../buildVersion"
 import { navigation } from "./navigation"
 import { ApplicationIcon } from "./ApplicationIcon"
-import { Preferences } from "./Preferences"
 import classes from "./application.module.css"
 import "../../i18n/application"
 
@@ -25,18 +23,18 @@ import "../../i18n/application"
 export interface ApplicationLayoutProps {
   account?: ReactNode
   allow?: (path: string) => boolean
+  content?: ReactNode
+  context?: (compact: boolean) => ReactNode
 }
 
 /** 从客户端主壳提取侧栏、顶部工具区和正文插槽；单页及扩展使用紧凑导航。 */
-export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
+export function ApplicationLayout({ account, allow, content, context }: ApplicationLayoutProps) {
   const { t } = useTranslation()
-  const { pathname } = useLocation()
+  const { pathname, href } = useLocation()
   const desktop = useMediaQuery("(min-width: 48em)")
   const { ref, height } = useElementSize<HTMLDivElement>()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpened, setMobileOpened] = useState(false)
-  const [preferencesOpened, setPreferencesOpened] = useState(false)
-  const preferencesButton = useRef<HTMLButtonElement>(null)
   const useSidebar = navigation.length > 1
   const compact = desktop && collapsed
   const current = navigation.find((page) => page.path === pathname)
@@ -63,7 +61,7 @@ export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
     <AppShell
       className={classes.shell}
       layout="alt"
-      header={{ height: Math.max(height, 72) }}
+      header={{ height: `calc(${Math.max(height, 72)}px)` }}
       navbar={
         useSidebar
           ? { width: compact ? 76 : 248, breakpoint: "sm", collapsed: { mobile: !mobileOpened } }
@@ -75,39 +73,40 @@ export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
         {t("applicationSkip")}
       </a>
       <AppShell.Header>
-        <Stack ref={ref} px="md" py="sm" gap="xs">
-          <Group justify="space-between" wrap="wrap">
-            <Group>
-              {useSidebar && (
-                <Burger
-                  hiddenFrom="sm"
-                  opened={mobileOpened}
-                  aria-label={t("applicationNavigation")}
-                  aria-expanded={mobileOpened}
-                  onClick={() => setMobileOpened((value) => !value)}
-                />
-              )}
-              <Text fw={600}>{t(current?.title ?? "projectName")}</Text>
+        <div ref={ref}>
+          <Stack px="md" py="sm" gap="xs">
+            <Group justify="space-between" wrap="wrap">
+              <Group>
+                {useSidebar && (
+                  <Burger
+                    hiddenFrom="sm"
+                    opened={mobileOpened}
+                    aria-label={t("applicationNavigation")}
+                    aria-expanded={mobileOpened}
+                    onClick={() => setMobileOpened((value) => !value)}
+                  />
+                )}
+                <Text fw={600} visibleFrom="sm">{t(current?.title ?? "projectName")}</Text>
+              </Group>
+              <Group>
+                {!account && <ActionIcon
+                  variant="default"
+                  size="lg"
+                  aria-label={t("applicationSettings")}
+                  renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
+                >
+                  <ApplicationIcon name="settings" />
+                </ActionIcon>}
+                {account}
+              </Group>
             </Group>
-            <Group>
-              <ActionIcon
-                ref={preferencesButton}
-                variant="default"
-                size="lg"
-                aria-label={t("applicationPreferences")}
-                onClick={() => setPreferencesOpened(true)}
-              >
-                <ApplicationIcon name="settings" />
-              </ActionIcon>
-              {account}
-            </Group>
-          </Group>
-          {!useSidebar && (
-            <nav aria-label={t("applicationNavigation")}>
-              <Group gap="xs">{links}</Group>
-            </nav>
-          )}
-        </Stack>
+            {!useSidebar && (
+              <nav aria-label={t("applicationNavigation")}>
+                <Group gap="xs">{links}</Group>
+              </nav>
+            )}
+          </Stack>
+        </div>
       </AppShell.Header>
       {useSidebar && (
         <AppShell.Navbar p="md" className={classes.sidebar} aria-label={t("applicationSidebar")}>
@@ -132,6 +131,7 @@ export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
           <nav className={classes.nav} aria-label={t("applicationNavigation")}>
             {links}
           </nav>
+          {context && <div className={classes.context}>{context(compact)}</div>}
           <Group className={classes.sidebarBottom} justify={compact ? "center" : "space-between"}>
             {!compact && (
               <Text size="sm" c="dimmed">
@@ -152,7 +152,7 @@ export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
       )}
       <AppShell.Main id="application-main" tabIndex={-1} className={classes.main}>
         <Stack gap="lg">
-          <Outlet />
+          {content ?? <Outlet />}
           <footer>
             <Text size="xs" c="dimmed">
               {t("buildVersion", { version: BUILD_VERSION })}
@@ -160,15 +160,6 @@ export function ApplicationLayout({ account, allow }: ApplicationLayoutProps) {
           </footer>
         </Stack>
       </AppShell.Main>
-      <Modal
-        opened={preferencesOpened}
-        onClose={() => setPreferencesOpened(false)}
-        title={t("applicationPreferences")}
-        returnFocus={false}
-        onExitTransitionEnd={() => preferencesButton.current?.focus()}
-      >
-        <Preferences />
-      </Modal>
     </AppShell>
   )
 }

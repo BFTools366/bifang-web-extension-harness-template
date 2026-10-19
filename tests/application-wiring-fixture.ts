@@ -24,6 +24,15 @@ export function HomePage() {
 function routeTreeFixture(wiring: ApplicationWiring): string {
   const routes = [
     {
+      name: "Settings",
+      file: "settings",
+      id: "/settings",
+      path: "/settings",
+      fullPath: "/settings",
+      parent: "rootRoute",
+      localId: "/settings"
+    },
+    {
       name: "Application",
       file: "_application",
       id: "/_application",
@@ -79,7 +88,7 @@ function routeTreeFixture(wiring: ApplicationWiring): string {
   const children = routes
     .filter((route) => route.parent === "ApplicationRoute")
     .map((route) => route.name + "Route")
-  source += `} }\nexport const routeTree = rootRoute.addChildren([ApplicationRoute.addChildren([${children.join(",")}])${wiring.resolved.includes("identity.session") ? ",LoginRoute" : ""}])\n`
+  source += `} }\nexport const routeTree = rootRoute.addChildren([ApplicationRoute.addChildren([${children.join(",")}]),SettingsRoute${wiring.resolved.includes("identity.session") ? ",LoginRoute" : ""}])\n`
   return source
 }
 /** 对实际生成资产执行编译与行为测试，临时工程仅存在于受忽略 cache。 */
@@ -121,7 +130,9 @@ export async function runApplicationFixture(
         path.join(root, name),
         name === "src/vite-env.d.ts"
           ? contents.replace(/^\/\/\/ <reference types="vite\/client" \/>\r?\n/u, "")
-          : contents
+          : ["src/app/AppProviders.tsx", "src/providers.tsx"].includes(name)
+            ? contents.replace("<MantineProvider", '<MantineProvider env="test"')
+            : contents
       )
     }
     if (config.projectType === "web")

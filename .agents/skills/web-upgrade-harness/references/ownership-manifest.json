@@ -746,6 +746,22 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/application-shell.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-settings.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-organization.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-readonly.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/capability-source-reference.test.ts",
       "mode": "tombstone"
     }

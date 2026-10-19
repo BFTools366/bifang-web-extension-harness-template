@@ -262,8 +262,14 @@
   height: 2px;
   background: var(--mantine-primary-color-filled);
 }
-.authPreferences {
-  margin-top: var(--mantine-spacing-sm);
+.authPlaceholder::placeholder {
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  opacity: 1;
+}
+.settingsPage {
+  min-height: 100dvh;
+  padding-block: var(--mantine-spacing-xl);
+  background: var(--mantine-color-default-hover);
 }
 .compactPreferences {
   display: grid;

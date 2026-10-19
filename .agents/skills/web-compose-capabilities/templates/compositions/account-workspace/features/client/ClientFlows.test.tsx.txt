@@ -5,8 +5,8 @@ import { expect, test, vi } from "vitest"
 import { authFixture } from "../auth/authTestFixtures"
 import { AuthError } from "../../data/api/auth/contracts"
 import { mountClient } from "./clientTestFixtures"
-/** 匿名入口在表单内直接切换语言与外观，不打开弹窗、不丢失已输入凭据。 */
-test("changes inline sign-in preferences without losing form input", async () => {
+/** 匿名入口仅提供底部设置导航，公开设置即时生效，离开表单清空凭据输入。 */
+test("changes sign-in preferences through the public settings page", async () => {
   const { user, router } = mountClient()
   await screen.findByRole("heading", { name: "Welcome back" })
   expect(router.state.location.pathname).toBe("/login")
@@ -31,23 +31,24 @@ test("changes inline sign-in preferences without losing form input", async () =>
     }),
     "draft-password"
   )
-  await user.selectOptions(within(form).getByRole("combobox", { name: "Language" }), "zh")
-  expect(await screen.findByRole("heading", { name: "欢迎回来" })).toBeInTheDocument()
+  expect(within(form).queryByRole("combobox")).not.toBeInTheDocument()
+  await user.click(screen.getByRole("link", { name: "Settings" }))
+  await screen.findByRole("heading", { name: "Settings", level: 1 })
+  await user.selectOptions(screen.getByRole("combobox", { name: "Language" }), "zh")
+  expect(await screen.findByRole("heading", { name: "设置", level: 1 })).toBeInTheDocument()
   await waitFor(() => expect(document.documentElement.lang).toBe("zh"))
-  expect(document.title).toContain("登录")
-  expect(within(form).getByLabelText("用户名", { exact: false })).toHaveValue("demo")
-  expect(
-    within(form).getByLabelText("密码", {
-      exact: false,
-      selector: 'input[name="password"]'
-    })
-  ).toHaveValue("draft-password")
-  await user.selectOptions(within(form).getByRole("combobox", { name: "外观" }), "dark")
+  expect(document.title).toContain("设置")
+  await user.selectOptions(screen.getByRole("combobox", { name: "外观" }), "dark")
   expect(document.documentElement).toHaveAttribute("data-mantine-color-scheme", "dark")
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "外观与语言" })).not.toBeInTheDocument()
+  expect(router.state.location.pathname).toBe("/settings")
+  await user.selectOptions(screen.getByRole("combobox", { name: "外观" }), "auto")
+  await user.click(screen.getByRole("link", { name: "返回" }))
+  await screen.findByRole("heading", { name: "欢迎回来" })
+  expect(screen.getByLabelText("用户名", { exact: false })).toHaveValue("")
+  expect(screen.getByLabelText("密码", { exact: false, selector: 'input[name="password"]' })).toHaveValue("")
   expect(router.state.location.pathname).toBe("/login")
-  await user.selectOptions(within(form).getByRole("combobox", { name: "外观" }), "auto")
 })
 
 /** 已恢复登录的根入口进入工作区；侧栏收起后图标导航和当前项语义仍然可用。 */
@@ -170,10 +171,10 @@ test("opens the workspace and switches organization through the dialog", async (
   await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus())
   await user.click(screen.getByRole("button", { name: "Account menu" }))
   await user.click(await screen.findByRole("menuitem", { name: /Language/ }))
-  await screen.findByRole("dialog", { name: "Appearance and language" })
-  await user.keyboard("{Escape}")
-  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
-  await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus())
+  await screen.findByRole("heading", { name: "Settings", level: 1 })
+  await user.click(screen.getByRole("link", { name: "Back" }))
+  await screen.findByRole("heading", { name: "Welcome back, demo" })
+  expect(router.state.location.pathname).toBe("/app/dashboard")
 })
 
 /** 会话从别处恢复时关闭旧组织弹窗，禁止用旧候选再次提交。 */

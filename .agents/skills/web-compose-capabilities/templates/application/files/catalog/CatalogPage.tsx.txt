@@ -40,7 +40,7 @@ export function CatalogPage({
       <Text c="dimmed">{t("catalogDescription")}</Text>
       <ModuleState
         loading={query.isPending}
-        error={query.isError}
+        error={query.error}
         empty={query.data?.length === 0}
         retry={() => {
           void query.refetch()

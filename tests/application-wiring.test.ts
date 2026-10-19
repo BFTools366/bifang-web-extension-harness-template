@@ -1,5 +1,6 @@
 import { test, expect } from "vitest"
 import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
+import type { ApplicationOptions } from "../.agents/skills/web-compose-capabilities/templates/application/contracts.ts"
 import { resolveCapabilitySelection } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
@@ -99,7 +100,8 @@ test("login guards the real home and synchronizes request token", async () => {
   vi.stubGlobal("fetch", fetch)
   await applicationHttp.request("probe")
   expect(fetch).toHaveBeenCalledTimes(1)
-  await user.click(screen.getByRole("button", { name: "Sign out" }))
+  await user.click(screen.getByRole("button", { name: /User center/ }))
+  await user.click(await screen.findByRole("menuitem", { name: "Sign out" }))
   expect(await screen.findByRole("heading", { name: "Sign in" })).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByText("Member")).not.toBeInTheDocument())
   await user.type(screen.getByLabelText(/Account/), "demo")
@@ -172,6 +174,10 @@ test("real home and independent readonly page", async () => {
   expect(await screen.findByText("No records yet.")).toBeInTheDocument()
   expect(router.state.location.pathname).toBe("/orders")
   expect(screen.queryByRole("button", { name: "Purchase" })).not.toBeInTheDocument()
+  await user.click(screen.getByRole("link", { name: "Settings" }))
+  expect(await screen.findByRole("heading", { name: "Settings", level: 1 })).toBeInTheDocument()
+  await user.click(screen.getByRole("link", { name: "Back" }))
+  expect(await screen.findByRole("heading", { name: "Orders" })).toBeInTheDocument()
 })
 `
     )
@@ -210,4 +216,45 @@ test("refuses full initialization over an existing product", () => {
     expect(() => applicationFiles(existing, options)).toThrow(/已有/)
     expect(existing.get(name)).toBe("user-owned")
   }
+})
+
+/** 动态生成的会话、接口和接线文件同样拒绝覆盖已有实现。 */
+test.each(["web", "extension"] as const)("protects generated %s capability owners", (host) => {
+  const options = {
+    selection: { host, operations: ["orders.purchase"] },
+    homePageSource: HOME_SOURCE,
+    dataMode: "mock",
+    fixtures: {
+      accounts: [{ id: "member", account: "demo", password: "demo", displayName: "Member" }]
+    }
+  } satisfies ApplicationOptions
+  for (const target of [
+    "src/features/application/runtime.ts",
+    "src/features/application/Application.tsx",
+    "src/features/application/routeAccess.ts",
+    "src/features/application/settingsNavigation.ts",
+    "src/features/application/navigation.ts",
+    "src/i18n/application.ts",
+    "src/features/identity/session.ts",
+    "src/features/identity/session.test.ts",
+    "src/features/orders/purchase.ts",
+    "src/features/orders/PurchasePanel.tsx",
+    "src/data/api/identity/mock.ts",
+    "src/data/api/commerce/price.ts"
+  ]) {
+    const existing = new Map([[target, "user-owned"]])
+    expect(() => applicationFiles(existing, options), target).toThrow(/已有/)
+    expect([...existing]).toEqual([[target, "user-owned"]])
+  }
+  const adapter = "src/data/api/orders/adapter.ts"
+  const existing = new Map([[adapter, "user-owned"]])
+  expect(() =>
+    applicationFiles(existing, {
+      selection: { host, operations: ["orders.read"] },
+      homePageSource: HOME_SOURCE,
+      dataMode: "adapter",
+      adapters: { orders: "export const api = { async list() { return [] } }" }
+    })
+  ).toThrow(/已有/)
+  expect([...existing]).toEqual([[adapter, "user-owned"]])
 })

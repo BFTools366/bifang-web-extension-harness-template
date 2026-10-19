@@ -14,7 +14,7 @@ import {
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
-import { Preferences } from "../application/Preferences"
+import { SettingsLink } from "../application/SettingsLink"
 import classes from "../application/application.module.css"
 import type { IdentityRuntime } from "./runtime"
 
@@ -93,6 +93,9 @@ export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
               <Stack>
                 <TextInput
                   label={t("identityAccount")}
+                  placeholder={t("identityAccountPlaceholder")}
+                  classNames={{ input: classes.authPlaceholder }}
+                  name="account"
                   autoComplete="username"
                   value={account}
                   onChange={(event) => setAccount(event.currentTarget.value)}
@@ -100,6 +103,9 @@ export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
                 />
                 <PasswordInput
                   label={t("identityPassword")}
+                  placeholder={t("identityPasswordPlaceholder")}
+                  classNames={{ innerInput: classes.authPlaceholder }}
+                  name="password"
                   autoComplete="current-password"
                   value={password}
                   onChange={(event) => setPassword(event.currentTarget.value)}
@@ -110,7 +116,7 @@ export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
                 </Button>
               </Stack>
             </form>
-            <Preferences />
+            <SettingsLink />
           </Stack>
         </Paper>
       </Container>

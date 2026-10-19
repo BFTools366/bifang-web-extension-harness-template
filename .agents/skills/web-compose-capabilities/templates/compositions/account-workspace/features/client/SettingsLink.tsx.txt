@@ -1,0 +1,16 @@
+import { Button } from "@mantine/core"
+import { Link, useLocation } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
+import { ClientIcon } from "./ClientIcon"
+
+/** 认证页与账号资料页共用公开设置入口，不保存任何表单草稿。 */
+export function SettingsLink() {
+  const { t } = useTranslation()
+  const { href } = useLocation()
+  return (
+    <Button variant="subtle" color="gray" size="sm" leftSection={<ClientIcon name="settings" />}
+      renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}>
+      {t("client.settings")}
+    </Button>
+  )
+}

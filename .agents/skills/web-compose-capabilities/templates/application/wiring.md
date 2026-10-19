@@ -16,7 +16,15 @@
 
 固定资产之外的实际业务页面、路由、入口和功能继续由实施入口按已确认需求补齐，不能把这组能力页当作全部产品范围。
 
+主壳固定提供正文 `content` 与侧栏上下文 `context(compact)` 槽位；`scope.blocked` 只替换正文，不能卸载整个布局。身份能力装配 `IdentityMenu` 的头像/昵称触发器与 `AccountMenu` 组合层，组织能力才注入 `OrganizationMenuItem` 和 `OrganizationContext`；当前组织的页、菜单和侧栏共享私有 Query。未选组织没有入口或查询，身份与组织不另建 owner。
+
+已有下游可在 `AccountMenu` 传入可信 `avatar` 及真实 `settings` 菜单节点；节点自身拥有导航/动作、权限与焦点，不由父容器代理。没有真实账号设置页面就省略，装配器不从槽位生成 `/profile`、资料 API、套餐或充值。语言/外观进入公开设置页的对应分区；应用设置与账号资料保持独立。
+
+通用 `SettingsPage` 为根级 `/settings`，不列入业务导航或权限页清单；Web、Popup 和 Options 均生成，即使没有身份能力也可访问。`settingsNavigationSource` 按实际选择生成登录或首页回退，并独立校验历史来源；不能扩张 `safeReturnTo` 的登录后业务目标合同。`SettingsLink` 随身份能力生成并位于认证页最下方；已明确实现的注册或找回叶页沿用同一底部入口和来源校验，不能为设置自动装配未选认证操作。新增认证页时显式补充其允许来源及安全查询合同，密码、验证码和令牌不进入设置查询或偏好存储。
+
 基础身份固定包含登录、恢复、退出、主界面用户区、匿名重定向、安全返回、HTTP Token 同步与当前 401 清理；注册、找回、组织、权限独立选择。购买依赖闭包必须包含 identity.session，依赖原因在选择结果中展示并纳入一次范围确认。
+
+只读订单的 Mock 仅生成 list，不生成 create/find/settle；fixtures.orders 按主体键隔离记录，无身份的公共集合使用空字符串键，采用组织时沿用结构化主体键。数据快照独立复制且支持取消。能力页复用既有 HTTP 错误分类，401/403 不展示普通重试；响应可能本地化的查询键包括当前语言。
 
 Web 保留 Vite 与 TanStack 文件路由。Extension 每个入口有独立 Router 与当前上下文会话，默认内存凭据；不自动增加 background、浏览器权限或跨入口持久登录。真实 API 读取使用既有 Query，传输使用 applicationHttp，身份 adapter 的 login/validate/logout 使用隔离认证传输：login 不携带旧 Token，validate/logout 显式使用传入凭据，不能提前修改 applicationHttp。认证临时传输的 Token 不成为第二个应用会话 owner，应用 Token 只由 IdentityTransport 在校验后提交。其他业务传输复用 applicationHttp；订单只读 adapter 只需 list，不要求未选 find/create。
 

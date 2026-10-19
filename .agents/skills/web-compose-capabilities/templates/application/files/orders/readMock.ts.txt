@@ -1,0 +1,15 @@
+import type { Order, OrdersReadApi } from "./contracts"
+
+/** 只读订单按明确主体或公共空键读取 fixture，不包含创建、恢复或结算实现。 */
+export function createOrdersReadMock(
+  actor: () => string | null,
+  initial: Readonly<Record<string, readonly Order[]>>
+): OrdersReadApi {
+  return {
+    /** 返回独立快照，取消和不同主体均不能泄漏其他作用域记录。 */
+    async list(signal) {
+      signal?.throwIfAborted()
+      return structuredClone(initial[actor() ?? ""] ?? [])
+    }
+  }
+}

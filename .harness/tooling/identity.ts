@@ -1,21 +1,9 @@
 import path from "node:path"
 import { pathExists, readJson, writeAtomic } from "./files.ts"
-import type { ProjectConfig } from "./types.ts"
+import type { IdentityI18n, IdentityLocale, LocalizedIdentity, ProjectConfig } from "./types.ts"
 
-/** 约束与现有英文、简体中文 UI 对齐的浏览器身份语言。 */
-export type IdentityLocale = "en" | "zh_CN"
-
-/** 描述一份完整的本地化项目身份，禁止半份翻译。 */
-export interface LocalizedIdentity {
-  name: string
-  description: string
-}
-
-/** 默认语言消费根名称和说明，其他语言只保存显式翻译。 */
-export interface IdentityI18n {
-  defaultLocale: IdentityLocale
-  translations: Partial<Record<IdentityLocale, LocalizedIdentity>>
-}
+/** 保留身份模块的具名类型入口，契约自身不依赖校验和文件副作用。 */
+export type { IdentityI18n, IdentityLocale, LocalizedIdentity } from "./types.ts"
 
 /** 校验身份本地化输入，不猜测翻译或复制默认语言为翻译事实。 */
 export function validateIdentityI18n(value: unknown): IdentityI18n | undefined {

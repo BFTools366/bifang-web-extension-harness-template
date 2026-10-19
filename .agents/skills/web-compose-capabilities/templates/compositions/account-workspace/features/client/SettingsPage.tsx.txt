@@ -1,0 +1,35 @@
+import { Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core"
+import { Link, useLocation } from "@tanstack/react-router"
+import { useTranslation } from "react-i18next"
+import { Preferences } from "./Preferences"
+import { settingsReturnTo } from "./settingsNavigation"
+import classes from "./client.module.css"
+
+/** 公开设置只操作已有主题和语言，标题与导航焦点继续由根级唯一拥有者处理。 */
+export function SettingsPage() {
+  const { t } = useTranslation()
+  const { state } = useLocation()
+  const backTo = settingsReturnTo("settingsOrigin" in state ? state.settingsOrigin : undefined)
+  return (
+    <main id="main" tabIndex={-1} className={classes.settingsPage}>
+      <Container size="sm" w="100%">
+        <Paper withBorder radius="lg" p="xl">
+          <Stack gap="xl">
+            <div>
+              <Group justify="space-between">
+                <Title order={1}>{t("client.settings")}</Title>
+                <Button variant="subtle" color="gray" size="sm"
+                  renderRoot={(props) => <Link {...props} to={backTo} />}>
+                  {t("client.settingsBack")}
+                </Button>
+              </Group>
+              <Text c="dimmed" mt="xs">{t("client.settingsDescription")}</Text>
+            </div>
+            <Preferences plain />
+            <Text size="sm" c="dimmed">{t("client.settingsImmediate")}</Text>
+          </Stack>
+        </Paper>
+      </Container>
+    </main>
+  )
+}

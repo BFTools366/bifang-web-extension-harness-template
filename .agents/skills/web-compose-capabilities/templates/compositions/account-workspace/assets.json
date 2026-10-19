@@ -41,7 +41,6 @@
   "src/features/client/DashboardPage.tsx": "features/client/DashboardPage.tsx.txt",
   "src/features/client/OrganizationSwitcher.tsx": "features/client/OrganizationSwitcher.tsx.txt",
   "src/features/client/Preferences.tsx": "features/client/Preferences.tsx.txt",
-  "src/features/client/PreferencesDialog.tsx": "features/client/PreferencesDialog.tsx.txt",
   "src/features/client/TestMenuPage.tsx": "features/client/TestMenuPage.tsx.txt",
   "src/features/client/client.module.css": "features/client/client.module.css.txt",
   "src/routes/__root.tsx": "routes/__root.tsx.txt",
@@ -64,5 +63,10 @@
   "src/app/queryClient.ts": "app/queryClient.ts.txt",
   "src/features/auth/useOperationGuard.ts": "features/auth/useOperationGuard.ts.txt",
   "src/i18n/locales/accountWorkspace.ts": "i18n/locales/accountWorkspace.ts.txt",
-  "src/data/api/auth/mockTestAssertions.ts": "data/api/auth/mockTestAssertions.ts.txt"
+  "src/data/api/auth/mockTestAssertions.ts": "data/api/auth/mockTestAssertions.ts.txt",
+  "src/features/client/SettingsPage.tsx": "features/client/SettingsPage.tsx.txt",
+  "src/features/client/SettingsLink.tsx": "features/client/SettingsLink.tsx.txt",
+  "src/features/client/settingsNavigation.ts": "features/client/settingsNavigation.ts.txt",
+  "src/features/client/SettingsPage.test.tsx": "features/client/SettingsPage.test.tsx.txt",
+  "src/routes/settings.tsx": "routes/settings.tsx.txt"
 }

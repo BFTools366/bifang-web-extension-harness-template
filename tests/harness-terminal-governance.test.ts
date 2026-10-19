@@ -397,12 +397,14 @@ export const Route = createFileRoute("/")({
       const sourceOnlyPath = path.join(root, relativePath)
       await mkdir(path.dirname(sourceOnlyPath), { recursive: true })
       await writeFile(sourceOnlyPath, "source Harness residue\n")
-
-      await expect(validateProject(root)).rejects.toThrow(
+    }
+    // 校验器汇总全部残留；一次执行并逐路径核对，避免重复扫描同一工程。
+    const failure: unknown = await validateProject(root).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(Error)
+    for (const relativePath of sourceOnlyPaths)
+      expect(failure instanceof Error ? failure.message : "").toContain(
         `Terminal project retains ${relativePath}`
       )
-      await rm(sourceOnlyPath, { recursive: true, force: true })
-    }
   })
 
   /** 验证终端项目可在独立事件后创建受命名和索引约束的记忆。 */

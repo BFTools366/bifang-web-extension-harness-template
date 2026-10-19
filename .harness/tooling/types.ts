@@ -1,4 +1,17 @@
-import type { IdentityI18n } from "./identity.ts"
+/** 约束与现有英文、简体中文 UI 对齐的浏览器身份语言。 */
+export type IdentityLocale = "en" | "zh_CN"
+
+/** 描述一份完整的本地化项目身份，禁止半份翻译。 */
+export interface LocalizedIdentity {
+  name: string
+  description: string
+}
+
+/** 默认语言消费根名称和说明，其他语言只保存显式翻译。 */
+export interface IdentityI18n {
+  defaultLocale: IdentityLocale
+  translations: Partial<Record<IdentityLocale, LocalizedIdentity>>
+}
 
 // 保存 PROJECT_TYPES 变量供当前逻辑使用。
 export const PROJECT_TYPES = ["web", "extension"] as const

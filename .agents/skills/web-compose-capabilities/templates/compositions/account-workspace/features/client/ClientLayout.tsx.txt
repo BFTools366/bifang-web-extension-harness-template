@@ -13,7 +13,7 @@ import {
 } from "@mantine/core"
 import { useElementSize, useMediaQuery } from "@mantine/hooks"
 import { Link, Outlet, useLocation, useNavigate, useRouter } from "@tanstack/react-router"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
 import { BUILD_VERSION } from "../../buildVersion"
@@ -22,7 +22,6 @@ import { canAccess, clientPage, clientPages } from "../auth/access"
 import { AuthStatePanel } from "../auth/AuthStatePanel"
 import { AccountMenu } from "./AccountMenu"
 import { ClientIcon } from "./ClientIcon"
-import { PreferencesDialog } from "./PreferencesDialog"
 import classes from "./client.module.css"
 
 /** 完整与收起侧栏共享同一导航合同，图标模式仍有可访问名称。 */
@@ -59,12 +58,9 @@ export function ClientLayout() {
   const { context, state, session } = useAuth()
   const navigate = useNavigate()
   const router = useRouter()
-  const { pathname } = useLocation()
+  const { pathname, href } = useLocation()
   const { ref: headerRef, height: headerHeight } = useElementSize<HTMLDivElement>()
   const [collapsed, setCollapsed] = useState(false)
-  const [preferencesOpened, setPreferencesOpened] = useState(false)
-  const preferenceTrigger = useRef<HTMLElement | null>(null)
-  const preferencesButton = useRef<HTMLButtonElement>(null)
   const [refreshing, setRefreshing] = useState(false)
   const currentPage = clientPage(pathname)
   const page = currentPage?.title ?? "auth.states.denied"
@@ -82,11 +78,6 @@ export function ClientLayout() {
     setMobileOpened(false)
   }, [pathname])
 
-  /** 保存持久入口而非已卸载的菜单项，弹窗关闭后恢复准确焦点。 */
-  function openPreferences(trigger: HTMLElement | null) {
-    preferenceTrigger.current = trigger
-    setPreferencesOpened(true)
-  }
   return (
     <AppShell
       className={classes.clientShell}
@@ -137,18 +128,17 @@ export function ClientLayout() {
                   <ClientIcon name="refresh" />
                 </ActionIcon>
               </Tooltip>
-              <Tooltip label={t("client.preferences")}>
+              <Tooltip label={t("client.settings")}>
                 <ActionIcon
-                  ref={preferencesButton}
                   variant="default"
                   size="lg"
-                  aria-label={t("client.preferences")}
-                  onClick={(event) => openPreferences(event.currentTarget)}
+                  aria-label={t("client.settings")}
+                  renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
                 >
                   <ClientIcon name="settings" />
                 </ActionIcon>
               </Tooltip>
-              <AccountMenu onPreferences={openPreferences} />
+              <AccountMenu />
               {!context && (
                 <Button
                   variant="subtle"
@@ -258,17 +248,6 @@ export function ClientLayout() {
           )}
         </main>
       </AppShell.Main>
-      <PreferencesDialog
-        opened={preferencesOpened}
-        onClose={() => setPreferencesOpened(false)}
-        returnFocus={false}
-        onExited={() =>
-          (preferenceTrigger.current?.isConnected
-            ? preferenceTrigger.current
-            : preferencesButton.current
-          )?.focus()
-        }
-      />
     </AppShell>
   )
 }

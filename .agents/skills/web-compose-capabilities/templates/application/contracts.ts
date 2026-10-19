@@ -22,6 +22,16 @@ export interface ApplicationFixtures {
     price: { minor: number; currency: string }
   }[]
   grants?: { subjectId: string; organizationId?: string | null; codes: string[] }[]
+  orders?: Record<
+    string,
+    {
+      id: string
+      productId: string
+      total: { minor: number; currency: string }
+      status: "paid" | "unpaid"
+      requestId: string
+    }[]
+  >
   balances?: Record<string, { minor: number; currency: string }>
   organizations?: Record<string, { id: string; name: string }[]>
   audit?: { id: string; action: string; actor: string; occurredAt: string }[]

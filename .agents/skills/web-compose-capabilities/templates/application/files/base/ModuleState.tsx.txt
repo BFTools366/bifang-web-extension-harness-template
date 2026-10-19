@@ -1,10 +1,11 @@
-import { Alert, Button, Stack, Text } from "@mantine/core"
+import { Text } from "@mantine/core"
 import { useTranslation } from "react-i18next"
+import { HttpErrorView } from "../../data/api/client/HttpErrorView"
 
 /** 统一固定能力页的加载、错误与空数据反馈。 */
 export interface ModuleStateProps {
   loading: boolean
-  error: boolean
+  error: unknown
   empty: boolean
   retry(): void
 }
@@ -13,14 +14,6 @@ export interface ModuleStateProps {
 export function ModuleState({ loading, error, empty, retry }: ModuleStateProps) {
   const { t } = useTranslation()
   if (loading) return <Text role="status">{t("applicationLoading")}</Text>
-  if (error)
-    return (
-      <Alert color="red" role="alert">
-        <Stack>
-          <Text>{t("applicationError")}</Text>
-          <Button onClick={retry}>{t("applicationRetry")}</Button>
-        </Stack>
-      </Alert>
-    )
+  if (error) return <HttpErrorView error={error} onRetry={retry} />
   return empty ? <Text>{t("applicationEmpty")}</Text> : null
 }

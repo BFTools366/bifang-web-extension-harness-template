@@ -108,6 +108,66 @@
       "path": "docs/prototypes/saas-commerce/v2/demo-actions.js",
       "kind": "interactive-prototype",
       "sha256": "99cb4838b5cb6740f6147dc7d4490616205c732c25a1176fdd5c5889d14135cf"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/application/ApplicationLayout.tsx",
+      "kind": "implementation",
+      "sha256": "6aa468c044ea13b20bf43fde80cbdef990bfdf8847db8f9c365c50c2ed1c23aa"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/identity/IdentityMenu.tsx",
+      "kind": "implementation",
+      "sha256": "7cd91c0d8024edb9b06b706ebdb97675a289e2c131062c0a004d65b30a039ec5"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/account/AccountMenu.tsx",
+      "kind": "implementation",
+      "sha256": "a567f4e3ca604fde95239761bf5d0e892aded3fbf524d6a815e2c0a4f8236cc0"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/application/Preferences.tsx",
+      "kind": "implementation",
+      "sha256": "9c2faf1bf0a369846075aca2790d64715c8919bfc5ac0cb7b709d273307a7eb0"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/leaderboards/BoardContext.tsx",
+      "kind": "implementation",
+      "sha256": "ad2c0d0c24cb3d759478ba15759ef42f9af5dada032962436ff906913cc50448"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/application/SettingsPage.tsx",
+      "kind": "implementation",
+      "sha256": "032b02d5445f6151f87e826e48f670fce8a004564a64bca5eaa90b15a1311d6c"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/application/SettingsLink.tsx",
+      "kind": "implementation",
+      "sha256": "2f391c631b8ea74195dd72cd477b99aa96c137cfa9603637e402ea0a11b3b3d3"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/application/settingsNavigation.ts",
+      "kind": "implementation",
+      "sha256": "e85fbc36b7ef9be672581ea44f6c8b3442140df461b4236aafd7147c7bb33f3e"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/account/AuthPages.tsx",
+      "kind": "implementation",
+      "sha256": "1ffcc558b4b8e748c41cd516b1296a5861de00179204ada760747c4451e654ad"
+    },
+    {
+      "project": "bifang-usage-leaderboard",
+      "path": "src/features/identity/LoginPage.tsx",
+      "kind": "implementation",
+      "sha256": "37303862d72b878f949e0e65898c44808fae74099703e3246e5698cb2ca23564"
     }
   ],
   "excluded": [

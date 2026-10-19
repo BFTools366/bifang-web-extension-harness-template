@@ -9,6 +9,8 @@ const titles: Record<string, string> = {
   "/login": "auth.login",
   "/register": "auth.register",
   "/forgot-password": "auth.forgotPassword",
+  "/settings": "client.settings",
+  "/settings/": "client.settings",
   "/app/forbidden": "auth.states.denied",
   "/app/forbidden/": "auth.states.denied"
 }
@@ -38,6 +40,7 @@ export function ApplicationRoot() {
     }
   }, [pathname, status])
   useEffect(() => {
+    if (pathname.replace(/\/$/u, "").toLowerCase() === "/settings") return
     let active = true
     let eventRevision = 0
     const synchronize = (event: StorageEvent) => {
@@ -58,6 +61,6 @@ export function ApplicationRoot() {
       eventRevision++
       window.removeEventListener("storage", synchronize)
     }
-  }, [session, router])
+  }, [session, router, pathname])
   return <Outlet />
 }

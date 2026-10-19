@@ -6,7 +6,7 @@ import type { AuthSession } from "../features/auth/session"
 /** 说明 Route 的稳定结构与职责边界。 */
 export const Route = createRootRouteWithContext<{ auth: AuthSession }>()({
   beforeLoad: async ({ context, location, preload }) => {
-    if (preload) return
+    if (preload || location.pathname.replace(/\/$/u, "").toLowerCase() === "/settings") return
     await context.auth.initialize()
     if (location.pathname === "/")
       throw redirect({

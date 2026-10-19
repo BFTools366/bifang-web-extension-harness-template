@@ -57,6 +57,13 @@ export function applicationRoutes(
   const permissions = operations.includes("permissions.enforce")
   if (options.selection.host === "web") {
     files.set(
+      "src/routes/settings.tsx",
+      `import { createFileRoute } from "@tanstack/react-router"
+import { SettingsPage } from "../features/application/SettingsPage"
+/** 应用设置公开可达，不经过身份、组织或权限守卫。 */
+export const Route = createFileRoute("/settings")({ component: SettingsPage })\n`
+    )
+    files.set(
       "src/routes/__root.tsx",
       `import { Outlet, createRootRoute } from "@tanstack/react-router"
 import { NotFoundPage } from "../features/not-found/NotFoundPage"
@@ -105,6 +112,7 @@ export const Route = createFileRoute("/_application/forbidden")({ component: For
       "src/extension-router.tsx",
       `import { Outlet, createRootRoute, createRoute, createRouter, createMemoryHistory, createHashHistory } from "@tanstack/react-router"
 import { ${["MainLayout", ...(identity ? ["Login"] : []), ...(permissions ? ["ForbiddenPage"] : []), ...pages.map((page) => (page.component === "HomePage" ? "Home" : page.component.replace(/Page$/u, "")))].join(", ")} } from "./features/application/Application"
+import { SettingsPage } from "./features/application/SettingsPage"
 ${identity ? 'import { protectPage, authSearch, publicLogin } from "./features/application/routeAccess"\n' : ""}import { ExtensionNotFoundPage } from "./ExtensionNotFoundPage"
 import { ExtensionRouteErrorPage } from "./data/api/client/ExtensionRouteErrorPage"
 import { createLogger } from "./observability/logger"
@@ -113,10 +121,11 @@ const logger = createLogger("router")
 export function createExtensionRouter(surface: "popup" | "options") {
   const root = createRootRoute({ component: Outlet, notFoundComponent: ExtensionNotFoundPage })
   const application = createRoute({ getParentRoute: () => root, id: "application", component: MainLayout })
+  const settings = createRoute({ getParentRoute: () => root, path: "/settings", component: SettingsPage })
   const pages = [
 ${pages.map((page) => `    createRoute({ getParentRoute: () => application, path: ${JSON.stringify(page.path)}, component: ${page.component === "HomePage" ? "Home" : page.component.replace(/Page$/u, "")}${identity ? `, beforeLoad: ({ abortController }) => protectPage(${JSON.stringify(page.path)}, abortController.signal)` : ""} })`).join(",\n")}${permissions ? ',\n    createRoute({ getParentRoute: () => application, path: "/forbidden", component: ForbiddenPage, beforeLoad: ({ abortController }) => protectPage("/forbidden", abortController.signal) })' : ""}
   ]
-${identity ? '  const login = createRoute({ getParentRoute: () => root, path: "/login", component: Login, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}  return createRouter({ routeTree: root.addChildren([application.addChildren(pages)${identity ? ", login" : ""}]), history: surface === "popup" ? createMemoryHistory({ initialEntries: ["/"] }) : createHashHistory(), defaultErrorComponent: ExtensionRouteErrorPage, defaultOnCatch: (error) => logger.error("route_failed", { surface, error }) })
+${identity ? '  const login = createRoute({ getParentRoute: () => root, path: "/login", component: Login, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}  return createRouter({ routeTree: root.addChildren([application.addChildren(pages), settings${identity ? ", login" : ""}]), history: surface === "popup" ? createMemoryHistory({ initialEntries: ["/"] }) : createHashHistory(), defaultErrorComponent: ExtensionRouteErrorPage, defaultOnCatch: (error) => logger.error("route_failed", { surface, error }) })
 }
 declare module "@tanstack/react-router" {
   /** 当前宿主只注册实际生成的扩展路由树。 */

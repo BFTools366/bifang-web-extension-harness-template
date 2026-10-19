@@ -8,7 +8,7 @@ import { ModuleState } from "../application/ModuleState"
 export function AuditPage({ api, scope }: { api: AuditApi; scope: number }) {
   const { t, i18n } = useTranslation()
   const query = useQuery({
-    queryKey: ["audit", scope],
+    queryKey: ["audit", scope, i18n.language],
     meta: { private: true },
     queryFn: ({ signal }) => api.list(signal)
   })
@@ -17,7 +17,7 @@ export function AuditPage({ api, scope }: { api: AuditApi; scope: number }) {
       <Title order={1}>{t("auditTitle")}</Title>
       <ModuleState
         loading={query.isPending}
-        error={query.isError}
+        error={query.error}
         empty={query.data?.length === 0}
         retry={() => {
           void query.refetch()

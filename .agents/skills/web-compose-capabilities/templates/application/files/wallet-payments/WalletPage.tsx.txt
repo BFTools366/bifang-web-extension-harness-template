@@ -9,7 +9,7 @@ import { ModuleState } from "../application/ModuleState"
 export function WalletPage({ api, scope }: { api: WalletReadApi; scope: number }) {
   const { t, i18n } = useTranslation()
   const query = useQuery({
-    queryKey: ["wallet", scope],
+    queryKey: ["wallet", scope, i18n.language],
     meta: { private: true },
     queryFn: ({ signal }) => api.read(signal)
   })
@@ -18,7 +18,7 @@ export function WalletPage({ api, scope }: { api: WalletReadApi; scope: number }
       <Title order={1}>{t("walletTitle")}</Title>
       <ModuleState
         loading={query.isPending}
-        error={query.isError}
+        error={query.error}
         empty={false}
         retry={() => {
           void query.refetch()

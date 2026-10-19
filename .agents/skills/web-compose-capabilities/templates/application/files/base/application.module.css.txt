@@ -57,6 +57,11 @@
   margin-top: auto;
   padding-top: var(--mantine-spacing-lg);
 }
+.context {
+  margin-top: var(--mantine-spacing-xl);
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
 .main {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -93,6 +98,27 @@
   display: grid;
   grid-template-columns: minmax(10rem, 14rem) minmax(0, 1fr);
   gap: var(--mantine-spacing-lg);
+}
+.authPlaceholder::placeholder {
+  color: light-dark(var(--mantine-color-gray-7), var(--mantine-color-dark-1));
+  opacity: 1;
+}
+.authFooter {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--mantine-spacing-xs);
+  padding-top: var(--mantine-spacing-md);
+  border-top: 1px solid var(--mantine-color-default-border);
+}
+.settingsPage {
+  min-height: 100%;
+  background: var(--mantine-color-default-hover);
+  padding-block: var(--mantine-spacing-xl);
+}
+.settingsPanel {
+  padding: var(--mantine-spacing-xl);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .catalogLayout > * {
   min-width: 0;

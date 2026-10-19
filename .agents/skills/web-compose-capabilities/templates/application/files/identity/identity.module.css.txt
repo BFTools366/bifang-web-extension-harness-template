@@ -1,0 +1,9 @@
+.trigger {
+  border-radius: var(--mantine-radius-md);
+}
+.trigger:hover {
+  background: var(--mantine-color-default-hover);
+}
+.trigger[data-expanded] {
+  background: var(--mantine-color-brand-light);
+}

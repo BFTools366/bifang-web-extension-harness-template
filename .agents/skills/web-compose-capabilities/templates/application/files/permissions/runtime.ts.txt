@@ -21,6 +21,7 @@ export function createPermissionRuntime(
   const empty: PermissionSnapshot = Object.freeze({ phase: "idle", codes: [], owner: null })
   let state = empty
   let revision = 0
+  let refreshing: { owner: PermissionOwner | null; promise: Promise<void> } | undefined
   const listeners = new Set<() => void>()
   /** 只比较受信主体与当前会话作用域，不采用权限缓存中的身份。 */
   function same(left: PermissionOwner | null, right: PermissionOwner | null) {
@@ -44,7 +45,7 @@ export function createPermissionRuntime(
     }
   })
   /** 从可信接口刷新权限；失败或被新主体替代时不保留旧授权。 */
-  async function refresh(signal?: AbortSignal) {
+  async function readPermissions() {
     const current = owner()
     const owned = ++revision
     if (!current) {
@@ -53,11 +54,7 @@ export function createPermissionRuntime(
     }
     publish({ phase: "loading", codes: [], owner: current })
     try {
-      const codes = await api.read(
-        { subjectId: current.id, organizationId: current.organizationId },
-        signal
-      )
-      signal?.throwIfAborted()
+      const codes = await api.read({ subjectId: current.id, organizationId: current.organizationId })
       if (owned !== revision || !same(current, owner())) throw new Error("permission_superseded")
       if (
         !Array.isArray(codes) ||
@@ -69,6 +66,34 @@ export function createPermissionRuntime(
       if (owned === revision) publish({ phase: "error", codes: [], owner: current })
       throw error
     }
+  }
+  /** 同一 owner 共享权威读取，导航取消只终止自己的等待，不注销另一调用的会话。 */
+  function refresh(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) return Promise.reject(signal.reason)
+    const current = owner()
+    let task = refreshing
+    if (!task || !same(task.owner, current)) {
+      task = { owner: current, promise: readPermissions() }
+      refreshing = task
+      const owned = task
+      /** 只有当前读取可以释放自己的共享记录。 */
+      const release = () => { if (refreshing === owned) refreshing = undefined }
+      void task.promise.then(release, release)
+    }
+    if (!signal) return task.promise
+    const pending = task.promise
+    return new Promise<void>((resolve, reject) => {
+      /** 取消当前导航等待，不取消其他消费者共享的权限读取。 */
+      const abort = () => reject(signal.reason)
+      signal.addEventListener("abort", abort, { once: true })
+      void pending.then(() => {
+        signal.removeEventListener("abort", abort)
+        resolve()
+      }, (error: unknown) => {
+        signal.removeEventListener("abort", abort)
+        reject(error)
+      })
+    })
   }
   /** 权限未知、主体变化或任一要求不满足时失败关闭。 */
   function allow(required: readonly string[]) {

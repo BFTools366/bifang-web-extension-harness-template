@@ -1,24 +1,68 @@
-import { Button, Group, Text } from "@mantine/core"
-import { useSyncExternalStore } from "react"
+import { Avatar, Group, Menu, Text, UnstyledButton } from "@mantine/core"
+import { useEffect, useState, useSyncExternalStore, type ReactNode, type Ref } from "react"
 import { useTranslation } from "react-i18next"
 import type { IdentityRuntime } from "./runtime"
+import classes from "./identity.module.css"
 
-/** 主界面用户区只公开当前身份与退出动作。 */
-export function IdentityMenu({ session }: { session: IdentityRuntime }) {
+/** 账号触发器与退出复用唯一身份 owner，业务菜单项由组合层注入。 */
+export function IdentityMenu({ session, avatar, children, scope, triggerRef }: {
+  session: IdentityRuntime
+  avatar?: string
+  children?: ReactNode
+  scope?: number
+  triggerRef?: Ref<HTMLButtonElement>
+}) {
   const { t } = useTranslation()
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot)
+  const identityId = state.identity?.id
+  const [menu, setMenu] = useState({ opened: false, identityId, scope })
+  const current = menu.identityId === identityId && menu.scope === scope
+  useEffect(() => {
+    setMenu((value) => value.opened ? { ...value, opened: false } : value)
+  }, [identityId, scope])
   if (!state.identity) return null
+  const name = state.identity.displayName ?? state.identity.id
   return (
-    <Group aria-label={t("identityCurrentUser")}>
-      <Text>{state.identity.displayName ?? state.identity.id}</Text>
-      <Button
-        variant="subtle"
-        onClick={() => {
-          void session.logout().catch(() => undefined)
-        }}
-      >
-        {t("identityLogout")}
-      </Button>
-    </Group>
+    <Menu
+      opened={menu.opened && current}
+      onChange={(opened) => setMenu((value) => opened ? { opened, identityId, scope } : { ...value, opened })}
+      position="bottom-end"
+      width={330}
+      withArrow
+      returnFocus={current}
+      closeOnEscape={current}
+    >
+      <Menu.Target>
+        <UnstyledButton
+          ref={triggerRef}
+          p="xs"
+          className={classes.trigger}
+          aria-label={t("identityUserMenu", { name })}
+        >
+          <Group gap="sm" wrap="nowrap">
+            <Avatar src={avatar || null} size="sm" radius="xl">
+              {name.slice(0, 1)}
+            </Avatar>
+            <Text fw={600} truncate="end" maw={{ base: "7rem", sm: "12rem" }} title={name}>
+              {name}
+            </Text>
+            <span aria-hidden="true">⌄</span>
+          </Group>
+        </UnstyledButton>
+      </Menu.Target>
+      <Menu.Dropdown maw="calc(100vw - var(--mantine-spacing-md) * 2)">
+        {children}
+        <Menu.Divider />
+        <Menu.Item
+          color="red"
+          leftSection={<span aria-hidden="true">⇥</span>}
+          onClick={() => {
+            void session.logout().catch(() => undefined)
+          }}
+        >
+          {t("identityLogout")}
+        </Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
   )
 }

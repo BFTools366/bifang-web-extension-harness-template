@@ -12,6 +12,15 @@ import { accountWorkspaceFiles } from "../.agents/skills/web-compose-capabilitie
 function accountFileRouteTreeFixture(): string {
   const routes = [
     {
+      name: "Settings",
+      file: "settings",
+      id: "/settings",
+      path: "/settings",
+      fullPath: "/settings",
+      parent: "rootRoute",
+      localId: "/settings"
+    },
+    {
       name: "Auth",
       file: "_auth",
       id: "/_auth",
@@ -104,7 +113,7 @@ function accountFileRouteTreeFixture(): string {
   for (const route of routes)
     source += `${JSON.stringify(route.id)}: { id: ${JSON.stringify(route.id)}; path: ${JSON.stringify(route.path)}; fullPath: ${JSON.stringify(route.fullPath)}; preLoaderRoute: typeof ${route.name}RouteImport; parentRoute: typeof ${route.parent} }\n`
   source +=
-    "} }\nexport const routeTree = rootRoute.addChildren([AuthRoute.addChildren([LoginRoute, RegisterRoute, ResetRoute]), AppRoute.addChildren([DashboardRoute, AccountRoute, NoAccessRoute, TestPageRoute])])\n"
+    "} }\nexport const routeTree = rootRoute.addChildren([AuthRoute.addChildren([LoginRoute, RegisterRoute, ResetRoute]), AppRoute.addChildren([DashboardRoute, AccountRoute, NoAccessRoute, TestPageRoute]), SettingsRoute])\n"
   return source
 }
 
