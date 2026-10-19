@@ -335,6 +335,8 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
       "/Users/alice/project",
       "file:///home/alice/project",
       "file:///Users/alice/project",
+      "file://localhost/home/alice/project",
+      "FILE:///Users/alice/project",
       "C:\\Users\\alice\\project"
     ]) {
       await writeFile(

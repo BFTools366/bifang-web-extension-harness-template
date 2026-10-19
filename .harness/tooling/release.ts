@@ -216,7 +216,7 @@ async function inspectArtifact(
       const withoutUrls = contents.replace(HTTP_URL_PATTERN, "[URL]")
       // Parcel 相对模块路径不属于本机路径；仍拒绝绝对路径、file URL 与转义后的 Windows 路径。
       if (
-        /file:\/\/\/(?:Users|home)\/[^/\s]+|(?<![A-Za-z0-9_./-])\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\+Users\\+[^\\\s]+/.test(
+        /file:\/\/[^/\s"'<>]*\/(?:Users|home)\/[^/\s]+|(?<![A-Za-z0-9_./-])\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\+Users\\+[^\\\s]+/i.test(
           withoutUrls
         )
       ) {
