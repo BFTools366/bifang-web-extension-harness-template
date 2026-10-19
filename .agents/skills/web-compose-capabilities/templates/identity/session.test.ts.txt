@@ -1,12 +1,21 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
-import { createIdentitySession, IdentityError, type CredentialStorage, type Identity, type IdentityApi } from "./session.ts"
+import {
+  createIdentitySession,
+  IdentityError,
+  type CredentialStorage,
+  type Identity,
+  type IdentityApi
+} from "./session.ts"
 
 /** 构造可控制完成次序的真实异步请求。 */
 function deferred<T>() {
   let resolve!: (value: T) => void
   let reject!: (error: unknown) => void
-  const promise = new Promise<T>((accepted, failed) => { resolve = accepted; reject = failed })
+  const promise = new Promise<T>((accepted, failed) => {
+    resolve = accepted
+    reject = failed
+  })
   return { promise, resolve, reject }
 }
 
@@ -16,6 +25,7 @@ function memoryStorage(initial: string | null = null) {
   const changes: (string | null)[] = []
   const storage: CredentialStorage = {
     read: () => value,
+    /** 仅在精确旧凭据仍匹配时替换，不覆盖外部会话。 */
     compareAndSet(expected, next) {
       if (expected !== value) return false
       value = next
@@ -23,7 +33,14 @@ function memoryStorage(initial: string | null = null) {
       return true
     }
   }
-  return { storage, changes, external(next: string | null) { value = next } }
+  return {
+    storage,
+    changes,
+    /** 模拟其他调用方替换持久化凭据。 */
+    external(next: string | null) {
+      value = next
+    }
+  }
 }
 
 /** 建立按凭据投影最小身份的 API，不引入网络或运行时依赖。 */
@@ -32,13 +49,18 @@ function identityApi(overrides: Partial<IdentityApi<string>> = {}) {
   const api: IdentityApi<string> = {
     login: async (input) => `token:${input}`,
     validate: async (token) => ({ id: token.replace("token:", "") }),
-    logout: async (token) => { revoked.push(token) },
-    revokeIssued: async (token) => { revoked.push(token) },
+    logout: async (token) => {
+      revoked.push(token)
+    },
+    revokeIssued: async (token) => {
+      revoked.push(token)
+    },
     ...overrides
   }
   return { api, revoked }
 }
 
+/** 验证登录凭据在服务校验完成前不写入，状态不暴露凭据。 */
 test("登录凭据在服务校验完成前不写入，状态不暴露凭据", async () => {
   const persisted = memoryStorage()
   const confirmed = deferred<Identity>()
@@ -56,9 +78,14 @@ test("登录凭据在服务校验完成前不写入，状态不暴露凭据", as
   assert.equal("api" in session, false)
 })
 
+/** 验证校验失败不持久化签发凭据，不回写已有记录。 */
 test("校验失败不持久化签发凭据，不回写已有记录", async () => {
   const persisted = memoryStorage("token:previous")
-  const { api, revoked } = identityApi({ validate: async () => { throw new IdentityError("expired") } })
+  const { api, revoked } = identityApi({
+    validate: async () => {
+      throw new IdentityError("expired")
+    }
+  })
   const session = createIdentitySession(api, persisted.storage)
   await assert.rejects(session.login("alice"), { code: "expired" })
   assert.equal(persisted.storage.read(), "token:previous")
@@ -67,6 +94,7 @@ test("校验失败不持久化签发凭据，不回写已有记录", async () =>
   assert.equal(session.getSnapshot().phase, "anonymous")
 })
 
+/** 验证恢复与重复导航校验不会回写凭据。 */
 test("恢复与重复导航校验不会回写凭据", async () => {
   const persisted = memoryStorage("token:alice")
   const session = createIdentitySession(identityApi().api, persisted.storage)
@@ -76,9 +104,14 @@ test("恢复与重复导航校验不会回写凭据", async () => {
   assert.equal(session.getSnapshot().phase, "authenticated")
 })
 
+/** 验证恢复发现会话失效时删除精确旧记录并撤下身份。 */
 test("恢复发现会话失效时删除精确旧记录并撤下身份", async () => {
   const persisted = memoryStorage("token:alice")
-  const { api } = identityApi({ validate: async () => { throw new IdentityError("expired") } })
+  const { api } = identityApi({
+    validate: async () => {
+      throw new IdentityError("expired")
+    }
+  })
   const session = createIdentitySession(api, persisted.storage)
   await assert.rejects(session.restore(), { code: "expired" })
   assert.equal(persisted.storage.read(), null)
@@ -86,10 +119,14 @@ test("恢复发现会话失效时删除精确旧记录并撤下身份", async ()
   assert.equal(session.getSnapshot().phase, "anonymous")
 })
 
+/** 验证退出先撤下身份并删除记录，不依赖远端吊销成功。 */
 test("退出先撤下身份并删除记录，不依赖远端吊销成功", async () => {
   const persisted = memoryStorage("token:alice")
   const remote = deferred<void>()
-  const session = createIdentitySession(identityApi({ logout: () => remote.promise }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({ logout: () => remote.promise }).api,
+    persisted.storage
+  )
   await session.restore()
   const result = session.logout()
   assert.equal(session.getSnapshot().phase, "anonymous")
@@ -99,10 +136,13 @@ test("退出先撤下身份并删除记录，不依赖远端吊销成功", async
   assert.equal(session.getSnapshot().error, "remoteLogoutUnknown")
 })
 
+/** 验证两个登录乱序完成只接受后发登录，旧签发只回收自身。 */
 test("两个登录乱序完成只接受后发登录，旧签发只回收自身", async () => {
   const persisted = memoryStorage()
   const first = deferred<string>()
-  const { api, revoked } = identityApi({ login: (input) => input === "first" ? first.promise : Promise.resolve("token:second") })
+  const { api, revoked } = identityApi({
+    login: (input) => (input === "first" ? first.promise : Promise.resolve("token:second"))
+  })
   const session = createIdentitySession(api, persisted.storage)
   const oldResult = session.login("first")
   const oldFailure = assert.rejects(oldResult, { code: "superseded" })
@@ -115,6 +155,7 @@ test("两个登录乱序完成只接受后发登录，旧签发只回收自身",
   assert.deepEqual(revoked, ["token:first"])
 })
 
+/** 验证登录校验期间退出，迟到登录不能重新写入会话。 */
 test("登录校验期间退出，迟到登录不能重新写入会话", async () => {
   const persisted = memoryStorage()
   const late = deferred<Identity>()
@@ -131,10 +172,16 @@ test("登录校验期间退出，迟到登录不能重新写入会话", async ()
   assert.deepEqual(revoked, ["token:alice"])
 })
 
+/** 验证旧导航的失效结果不能删除后来登录的新凭据。 */
 test("旧导航的失效结果不能删除后来登录的新凭据", async () => {
   const persisted = memoryStorage("token:old")
   const late = deferred<Identity>()
-  const session = createIdentitySession(identityApi({ validate: (token) => token === "token:old" ? late.promise : Promise.resolve({ id: "new" }) }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({
+      validate: (token) => (token === "token:old" ? late.promise : Promise.resolve({ id: "new" }))
+    }).api,
+    persisted.storage
+  )
   const check = session.check()
   const failed = assert.rejects(check, { code: "superseded" })
   await session.login("new")
@@ -144,10 +191,14 @@ test("旧导航的失效结果不能删除后来登录的新凭据", async () =>
   assert.equal(session.getSnapshot().identity?.id, "new")
 })
 
+/** 验证校验期间外部记录变化不被旧结果覆盖或删除。 */
 test("校验期间外部记录变化不被旧结果覆盖或删除", async () => {
   const persisted = memoryStorage("token:old")
   const late = deferred<Identity>()
-  const session = createIdentitySession(identityApi({ validate: () => late.promise }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({ validate: () => late.promise }).api,
+    persisted.storage
+  )
   const check = session.check()
   const failed = assert.rejects(check, { code: "superseded" })
   persisted.external("token:external")
@@ -158,10 +209,14 @@ test("校验期间外部记录变化不被旧结果覆盖或删除", async () =>
   assert.deepEqual(persisted.changes, [])
 })
 
+/** 验证登录校验期间外部记录变化使 CAS 失败，不覆盖外部会话。 */
 test("登录校验期间外部记录变化使 CAS 失败，不覆盖外部会话", async () => {
   const persisted = memoryStorage()
   const late = deferred<Identity>()
-  const session = createIdentitySession(identityApi({ validate: () => late.promise }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({ validate: () => late.promise }).api,
+    persisted.storage
+  )
   const login = session.login("alice")
   const failed = assert.rejects(login, { code: "superseded" })
   await Promise.resolve()
@@ -172,15 +227,28 @@ test("登录校验期间外部记录变化使 CAS 失败，不覆盖外部会话
   assert.deepEqual(persisted.changes, [])
 })
 
+/** 验证删除失败会阻断旧凭据恢复，外部清理后可以重新恢复。 */
 test("删除失败会阻断旧凭据恢复，外部清理后可以重新恢复", async () => {
   const persisted = memoryStorage("token:alice")
   let failing = true
-  const storage: CredentialStorage = { read: persisted.storage.read, compareAndSet(expected, next) {
-    if (failing) throw new Error("storage denied")
-    return persisted.storage.compareAndSet(expected, next)
-  } }
+  const storage: CredentialStorage = {
+    read: persisted.storage.read,
+    /** 仅在精确旧凭据仍匹配时替换，不覆盖外部会话。 */
+    compareAndSet(expected, next) {
+      if (failing) throw new Error("storage denied")
+      return persisted.storage.compareAndSet(expected, next)
+    }
+  }
   let validations = 0
-  const session = createIdentitySession(identityApi({ validate: async () => { validations += 1; return { id: "alice" } } }).api, storage)
+  const session = createIdentitySession(
+    identityApi({
+      validate: async () => {
+        validations += 1
+        return { id: "alice" }
+      }
+    }).api,
+    storage
+  )
   await session.restore()
   await assert.rejects(session.logout(), { code: "storage" })
   await assert.rejects(session.restore(), { code: "storage" })
@@ -192,11 +260,16 @@ test("删除失败会阻断旧凭据恢复，外部清理后可以重新恢复",
   assert.equal(validations, 2)
 })
 
+/** 验证取消旧导航不会永久留在 checking，后续导航仍能校验。 */
 test("取消旧导航不会永久留在 checking，后续导航仍能校验", async () => {
   const persisted = memoryStorage("token:alice")
   const late = deferred<Identity>()
   let delayed = false
-  const session = createIdentitySession(identityApi({ validate: () => delayed ? late.promise : Promise.resolve({ id: "alice" }) }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({ validate: () => (delayed ? late.promise : Promise.resolve({ id: "alice" })) })
+      .api,
+    persisted.storage
+  )
   await session.restore()
   delayed = true
   const controller = new AbortController()
@@ -209,10 +282,16 @@ test("取消旧导航不会永久留在 checking，后续导航仍能校验", as
   assert.deepEqual(persisted.changes, [])
 })
 
+/** 验证外部存储信号先撤下身份，恢复后不回写新凭据。 */
 test("外部存储信号先撤下身份，恢复后不回写新凭据", async () => {
   const persisted = memoryStorage("token:alice")
   const late = deferred<Identity>()
-  const session = createIdentitySession(identityApi({ validate: (token) => token === "token:bob" ? late.promise : Promise.resolve({ id: "alice" }) }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({
+      validate: (token) => (token === "token:bob" ? late.promise : Promise.resolve({ id: "alice" }))
+    }).api,
+    persisted.storage
+  )
   await session.restore()
   persisted.external("token:bob")
   const changed = session.storageChanged()
@@ -222,24 +301,39 @@ test("外部存储信号先撤下身份，恢复后不回写新凭据", async ()
   assert.deepEqual(persisted.changes, [])
 })
 
+/** 验证未知服务错误仅输出稳定错误码，观察者异常不破坏提交。 */
 test("未知服务错误仅输出稳定错误码，观察者异常不破坏提交", async () => {
   const persisted = memoryStorage()
   const session = createIdentitySession(identityApi().api, persisted.storage)
-  session.subscribe(() => { throw new Error("UI error") })
+  session.subscribe(() => {
+    throw new Error("UI error")
+  })
   await session.login("alice")
   assert.equal(session.getSnapshot().phase, "authenticated")
-  const broken = createIdentitySession(identityApi({ login: async () => { throw new Error("password: secret") } }).api, memoryStorage().storage)
+  const broken = createIdentitySession(
+    identityApi({
+      login: async () => {
+        throw new Error("password: secret")
+      }
+    }).api,
+    memoryStorage().storage
+  )
   await assert.rejects(broken.login("alice"), { message: "unexpected" })
   assert.equal(JSON.stringify(broken.getSnapshot()).includes("secret"), false)
 })
 
+/** 验证存储提交后的核验失败回收已验证的新凭据，不保留未知会话。 */
 test("存储提交后的核验失败回收已验证的新凭据，不保留未知会话", async () => {
   const persisted = memoryStorage()
-  const storage: CredentialStorage = { read: persisted.storage.read, compareAndSet(expected, next) {
-    const changed = persisted.storage.compareAndSet(expected, next)
-    if (next !== null) throw new Error("post-write verification failed")
-    return changed
-  } }
+  const storage: CredentialStorage = {
+    read: persisted.storage.read,
+    /** 仅在精确旧凭据仍匹配时替换，不覆盖外部会话。 */
+    compareAndSet(expected, next) {
+      const changed = persisted.storage.compareAndSet(expected, next)
+      if (next !== null) throw new Error("post-write verification failed")
+      return changed
+    }
+  }
   const { api, revoked } = identityApi()
   const session = createIdentitySession(api, storage)
   await assert.rejects(session.login("alice"), { code: "storage" })
@@ -249,11 +343,15 @@ test("存储提交后的核验失败回收已验证的新凭据，不保留未�
   assert.equal(session.getSnapshot().phase, "error")
 })
 
+/** 验证导航取消同时发生外部会话变化时，不重新公布旧身份。 */
 test("导航取消同时发生外部会话变化时，不重新公布旧身份", async () => {
   const persisted = memoryStorage("token:alice")
   const late = deferred<Identity>()
   let delay = false
-  const session = createIdentitySession(identityApi({ validate: () => delay ? late.promise : Promise.resolve({ id: "alice" }) }).api, persisted.storage)
+  const session = createIdentitySession(
+    identityApi({ validate: () => (delay ? late.promise : Promise.resolve({ id: "alice" })) }).api,
+    persisted.storage
+  )
   await session.restore()
   delay = true
   const controller = new AbortController()
@@ -267,6 +365,7 @@ test("导航取消同时发生外部会话变化时，不重新公布旧身份",
   assert.equal(persisted.storage.read(), "token:bob")
 })
 
+/** 验证恢复前显式失效也删除记录，避免再次使用已知失效凭据。 */
 test("恢复前显式失效也删除记录，避免再次使用已知失效凭据", async () => {
   const persisted = memoryStorage("token:expired")
   const session = createIdentitySession(identityApi().api, persisted.storage)
@@ -275,14 +374,16 @@ test("恢复前显式失效也删除记录，避免再次使用已知失效凭�
   await assert.rejects(session.restore(), { code: "anonymous" })
 })
 
+/** 验证连续校验取消最新导航保留已确认身份，预取消不改变状态。 */
 test("连续校验取消最新导航保留已确认身份，预取消不改变状态", async () => {
   const persisted = memoryStorage("token:alice")
   const { api } = identityApi()
   const session = createIdentitySession(api, persisted.storage)
   await session.restore()
-  const first = deferred<Identity>(), second = deferred<Identity>()
+  const first = deferred<Identity>(),
+    second = deferred<Identity>()
   let calls = 0
-  api.validate = () => ++calls === 1 ? first.promise : second.promise
+  api.validate = () => (++calls === 1 ? first.promise : second.promise)
   const a = session.check()
   const controller = new AbortController()
   const b = session.check(controller.signal)
@@ -299,6 +400,7 @@ test("连续校验取消最新导航保留已确认身份，预取消不改变�
   assert.equal(calls, 2)
 })
 
+/** 验证取消导航不覆盖明确失效或非法身份。 */
 test("取消导航不覆盖明确失效或非法身份", async () => {
   for (const invalid of [false, true]) {
     const persisted = memoryStorage("token:alice")
@@ -318,10 +420,13 @@ test("取消导航不覆盖明确失效或非法身份", async () => {
   }
 })
 
+/** 验证未提供窄化吊销时不以全账号退出回收迟到签发。 */
 test("未提供窄化吊销时不以全账号退出回收迟到签发", async () => {
   const persisted = memoryStorage()
   const old = deferred<string>()
-  const { api, revoked } = identityApi({ login: input => input === "first" ? old.promise : Promise.resolve("token:second") })
+  const { api, revoked } = identityApi({
+    login: (input) => (input === "first" ? old.promise : Promise.resolve("token:second"))
+  })
   delete api.revokeIssued
   const session = createIdentitySession(api, persisted.storage)
   const pending = session.login("first")
@@ -333,6 +438,7 @@ test("未提供窄化吊销时不以全账号退出回收迟到签发", async ()
   assert.equal(session.getSnapshot().identity?.id, "second")
 })
 
+/** 验证登录转换期间导航校验不能复活存储中的旧身份。 */
 test("登录转换期间导航校验不能复活存储中的旧身份", async () => {
   const persisted = memoryStorage("token:old")
   const issued = deferred<string>()

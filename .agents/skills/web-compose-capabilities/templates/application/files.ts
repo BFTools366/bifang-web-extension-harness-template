@@ -194,7 +194,10 @@ export function applicationFiles(
     )
     files.set(
       "src/features/identity/session.test.ts",
-      readFileSync(new URL("../identity/session.test.ts.txt", import.meta.url), "utf8")
+      readFileSync(new URL("../identity/session.test.ts.txt", import.meta.url), "utf8").replace(
+        'import { test } from "node:test"',
+        'import { test } from "vitest"'
+      )
     )
   }
   if (selected.resolved.includes("orders.purchase")) {

@@ -118,7 +118,14 @@ export async function runApplicationFixture(
     for (const [name, contents] of files) {
       if (!name.startsWith("src/")) continue
       // 此套回归只执行创建接线场景；底层既有回归由自己的源测试运行。
-      if (/\.(test|spec)\.[jt]sx?$/u.test(name)) continue
+      if (/\.(test|spec)\.[jt]sx?$/u.test(name)) {
+        if (!base.has(name)) {
+          const report = inspectChineseComments(contents, name)
+          if (report.errors.length || report.violations.length)
+            throw new Error(JSON.stringify({ name, report }))
+        }
+        continue
+      }
       if (["src/main.tsx", "src/popup.tsx", "src/options.tsx"].includes(name)) continue
       if (/\.tsx?$/u.test(name)) {
         const report = inspectChineseComments(contents, name)

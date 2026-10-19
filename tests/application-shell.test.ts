@@ -15,6 +15,8 @@ test("account and organization assets follow explicit capability selection", () 
     }
   })
   expect(identity.has("src/features/application/AccountMenu.tsx")).toBe(true)
+  expect(identity.get("src/features/identity/session.test.ts")).toContain('from "vitest"')
+  expect(identity.get("src/features/identity/session.test.ts")).not.toContain('from "node:test"')
   expect(identity.has("src/features/organization/OrganizationContext.tsx")).toBe(false)
   expect(identity.get("src/features/application/Application.tsx")).not.toContain(
     "OrganizationMenuItem"
