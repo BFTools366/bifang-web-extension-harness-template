@@ -214,7 +214,12 @@ async function inspectArtifact(
         if (contents.includes(logCall)) fileErrors.push(`${relative} contains ${logCall}`)
       }
       const withoutUrls = contents.replace(HTTP_URL_PATTERN, "[URL]")
-      if (/\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+/.test(withoutUrls)) {
+      // Parcel 相对模块路径不属于本机路径；仍拒绝绝对路径、file URL 与转义后的 Windows 路径。
+      if (
+        /file:\/\/\/(?:Users|home)\/[^/\s]+|(?<![A-Za-z0-9_./-])\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\+Users\\+[^\\\s]+/.test(
+          withoutUrls
+        )
+      ) {
         fileErrors.push(`${relative} contains a local absolute path`)
       }
       if (project.projectType === "extension" && [".js", ".mjs"].includes(path.extname(absolute))) {

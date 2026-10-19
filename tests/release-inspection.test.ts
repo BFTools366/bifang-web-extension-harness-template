@@ -300,7 +300,9 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
   /** 验证 retains low-level log, sentinel, source-map, environment-file, and local-path gates 场景。 */
   test("retains low-level log, sentinel, source-map, environment-file, and local-path gates", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 safeContents 变量供当前逻辑使用。
-    const safeContents = '<a href="https://public.example.com/Users/alice/project">Safe URL</a>\n'
+    const safeContents =
+      '<a href="https://public.example.com/Users/alice/project">Safe URL</a>\n' +
+      '<script>const home = require("../home/HomePage"); const image = "./Users/avatar.svg"</script>\n'
     // 保存 { artifactRoot, root } 变量供当前逻辑使用。
     const { artifactRoot, root } = await createFixture(baseUrls, safeContents)
     // 保存 indexPath 变量供当前逻辑使用。
@@ -329,6 +331,18 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     await rm(path.join(artifactRoot, ".env.production"))
     await writeFile(indexPath, '<script>const localPath = "/home/alice/project"</script>\n')
     await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
+    for (const localPath of [
+      "/Users/alice/project",
+      "file:///home/alice/project",
+      "file:///Users/alice/project",
+      "C:\\Users\\alice\\project"
+    ]) {
+      await writeFile(
+        indexPath,
+        `<script>const localPath = ${JSON.stringify(localPath)}</script>\n`
+      )
+      await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
+    }
   })
 
   /** 验证 Web 产物包含当次 YYMMDDHHMMSS 版本并拒绝旧字段顺序。 */
