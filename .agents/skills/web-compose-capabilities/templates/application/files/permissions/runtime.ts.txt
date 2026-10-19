@@ -21,7 +21,9 @@ export function createPermissionRuntime(
   const empty: PermissionSnapshot = Object.freeze({ phase: "idle", codes: [], owner: null })
   let state = empty
   let revision = 0
-  let refreshing: { owner: PermissionOwner | null; promise: Promise<void> } | undefined
+  let refreshing:
+    | { owner: PermissionOwner | null; promise: Promise<void>; controller: AbortController }
+    | undefined
   const listeners = new Set<() => void>()
   /** 只比较受信主体与当前会话作用域，不采用权限缓存中的身份。 */
   function same(left: PermissionOwner | null, right: PermissionOwner | null) {
@@ -39,14 +41,17 @@ export function createPermissionRuntime(
     for (const listener of listeners) listener()
   }
   const unsubscribe = subscribeIdentity(() => {
+    if (refreshing && !same(refreshing.owner, owner())) {
+      refreshing.controller.abort(new Error("permission_superseded"))
+      refreshing = undefined
+    }
     if (state.owner !== null && !same(state.owner, owner())) {
       revision += 1
       publish(empty)
     }
   })
   /** 从可信接口刷新权限；失败或被新主体替代时不保留旧授权。 */
-  async function readPermissions() {
-    const current = owner()
+  async function readPermissions(current: PermissionOwner | null, controller: AbortController) {
     const owned = ++revision
     if (!current) {
       publish(empty)
@@ -54,7 +59,10 @@ export function createPermissionRuntime(
     }
     publish({ phase: "loading", codes: [], owner: current })
     try {
-      const codes = await api.read({ subjectId: current.id, organizationId: current.organizationId })
+      const codes = await api.read(
+        { subjectId: current.id, organizationId: current.organizationId },
+        controller.signal
+      )
       if (owned !== revision || !same(current, owner())) throw new Error("permission_superseded")
       if (
         !Array.isArray(codes) ||
@@ -73,11 +81,15 @@ export function createPermissionRuntime(
     const current = owner()
     let task = refreshing
     if (!task || !same(task.owner, current)) {
-      task = { owner: current, promise: readPermissions() }
+      refreshing?.controller.abort(new Error("permission_superseded"))
+      const controller = new AbortController()
+      task = { owner: current, controller, promise: readPermissions(current, controller) }
       refreshing = task
       const owned = task
       /** 只有当前读取可以释放自己的共享记录。 */
-      const release = () => { if (refreshing === owned) refreshing = undefined }
+      const release = () => {
+        if (refreshing === owned) refreshing = undefined
+      }
       void task.promise.then(release, release)
     }
     if (!signal) return task.promise
@@ -86,13 +98,16 @@ export function createPermissionRuntime(
       /** 取消当前导航等待，不取消其他消费者共享的权限读取。 */
       const abort = () => reject(signal.reason)
       signal.addEventListener("abort", abort, { once: true })
-      void pending.then(() => {
-        signal.removeEventListener("abort", abort)
-        resolve()
-      }, (error: unknown) => {
-        signal.removeEventListener("abort", abort)
-        reject(error)
-      })
+      void pending.then(
+        () => {
+          signal.removeEventListener("abort", abort)
+          resolve()
+        },
+        (error: unknown) => {
+          signal.removeEventListener("abort", abort)
+          reject(error)
+        }
+      )
     })
   }
   /** 权限未知、主体变化或任一要求不满足时失败关闭。 */
@@ -119,7 +134,11 @@ export function createPermissionRuntime(
         listeners.delete(listener)
       }
     },
-    dispose: unsubscribe
+    /** 释放 owner 订阅时同时取消未完成读取。 */
+    dispose() {
+      refreshing?.controller.abort()
+      unsubscribe()
+    }
   }
 }
 /** 公开权限状态与判定，不公开后台角色写操作。 */

@@ -295,3 +295,18 @@ test("isolates observer exceptions from session commits", async () => {
   expect(observed).toHaveBeenCalled()
   fixture.queryClient.clear()
 })
+
+/** 同组织切换不触发会话代次、存储提交或任何 API。 */
+test("same organization is a true no-op", async () => {
+  const fixture = authFixture()
+  await fixture.session.login("demo", "demo-password")
+  const before = fixture.session.getSnapshot()
+  const current = fixture.session.getContext()?.currentOrganization?.id
+  if (!current) throw new Error("测试需要已接受组织")
+  const switching = vi.spyOn(fixture.api, "switchOrganization")
+  const reading = vi.spyOn(fixture.api, "getContext")
+  await fixture.session.switchOrganization(current)
+  expect(fixture.session.getSnapshot()).toBe(before)
+  expect(switching).not.toHaveBeenCalled()
+  expect(reading).not.toHaveBeenCalled()
+})

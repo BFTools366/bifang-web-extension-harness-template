@@ -29,10 +29,10 @@ export const api: LoginApi = {
   /** 当前隔离测试不访问外部认证服务。 */
   async logout() {}
 }\n`,
-          organization: `import type { OrganizationApi } from "./contracts"
+          organization: `import type { OrganizationApi, OrganizationMembership } from "./contracts"
 /** 模拟可信服务的当前组织，初始只有一个选项但尚未选择。 */
-export const fixture: { current: string | null; available: { id: string; name: string }[] } = {
-  current: null, available: [{ id: "a", name: "Team A" }]
+export const fixture: { current: string | null; available: OrganizationMembership[] } = {
+  current: null, available: [{ id: "a", name: "Team A", ownerAccountId: "member", user: { id: "member-a", accountId: "member", organizationId: "a", role: "owner" } }]
 }
 /** 真实 adapter 契约允许尚未选择组织，写结果仍由后续读取确认。 */
 export const api: OrganizationApi = {
@@ -71,7 +71,7 @@ test("selects a single organization from an unselected context", async () => {
 })
 /** 响应超时先查询；已提交结果成功，明确未提交仍报错且保留已确认身份。 */
 test("queries an unknown write exactly once without replay", async () => {
-  fixture.available = [{ id: "a", name: "Team A" }, { id: "b", name: "Team B" }]
+  fixture.available = [{ id: "a", name: "Team A", ownerAccountId: "member", user: { id: "member-a", accountId: "member", organizationId: "a", role: "owner" } }, { id: "b", name: "Team B", ownerAccountId: "other", user: { id: "member-b", accountId: "member", organizationId: "b", role: "member" } }]
   fixture.current = "a"
   await ensureOrganization()
   const read = vi.spyOn(api, "read")
@@ -82,14 +82,19 @@ test("queries an unknown write exactly once without replay", async () => {
   await organizationService.switch("b")
   expect(write).toHaveBeenCalledTimes(1)
   expect(read).toHaveBeenCalledTimes(1)
-  expect(actor()).toBe('["member","b"]')
+  expect(actor()).toBe('member-b')
   expect(applicationScope.getSnapshot().blocked).toBe(false)
   write.mockRejectedValueOnce(new Error("rejected"))
   await expect(organizationService.switch("a")).rejects.toThrow("rejected")
   expect(write).toHaveBeenCalledTimes(2)
   expect(read).toHaveBeenCalledTimes(2)
-  expect(actor()).toBe('["member","b"]')
+  expect(actor()).toBe('member-b')
   expect(identitySession.getSnapshot().identity?.id).toBe("member")
+  const revision = applicationScope.getSnapshot().revision
+  await organizationService.switch("b")
+  expect(write).toHaveBeenCalledTimes(2)
+  expect(read).toHaveBeenCalledTimes(2)
+  expect(applicationScope.getSnapshot().revision).toBe(revision)
   read.mockRestore()
   write.mockRestore()
 })
@@ -123,6 +128,7 @@ test("ignores recovery superseded by a new identity revision", async () => {
 })
 /** 组织切换与导航共享同一权限读取，取消导航不能注销已切换身份。 */
 test("shares permission recovery with concurrent and cancelled navigation", async () => {
+  fixture.current = "a"
   await ensureOrganization()
   let finish: ((codes: readonly string[]) => void) | undefined
   const read = vi.spyOn(permissionApi, "read").mockImplementationOnce(() => new Promise((resolve) => { finish = resolve }))
@@ -144,9 +150,30 @@ test("shares permission recovery with concurrent and cancelled navigation", asyn
   expect(identitySession.getSnapshot().identity).toBeNull()
   read.mockRestore()
 })
+/** 更换 owner 会取消内部读取，旧结果不能重新授予新作用域。 */
+test("aborts a shared permission read when the scope owner changes", async () => {
+  await identitySession.login({ account: "demo", password: "demo" })
+  fixture.current = "a"
+  await ensureOrganization()
+  let captured: AbortSignal | undefined
+  const read = vi.spyOn(permissionApi, "read").mockImplementationOnce((_context, signal) => new Promise((_resolve, reject) => {
+    captured = signal
+    signal?.addEventListener("abort", () => reject(signal.reason), { once: true })
+  }))
+  const pending = permissionSession.refresh()
+  const rejected = expect(pending).rejects.toThrow("permission_superseded")
+  const owned = applicationScope.begin()
+  await rejected
+  expect(captured?.aborted).toBe(true)
+  expect(permissionSession.allow(["home"])).toBe(false)
+  read.mockRestore()
+  applicationScope.finish(owned)
+  await permissionSession.refresh()
+  expect(permissionSession.allow(["home"])).toBe(true)
+})
 `
     )
-    expect(result).toMatch(/Tests\s+5 passed/)
+    expect(result).toMatch(/Tests\s+6 passed/)
   },
   90_000
 )

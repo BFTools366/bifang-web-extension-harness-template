@@ -104,9 +104,17 @@ test("binds codes to purpose and email, enforces resend and expiry", async () =>
   expect(await api.login("new", "changed123", signal)).toMatchObject({ kind: "mock" })
   const registered = await api.login("new", "changed123", signal)
   expect(await api.getContext(registered, signal)).toMatchObject({
-    organizations: [],
-    currentOrganization: null,
-    capabilities: []
+    organizations: [
+      {
+        ownerAccountId: registered.accountId,
+        organizationUser: { accountId: registered.accountId, role: "owner" }
+      }
+    ],
+    currentOrganization: {
+      ownerAccountId: registered.accountId,
+      organizationUser: { accountId: registered.accountId, role: "owner" }
+    },
+    capabilities: ["workspace", "account", "switch-organization"]
   })
   await expect(
     api.resetPassword(
@@ -156,4 +164,33 @@ test("fails closed for configured services and cancelled writes", async () => {
       new AbortController().signal
     )
   ).rejects.toMatchObject({ code: "codeInvalid" })
+})
+
+/** 注册个人组织与加入组织并存，组织用户不同于全局账号。 */
+test("keeps a personal owner membership beside joined organizations", async () => {
+  const api = createMockService({ delayMs: 0, configured: () => false }).api
+  const signal = new AbortController().signal
+  const credential = await api.login("demo", "demo-password", signal)
+  const context = await api.getContext(credential, signal)
+  const personal = context.organizations.find((row) => row.ownerAccountId === context.user.id)
+  expect(personal?.organizationUser.role).toBe("owner")
+  expect(personal?.organizationUser.id).not.toBe(context.user.id)
+  expect(context.organizations.some((row) => row.id === "studio")).toBe(true)
+})
+
+/** 返回的嵌套组织用户不得暴露服务内存或污染随后读取的授权。 */
+test("does not expose mutable membership or permission owners", async () => {
+  const api = createMockService({ delayMs: 0, configured: () => false }).api
+  const signal = new AbortController().signal
+  const credential = await api.login("demo", "demo-password", signal)
+  const context = await api.getContext(credential, signal)
+  if (!context.currentOrganization) throw new Error("测试必须包含当前组织")
+  context.currentOrganization.name = "forged"
+  context.currentOrganization.organizationUser.id = "organization-user:test-user:workspace"
+  const next = await api.getContext(credential, signal)
+  expect(next.currentOrganization?.name).toBe("Example workspace")
+  expect(next.currentOrganization?.organizationUser.id).toBe(
+    "organization-user:demo-user:workspace"
+  )
+  expect(next.capabilities).not.toContain("test-menu")
 })

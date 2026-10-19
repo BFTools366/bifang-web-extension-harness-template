@@ -47,7 +47,9 @@ test("changes sign-in preferences through the public settings page", async () =>
   await user.click(screen.getByRole("link", { name: "返回" }))
   await screen.findByRole("heading", { name: "欢迎回来" })
   expect(screen.getByLabelText("用户名", { exact: false })).toHaveValue("")
-  expect(screen.getByLabelText("密码", { exact: false, selector: 'input[name="password"]' })).toHaveValue("")
+  expect(
+    screen.getByLabelText("密码", { exact: false, selector: 'input[name="password"]' })
+  ).toHaveValue("")
   expect(router.state.location.pathname).toBe("/login")
 })
 
@@ -144,7 +146,7 @@ test("opens the workspace and switches organization through the dialog", async (
   const trigger = screen.getByRole("button", { name: "Account menu" })
   await user.click(trigger)
   expect(await screen.findByRole("menuitem", { name: "Account settings" })).toBeInTheDocument()
-  expect(screen.getByRole("menuitem", { name: /Language/ })).toBeInTheDocument()
+  expect(screen.queryByRole("menuitem", { name: /Language/ })).not.toBeInTheDocument()
   await user.click(screen.getByRole("menuitem", { name: "Switch organization" }))
   let dialog = await screen.findByRole("dialog", { name: "Switch organization" })
   expect(
@@ -169,8 +171,7 @@ test("opens the workspace and switches organization through the dialog", async (
   expect(await screen.findByRole("heading", { name: "Welcome back, demo" })).toBeInTheDocument()
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   await waitFor(() => expect(screen.getByRole("button", { name: "Account menu" })).toHaveFocus())
-  await user.click(screen.getByRole("button", { name: "Account menu" }))
-  await user.click(await screen.findByRole("menuitem", { name: /Language/ }))
+  await user.click(screen.getByRole("link", { name: "Settings" }))
   await screen.findByRole("heading", { name: "Settings", level: 1 })
   await user.click(screen.getByRole("link", { name: "Back" }))
   await screen.findByRole("heading", { name: "Welcome back, demo" })
@@ -239,7 +240,7 @@ test("registers with a code and returns to sign in without automatic login", asy
     "fictional-password123{Enter}"
   )
   expect(
-    await screen.findByRole("heading", { name: "No organization available" })
+    await screen.findByRole("heading", { name: "Welcome back, fictional-user" })
   ).toBeInTheDocument()
 })
 

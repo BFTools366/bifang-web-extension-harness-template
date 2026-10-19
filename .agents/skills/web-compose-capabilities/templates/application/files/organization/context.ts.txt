@@ -1,0 +1,31 @@
+import type { OrganizationContext } from "./contracts"
+
+/** 拒绝账号、组织或组织用户错配的上下文，不从展示名称推断授权。 */
+export function validateOrganizationContext(context: OrganizationContext, accountId: string) {
+  if (
+    !context ||
+    !Array.isArray(context.available) ||
+    context.available.some(
+      (row) =>
+        !row ||
+        typeof row.id !== "string" ||
+        !row.id.trim() ||
+        typeof row.name !== "string" ||
+        !row.name.trim() ||
+        typeof row.ownerAccountId !== "string" ||
+        !row.ownerAccountId.trim() ||
+        !row.user ||
+        typeof row.user.id !== "string" ||
+        !row.user.id.trim() ||
+        row.user.accountId !== accountId ||
+        row.user.organizationId !== row.id ||
+        !["owner", "member"].includes(row.user.role) ||
+        (row.user.role === "owner") !== (row.ownerAccountId === accountId)
+    ) ||
+    new Set(context.available.map((row) => row.id)).size !== context.available.length ||
+    new Set(context.available.map((row) => row.user.id)).size !== context.available.length ||
+    (context.current !== null && !context.available.some((row) => row.id === context.current))
+  )
+    throw new Error("organization_invalid")
+  return context
+}

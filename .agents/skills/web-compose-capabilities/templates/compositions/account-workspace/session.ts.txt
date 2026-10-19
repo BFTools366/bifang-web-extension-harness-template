@@ -463,12 +463,11 @@ export function createAuthSession(dependencies: SessionDependencies) {
       if (
         snapshot.phase !== "ready" ||
         !credential ||
-        !context?.capabilities.includes("switch-organization") ||
-        !context.organizations.some(
-          (entry) => entry.id === organizationId && entry.id !== credential.organizationId
-        )
+        !context ||
+        !context.organizations.some((entry) => entry.id === organizationId)
       )
         throw new AuthError("organizationUnavailable")
+      if (context.currentOrganization?.id === organizationId) return
       const { signal, current } = begin("switching")
       try {
         await ensureCurrent(current)

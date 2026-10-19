@@ -1,12 +1,16 @@
-import { Anchor, Group, Menu, Stack, Text } from "@mantine/core"
+import { Anchor, Stack, Text } from "@mantine/core"
 import { Link } from "@tanstack/react-router"
 import { queryOptions, useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import type { OrganizationApi } from "../../data/api/organization/contracts"
+import type { OrganizationReadApi } from "../../data/api/organization/contracts"
 import { ApplicationIcon } from "../application/ApplicationIcon"
 
 /** 当前组织在账号菜单、侧栏和选择页共用同一份私有上下文缓存。 */
-export function organizationQueryOptions(api: OrganizationApi, scope: number, language: string) {
+export function organizationQueryOptions(
+  api: OrganizationReadApi,
+  scope: number,
+  language: string
+) {
   return queryOptions({
     queryKey: ["organization", scope, language],
     meta: { private: true },
@@ -17,7 +21,7 @@ export function organizationQueryOptions(api: OrganizationApi, scope: number, la
 }
 
 /** 选择、加载与失败分开表达，不把待加载的当前组织误报为未选择。 */
-function useOrganizationName(api: OrganizationApi, scope: number, blocked: boolean) {
+function useOrganizationName(api: OrganizationReadApi, scope: number, blocked: boolean) {
   const { t, i18n } = useTranslation()
   const query = useQuery({
     ...organizationQueryOptions(api, scope, i18n.language),
@@ -27,35 +31,21 @@ function useOrganizationName(api: OrganizationApi, scope: number, blocked: boole
   if (query.isError) return t("organizationUnavailable")
   if (!query.data) return t("applicationLoading")
   if (query.data.current === null) return t("organizationNone")
-  return query.data.available.find((row) => row.id === query.data.current)?.name ?? t("organizationUnavailable")
-}
-
-/** 组织菜单只导航到已接线页面，选择和授权仍由唯一组织服务处理。 */
-export function OrganizationMenuItem({ api, scope, blocked }: {
-  api: OrganizationApi
-  scope: number
-  blocked: boolean
-}) {
-  const { t } = useTranslation()
-  const name = useOrganizationName(api, scope, blocked)
   return (
-    <Menu.Item
-      leftSection={<ApplicationIcon name="organization" />}
-      rightSection={<ApplicationIcon name="chevron" />}
-      disabled={blocked}
-      renderRoot={(props) => <Link {...props} to="/organization" preload={false} />}
-    >
-      <Group justify="space-between" gap="xs" wrap="nowrap">
-        <Text size="sm">{t("organizationTitle")}</Text>
-        <Text size="sm" c="dimmed" truncate="end" maw="8rem" title={name}>{name}</Text>
-      </Group>
-    </Menu.Item>
+    query.data.available.find((row) => row.id === query.data.current)?.name ??
+    t("organizationUnavailable")
   )
 }
 
 /** 侧栏在收起后保留有名称的当前组织入口，无页面权限时只展示上下文。 */
-export function OrganizationContext({ api, scope, blocked, compact, canOpen }: {
-  api: OrganizationApi
+export function OrganizationContext({
+  api,
+  scope,
+  blocked,
+  compact,
+  canOpen
+}: {
+  api: OrganizationReadApi
   scope: number
   blocked: boolean
   compact: boolean
@@ -66,7 +56,11 @@ export function OrganizationContext({ api, scope, blocked, compact, canOpen }: {
   const content = compact ? <ApplicationIcon name="organization" /> : name
   return (
     <Stack gap="xs" miw={0}>
-      {!compact && <Text size="xs" c="dimmed">{t("organizationCurrent")}</Text>}
+      {!compact && (
+        <Text size="xs" c="dimmed">
+          {t("organizationCurrent")}
+        </Text>
+      )}
       {canOpen && !blocked ? (
         <Anchor
           renderRoot={(props) => <Link {...props} to="/organization" preload={false} />}
@@ -77,7 +71,11 @@ export function OrganizationContext({ api, scope, blocked, compact, canOpen }: {
         >
           {content}
         </Anchor>
-      ) : <Text size="sm" title={name} aria-label={name}>{content}</Text>}
+      ) : (
+        <Text size="sm" title={name} aria-label={name}>
+          {content}
+        </Text>
+      )}
     </Stack>
   )
 }

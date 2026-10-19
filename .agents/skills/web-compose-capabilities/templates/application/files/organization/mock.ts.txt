@@ -1,29 +1,78 @@
-import type { Organization, OrganizationApi } from "./contracts"
+import type {
+  Organization,
+  OrganizationApi,
+  OrganizationManagementApi,
+  OrganizationUser
+} from "./contracts"
 
-/** Mock 组织可选范围按真实主体隔离，不允许任意组织 ID。 */
+/** 显式组织与成员 fixture 保持规范化；切换不会自动创建组织或授予 owner。 */
 export function createOrganizationMock(
   actor: () => string | null,
-  choices: Readonly<Record<string, readonly Organization[]>>
-): OrganizationApi {
+  initial: readonly Organization[],
+  users: readonly OrganizationUser[],
+  canManage: (user: OrganizationUser) => boolean = () => false
+): OrganizationApi & OrganizationManagementApi {
+  const organizations = new Map(initial.map((row) => [row.id, { ...row }]))
   const current = new Map<string, string>()
+  /** 每次操作重新校验当前账号的成员关系，页面不能伪造操作者。 */
+  function membership(id: string) {
+    const accountId = actor()
+    const user = users.find((row) => row.accountId === accountId && row.organizationId === id)
+    const organization = organizations.get(id)
+    if (!accountId || !user || !organization) throw new Error("organization_denied")
+    return { accountId, user, organization }
+  }
+  /** 同步快照与写入在同一服务事务执行，避免校验和提交之间产生异步空隙。 */
+  function snapshot() {
+    const accountId = actor()
+    if (!accountId) throw new Error("identity_required")
+    const available = users
+      .filter((row) => row.accountId === accountId)
+      .map((user) => {
+        const organization = organizations.get(user.organizationId)
+        if (!organization) throw new Error("organization_invalid")
+        return { ...organization, user: { ...user } }
+      })
+    const selected = current.get(accountId)
+    const personal = available.find((row) => row.ownerAccountId === accountId)
+    return {
+      current:
+        available.find((row) => row.id === selected)?.id ??
+        personal?.id ??
+        available[0]?.id ??
+        null,
+      available
+    }
+  }
   return {
-    /** 读取当前主体和范围的显式数据，缺失授权失败关闭。 */
+    /** 成员关系属于账号，读取不依赖目标组织中的业务权限。 */
     async read(signal) {
       signal?.throwIfAborted()
-      const subject = actor()
-      if (!subject) throw new Error("identity_required")
-      const available = choices[subject] ?? []
-      return {
-        current: current.get(subject) ?? available[0]?.id ?? null,
-        available: structuredClone(available)
-      }
+      return snapshot()
     },
-    /** 只切换当前主体确实可访问的组织。 */
+    /** 切换仅选择已存在的成员关系，相同目标不产生写入。 */
     async switch(id) {
-      const subject = actor()
-      if (!subject || !choices[subject]?.some((row) => row.id === id))
+      const { accountId } = membership(id)
+      const context = snapshot()
+      if (context.current === id) return
+      if (actor() !== accountId) throw new Error("organization_superseded")
+      current.set(accountId, id)
+    },
+    /** API 边界同时复核活动组织、拥有者账号与组织用户角色。 */
+    async rename(id, input) {
+      const { accountId, user, organization } = membership(id)
+      const context = snapshot()
+      if (
+        actor() !== accountId ||
+        context.current !== id ||
+        user.role !== "owner" ||
+        !canManage(user) ||
+        organization.ownerAccountId !== accountId
+      )
         throw new Error("organization_denied")
-      current.set(subject, id)
+      const name = input.trim()
+      if (!name || name.length > 60) throw new Error("organization_name_invalid")
+      organizations.set(id, { ...organization, name })
     }
   }
 }

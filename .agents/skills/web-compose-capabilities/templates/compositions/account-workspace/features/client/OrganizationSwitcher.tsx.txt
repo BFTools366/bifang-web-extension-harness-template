@@ -5,7 +5,6 @@ import { useRouter } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth/AuthProvider"
-import { canAccess } from "../auth/access"
 import { authIssue } from "../auth/session"
 
 /** 仅在多个已确认成员组织存在时挂载，提交后等待完整新作用域。 */
@@ -32,9 +31,7 @@ export function OrganizationSwitcher({
     context?.currentOrganization?.id
   )
   const canSubmit =
-    state.phase === "ready" &&
-    canAccess(context, "switch-organization") &&
-    candidates.some((entry) => entry.id === target)
+    state.phase === "ready" && !!context && candidates.some((entry) => entry.id === target)
   useEffect(() => {
     if (opened) {
       setPending(false)
@@ -47,7 +44,7 @@ export function OrganizationSwitcher({
       ["anonymous", "restoring", "blocked", "offline", "recovery", "logging-out"].includes(
         state.phase
       ) ||
-      (state.phase === "ready" && !canAccess(context, "switch-organization"))
+      (state.phase === "ready" && (context?.organizations.length ?? 0) <= 1)
     )
       onClose()
   }, [state.phase, context, onClose])

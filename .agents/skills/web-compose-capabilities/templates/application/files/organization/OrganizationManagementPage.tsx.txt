@@ -1,0 +1,128 @@
+import { Alert, Button, Stack, TextInput, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { OrganizationReadApi } from "../../data/api/organization/contracts"
+import { organizationQueryOptions } from "./OrganizationContext"
+import { ModuleState } from "../application/ModuleState"
+
+/** 管理服务保留已确认写入与后续刷新结果，不能诱导重复写入。 */
+interface OrganizationManagementService extends OrganizationReadApi {
+  rename(id: string, name: string): Promise<{ name: string; refreshed: boolean }>
+}
+
+/** 管理表单只维护草稿，共享组织名称仍归查询；scope 变化时由调用方重新挂载。 */
+export function OrganizationManagementPage({
+  api,
+  scope,
+  authorize,
+  isCurrent
+}: {
+  api: OrganizationManagementService
+  scope: number
+  authorize(): void
+  isCurrent(): boolean
+}) {
+  const { t, i18n } = useTranslation()
+  const query = useQuery(organizationQueryOptions(api, scope, i18n.language))
+  const current = query.data?.available.find((row) => row.id === query.data.current)
+  const [draft, setDraft] = useState<string | null>(null)
+  const [status, setStatus] = useState<"idle" | "busy" | "saved" | "refresh-pending" | "error">(
+    "idle"
+  )
+  const [submitted, setSubmitted] = useState<string | null>(null)
+  const operation = useRef(0)
+  const pending = useRef(false)
+  const name = draft ?? current?.name ?? ""
+  /** 防重复提交且保留失败草稿，迟到保存不影响下一账号或组织。 */
+  async function save() {
+    if (pending.current || !current || !isCurrent()) return
+    pending.current = true
+    const owned = ++operation.current
+    setStatus("busy")
+    try {
+      authorize()
+      const result = await api.rename(current.id, name.trim())
+      if (!isCurrent() || owned !== operation.current) return
+      setDraft(result.name)
+      setSubmitted(result.name)
+      setStatus(result.refreshed ? "saved" : "refresh-pending")
+    } catch {
+      if (isCurrent() && owned === operation.current) setStatus("error")
+    } finally {
+      pending.current = false
+    }
+  }
+  /** 两个恢复入口共享只读流程，编辑或新提交使旧恢复提示失效。 */
+  async function retryRead() {
+    if (pending.current || !isCurrent()) return
+    const owned = ++operation.current
+    const committed = status === "refresh-pending"
+    const result = await query.refetch()
+    if (isCurrent() && owned === operation.current && committed && !result.isError)
+      setStatus("saved")
+  }
+  return (
+    <Stack>
+      <Title order={1}>{t("organizationManage")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.error}
+        empty={!query.isPending && !current}
+        retry={() => {
+          void retryRead()
+        }}
+      />
+      {status === "refresh-pending" && (
+        <Alert role="status">
+          {t("organizationRefreshPending")}
+          <Button
+            variant="subtle"
+            onClick={() => {
+              void retryRead()
+            }}
+          >
+            {t("applicationRetry")}
+          </Button>
+        </Alert>
+      )}
+      {current && (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            void save()
+          }}
+        >
+          <Stack>
+            <TextInput
+              label={t("organizationName")}
+              value={name}
+              maxLength={60}
+              required
+              disabled={status === "busy"}
+              onChange={(event) => {
+                operation.current += 1
+                setDraft(event.currentTarget.value)
+                setStatus("idle")
+              }}
+            />
+            {status === "error" && <Alert role="alert">{t("applicationError")}</Alert>}
+            {status === "saved" && <Alert role="status">{t("organizationSaved")}</Alert>}
+            <Button
+              type="submit"
+              loading={status === "busy"}
+              disabled={
+                !name.trim() ||
+                name.trim().length > 60 ||
+                name.trim() === current.name ||
+                name.trim() === submitted
+              }
+            >
+              {t("organizationSave")}
+            </Button>
+          </Stack>
+        </form>
+      )}
+    </Stack>
+  )
+}

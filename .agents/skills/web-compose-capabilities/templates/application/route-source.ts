@@ -1,14 +1,14 @@
 import type { ApplicationOptions, ApplicationPage } from "./contracts.ts"
 
 /** 提供安全返回目标以及先认证、再权限、最后正文的共享路由边界。 */
-export function accessSource(operations: readonly string[]): string {
+export function accessSource(operations: readonly string[], paths: readonly string[] = []): string {
   const identity = operations.includes("identity.session")
   const permissions = operations.includes("permissions.enforce")
-  const organization = operations.includes("organization.switch")
+  const organization = operations.some((operation) => operation.startsWith("organization."))
   const imports = ['import { navigation } from "./navigation"']
   const lines = [
     "/** 返回目标仅限已声明的内部页面，不接受外部 URL、编码逃逸或未知路径。 */",
-    'export function safeReturnTo(input: unknown) { return navigation.find((page) => page.path === input)?.path ?? "/" }'
+    `export function safeReturnTo(input: unknown) { return [...navigation${paths.map((path) => ", " + JSON.stringify({ path })).join("")}].find((page) => page.path === input)?.path ?? "/" }`
   ]
   if (identity) {
     imports.push(
@@ -34,7 +34,7 @@ export async function protectPage(target: string, signal?: AbortSignal) {
   }
   signal?.throwIfAborted()
   ${organization ? "await ensureOrganization()\n  signal?.throwIfAborted()" : ""}
-  ${permissions ? 'if (target !== "/forbidden") { await permissionSession.refresh(signal); signal?.throwIfAborted(); if (!canVisit(target)) throw redirect({ to: "/forbidden", replace: true }) }' : ""}
+  ${permissions ? `if (target !== "/forbidden"${organization ? ' && target !== "/organization"' : ""}) { await permissionSession.refresh(signal); signal?.throwIfAborted(); if (!canVisit(target)) throw redirect({ to: "/forbidden", replace: true }) }` : ""}
 }
 /** 已恢复身份的登录导航直接进入可访问主流程，不停留在登录表单。 */
 export async function publicLogin(returnTo: unknown) {
@@ -78,13 +78,13 @@ import { MainLayout } from "../features/application/Application"
 export const Route = createFileRoute("/_application")({ component: MainLayout })\n`
     )
     for (const page of pages) {
-      const relative = page.path === "/" ? "index" : page.path.slice(1)
+      const relative = page.file
       files.set(
         `src/routes/_application/${relative}.tsx`,
         `import { createFileRoute } from "@tanstack/react-router"
 import { ${page.component === "HomePage" ? "Home" : page.component.replace(/Page$/u, "")} } from "../../features/application/Application"
 ${identity ? 'import { protectPage } from "../../features/application/routeAccess"\n' : ""}/** ${page.module ?? "产品首页"} 的路由只声明路径、前置门禁与组件。 */
-export const Route = createFileRoute(${JSON.stringify("/_application" + (page.path === "/" ? "/" : page.path))})({
+export const Route = createFileRoute(${JSON.stringify("/_application/" + (page.file === "index" ? "" : page.file.replaceAll(".", "/")))})({
 ${identity ? `  beforeLoad: ({ abortController }) => protectPage(${JSON.stringify(page.path)}, abortController.signal),\n` : ""}  component: ${page.component === "HomePage" ? "Home" : page.component.replace(/Page$/u, "")}
 })\n`
       )

@@ -47,7 +47,7 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 - 基础用户包含登录页面与路由、主界面用户信息、匿名守卫、安全返回、Token 自动携带及退出/当前 401 清理；权限码同时用于路由、页面、菜单、动作元素及提交前复核。`.harness/application-wiring.json` 仅记录机械接线，不替代 PRD 或验证。
 - [账户工作区组合](templates/compositions/account-workspace/files.ts) 是 Web 的身份认证 + 组织 + 权限可执行 Mock 示例；需要三者时才参考装配，不能冒充独立认证或真实服务接入。其注册和找回等操作仍按当前需求删减。
 - [来源商品设计参考](templates/compositions/purchase-checkout/source-reference/index.html) 保留中性费用中心、商品选购、订单/钱包结构；[购买最小演示](templates/compositions/purchase-checkout/commerce-reference.html) 用于专项交互参考。两者均为 Web 离线设计，无真实扣款，也不作为当前基础装配入口。
-- 先核对真实契约和具体操作，再适配模板；已经实现的模块复用唯一所有者。组合时明确身份、组织作用域、授权、查询缓存、订单、支付和审计各自归属，不让每个模块另建会话或相互反向调用。组织管理不切换操作者身份；组织切换不得代替授权。
+- 先核对真实契约和具体操作，再适配模板；已经实现的模块复用唯一所有者。组合时明确身份、组织作用域、授权、查询缓存、订单、支付和审计各自归属，不让每个模块另建会话或相互反向调用。组织管理不切换操作者身份；组织切换不得代替授权。组织用户是账号与组织的独立成员身份，详见组织知识；organization.manage 显式选择并统一校验当前 owner 与管理权限，switch 不隐含管理、注册或邀请。
 - 功能选择不授予权限；远端列表查询必须使用 GraphQL，包括初次无筛选的查询。服务不支持时保留缺口，不伪造 Schema 或用 REST 列表替代。单对象和写操作依据实际契约。
 - 结果未知时先查询，不自动重放创建订单或支付；真实付费、生产账户和扣款没有因编写 Skill 或运行演示获得授权。
 

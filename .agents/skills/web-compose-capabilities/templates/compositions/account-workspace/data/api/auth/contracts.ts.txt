@@ -15,6 +15,13 @@ export type ClientCapability = "workspace" | "account" | "switch-organization" |
 export interface MemberOrganization {
   id: string
   name: string
+  ownerAccountId: string
+  organizationUser: {
+    id: string
+    accountId: string
+    organizationId: string
+    role: "owner" | "member"
+  }
 }
 
 /** 用户、成员组织与当前作用域权限只由 Query 缓存拥有。 */
@@ -118,7 +125,21 @@ export function isAuthContext(value: unknown): value is AuthContext {
     "id" in entry &&
     "name" in entry &&
     text(entry.id) &&
-    text(entry.name)
+    text(entry.name) &&
+    "ownerAccountId" in entry &&
+    text(entry.ownerAccountId) &&
+    "organizationUser" in entry &&
+    typeof entry.organizationUser === "object" &&
+    entry.organizationUser !== null &&
+    "id" in entry.organizationUser &&
+    text(entry.organizationUser.id) &&
+    "accountId" in entry.organizationUser &&
+    entry.organizationUser.accountId === user?.id &&
+    "organizationId" in entry.organizationUser &&
+    entry.organizationUser.organizationId === entry.id &&
+    "role" in entry.organizationUser &&
+    (entry.organizationUser.role === "owner" || entry.organizationUser.role === "member") &&
+    (entry.organizationUser.role === "owner") === (entry.ownerAccountId === user?.id)
   return (
     !!user &&
     [user.id, user.username, user.displayName, user.email].every(text) &&
@@ -126,9 +147,16 @@ export function isAuthContext(value: unknown): value is AuthContext {
     context.organizations.length <= 100 &&
     context.organizations.every(organization) &&
     new Set(context.organizations.map((entry) => entry.id)).size === context.organizations.length &&
+    new Set(context.organizations.map((entry) => entry.organizationUser.id)).size ===
+      context.organizations.length &&
     (context.currentOrganization === null ||
       (organization(context.currentOrganization) &&
-        context.organizations.some((entry) => entry.id === context.currentOrganization?.id))) &&
+        context.organizations.some(
+          (entry) =>
+            entry.id === context.currentOrganization?.id &&
+            entry.organizationUser.id === context.currentOrganization.organizationUser.id &&
+            entry.organizationUser.role === context.currentOrganization.organizationUser.role
+        ))) &&
     Array.isArray(context.capabilities) &&
     context.capabilities.every((entry) =>
       ["workspace", "account", "switch-organization", "test-menu"].includes(entry)

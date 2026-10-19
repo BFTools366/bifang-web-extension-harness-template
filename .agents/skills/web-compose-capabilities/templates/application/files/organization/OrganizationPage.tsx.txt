@@ -11,13 +11,11 @@ export function OrganizationPage({
   api,
   scope,
   changed,
-  authorize,
   canSwitch
 }: {
   api: OrganizationApi
   scope: number
   changed(): Promise<void>
-  authorize(): void
   canSwitch: boolean
 }) {
   const { t, i18n } = useTranslation()
@@ -26,16 +24,14 @@ export function OrganizationPage({
   const query = useQuery(organizationQueryOptions(api, scope, i18n.language))
   /** 先复核动作授权，切换成功后使旧作用域缓存与权限失效。 */
   async function select(id: string) {
-    if (busy) return
+    if (busy || !canSwitch || id === query.data?.current) return
     setBusy(true)
     setError(false)
     try {
-      authorize()
       await api.switch(id)
       await changed()
     } catch {
       setError(true)
-      await query.refetch()
     } finally {
       setBusy(false)
     }
@@ -55,11 +51,19 @@ export function OrganizationPage({
       {query.data && (
         <NativeSelect
           label={t("organizationCurrent")}
-          disabled={busy || !canSwitch || !query.data.available.some((row) => row.id !== query.data.current)}
+          disabled={
+            busy || !canSwitch || !query.data.available.some((row) => row.id !== query.data.current)
+          }
           value={query.data.current ?? ""}
           data={[
-            ...(query.data.current === null ? [{ value: "", label: t("organizationNone"), disabled: true }] : []),
-            ...query.data.available.map((row) => ({ value: row.id, label: row.name }))
+            ...(query.data.current === null
+              ? [{ value: "", label: t("organizationNone"), disabled: true }]
+              : []),
+            ...query.data.available.map((row) => ({
+              value: row.id,
+              label: row.name,
+              disabled: row.id === query.data?.current
+            }))
           ]}
           onChange={(event) => {
             void select(event.currentTarget.value).catch(() => undefined)

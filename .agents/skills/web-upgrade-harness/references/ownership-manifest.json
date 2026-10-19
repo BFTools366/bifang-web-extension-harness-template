@@ -758,6 +758,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/application-management.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/application-readonly.test.ts",
       "mode": "tombstone"
     },

@@ -1,0 +1,40 @@
+import { Menu } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import type { OrganizationReadApi } from "../../data/api/organization/contracts"
+import { ApplicationIcon } from "../application/ApplicationIcon"
+import { organizationQueryOptions } from "./OrganizationContext"
+
+/** 多组织才显示切换入口；管理入口独立依据当前组织拥有者身份与权限。 */
+export function OrganizationMenu({
+  api,
+  scope,
+  blocked,
+  canSwitch,
+  management,
+  open
+}: {
+  api: OrganizationReadApi
+  scope: number
+  blocked: boolean
+  canSwitch: boolean
+  management?: ReactNode
+  open(): void
+}) {
+  const { t, i18n } = useTranslation()
+  const query = useQuery({
+    ...organizationQueryOptions(api, scope, i18n.language),
+    enabled: !blocked
+  })
+  return (
+    <>
+      {canSwitch && !blocked && (query.data?.available.length ?? 0) > 1 && (
+        <Menu.Item leftSection={<ApplicationIcon name="organization" />} onClick={open}>
+          {t("organizationSwitch")}
+        </Menu.Item>
+      )}
+      {!blocked && management}
+    </>
+  )
+}

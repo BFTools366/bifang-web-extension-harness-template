@@ -1,5 +1,5 @@
 import { protocolText, ServiceFailure } from "../foundationProtocol"
-import type { AuthContext, MockCredential } from "./contracts"
+import type { AuthContext, ClientCapability, MockCredential } from "./contracts"
 import {
   createMockVerification,
   normalizeTarget,
@@ -14,7 +14,6 @@ interface MockAccount {
   password: string
   version: number
   org: ServiceProfile["org"]
-  testMenu: boolean
   memberships: AuthContext["organizations"]
 }
 /** 引用、令牌和时效分别保存在服务内存，不从持久引用恢复授权。 */
@@ -51,6 +50,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
   const now = options.now ?? Date.now
   const time = () => Math.floor(now() / 1000)
   const accounts = new Map<string, MockAccount>()
+  const grants = new Map<string, ClientCapability[]>()
   const sessions = new Map<string, MockSession>()
   const tokens = new Map<string, { session: MockSession; type: "access" | "refresh" }>()
   const verification = createMockVerification({ ...options, now })
@@ -63,7 +63,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     { id: "studio", name: "Example studio" }
   ]
 
-  /** 固定演示账号沿用已有 UI 身份，仅服务 DTO 使用独立默认组织。 */
+  /** 注册同时创建个人组织和 owner 组织用户；演示账号另有明确加入的成员组织。 */
   function addAccount(
     id: string,
     username: string,
@@ -89,9 +89,19 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       },
       password,
       version: 0,
-      testMenu,
       memberships:
-        id === "demo-user" || id === "test-user" ? organizations.map((org) => ({ ...org })) : [],
+        id === "demo-user" || id === "test-user"
+          ? organizations.map((org) => ({
+              ...org,
+              ownerAccountId: "example-owner",
+              organizationUser: {
+                id: "organization-user:" + id + ":" + org.id,
+                accountId: id,
+                organizationId: org.id,
+                role: "member" as const
+              }
+            }))
+          : [],
       org: {
         id: "org-" + id,
         name: nickname + "的组织",
@@ -101,6 +111,25 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
         updated_time: stamp
       }
     }
+    if (entry.org)
+      entry.memberships.push({
+        id: entry.org.id,
+        name: entry.org.name,
+        ownerAccountId: id,
+        organizationUser: {
+          id: "organization-user:" + id + ":" + entry.org.id,
+          accountId: id,
+          organizationId: entry.org.id,
+          role: "owner"
+        }
+      })
+    for (const membership of entry.memberships)
+      grants.set(membership.organizationUser.id, [
+        "workspace",
+        "account",
+        "switch-organization",
+        ...(testMenu && membership.id === "workspace" ? ["test-menu" as const] : [])
+      ])
     accounts.set(id, entry)
     return entry
   }
@@ -193,6 +222,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     reset() {
       generation++
       accounts.clear()
+      grants.clear()
       sessions.clear()
       tokens.clear()
       verification.reset()
@@ -334,11 +364,15 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       const current = access(reference(credential).token.access_token)
       return { ...current.credential }
     },
-    /** UI 组织与能力完全独立于服务默认组织。 */
+    /** 当前权限从组织用户读取；默认个人组织与正在浏览的组织分别表达。 */
     context(credential: MockCredential): AuthContext {
       const current = this.validate(credential)
       const entry = accounts.get(current.accountId)
       if (!entry) throw new ServiceFailure("auth.account.not.found", 401)
+      const memberships = entry.memberships.map((org) => ({
+        ...org,
+        organizationUser: { ...org.organizationUser }
+      }))
       return {
         user: {
           id: entry.dto.id,
@@ -346,20 +380,14 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
           displayName: entry.dto.nickname,
           email: entry.dto.email
         },
-        organizations: entry.memberships.map((org) => ({ ...org })),
-        currentOrganization:
-          entry.memberships.find((org) => org.id === current.organizationId) ?? null,
-        capabilities:
-          current.organizationId === null
-            ? []
-            : [
-                "workspace",
-                "account",
-                "switch-organization",
-                ...(entry.testMenu && current.organizationId === "workspace"
-                  ? ["test-menu" as const]
-                  : [])
-              ]
+        organizations: memberships,
+        currentOrganization: memberships.find((org) => org.id === current.organizationId) ?? null,
+        capabilities: [
+          ...(grants.get(
+            entry.memberships.find((org) => org.id === current.organizationId)?.organizationUser
+              .id ?? ""
+          ) ?? [])
+        ]
       }
     },
     /** 组织切换只改变内存扩展，令牌对和服务默认组织保持各自含义。 */
@@ -368,6 +396,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       const account = accounts.get(current.accountId)
       if (!account || !account.memberships.some((org) => org.id === organizationId))
         throw new ServiceFailure("mock.organization.unavailable", 400)
+      if (current.organizationId === organizationId) return { ...current }
       const next = { ...current, organizationId }
       reference(credential).credential = next
       return { ...next }

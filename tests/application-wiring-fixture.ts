@@ -44,7 +44,7 @@ function routeTreeFixture(wiring: ApplicationWiring): string {
     ...wiring.pages.map((page, index) => ({
       name: "Page" + index,
       file: "_application/" + page.file,
-      id: "/_application" + (page.path === "/" ? "/" : page.path),
+      id: "/_application/" + (page.file === "index" ? "" : page.file.replaceAll(".", "/")),
       path: page.path,
       fullPath: page.path,
       parent: "ApplicationRoute",

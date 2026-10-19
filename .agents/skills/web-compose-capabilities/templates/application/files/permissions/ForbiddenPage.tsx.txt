@@ -1,8 +1,9 @@
 import { Alert, Stack, Text, Title } from "@mantine/core"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 
 /** 已识别但无权限的页面保留清楚反馈，账号与退出仍由主界面提供。 */
-export function ForbiddenPage() {
+export function ForbiddenPage({ recovery }: { recovery?: ReactNode }) {
   const { t } = useTranslation()
   return (
     <Stack>
@@ -10,6 +11,7 @@ export function ForbiddenPage() {
       <Alert color="yellow">
         <Text>{t("permissionDeniedDescription")}</Text>
       </Alert>
+      {recovery}
     </Stack>
   )
 }

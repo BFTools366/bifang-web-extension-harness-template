@@ -33,7 +33,13 @@ export interface ApplicationFixtures {
     }[]
   >
   balances?: Record<string, { minor: number; currency: string }>
-  organizations?: Record<string, { id: string; name: string }[]>
+  organizations?: { id: string; name: string; ownerAccountId: string }[]
+  organizationUsers?: {
+    id: string
+    accountId: string
+    organizationId: string
+    role: "owner" | "member"
+  }[]
   audit?: { id: string; action: string; actor: string; occurredAt: string }[]
 }
 /** 固定设计通过明确输入装配，不在源自动生成产品业务或猜测服务接口。 */

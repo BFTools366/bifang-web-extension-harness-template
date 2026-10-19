@@ -1,12 +1,34 @@
-/** 组织对象与当前操作者分离，不通过组织选择更换登录身份。 */
+/** 账号拥有的组织独立于具体业务资源；名称不进入客户端作用域。 */
 export interface Organization {
   id: string
   name: string
+  ownerAccountId: string
 }
-/** 成员/邀请等写入不属于最小组织切换能力。 */
-export interface OrganizationApi {
-  read(
-    signal?: AbortSignal
-  ): Promise<{ current: string | null; available: readonly Organization[] }>
+/** 组织用户具有独立身份，同一账号加入多个组织会产生不同组织用户。 */
+export interface OrganizationUser {
+  id: string
+  accountId: string
+  organizationId: string
+  role: "owner" | "member"
+}
+/** 已确认的成员关系与组织展示数据在共享查询中组合。 */
+export interface OrganizationMembership extends Organization {
+  user: OrganizationUser
+}
+/** 当前组织可为空，但不能指向可用成员关系之外的组织。 */
+export interface OrganizationContext {
+  current: string | null
+  available: readonly OrganizationMembership[]
+}
+/** 读取与切换只消费已有成员关系，不隐式创建或加入组织。 */
+export interface OrganizationReadApi {
+  read(signal?: AbortSignal): Promise<OrganizationContext>
+}
+/** 切换操作单独扩展只读合同，管理不依赖切换。 */
+export interface OrganizationApi extends OrganizationReadApi {
   switch(id: string): Promise<void>
+}
+/** 只有显式选择组织管理才接线改名，服务端仍须校验当前组织用户为拥有者。 */
+export interface OrganizationManagementApi extends OrganizationReadApi {
+  rename(id: string, name: string): Promise<void>
 }

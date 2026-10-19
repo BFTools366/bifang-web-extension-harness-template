@@ -124,12 +124,31 @@
           "path": "templates/application/files/organization/mock.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/context.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationMenu.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationManagementPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
       ],
       "operations": [
         {
           "id": "organization.switch",
           "requires": ["identity.session"]
+        },
+        {
+          "id": "organization.manage",
+          "requires": ["identity.session", "permissions.enforce"]
         }
       ],
       "defaultOperations": ["organization.switch"]

@@ -1,5 +1,5 @@
 import { Avatar, Menu, Text, UnstyledButton } from "@mantine/core"
-import { Link, useLocation } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useAuth } from "../auth/AuthProvider"
@@ -8,10 +8,9 @@ import { ClientIcon } from "./ClientIcon"
 import { OrganizationSwitcher } from "./OrganizationSwitcher"
 import classes from "./client.module.css"
 
-/** 右上角菜单集中账号、组织、语言、外观和退出，真实可用能力决定入口。 */
+/** 右上角菜单集中账号、组织和退出，真实可用能力决定入口。 */
 export function AccountMenu() {
-  const { t, i18n } = useTranslation()
-  const { href } = useLocation()
+  const { t } = useTranslation()
   const { context, state, session } = useAuth()
   const [switchOpened, setSwitchOpened] = useState(false)
   const trigger = useRef<HTMLButtonElement>(null)
@@ -33,8 +32,7 @@ export function AccountMenu() {
       focusPending.current = false
     }
   }, [state.phase])
-  const canSwitch =
-    canAccess(context, "switch-organization") && (context?.organizations.length ?? 0) > 1
+  const canSwitch = (context?.organizations.length ?? 0) > 1
   const organization = context?.currentOrganization?.name ?? t("auth.states.noOrganization")
   return (
     <>
@@ -77,23 +75,6 @@ export function AccountMenu() {
               <Menu.Label>{organization}</Menu.Label>
             )}
             <Menu.Divider />
-            <Menu.Item
-              leftSection={<ClientIcon name="language" />}
-              rightSection={
-                <Text size="sm" c="dimmed">
-                  {i18n.resolvedLanguage?.startsWith("zh") ? "简体中文" : "English"}
-                </Text>
-              }
-              renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
-            >
-              {t("client.language")}
-            </Menu.Item>
-            <Menu.Item
-              leftSection={<ClientIcon name="settings" />}
-              renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
-            >
-              {t("client.appearance")}
-            </Menu.Item>
             {canAccess(context, "account") && (
               <Menu.Item
                 component={Link}

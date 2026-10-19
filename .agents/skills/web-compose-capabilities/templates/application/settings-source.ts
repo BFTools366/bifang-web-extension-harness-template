@@ -1,5 +1,5 @@
 /** 设置来源与公开回退依据实际启用的认证路由生成，不扩张登录后的业务返回合同。 */
-export function settingsNavigationSource(identity: boolean): string {
+export function settingsNavigationSource(identity: boolean, paths: readonly string[] = []): string {
   return `import { navigation } from "./navigation"
 ${identity ? 'import { safeReturnTo } from "./routeAccess"' : ""}
 
@@ -27,7 +27,7 @@ export function settingsReturnTo(input: unknown): string {
   }`
       : ""
   }
-  const page = navigation.find((entry) => entry.path.toLowerCase() === pathname.toLowerCase())
+  const page = [...navigation${paths.map((path) => ", " + JSON.stringify({ path })).join("")}].find((entry) => entry.path.toLowerCase() === pathname.toLowerCase())
   return page ? page.path + url.search + url.hash : settingsFallback
 }
 `

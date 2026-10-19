@@ -128,16 +128,6 @@ export function ClientLayout() {
                   <ClientIcon name="refresh" />
                 </ActionIcon>
               </Tooltip>
-              <Tooltip label={t("client.settings")}>
-                <ActionIcon
-                  variant="default"
-                  size="lg"
-                  aria-label={t("client.settings")}
-                  renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
-                >
-                  <ClientIcon name="settings" />
-                </ActionIcon>
-              </Tooltip>
               <AccountMenu />
               {!context && (
                 <Button
@@ -228,6 +218,18 @@ export function ClientLayout() {
               </Text>
             </Stack>
           )}
+          <Anchor
+            renderRoot={(props) => (
+              <Link {...props} to="/settings" state={{ settingsOrigin: href }} />
+            )}
+            aria-label={t("client.settings")}
+            title={collapsed ? t("client.settings") : undefined}
+            className={classes.navLink}
+            underline="never"
+          >
+            <ClientIcon name="settings" />
+            {!collapsed && <span>{t("client.settings")}</span>}
+          </Anchor>
         </div>
         {!collapsed && (
           <Text size="xs" c="dimmed" mt="sm">

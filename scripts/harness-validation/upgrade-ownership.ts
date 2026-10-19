@@ -159,6 +159,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   "tests/application-shell.test.ts": "tombstone",
   "tests/application-settings.test.ts": "tombstone",
   "tests/application-organization.test.ts": "tombstone",
+  "tests/application-management.test.ts": "tombstone",
   "tests/application-readonly.test.ts": "tombstone",
   "tests/harness-instantiation.test.ts": "tombstone",
   "tests/harness-memory.test.ts": "tombstone",

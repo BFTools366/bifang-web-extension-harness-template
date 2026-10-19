@@ -1,13 +1,4 @@
-import {
-  ActionIcon,
-  Anchor,
-  AppShell,
-  Burger,
-  Group,
-  Image,
-  Stack,
-  Text
-} from "@mantine/core"
+import { ActionIcon, Anchor, AppShell, Burger, Group, Image, Stack, Text } from "@mantine/core"
 import { useElementSize, useMediaQuery } from "@mantine/hooks"
 import { Link, Outlet, useLocation } from "@tanstack/react-router"
 import { useEffect, useState, type ReactNode } from "react"
@@ -86,17 +77,23 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
                     onClick={() => setMobileOpened((value) => !value)}
                   />
                 )}
-                <Text fw={600} visibleFrom="sm">{t(current?.title ?? "projectName")}</Text>
+                <Text fw={600} visibleFrom="sm">
+                  {t(current?.title ?? "projectName")}
+                </Text>
               </Group>
               <Group>
-                {!account && <ActionIcon
-                  variant="default"
-                  size="lg"
-                  aria-label={t("applicationSettings")}
-                  renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
-                >
-                  <ApplicationIcon name="settings" />
-                </ActionIcon>}
+                {!useSidebar && (
+                  <ActionIcon
+                    variant="default"
+                    size="lg"
+                    aria-label={t("applicationSettings")}
+                    renderRoot={(props) => (
+                      <Link {...props} to="/settings" state={{ settingsOrigin: href }} />
+                    )}
+                  >
+                    <ApplicationIcon name="settings" />
+                  </ActionIcon>
+                )}
                 {account}
               </Group>
             </Group>
@@ -133,11 +130,18 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
           </nav>
           {context && <div className={classes.context}>{context(compact)}</div>}
           <Group className={classes.sidebarBottom} justify={compact ? "center" : "space-between"}>
-            {!compact && (
-              <Text size="sm" c="dimmed">
-                {t("applicationNavigation")}
-              </Text>
-            )}
+            <Anchor
+              renderRoot={(props) => (
+                <Link {...props} to="/settings" state={{ settingsOrigin: href }} />
+              )}
+              aria-label={t("applicationSettings")}
+              title={compact ? t("applicationSettings") : undefined}
+              className={classes.navLink}
+              underline="never"
+            >
+              <ApplicationIcon name="settings" />
+              {!compact && <span>{t("applicationSettings")}</span>}
+            </Anchor>
             <ActionIcon
               variant="subtle"
               visibleFrom="sm"

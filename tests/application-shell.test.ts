@@ -18,6 +18,8 @@ test("account and organization assets follow explicit capability selection", () 
   expect(identity.get("src/features/identity/session.test.ts")).toContain('from "vitest"')
   expect(identity.get("src/features/identity/session.test.ts")).not.toContain('from "node:test"')
   expect(identity.has("src/features/organization/OrganizationContext.tsx")).toBe(false)
+  expect(identity.has("src/features/organization/OrganizationManagementPage.tsx")).toBe(false)
+  expect(identity.has("src/routes/_application/organization_.manage.tsx")).toBe(false)
   expect(identity.get("src/features/application/Application.tsx")).not.toContain(
     "OrganizationMenuItem"
   )
@@ -35,12 +37,14 @@ test.each(["web", "extension"] as const)(
         dataMode: "mock",
         fixtures: {
           accounts: [{ id: "member", account: "demo", password: "demo", displayName: "Member" }],
-          organizations: {
-            member: [
-              { id: "a", name: "Team A" },
-              { id: "b", name: "Team B" }
-            ]
-          }
+          organizations: [
+            { id: "a", name: "Team A", ownerAccountId: "member" },
+            { id: "b", name: "Team B", ownerAccountId: "other" }
+          ],
+          organizationUsers: [
+            { id: "member-a", accountId: "member", organizationId: "a", role: "owner" },
+            { id: "member-b", accountId: "member", organizationId: "b", role: "member" }
+          ]
         }
       },
       `import { test, expect, vi } from "vitest"
@@ -68,28 +72,22 @@ test("account structure, preferences and persistent shell", async () => {
   await user.keyboard("{Enter}")
   const menu = await screen.findByRole("menu")
   expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
-    "OrganizationsTeam A", "LanguageEnglish", i18n.t("colorSchemeLabel") + i18n.t("colorSchemeAuto"), "⇥Sign out"
+    "Switch organization", "⇥Sign out"
   ])
   expect(within(menu).queryByRole("menuitem", { name: "Account settings" })).not.toBeInTheDocument()
   await user.keyboard("{Escape}")
   await waitFor(() => expect(trigger).toHaveFocus())
-  await user.click(trigger)
-  await user.click(await screen.findByRole("menuitem", { name: /Language/ }))
+  await act(async () => { await router.navigate({ to: "/", search: () => ({ page: 2, q: "123", literal: '{"a":2}' }), hash: "draft" }) })
+  const origin = router.state.location.href
+  await user.click(screen.getByRole("link", { name: "Settings" }))
   await screen.findByRole("heading", { name: "Settings", level: 1 })
-  expect(screen.getByRole("heading", { name: "Language" })).toHaveFocus()
+  expect(screen.getByRole("heading", { name: "Settings", level: 1 })).toHaveFocus()
   await user.selectOptions(screen.getByRole("combobox", { name: "Language" }), "zh")
   await user.selectOptions(screen.getByRole("combobox", { name: "语言" }), "en")
   await user.click(screen.getByRole("link", { name: "Back" }))
   await screen.findByRole("heading", { name: "Text tool" })
   expect(screen.getByLabelText("Input")).toHaveValue("")
-  trigger = screen.getByRole("button", { name: "User center: Member" })
-  await user.click(trigger)
-  await user.click(await screen.findByRole("menuitem", { name: new RegExp(i18n.t("colorSchemeLabel")) }))
-  await screen.findByRole("heading", { name: "Settings", level: 1 })
-  expect(screen.getByRole("heading", { name: i18n.t("colorSchemeLabel") })).toHaveFocus()
-  expect(screen.getByRole("radio", { name: i18n.t("colorSchemeAuto") })).toBeInTheDocument()
-  await user.click(screen.getByRole("link", { name: "Back" }))
-  await screen.findByRole("heading", { name: "Text tool" })
+  expect(router.state.location.href).toBe(origin)
   trigger = screen.getByRole("button", { name: "User center: Member" })
   main = screen.getByRole("main")
   await user.click(trigger)
@@ -116,8 +114,12 @@ test("account structure, preferences and persistent shell", async () => {
   await act(async () => { await organizationService.switch("b") })
   expect(screen.getByRole("button", { name: "User center: Member" })).toBe(trigger)
   await user.click(trigger)
-  expect(await screen.findByRole("menuitem", { name: /Organizations Team B/ })).toBeInTheDocument()
+  expect(await screen.findByRole("menuitem", { name: "Switch organization" })).toBeInTheDocument()
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
+  const dialog = await screen.findByRole("dialog")
+  expect(within(dialog).getByRole("option", { name: "Team B" })).toBeDisabled()
   await user.keyboard("{Escape}")
+  await waitFor(() => expect(trigger).toHaveFocus())
   expect(queryClient.getQueryCache().findAll({ queryKey: ["organization"] }).every((query) => query.meta?.private === true)).toBe(true)
   view.unmount()
   const settings = vi.fn()

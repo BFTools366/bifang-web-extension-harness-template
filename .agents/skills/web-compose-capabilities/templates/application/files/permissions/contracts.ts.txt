@@ -1,5 +1,6 @@
 /** 权限由可信主体和当前组织上下文读取，组织不是可由页面伪造的授权。 */
 export interface PermissionContext {
+  /** 启用组织时为 OrganizationUser.id，独立身份权限才使用 Account.id。 */
   subjectId: string
   organizationId: string | null
 }

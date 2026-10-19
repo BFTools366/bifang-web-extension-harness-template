@@ -1,5 +1,5 @@
-import { Button, Container, Group, Paper, Stack, Text, Title } from "@mantine/core"
-import { Link, useLocation } from "@tanstack/react-router"
+import { Button, Container, Group, Stack, Text, Title } from "@mantine/core"
+import { defaultParseSearch, Link, useLocation } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
 import { Preferences } from "./Preferences"
 import { settingsReturnTo } from "./settingsNavigation"
@@ -9,26 +9,44 @@ import classes from "./client.module.css"
 export function SettingsPage() {
   const { t } = useTranslation()
   const { state } = useLocation()
-  const backTo = settingsReturnTo("settingsOrigin" in state ? state.settingsOrigin : undefined)
+  const backTo = new URL(
+    settingsReturnTo("settingsOrigin" in state ? state.settingsOrigin : undefined),
+    "https://settings.invalid"
+  )
   return (
     <main id="main" tabIndex={-1} className={classes.settingsPage}>
       <Container size="sm" w="100%">
-        <Paper withBorder radius="lg" p="xl">
+        <div>
           <Stack gap="xl">
             <div>
               <Group justify="space-between">
                 <Title order={1}>{t("client.settings")}</Title>
-                <Button variant="subtle" color="gray" size="sm"
-                  renderRoot={(props) => <Link {...props} to={backTo} />}>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  renderRoot={(props) => (
+                    <Link
+                      {...props}
+                      to={backTo.pathname}
+                      search={defaultParseSearch(backTo.search)}
+                      hash={backTo.hash.slice(1)}
+                    />
+                  )}
+                >
                   {t("client.settingsBack")}
                 </Button>
               </Group>
-              <Text c="dimmed" mt="xs">{t("client.settingsDescription")}</Text>
+              <Text c="dimmed" mt="xs">
+                {t("client.settingsDescription")}
+              </Text>
             </div>
             <Preferences plain />
-            <Text size="sm" c="dimmed">{t("client.settingsImmediate")}</Text>
+            <Text size="sm" c="dimmed">
+              {t("client.settingsImmediate")}
+            </Text>
           </Stack>
-        </Paper>
+        </div>
       </Container>
     </main>
   )

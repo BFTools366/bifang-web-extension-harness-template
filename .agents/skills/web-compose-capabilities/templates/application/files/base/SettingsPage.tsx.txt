@@ -1,5 +1,5 @@
-import { Button, Container, Divider, Group, Paper, Stack, Text, Title } from "@mantine/core"
-import { Link, useLocation } from "@tanstack/react-router"
+import { Button, Container, Divider, Group, Stack, Text, Title } from "@mantine/core"
+import { defaultParseSearch, Link, useLocation } from "@tanstack/react-router"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import { BRAND } from "../../brand"
@@ -16,12 +16,19 @@ export function SettingsPage() {
   const appearance = useRef<HTMLHeadingElement>(null)
   const language = useRef<HTMLHeadingElement>(null)
   const title = t("applicationSettings")
-  const backTo = settingsReturnTo("settingsOrigin" in state ? state.settingsOrigin : undefined)
+  const backTo = new URL(
+    settingsReturnTo("settingsOrigin" in state ? state.settingsOrigin : undefined),
+    "https://settings.invalid"
+  )
   useEffect(() => {
     const previousTitle = document.title
-    return () => { document.title = previousTitle }
+    return () => {
+      document.title = previousTitle
+    }
   }, [])
-  useEffect(() => { document.title = title + " · " + BRAND.name }, [title])
+  useEffect(() => {
+    document.title = title + " · " + BRAND.name
+  }, [title])
   useEffect(() => {
     const target = hash === "language" ? language : hash === "appearance" ? appearance : heading
     target.current?.focus({ preventScroll: true })
@@ -29,23 +36,40 @@ export function SettingsPage() {
   return (
     <main className={classes.settingsPage}>
       <Container size="sm" w="100%">
-        <Paper withBorder className={classes.settingsPanel}>
+        <div className={classes.settingsPanel}>
           <Stack gap="xl">
             <div>
               <Group justify="space-between">
-                <Title ref={heading} tabIndex={-1} order={1}>{title}</Title>
-                <Button variant="subtle" color="gray" size="sm"
-                  renderRoot={(props) => <Link {...props} to={backTo} />}>
+                <Title ref={heading} tabIndex={-1} order={1}>
+                  {title}
+                </Title>
+                <Button
+                  variant="subtle"
+                  color="gray"
+                  size="sm"
+                  renderRoot={(props) => (
+                    <Link
+                      {...props}
+                      to={backTo.pathname}
+                      search={defaultParseSearch(backTo.search)}
+                      hash={backTo.hash.slice(1)}
+                    />
+                  )}
+                >
                   {t("applicationSettingsBack")}
                 </Button>
               </Group>
-              <Text c="dimmed" mt="xs">{t("applicationSettingsDescription")}</Text>
+              <Text c="dimmed" mt="xs">
+                {t("applicationSettingsDescription")}
+              </Text>
             </div>
             <Stack component="section" gap="sm" aria-labelledby="appearance">
               <Title ref={appearance} id="appearance" tabIndex={-1} order={2} size="h4">
                 {t("colorSchemeLabel")}
               </Title>
-              <Text size="sm" c="dimmed">{t("applicationAppearanceDescription")}</Text>
+              <Text size="sm" c="dimmed">
+                {t("applicationAppearanceDescription")}
+              </Text>
               <Preferences section="appearance" />
             </Stack>
             <Divider />
@@ -56,8 +80,10 @@ export function SettingsPage() {
               <Preferences section="language" />
             </Stack>
           </Stack>
-        </Paper>
-        <Text c="dimmed" size="xs" ta="center" mt="md">{t("applicationSettingsImmediate")}</Text>
+        </div>
+        <Text c="dimmed" size="xs" ta="center" mt="md">
+          {t("applicationSettingsImmediate")}
+        </Text>
       </Container>
     </main>
   )

@@ -46,19 +46,21 @@ test.each(["web", "extension"] as const)(
               price: { minor: 500, currency: "USD" }
             }
           ],
-          organizations: {
-            member: [
-              { id: "a", name: "Team A" },
-              { id: "b", name: "Team B" }
-            ]
-          },
+          organizations: [
+            { id: "a", name: "Team A", ownerAccountId: "member" },
+            { id: "b", name: "Team B", ownerAccountId: "other" }
+          ],
+          organizationUsers: [
+            { id: "member-a", accountId: "member", organizationId: "a", role: "owner" },
+            { id: "member-b", accountId: "member", organizationId: "b", role: "member" }
+          ],
           grants: [
-            { subjectId: "member", organizationId: "a", codes },
-            { subjectId: "member", organizationId: "b", codes: ["home"] }
+            { subjectId: "member-a", organizationId: "a", codes },
+            { subjectId: "member-b", organizationId: "b", codes: ["home"] }
           ],
           balances: {
-            '["member","a"]': { minor: 5000, currency: "USD" },
-            '["member","b"]': { minor: 10000, currency: "USD" }
+            "member-a": { minor: 5000, currency: "USD" },
+            "member-b": { minor: 10000, currency: "USD" }
           }
         }
       },
@@ -99,21 +101,18 @@ test("wired purchase and permissions follow the current organization", async () 
   await user.click(screen.getByRole("button", { name: "Close" }))
   await user.click(screen.getByRole("button", { name: "Purchase" }))
   expect(await screen.findByRole("dialog")).toBeInTheDocument()
-  permissionMock.set({ subjectId: "member", organizationId: "a" }, ${JSON.stringify(codes.filter((code) => code !== "buy"))})
+  permissionMock.set({ subjectId: "member-a", organizationId: "a" }, ${JSON.stringify(codes.filter((code) => code !== "buy"))})
   await permissionSession.refresh()
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   expect(screen.queryByRole("button", { name: "Purchase" })).not.toBeInTheDocument()
-  await user.click(screen.getByRole("link", { name: "Organizations" }))
-  const select = await screen.findByLabelText("Current organization")
-  permissionMock.set({ subjectId: "member", organizationId: "a" }, ["home", "organization"])
+  // 撤销全部组织业务权限后，账号仍可打开组织切换恢复入口。
+  permissionMock.set({ subjectId: "member-a", organizationId: "a" }, [])
   await permissionSession.refresh()
-  await waitFor(() => expect(screen.getByLabelText("Current organization")).toBeDisabled())
-  permissionMock.set({ subjectId: "member", organizationId: "a" }, ${JSON.stringify(codes)})
-  await permissionSession.refresh()
-  await waitFor(() => expect(screen.getByLabelText("Current organization")).toBeEnabled())
-  await user.selectOptions(screen.getByLabelText("Current organization"), "b")
+  await user.click(screen.getByRole("button", { name: /User center/ }))
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
+  await user.selectOptions(await screen.findByLabelText("Current organization"), "b")
   expect(await screen.findByText("Access denied")).toBeInTheDocument()
-  expect(actor()).toBe('["member","b"]')
+  expect(actor()).toBe('member-b')
   expect(permissionSession.allow(["buy"])).toBe(false)
   expect(screen.queryByRole("link", { name: "Products" })).not.toBeInTheDocument()
   expect(screen.getByText("Member")).toBeInTheDocument()

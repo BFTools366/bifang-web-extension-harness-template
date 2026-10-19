@@ -51,6 +51,8 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
   },
   organization: {
     "src/data/api/organization/contracts.ts": "organization/contracts.ts.txt",
+    "src/data/api/organization/context.ts": "organization/context.ts.txt",
+    "src/features/organization/OrganizationMenu.tsx": "organization/OrganizationMenu.tsx.txt",
     "src/features/organization/OrganizationPage.tsx": "organization/OrganizationPage.tsx.txt",
     "src/features/organization/OrganizationContext.tsx": "organization/OrganizationContext.tsx.txt"
   },
@@ -129,8 +131,16 @@ function validateOptions(
     throw new Error("Mock 用户系统必须提供明确测试账号")
   if (modules.includes("permissions")) {
     for (const [kind, ids, mapping] of [
-      ["页面", pages.map((page) => page.path), options.pagePermissions],
-      ["动作", actions, options.actionPermissions]
+      [
+        "页面",
+        pages.filter((page) => page.path !== "/organization").map((page) => page.path),
+        options.pagePermissions
+      ],
+      [
+        "动作",
+        actions.filter((action) => action !== "organization.switch"),
+        options.actionPermissions
+      ]
     ] as const) {
       for (const id of ids) {
         const codes = mapping?.[id]
@@ -150,11 +160,23 @@ export function applicationFiles(
   const modules = selected.modules.map((item) => item.id)
   const pages: ApplicationPage[] = [
     { path: "/", file: "index", component: "HomePage", title: "applicationHome" },
-    ...MODULE_PAGES.filter((page) => page.module !== undefined && modules.includes(page.module))
+    ...MODULE_PAGES.filter((page) => page.module !== undefined && modules.includes(page.module)),
+    ...(selected.resolved.includes("organization.manage")
+      ? [
+          {
+            path: "/organization/manage",
+            file: "organization_.manage",
+            component: "OrganizationManagementPage",
+            title: "organizationManage",
+            module: "organization"
+          }
+        ]
+      : [])
   ]
   const actions = [
     ...(selected.resolved.includes("orders.purchase") ? ["orders.purchase"] : []),
-    ...(selected.resolved.includes("organization.switch") ? ["organization.switch"] : [])
+    ...(selected.resolved.includes("organization.switch") ? ["organization.switch"] : []),
+    ...(selected.resolved.includes("organization.manage") ? ["organization.manage"] : [])
   ]
   validateOptions(options, modules, pages, actions)
   // 全量装配只用于首次工程基线；后续能力添加按现有 owner 增量接线。
@@ -175,6 +197,11 @@ export function applicationFiles(
     for (const [target, source] of Object.entries(APPLICATION_ASSETS[module] ?? {}))
       files.set(target, asset(source))
   }
+  if (selected.resolved.includes("organization.manage"))
+    files.set(
+      "src/features/organization/OrganizationManagementPage.tsx",
+      asset("organization/OrganizationManagementPage.tsx.txt")
+    )
   for (const [module, source] of Object.entries(options.content?.pageSources ?? {})) {
     const page = pages.find((item) => item.module === module)
     if (
@@ -223,14 +250,23 @@ export function applicationFiles(
     "src/features/application/Application.tsx",
     applicationPageSource(options, selected.resolved, pages)
   )
-  files.set("src/features/application/routeAccess.ts", accessSource(selected.resolved))
+  files.set(
+    "src/features/application/routeAccess.ts",
+    accessSource(
+      selected.resolved,
+      pages.filter((page) => page.module === "organization").map((page) => page.path)
+    )
+  )
   files.set(
     "src/features/application/settingsNavigation.ts",
-    settingsNavigationSource(modules.includes("identity"))
+    settingsNavigationSource(
+      modules.includes("identity"),
+      pages.filter((page) => page.module === "organization").map((page) => page.path)
+    )
   )
   files.set(
     "src/features/application/navigation.ts",
-    `export const navigation = ${JSON.stringify(pages.map((page) => ({ path: page.path, title: page.title })))} as const\n`
+    `export const navigation = ${JSON.stringify(pages.filter((page) => page.module !== "organization").map((page) => ({ path: page.path, title: page.title })))} as const\n`
   )
   files.set(
     "src/i18n/application.ts",
@@ -269,7 +305,7 @@ export function applicationFiles(
           .replace("const useSidebar = navigation.length > 1", "const useSidebar = false")
           .replace(/<Image src=\{BRAND.logoPath\}[^>]*\/>/u, "")
           .replace(/^import \{ BRAND \} from "..\/..\/brand"\r?\n/mu, "")
-          .replace(/^\s*Image,\r?\n/mu, "")
+          .replace(/\bImage,\s*/u, "")
       )
     const login = files.get("src/features/identity/LoginPage.tsx")
     if (login)
@@ -278,7 +314,7 @@ export function applicationFiles(
         login
           .replace(/<Image src=\{BRAND.logoPath\}[^>]*\/>/u, "")
           .replace(/^import \{ BRAND \} from "..\/..\/brand"\r?\n/mu, "")
-          .replace(/^\s*Image,\r?\n/mu, "")
+          .replace(/\bImage,\s*/u, "")
       )
   }
   const wiring: ApplicationWiring = {

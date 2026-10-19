@@ -9,14 +9,48 @@ const context: AuthContext = {
     displayName: "test",
     email: "test@example.invalid"
   },
-  organizations: [{ id: "workspace", name: "Example workspace" }],
-  currentOrganization: { id: "workspace", name: "Example workspace" },
+  organizations: [
+    {
+      id: "workspace",
+      name: "Example workspace",
+      ownerAccountId: "other",
+      organizationUser: {
+        id: "test-workspace",
+        accountId: "test-user",
+        organizationId: "workspace",
+        role: "member"
+      }
+    }
+  ],
+  currentOrganization: {
+    id: "workspace",
+    name: "Example workspace",
+    ownerAccountId: "other",
+    organizationUser: {
+      id: "test-workspace",
+      accountId: "test-user",
+      organizationId: "workspace",
+      role: "member"
+    }
+  },
   capabilities: ["workspace", "account", "test-menu"]
 }
 
 /** 新权限只接受明确枚举，空权限、未知码和缺失组织均不能获得页面授权。 */
 test("validates test permissions and rejects unknown or incomplete contexts", () => {
   expect(isAuthContext(context)).toBe(true)
+  for (const patch of [
+    { role: ["member"] },
+    { accountId: "other" },
+    { organizationId: "other" },
+    { role: "owner" }
+  ]) {
+    const invalid = structuredClone(context)
+    const first = invalid.organizations[0]
+    if (!first) throw new Error("测试需要一个成员组织")
+    Object.assign(first.organizationUser, patch)
+    expect(isAuthContext(invalid)).toBe(false)
+  }
   expect(isAuthContext({ ...context, capabilities: ["admin"] })).toBe(false)
   expect(isAuthContext({ ...context, capabilities: null })).toBe(false)
   expect(canAccess({ ...context, capabilities: [] }, "test-menu")).toBe(false)

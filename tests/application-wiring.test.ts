@@ -23,6 +23,15 @@ test("resolves only explicit operation dependencies", () => {
   expect(resolveCapabilitySelection({ host: "web", modules: ["orders"] }).resolved).toEqual([
     "orders.read"
   ])
+  const management = resolveCapabilitySelection({
+    host: "web",
+    operations: ["organization.manage"]
+  })
+  expect(management.resolved).toContain("permissions.enforce")
+  expect(management.resolved).not.toContain("organization.switch")
+  expect(
+    resolveCapabilitySelection({ host: "web", modules: ["organization"] }).resolved
+  ).not.toContain("organization.manage")
   expect(() =>
     resolveCapabilitySelection({ host: "web", operations: ["identity.register"] })
   ).toThrow(/未知/)
