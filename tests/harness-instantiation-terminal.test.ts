@@ -64,6 +64,16 @@ describe("terminal source projection", () => {
     expect(git(["rev-list", "--count", "HEAD"])).toBe("1")
     expect(git(["status", "--porcelain=v1"])).toBe("")
     expect(git(["remote"])).toBe("")
+    // 源模板装配与离线参考回归不能携带到缺少源 fixture 的终端项目。
+    for (const sourceTest of [
+      "tests/application-content.test.ts",
+      "tests/capability-source-reference.test.ts"
+    ]) {
+      expect(git(["ls-files", sourceTest])).toBe("")
+      await expect(readFile(path.join(targetRoot, sourceTest))).rejects.toMatchObject({
+        code: "ENOENT"
+      })
+    }
     expect(git(["show", "HEAD:docs/requirements/source.txt"])).toBe(requirements.trim())
     expect(git(["ls-files", "docs/requirements/source.txt"])).toBe("docs/requirements/source.txt")
     // 基线 Git blob 与再次检出的文件必须保留 BOM/CRLF，与确认摘要一致。

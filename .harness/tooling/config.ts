@@ -46,6 +46,8 @@ export const HARNESS_ONLY_PATHS = [
   "tests/application-wiring-fixture.ts",
   "tests/application-wiring.test.ts",
   "tests/application-capabilities.test.ts",
+  "tests/application-content.test.ts",
+  "tests/capability-source-reference.test.ts",
   "tests/identity-localization.test.ts",
   "tests/http-foundation.test.ts",
   "tests/harness-http-governance.test.ts",
