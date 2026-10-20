@@ -51,8 +51,16 @@ describe("terminal identity, skills and UI governance", () => {
       expect(await readFile(path.join(root, "docs/ENGINEERING_RULES.md"), "utf8")).toContain(
         `## 文件结构与模块依赖\n\n${moduleStructure}\n`
       )
+      for (const file of ["AGENTS.md", "docs/ENGINEERING_RULES.md"]) {
+        const governance = await readFile(path.join(root, file), "utf8")
+        expect(governance).toContain("展示可打开预览并等待用户反馈")
+        expect(governance).toContain("不得先改产品代码")
+        expect(governance).toContain("pnpm prototype:check <scope> <设计请求来源>")
+      }
       const common = [
         "web-compose-capabilities",
+        "web-design-prototype",
+        "web-implement-change",
         "web-review-api-contract",
         "web-review-module-boundaries",
         "web-implement-access-control",
@@ -94,6 +102,10 @@ describe("terminal identity, skills and UI governance", () => {
       await writeFile(recoveryFile, recoverySource)
       // 验证真实分发后仍拒绝弱化权限恢复、差异身份或 Mock 协议边界。
       const accessContracts: [string, string][] = [
+        ["web-design-prototype", "展示预览并等待用户反馈"],
+        ["web-design-prototype", "即使旧文件哈希仍匹配，新设计请求也不能复用旧批准"],
+        ["web-implement-change", "展示后等待用户反馈，不得先改产品代码"],
+        ["web-define-product", "需求批准不代替设计反馈"],
         ["web-implement-auth-session", "不创建第二套会话"],
         ["web-implement-auth-session", "迟到登录、恢复或 401 不得覆盖或清理后来会话"],
         ["web-compose-capabilities", "知识库与模板库独立索引"],

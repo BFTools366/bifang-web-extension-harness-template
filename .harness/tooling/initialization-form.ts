@@ -3,7 +3,7 @@ import path from "node:path"
 import { createHash } from "node:crypto"
 import type { CreationApproval } from "./types.ts"
 import { parseIdentityI18n } from "./identity.ts"
-import { readCreationRequirements } from "./creation-requirements.ts"
+import { readRequirementsInput } from "./creation-requirements.ts"
 import { createLogo } from "./logo.ts"
 import {
   INITIALIZATION_QUESTIONS,
@@ -147,6 +147,7 @@ function creationArguments(identity: PromptedIdentity, logoPath: string): string
   ]
   for (const key of [
     "requirementsFile",
+    "requirementsText",
     "englishName",
     "identityI18n",
     "developmentBaseUrl",
@@ -195,6 +196,7 @@ export async function inspectCreationForm(
       },
       {
         mode: "agent",
+        cwd: resolvedSourceRoot,
         validateTarget: (values) => validateInitializationTarget(resolvedSourceRoot, values)
       }
     )
@@ -232,26 +234,24 @@ export async function inspectCreationForm(
     logoPath: input.logoPath,
     logoBytes
   })
-  const requirements = identity.requirementsFile
-    ? await readCreationRequirements(identity.requirementsFile)
-    : undefined
+  const requirements = await readRequirementsInput(identity)
   const target = path.join(identity.targetRoot, identity.id)
   const summaryInput: InstantiationSummary = {
     rawSourceRoot: resolvedSourceRoot,
     canonicalSourceRoot: await canonicalizeProspectiveTarget(resolvedSourceRoot),
-    rawParentRoot: identity.targetRoot,
+    rawParentRoot: identity.rawParentRoot ?? identity.targetRoot,
+    pathBaseRoot: resolvedSourceRoot,
     rawTargetRoot: target,
     canonicalTargetRoot: await canonicalizeProspectiveTarget(target),
     policyMode: identity.policyMode,
     inputSources: identity.inputSources,
-    requirements:
-      requirements && identity.requirementsFile
-        ? {
-            sourcePath: identity.requirementsFile,
-            sha256: requirements.sha256,
-            byteLength: Buffer.byteLength(requirements.content)
-          }
-        : undefined,
+    requirements: requirements
+      ? {
+          sourcePath: identity.requirementsFile ?? "直接输入或 Word 提取的需求文本",
+          sha256: requirements.sha256,
+          byteLength: Buffer.byteLength(requirements.content)
+        }
+      : undefined,
     init: {
       ...identity,
       logoPath: input.logoPath,
@@ -303,6 +303,13 @@ export async function inspectCreationForm(
     ...result,
     phase: "authorized",
     argv: creationArguments(identity, input.logoPath),
-    approval
+    approval: {
+      ...approval,
+      initialCreationAuthorization: {
+        revision,
+        source: input.decision.source,
+        scope: { ...input.scope }
+      }
+    }
   }
 }

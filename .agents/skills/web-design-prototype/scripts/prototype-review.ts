@@ -1,5 +1,6 @@
 import { lstat, readFile, readdir } from "node:fs/promises"
 import path from "node:path"
+import { randomUUID } from "node:crypto"
 import { loadProjectConfig } from "../../../../.harness/tooling/config.ts"
 import {
   isMainModule,
@@ -16,12 +17,19 @@ interface Artifact {
 
 /** 绑定本轮单一桌面原型；需求正文及开发授权不由此记录代替。 */
 export interface PrototypeReview {
-  schemaVersion: 2
+  schemaVersion: 3
   projectId: string
   projectType: "web" | "extension"
+  initializedAt: string
   scope: string
   revision: string
   layout: "desktop"
+  requestSource: string
+  generation: string
+  reviewHash: string
+  state: "awaiting-preview" | "awaiting-feedback" | "approved"
+  presentation?: { source: string }
+  approval?: { mode: "preview" | "waiver" | "initial-create"; answer: string; source: string }
   prd: Artifact
   prototype: Artifact
 }
@@ -34,14 +42,92 @@ function reviewHeader(
   config: ProjectConfig,
   scope: string,
   revision: string
-): Omit<PrototypeReview, "prd" | "prototype"> {
+): Pick<
+  PrototypeReview,
+  "schemaVersion" | "projectId" | "projectType" | "initializedAt" | "scope" | "revision" | "layout"
+> {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     projectId: config.id,
     projectType: config.projectType,
+    initializedAt: config.initializedAt,
     scope,
     revision,
     layout: "desktop"
+  }
+}
+
+/** 绑定本轮请求、项目实例、登记代次与文件，不把旧确认用于新一轮设计。 */
+function reviewHash(review: PrototypeReview): string {
+  return sha256Hex(
+    JSON.stringify({
+      projectId: review.projectId,
+      projectType: review.projectType,
+      initializedAt: review.initializedAt,
+      scope: review.scope,
+      revision: review.revision,
+      layout: review.layout,
+      requestSource: review.requestSource,
+      generation: review.generation,
+      prd: review.prd,
+      prototype: review.prototype
+    })
+  )
+}
+
+/** 要求真实来源或原话，空值不表示展示、反馈或豁免。 */
+function evidence(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) throw new Error("需要非空的真实消息来源或原话")
+  return value
+}
+
+/** 仅读取并核对工程事务交接的首版授权，已消费凭据不能用于另一轮设计。 */
+async function initialCreationReceipt(root: string, review: PrototypeReview) {
+  const location = await localPath(root, ".harness/initial-creation.json")
+  const receipt = object(JSON.parse(await readFile(location, "utf8")))
+  const authorization = object(receipt.authorization)
+  const scope = object(authorization.scope)
+  if (
+    receipt.schemaVersion !== 1 ||
+    receipt.projectId !== review.projectId ||
+    receipt.projectType !== review.projectType ||
+    receipt.initializedAt !== review.initializedAt ||
+    review.scope !== "initial-create" ||
+    review.revision !== "v1" ||
+    receipt.closedByReviewHash !== undefined ||
+    authorization.source !== review.requestSource ||
+    typeof authorization.revision !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(authorization.revision) ||
+    !["users", "home", "pages", "operations", "design", "data", "acceptance"].every(
+      (key) => typeof scope[key] === "string" && String(scope[key]).trim()
+    ) ||
+    (receipt.consumedReviewHash !== undefined && receipt.consumedReviewHash !== review.reviewHash)
+  )
+    throw new Error("首版授权与当前项目、请求或设计不匹配，不能用于后续改版")
+  const prd = await readFile(await localPath(root, review.prd.path), "utf8")
+  if (!prd.split(/\r?\n/u).includes(`创建确认：${authorization.revision}`)) {
+    throw new Error("首版 PRD 必须引用当前完整创建确认修订")
+  }
+  const scopeLines = prd.split(/\r?\n/u).filter((line) => line.startsWith("创建范围："))
+  const declaredScope = object(
+    scopeLines.length === 1 ? JSON.parse(scopeLines[0]?.slice("创建范围：".length) ?? "null") : null
+  )
+  if (
+    Object.keys(declaredScope).length !== Object.keys(scope).length ||
+    !Object.keys(scope).every((key) => declaredScope[key] === scope[key])
+  ) {
+    throw new Error("首版 PRD 创建范围与完整创建授权不匹配")
+  }
+  return { location, receipt }
+}
+
+/** 普通设计批准或显式豁免发生后，关闭尚未消费的首版凭据，避免留给后续改版。 */
+async function closeInitialCreationReceipt(root: string, review: PrototypeReview): Promise<void> {
+  const location = await localPath(root, ".harness/initial-creation.json", true)
+  if ((await lstatIfPresent(location)) === undefined) return
+  const receipt = object(JSON.parse(await readFile(location, "utf8")))
+  if (receipt.consumedReviewHash === undefined && receipt.closedByReviewHash === undefined) {
+    await writeJsonAtomic(location, { ...receipt, closedByReviewHash: review.reviewHash })
   }
 }
 
@@ -188,18 +274,18 @@ async function readReview(
     throw error
   }
   const raw = object(JSON.parse(await readFile(location, "utf8")))
-  if (raw.schemaVersion !== 2) {
-    throw new Error("原型记录格式已更新；请自查、展示并重新登记单一桌面原型")
+  if (raw.schemaVersion !== 3) {
+    throw new Error("原型记录格式已更新；请重新登记、展示并取得当前设计反馈，不能自动继承旧批准")
   }
   if (
     raw.projectId !== config.id ||
     raw.projectType !== config.projectType ||
+    raw.initializedAt !== config.initializedAt ||
     raw.scope !== scope ||
     typeof raw.revision !== "string" ||
     raw.layout !== "desktop" ||
     "candidates" in raw ||
-    "selection" in raw ||
-    "state" in raw
+    "selection" in raw
   ) {
     throw new Error("Invalid single desktop prototype review identity")
   }
@@ -214,41 +300,155 @@ async function readReview(
   if ((await fingerprint(root, prototype.path)).sha256 !== prototype.sha256) {
     throw new Error("原型已变化；请修订、自查并重新登记原型")
   }
-  return {
+  const result: PrototypeReview = {
     ...reviewHeader(config, scope, raw.revision),
+    requestSource: evidence(raw.requestSource),
+    generation: evidence(raw.generation),
+    reviewHash: evidence(raw.reviewHash),
+    state: raw.state as PrototypeReview["state"],
     prd,
     prototype
   }
+  if (!/^[a-f0-9]{64}$/u.test(result.reviewHash) || result.reviewHash !== reviewHash(result))
+    throw new Error("原型评审修订不匹配，请重新登记并展示")
+  if (raw.presentation !== undefined) {
+    result.presentation = { source: evidence(object(raw.presentation).source) }
+  }
+  if (raw.approval !== undefined) {
+    const decision = object(raw.approval)
+    if (
+      typeof decision.mode !== "string" ||
+      !["preview", "waiver", "initial-create"].includes(decision.mode)
+    )
+      throw new Error("未知设计反馈模式")
+    result.approval = {
+      mode: decision.mode as NonNullable<PrototypeReview["approval"]>["mode"],
+      answer: evidence(decision.answer),
+      source: evidence(decision.source)
+    }
+  }
+  if (
+    !["awaiting-preview", "awaiting-feedback", "approved"].includes(result.state) ||
+    (result.state === "awaiting-preview" && (result.presentation || result.approval)) ||
+    (result.state === "awaiting-feedback" && (!result.presentation || result.approval)) ||
+    (result.state === "approved" &&
+      (!result.approval || (result.approval.mode !== "waiver" && !result.presentation)))
+  )
+    throw new Error("原型展示或用户反馈状态损坏")
+  if (result.approval?.mode === "preview" && !isApprovalAnswer(result.approval.answer))
+    throw new Error("缺少明确设计反馈")
+  if (
+    result.approval?.mode === "preview" &&
+    [result.requestSource, result.presentation?.source].includes(result.approval.source)
+  )
+    throw new Error("设计反馈不能复用原始需求或展示消息")
+  if (result.approval?.mode === "waiver" && !isWaiverAnswer(result.approval.answer))
+    throw new Error("缺少明确跳过本次预览的原话")
+  if (result.approval?.mode === "initial-create") {
+    const { receipt } = await initialCreationReceipt(root, result)
+    if (
+      receipt.consumedReviewHash !== result.reviewHash ||
+      result.approval.source !== result.requestSource
+    )
+      throw new Error("首版授权尚未绑定当前设计")
+  }
+  return result
 }
 
-/** 登记或核验单一桌面原型，不增加用户选择或业务开发授权。 */
+/** 只接受对当前原型的明确肯定，含修改要求的回答不能直接批准。 */
+function isApprovalAnswer(answer: string): boolean {
+  return ["yes", "y", "确认", "通过", "同意", "按此实现"].includes(answer.trim().toLowerCase())
+}
+
+/** 明确跳过预览须单独表达，普通实施授权或 yes 不构成豁免。 */
+function isWaiverAnswer(answer: string): boolean {
+  return [
+    "跳过本次预览并直接实施",
+    "跳过预览直接实施",
+    "不用预览直接改",
+    "skip preview and implement"
+  ].includes(answer.trim().toLowerCase())
+}
+
+/** 登记、展示及绑定当前设计反馈；开发检查不自动制造展示或用户批准。 */
 export async function runPrototypeReview(
   argv: string[],
   root = process.cwd()
 ): Promise<PrototypeReview> {
   const [command, scope, ...args] = argv
-  if (scope === undefined) throw new Error("用法：prototype-review.ts prepare|check <scope> ...")
+  if (scope === undefined)
+    throw new Error(
+      "用法：prototype-review.ts prepare|present|approve|waive|initial-create|check <scope> ..."
+    )
   assertScope(scope)
   // 在读取任何业务文件或创建目录前验证下游身份，初始化不得调用本工具。
   const config = await loadProjectConfig(root)
   if (command === "prepare") {
-    const [prdPath, prototypePath] = args
-    if (args.length !== 2 || prdPath === undefined || prototypePath === undefined)
-      throw new Error("prepare 需要 PRD 和恰好一个桌面 HTML 原型")
+    const [requestSource, prdPath, prototypePath] = args
+    if (args.length !== 3 || prdPath === undefined || prototypePath === undefined)
+      throw new Error("prepare 需要设计请求来源、PRD 和恰好一个桌面 HTML 原型")
     const prd = await confirmedPrd(root, prdPath)
     const revision = prototypeRevision(scope, prototypePath)
     const prototype = await fingerprint(root, prototypePath)
     const review: PrototypeReview = {
       ...reviewHeader(config, scope, revision),
+      requestSource: evidence(requestSource),
+      generation: randomUUID(),
+      reviewHash: "",
+      state: "awaiting-preview",
       prd,
       prototype
     }
+    review.reviewHash = reviewHash(review)
     await save(root, review)
     return review
   }
-  if (command !== "check") throw new Error("仅支持 prepare/check，不提供多方案选择命令")
-  if (args.length !== 0) throw new Error("check 不接受额外参数")
-  return readReview(root, scope, config)
+  if (!["present", "approve", "waive", "initial-create", "check"].includes(command ?? ""))
+    throw new Error(
+      "仅支持 prepare/present/approve/waive/initial-create/check，不提供多方案选择命令"
+    )
+  const review = await readReview(root, scope, config)
+  if (command === "check") {
+    if (args.length !== 1) throw new Error("check 需要本轮设计请求来源，不接受额外参数")
+    if (args[0] !== review.requestSource) throw new Error("当前设计请求已变化，不能复用旧原型批准")
+    if (review.state !== "approved") throw new Error("原型仍待预览或用户反馈，不得修改产品代码")
+    return review
+  }
+  if (args[0] !== review.reviewHash) throw new Error("旧评审修订不能用于当前原型")
+  if (command === "present") {
+    if (args.length !== 2 || review.state !== "awaiting-preview")
+      throw new Error("present 需要当前修订及真实展示来源，且只能展示待预览记录")
+    review.presentation = { source: evidence(args[1]) }
+    review.state = "awaiting-feedback"
+  } else if (command === "initial-create") {
+    if (args.length !== 1 || review.state !== "awaiting-feedback")
+      throw new Error("首版复用必须先展示当前原型")
+    const { location, receipt } = await initialCreationReceipt(root, review)
+    await writeJsonAtomic(location, { ...receipt, consumedReviewHash: review.reviewHash })
+    review.approval = {
+      mode: "initial-create",
+      answer: "复用完整创建确认",
+      source: review.requestSource
+    }
+    review.state = "approved"
+  } else {
+    if (args.length !== 3 || review.state === "approved")
+      throw new Error("设计反馈需要当前修订、真实原话及用户消息来源")
+    const answer = evidence(args[1])
+    const source = evidence(args[2])
+    if (command === "approve") {
+      if (review.state !== "awaiting-feedback" || !isApprovalAnswer(answer))
+        throw new Error("须先展示当前原型，并取得明确设计反馈")
+      if (source === review.requestSource || source === review.presentation?.source)
+        throw new Error("设计反馈必须来自展示后的新用户回复，不能复用原始需求或展示消息")
+    } else if (!isWaiverAnswer(answer))
+      throw new Error("必须明确跳过本次预览并直接实施，普通授权不能代替")
+    review.approval = { mode: command === "approve" ? "preview" : "waiver", answer, source }
+    review.state = "approved"
+    await closeInitialCreationReceipt(root, review)
+  }
+  await save(root, review)
+  return review
 }
 
 if (isMainModule(import.meta.url)) {

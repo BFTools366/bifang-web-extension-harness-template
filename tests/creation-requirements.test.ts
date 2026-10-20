@@ -1,7 +1,11 @@
 import { lstat } from "node:fs/promises"
 import path from "node:path"
 import { describe, expect, test } from "vitest"
-import { readCreationRequirements } from "../.harness/tooling/creation-requirements.ts"
+import {
+  createRequirementsText,
+  readCreationRequirements,
+  readRequirementsInput
+} from "../.harness/tooling/creation-requirements.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
@@ -43,12 +47,24 @@ describe("创建需求输入", () => {
     ])
     expect(questions[0]).toContain("无默认值")
     expect(questions[0]).not.toContain("建议/默认")
+    for (const hint of [
+      ".md",
+      ".txt",
+      ".doc/.docx",
+      "直接输入",
+      "暂不提供",
+      "目标用户",
+      "核心流程",
+      "减少后续重复沟通"
+    ]) {
+      expect(questions[1]).toContain(hint)
+    }
     expect(result.requirementsFile).toBeUndefined()
     expect(answers).toEqual([])
   })
 
   /** 验证只重问非法文档路径，已给文档不再次索取。 */
-  test("复用文档路径且相对路径只重问当前字段", async () => {
+  test("复用文档路径且缺失文件只重问当前字段", async () => {
     const file = path.join(await temporaryDirectory("requirements-prompt-"), "brief.md")
     await writeFile(file, "只需要公开介绍页面。\n")
     const questions: string[] = []
@@ -66,6 +82,73 @@ describe("创建需求输入", () => {
       throw new Error("不得重问已提供的文档")
     })
   })
+
+  /** 验证相对文档路径以指定基准解析，不要求重复输入绝对路径。 */
+  test("相对文档路径可读取便直接复用", async () => {
+    const root = await temporaryDirectory("requirements-relative-")
+    await writeFile(path.join(root, "brief.md"), "需求正文\n")
+    const result = await collectPromptedIdentity(
+      { ...BASICS, requirementsFile: "./brief.md" },
+      async () => {
+        throw new Error("可读文件不应重问")
+      },
+      { cwd: root }
+    )
+    expect(result.requirementsFile).toBe(path.join(root, "brief.md"))
+  })
+
+  /** 验证直接正文完整保留、已给正文不索取文件，互斥和超限输入拒绝。 */
+  test("直接文字与 Word 提取正文使用同一文本快照", async () => {
+    const text = "\uFEFF  # 需求\r\n- 登录\r\n表格：角色\t动作\r\n  "
+    const snapshot = createRequirementsText(text)
+    expect(snapshot.content).toBe(text)
+    expect(await readRequirementsInput({ requirementsText: text })).toEqual(snapshot)
+    const result = await collectPromptedIdentity(
+      { ...BASICS, requirementsText: text },
+      async () => {
+        throw new Error("已有正文不得再问文件")
+      }
+    )
+    expect(result.requirementsText).toBe(text)
+    expect(result.requirementsFile).toBeUndefined()
+    await expect(
+      readRequirementsInput({ requirementsFile: "brief.md", requirementsText: text })
+    ).rejects.toThrow(/只能提供一种/)
+    for (const invalid of [" \n", "binary\0data", "x".repeat(1_048_577), "\ud800"]) {
+      expect(() => createRequirementsText(invalid)).toThrow()
+    }
+  })
+
+  /** 验证终端当前题支持直接文字，不要求用户建立文件。 */
+  test.each(["text:", "文字："])("终端正文前缀 %s", async (prefix) => {
+    const questions: string[] = []
+    const text = "  个人笔记\n清空后回到空状态。\n"
+    const result = await collectPromptedIdentity(BASICS, async (question) => {
+      questions.push(question)
+      return prefix + text
+    })
+    expect(questions).toHaveLength(1)
+    expect(result.requirementsText).toBe(text)
+    expect(result.requirementsFile).toBeUndefined()
+  })
+
+  /** 验证非法正文的修正保持完整文字，以大括号开头也不解析成工程 JSON。 */
+  test.each(["  # 正文\r\n内容\r\n  ", "{用户需求：清空笔记}"])(
+    "正文恢复保留文本：%s",
+    async (text) => {
+      let asks = 0
+      const result = await collectPromptedIdentity(
+        { ...BASICS, requirementsText: "bad\0text" },
+        async (question) => {
+          asks++
+          expect(question).toContain("字段： requirementsText")
+          return text
+        }
+      )
+      expect(asks).toBe(1)
+      expect(result.requirementsText).toBe(text)
+    }
+  )
 
   /** 验证原文字节、BOM 与换行保留，空白、二进制、过大和非法格式均拒绝。 */
   test("冻结原文且拒绝不可读需求输入", async () => {
@@ -228,5 +311,38 @@ describe("创建需求输入", () => {
       }
     )
     expect(await readdir(parent)).toEqual([])
+  })
+
+  /** 验证 CLI 正文参数保留换行与首尾空白，并在真实 staging 中持久交接。 */
+  test("直接正文经过公开 CLI 保存到下游", async () => {
+    const parent = await temporaryDirectory("requirements-text-project-")
+    const text = "  # 需求\r\n个人笔记，无远端接口。\r\n  "
+    await runInstantiateCli(
+      [
+        ".",
+        "--type",
+        "web",
+        "--name",
+        "Text Web",
+        "--policy-mode",
+        "预设",
+        "--requirements-text",
+        text
+      ],
+      {
+        interactive: false,
+        cwd: parent,
+        confirm: async () => true,
+        output: () => undefined,
+        instantiate: (supplied) =>
+          instantiateProject({
+            ...supplied,
+            init: { ...supplied.init, skipInstall: true, skipGit: true }
+          })
+      }
+    )
+    expect(await readFile(path.join(parent, "text-web/docs/requirements/source.txt"), "utf8")).toBe(
+      text
+    )
   })
 })

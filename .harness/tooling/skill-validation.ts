@@ -47,6 +47,8 @@ export const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = [
 /** 按能力拥有者保存源与终端共用的正文门禁，不让发现信息替代行为约束。 */
 export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]>> = {
   "web-define-product": [
+    "展示可打开预览并等待用户反馈",
+    "需求批准不代替设计反馈",
     "创建前只读分析",
     "源阶段不写 PRD、产品记录、原型或业务代码",
     "只读分析完成后返回调用方",
@@ -145,6 +147,10 @@ export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly str
     "不静默安装或升级"
   ],
   "web-implement-change": [
+    "用户明确要求改变设计、视觉、布局、风格、主题或交互",
+    "展示后等待用户反馈，不得先改产品代码",
+    "pnpm prototype:check <scope> <设计请求来源>",
+    "普通开发授权、需求批准或旧原型登记不能代替本轮设计反馈",
     "只将依赖该远端 API 的操作",
     "本地能力直接真实实现，不要求 BaseURL",
     "只有实际创建新下游时调用一次 `$web-check-development-environment`",
@@ -167,6 +173,11 @@ export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly str
     "消费者 × Chrome MV3 / Firefox MV2"
   ],
   "web-design-prototype": [
+    "展示预览并等待用户反馈",
+    "awaiting-feedback",
+    "reviewHash",
+    "即使旧文件哈希仍匹配，新设计请求也不能复用旧批准",
+    ".harness/initial-creation.json",
     "仅在已初始化下游运行",
     "正式 PRD、原型与登记只按各自事件创建",
     "每次只生成一个桌面端原型",

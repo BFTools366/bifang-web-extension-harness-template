@@ -149,7 +149,7 @@
 - 文档中的命令、路径、依赖和能力必须来自真实仓库。计划中的能力标记为“计划”，未执行检查写“未执行”。
 - 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 只拒绝形如 `候选状态：已验收`、`发布就绪：ready`、`Candidate status: accepted` 的行首结论，其他措辞靠评审。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
-- 下游需求澄清、PRD、原型登记的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与摘要绑定证据。分发能力不证明产品流程已经完成；新产品/页面及显著交互改版完成单一桌面原型自查登记后按已有授权开发，日常小修复不强制重走。
+- 下游需求澄清、PRD、原型登记的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与摘要绑定证据。分发能力不证明产品流程已经完成；新产品、新页面、影响页面或用户流程的需求变更，以及明确改变设计、视觉、布局、风格、主题或交互时，先调用设计 Skill，展示可打开预览并等待用户反馈，不得先改产品代码。普通实施授权不代替本轮设计反馈；明确跳过、一次性首版授权和当前评审核验按设计 Skill 合同执行。纯逻辑修复、文案纠错或恢复已确认设计的缺陷可直接实施，不能把明确改设计归为小修复。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`；Harness 源版本采用上海时间 `YYYYMMDDHHMM`，Web 候选页面版本采用上海时间 `YYMMDDHHMMSS`，Extension 候选使用 `package.json.version` 的稳定 SemVer。
 - 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。

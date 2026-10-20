@@ -180,21 +180,21 @@ export const SKILL_CONTRACTS = {
   },
   "web-define-product": {
     description:
-      "分析详细需求、判断基础页面或工作区需求，并在已初始化 React Web 或 Plasmo Extension 下游确认范围、记录唯一 Product Spec（PRD）。支持实例化委托的创建前只读分析，独立能力选择委托功能组合；不创建工程、不在源写产品记录、不实现业务代码，也不为日常小修复强制编写 PRD。",
+      "分析详细需求、判断基础页面或工作区需求，并在已初始化 React Web 或 Plasmo Extension 下游确认需求变更范围、记录唯一 Product Spec（PRD）并交接设计预览。支持实例化委托的创建前只读分析，独立能力选择委托功能组合；不创建工程、不在源写产品记录、不实现业务代码，也不为日常小修复强制编写 PRD。",
     title: "# Web Harness：定义前端产品",
     displayName: "Web Harness：定义前端产品",
-    shortDescription: "拥有需求语义与界面需求分析，创建前只读返回，下游确认唯一 PRD",
+    shortDescription: "澄清需求变更与唯一 PRD，影响页面或流程时交接设计预览",
     defaultPrompt:
-      "使用 $web-define-product 分析创建需求并只读返回建议，或在已初始化下游澄清产品需求并确认唯一 PRD 后进入单一桌面原型设计流程。"
+      "使用 $web-define-product 分析创建需求并只读返回建议，或在下游澄清需求变更并确认唯一 PRD；影响页面、流程或明确改设计时交接设计预览，需求批准不代替设计反馈。"
   },
   "web-design-prototype": {
     description:
-      "在已初始化的 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游，将已澄清的 PRD 转为一个桌面端可交互 HTML 原型，自查并登记内容摘要后交接开发。用于新产品、新页面、显著交互改版或用户要求原型；不生成 A/B 多方案或 Mobile 布局，不参与上游创建下游，也不为日常小修复强制重做原型。",
+      "在已初始化 React Web 或 Plasmo Extension 下游处理新页面、影响页面或流程的需求变更，以及明确的设计、视觉、布局、风格或交互修改；生成一个桌面交互原型，展示预览并等待用户反馈后交接开发。不生成 A/B 多方案或 Mobile 布局，不为纯逻辑修复或文案纠错强制重做原型。",
     title: "# Web Harness：设计单一桌面原型",
     displayName: "Web Harness：设计单一桌面原型",
-    shortDescription: "根据已确认 PRD 生成一个桌面交互原型，自查登记后按已有授权交接开发",
+    shortDescription: "设计变更先展示桌面交互原型，绑定当前版本并等待用户反馈",
     defaultPrompt:
-      "使用 $web-design-prototype 在当前已初始化下游根据 PRD 生成一个桌面端可交互 HTML 原型，自查并登记内容摘要后按已有授权交接开发，不生成 A/B 备选方案或 Mobile 布局。"
+      "使用 $web-design-prototype 处理页面、流程或明确设计变更，生成一个桌面 HTML 原型，自查后展示可打开预览并等待用户反馈，绑定当前请求和原型版本后才交接开发；首版授权与明确跳过按专用合同处理。"
   },
   "web-document-api": {
     description:
@@ -216,12 +216,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-implement-change": {
     description:
-      "在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中直接实施范围清楚的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。",
+      "在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中先识别需求与设计变化，再实施已满足预览反馈门禁的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。",
     title: "# Web Harness：实施前端变更",
     displayName: "Web Harness：实施前端变更",
-    shortDescription: "实施 Web Harness 或其 React Web、Plasmo MV3 前端下游变更",
+    shortDescription: "先判断设计变化，满足当前预览反馈门禁后实施前端变更",
     defaultPrompt:
-      "使用 $web-implement-change 在 Web Harness 或其纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游中实施并验证当前范围内的前端变更。"
+      "使用 $web-implement-change 先判断需求和设计影响；命中设计变更时先调用设计 Skill 展示预览并等待反馈，核验当前评审批准后再实施并验证当前授权范围。"
   },
   "web-implement-list-view": {
     description:

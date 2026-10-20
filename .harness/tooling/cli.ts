@@ -19,6 +19,7 @@ import { isMainModule } from "./files.ts"
 export const INIT_OPTIONS = [
   "type",
   "requirements-file",
+  "requirements-text",
   "name",
   "english-name",
   "id",
@@ -43,8 +44,8 @@ function usage(): string {
   return `Bifang Web Harness
 
 创建项目（目标必须位于本 Harness 仓库之外）：
-  pnpm instantiate -- <absolute-parent> --type web|extension --name <name> \\
-    [--english-name <English translation>] [--id <id>] [--requirements-file <absolute-md-or-txt>] \\
+  pnpm instantiate -- <parent-outside-harness> --type web|extension --name <name> \\
+    [--english-name <English translation>] [--id <id>] [--requirements-file <md-or-txt-path> | --requirements-text <text>] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
     [--description <description>（Extension 必填）] [--identity-i18n <json>] \\
@@ -58,18 +59,20 @@ function usage(): string {
   pnpm harness validate
 
 禁止原地初始化；创建项目必须且只能选择一种宿主类型。
-项目类型：1.Web；2.Extension，可输入编号；最终目录为 <absolute-parent>/<id>。
+项目类型：1.Web；2.Extension，可输入编号；最终目录为 <parent-outside-harness>/<id>。
 `
 }
 
 /** 描述初始化参数解析时可注入的交互环境。 */
 export interface InitOptionsResolutionRuntime {
   interactive?: boolean
+  cwd?: string
   targetRoot?: string
   promptIdentity?: (defaults: PromptDefaults) => Promise<PromptedIdentity>
   validateTarget?: (values: PromptDefaults) => Promise<void>
   onPolicyModeResolved?: (mode: "recommended" | "custom") => void
   onInputSourcesResolved?: (sources: Readonly<Record<string, string>>) => void
+  onParentInputResolved?: (rawParentRoot: string) => void
 }
 
 /** 将非交互能力参数约束为 enabled 或 disabled。 */
@@ -147,10 +150,13 @@ export async function resolveInitOptions(
   assertKnownOptions(args, INIT_OPTIONS)
   const interactive = runtime.interactive ?? isInteractiveTerminal()
   const suppliedBrandColor = readStringOption(args, "brand-color")
+  const requirementsText = readStringOption(args, "requirements-text", true)
   const supplied = {
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
     requirementsFile: readStringOption(args, "requirements-file", true),
+    requirementsText:
+      requirementsText === undefined ? undefined : String(args.options.get("requirements-text")),
     name: readStringOption(args, "name"),
     englishName: readStringOption(args, "english-name"),
     id: readStringOption(args, "id"),
@@ -169,7 +175,7 @@ export async function resolveInitOptions(
     e2eHint: readStringOption(args, "e2e-hint")
   }
   const required = [
-    ["<absolute-parent>", supplied.targetRoot],
+    ["<parent-outside-harness>", supplied.targetRoot],
     ["--type", supplied.projectType],
     ["--name", supplied.name],
     ["--policy-mode", supplied.policyMode]
@@ -184,7 +190,10 @@ export async function resolveInitOptions(
   if (interactive) {
     identity = runtime.promptIdentity
       ? await runtime.promptIdentity(supplied)
-      : await promptForIdentity(supplied, { validateTarget: runtime.validateTarget })
+      : await promptForIdentity(supplied, {
+          validateTarget: runtime.validateTarget,
+          cwd: runtime.cwd
+        })
   } else {
     if (missing.length > 0) {
       throw new Error(
@@ -206,6 +215,9 @@ export async function resolveInitOptions(
       : nonInteractiveAgentPolicy(supplied)
   runtime.onPolicyModeResolved?.(parsePolicyMode(identity.policyMode ?? ""))
   if ("inputSources" in identity) runtime.onInputSourcesResolved?.(identity.inputSources)
+  if ("rawParentRoot" in identity && identity.rawParentRoot !== undefined) {
+    runtime.onParentInputResolved?.(identity.rawParentRoot)
+  }
 
   if (projectType === "extension" && !identity.description?.trim()) {
     throw new Error("Extension project description is required (--description)")
@@ -214,6 +226,7 @@ export async function resolveInitOptions(
     root: identity.targetRoot ?? root,
     projectType,
     requirementsFile: identity.requirementsFile || undefined,
+    requirementsText: identity.requirementsText || undefined,
     name: identity.name ?? "",
     englishName: identity.englishName,
     id,

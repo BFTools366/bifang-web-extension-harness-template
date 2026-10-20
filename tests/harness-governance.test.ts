@@ -2,6 +2,8 @@ import { describe, test } from "vitest"
 import { realpath } from "node:fs/promises"
 import { collectPromptedIdentity, confirmInstantiation } from "../.harness/tooling/prompts.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
+import { createProjectConfig } from "../.harness/tooling/config.ts"
+import { validateInitializationTarget } from "../.harness/tooling/initialization-target.ts"
 import {
   TEST_BASE_URLS,
   expect,
@@ -18,6 +20,100 @@ import {
 
 /** 验证 single-package Harness validation and governance 的完整回归场景。 */
 describe("single-package Harness validation and governance", () => {
+  /** 验证可解析的相对父目录只需确认最终保存位置，取消与未确认均零写入。 */
+  test.each(["yes", "cancel", "unconfirmed"] as const)("相对父目录：%s", async (answer) => {
+    const workspace = await temporaryDirectory("relative-parent-")
+    const parent = "./new-parent"
+    const target = path.join(await realpath(workspace), "new-parent", "notes")
+    let confirmations = 0
+    let writes = 0
+    const invocation = runInstantiateCli(
+      [parent, "--type", "web", "--name", "Notes", "--policy-mode", "预设"],
+      {
+        cwd: workspace,
+        interactive: false,
+        output: () => undefined,
+        confirm:
+          answer === "unconfirmed"
+            ? undefined
+            : async (summary) => {
+                confirmations++
+                expect(summary.rawParentRoot).toBe(parent)
+                expect(summary.pathBaseRoot).toBe(workspace)
+                expect(summary.canonicalTargetRoot).toBe(target)
+                return answer === "yes"
+              },
+        instantiate: async (supplied) => {
+          writes++
+          expect(path.isAbsolute(supplied.targetRoot)).toBe(true)
+          expect(await realpath(path.dirname(path.dirname(supplied.targetRoot)))).toBe(
+            await realpath(workspace)
+          )
+          return createProjectConfig(supplied.init)
+        }
+      }
+    )
+    if (answer === "yes") await invocation
+    else
+      await expect(invocation).rejects.toThrow(
+        answer === "cancel" ? /cancelled/ : /需要确认是否保存/
+      )
+    expect(confirmations).toBe(answer === "unconfirmed" ? 0 : 1)
+    expect(writes).toBe(answer === "yes" ? 1 : 0)
+    expect(await readdir(workspace)).toEqual([])
+  })
+
+  /** 验证相对写法不会绕过源内目标保护，失败前不要求用户确认。 */
+  test("相对源内父目录保持拒绝", async () => {
+    await expect(
+      runInstantiateCli([".", "--type", "web", "--name", "Notes", "--policy-mode", "预设"], {
+        cwd: repositoryRoot,
+        interactive: false,
+        confirm: async () => {
+          throw new Error("非法位置不能进入确认")
+        },
+        instantiate: async () => {
+          throw new Error("非法位置不能进入事务")
+        }
+      })
+    ).rejects.toThrow(/outside the Harness/)
+  })
+
+  /** 验证交互修正位置参数后，汇总只使用最新回答，不展示旧路径。 */
+  test("修正父目录后确认最终原始输入", async () => {
+    const workspace = await temporaryDirectory("corrected-parent-")
+    await expect(
+      runInstantiateCli(
+        [repositoryRoot, "--type", "web", "--name", "Notes", "--policy-mode", "预设"],
+        {
+          cwd: workspace,
+          interactive: true,
+          promptIdentity: (defaults) =>
+            collectPromptedIdentity(
+              { ...defaults, requirementsFile: "" },
+              async (question) => {
+                expect(question).toContain("字段： targetRoot")
+                return "./corrected-parent"
+              },
+              {
+                cwd: workspace,
+                validateTarget: (values) => validateInitializationTarget(repositoryRoot, values)
+              }
+            ),
+          confirm: async (summary) => {
+            expect(summary.rawParentRoot).toBe("./corrected-parent")
+            expect(summary.rawTargetRoot).toBe(path.join(workspace, "corrected-parent", "notes"))
+            return false
+          },
+          instantiate: async () => {
+            throw new Error("取消不能写入")
+          }
+        }
+      )
+    ).rejects.toThrow(/cancelled/)
+    expect(await readdir(workspace)).toEqual([])
+  })
+
   /** 验证宿主选择不隐含业务分类，旧参数在写入前拒绝。 */
   test("Web foundation creation has no business category prompt", async () => {
     const questions: string[] = []
@@ -135,8 +231,8 @@ describe("single-package Harness validation and governance", () => {
     })
   })
 
-  /** 验证公共创建入口拒绝相对目标与内部测试跳过参数。 */
-  test("rejects relative targets and public skip flags before instantiation", async () => {
+  /** 验证公共创建入口拒绝缺少必要输入与内部测试跳过参数。 */
+  test("rejects missing inputs and public skip flags before instantiation", async () => {
     let instantiated = false
     await expect(
       runInstantiateCli(["relative-target"], {
@@ -146,7 +242,7 @@ describe("single-package Harness validation and governance", () => {
           throw new Error("must not instantiate")
         }
       })
-    ).rejects.toThrow(/absolute path/)
+    ).rejects.toThrow(/missing required option/)
     await expect(
       runInstantiateCli([path.join(repositoryRoot, "public-skip"), "--skip-install"], {
         interactive: false,
@@ -284,7 +380,7 @@ describe("single-package Harness validation and governance", () => {
               expect(question).toContain("targetRoot: 命令行父目录 + 项目标识")
               expect(question).toContain("项目类型：web")
               expect(question).not.toContain("Web 类型：")
-              expect(question).toContain("按此创建？")
+              expect(question).toContain("是否保存到汇总中的指定路径并创建工程？")
               return answer
             })
           },

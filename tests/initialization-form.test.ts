@@ -1,4 +1,6 @@
 import path from "node:path"
+import { realpath } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { readCreationRequirements } from "../.harness/tooling/creation-requirements.ts"
 import { inspectInitializationCatalog } from "../scripts/harness-validation/tooling.ts"
@@ -106,6 +108,52 @@ describe("共享聊天创建表单", () => {
     const cli = await inspectCreationForm(repositoryRoot + path.sep, input)
     expect(cli.summary).toBe(direct.summary)
     expect(cli.revision).toBe(direct.revision)
+  })
+
+  /** 验证相对输入不再被当作非法字段重问，确认绑定实际绝对保存位置。 */
+  test("相对父目录展示绝对保存位置并在同意后继续", async () => {
+    const { root, input } = await fixture()
+    const absolute = fact(input.values.targetRoot)
+    input.values.targetRoot = path.relative(repositoryRoot, absolute)
+    const current = await inspectCreationForm(repositoryRoot, input)
+    expect(current.phase).toBe("awaiting-confirmation")
+    expect(current.summary).toContain(`父目录（原始）：${input.values.targetRoot}`)
+    expect(current.summary).toContain(`相对路径解析基准：${repositoryRoot}`)
+    expect(current.summary).toContain(
+      `保存位置：${path.join(await realpath(root), "new-parent", "notes")}`
+    )
+    expect(current.question).toContain("是否保存到汇总中的指定路径")
+    input.decision = {
+      revision: fact(current.revision),
+      answer: "确认",
+      source: "用户确认保存位置"
+    }
+    const accepted = await inspectCreationForm(repositoryRoot, input)
+    expect(accepted.phase).toBe("authorized")
+    expect(accepted.argv?.[0]).toBe(absolute)
+    input.values.targetRoot = path.relative(repositoryRoot, path.join(root, "another-parent"))
+    expect((await inspectCreationForm(repositoryRoot, input)).phase).toBe("awaiting-confirmation")
+    expect(await readdir(root)).toEqual(["selected.png"])
+  })
+
+  /** 验证正文进入确认摘要与唯一执行参数，修改正文使旧批准失效。 */
+  test("直接需求不索取文件且文本变化需要重新确认", async () => {
+    const { input } = await fixture()
+    delete input.values.requirementsFile
+    input.values.requirementsText = "  # 笔记\r\n添加、清空。\r\n"
+    const current = await inspectCreationForm(repositoryRoot, input)
+    expect(current.phase).toBe("awaiting-confirmation")
+    expect(current.summary).toContain("直接输入或 Word 提取的需求文本")
+    input.decision = {
+      revision: fact(current.revision),
+      answer: "yes",
+      source: "用户确认正文与位置"
+    }
+    const accepted = await inspectCreationForm(repositoryRoot, input)
+    expect(accepted.argv).toContain(`--requirements-text=${input.values.requirementsText}`)
+    expect(accepted.approval?.requirementsSha256).toMatch(/^[a-f0-9]{64}$/)
+    input.values.requirementsText += "新增删除能力。"
+    expect((await inspectCreationForm(repositoryRoot, input)).phase).toBe("awaiting-confirmation")
   })
 
   /** 验证文件内容非法时在当前题修正，其他合法事实保留且不写目标。 */
@@ -272,6 +320,44 @@ describe("共享聊天创建表单", () => {
     await writeFile(file, JSON.stringify(input))
     await expect(runInstantiateCli(["--form", file], runtime)).rejects.toThrow(/旧确认/)
     expect(calls).toBe(1)
+  })
+
+  /** 验证完整创建批准经真实工程事务交接一次性首版凭据，普通工程确认不能冒充。 */
+  test("完整创建授权随真实项目保存并绑定工程实例", async () => {
+    const { file, input } = await fixture()
+    const preview = await inspectCreationForm(repositoryRoot, input)
+    input.decision = {
+      revision: fact(preview.revision),
+      answer: "确认",
+      source: "用户消息：确认完整首版"
+    }
+    await writeFile(file, JSON.stringify(input))
+    const config = await runInstantiateCli(["--form", file], {
+      sourceRoot: repositoryRoot,
+      output: () => undefined,
+      instantiate: (supplied) =>
+        instantiateProject({
+          ...supplied,
+          init: { ...supplied.init, skipInstall: true, skipGit: true }
+        })
+    })
+    const target = path.join(fact(input.values.targetRoot), config.id)
+    const receipt = JSON.parse(
+      await readFile(path.join(target, ".harness/initial-creation.json"), "utf8")
+    )
+    expect(receipt).toMatchObject({
+      schemaVersion: 1,
+      projectId: config.id,
+      projectType: config.projectType,
+      initializedAt: config.initializedAt,
+      authorization: {
+        revision: preview.revision,
+        source: input.decision.source,
+        scope: input.scope
+      }
+    })
+    expect(receipt.consumedReviewHash).toBeUndefined()
+    expect(receipt.closedByReviewHash).toBeUndefined()
   })
 
   /** 验证结构化范围能区分展示文本相同、字段语义不同的汇总。 */

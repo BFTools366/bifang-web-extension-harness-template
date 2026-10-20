@@ -186,7 +186,8 @@ describe("Harness Skill and Agent policy validation", () => {
     const driftRoot = await copyRepository()
     const driftPath = path.join(driftRoot, ".agents/skills/web-define-product/agents/openai.yaml")
     const driftSource = await readFile(driftPath, "utf8")
-    await writeFile(driftPath, driftSource.replace("澄清产品需求", "明确产品需求"))
+    expect(driftSource).toContain("澄清需求变更")
+    await writeFile(driftPath, driftSource.replace("澄清需求变更", "明确需求变更"))
     await expect(validateHarness(driftRoot)).rejects.toThrow(
       /metadata must exactly match its contract/
     )
@@ -210,7 +211,7 @@ describe("Harness Skill and Agent policy validation", () => {
     const sentenceSource = await readFile(sentencePath, "utf8")
     await writeFile(
       sentencePath,
-      sentenceSource.replace('单一桌面原型设计流程。"', '单一桌面原型设计流程。不要扩大范围。"')
+      sentenceSource.replace(/(default_prompt: ".*)。"/u, '$1。不要扩大范围。"')
     )
     await expect(validateHarness(sentenceRoot)).rejects.toThrow(
       /default_prompt must be one Chinese sentence/

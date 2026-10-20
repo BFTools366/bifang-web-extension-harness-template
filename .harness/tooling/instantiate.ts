@@ -103,6 +103,7 @@ function shouldExclude(relativePath: string, name: string): boolean {
   if (EXCLUDED_NAMES.has(name)) return true
   // 用户需求只来自本次输入，不复制源中遗留材料；不能加入终端记忆裁剪名单。
   if (relativePath === CREATION_REQUIREMENTS_DIR) return true
+  if (relativePath === ".harness/initial-creation.json") return true
   if (relativePath === ".agents/skills/manage-project-surfaces") return true
   if (relativePath === ".agents/skills/web-curate-harness-memory") {
     return true
@@ -250,7 +251,12 @@ export async function instantiateProject(
       }
       // 保存 config 变量供当前逻辑使用。
       const config = await initialize(
-        { ...options.init, logoPath, root: stagingRoot },
+        {
+          ...options.init,
+          initialCreationAuthorization: options.approval?.initialCreationAuthorization,
+          logoPath,
+          root: stagingRoot
+        },
         preparedLogo
       )
       if (options.init.skipGit !== true) {

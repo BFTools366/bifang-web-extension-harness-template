@@ -95,6 +95,10 @@ export interface InitOptions extends EnvironmentBaseUrls {
   englishName?: string
   /** 保存创建期可选需求路径，仅由公开创建入口消费，不写入身份配置。 */
   requirementsFile?: string
+  /** 保存创建期直接输入或 Word 提取的需求文本，不写入身份配置。 */
+  requirementsText?: string
+  /** 仅由完整创建表单交接首版授权，初始化后作为一次性凭据保存。 */
+  initialCreationAuthorization?: InitialCreationAuthorization
   // 描述 id 接口成员的结构契约。
   id: string
   // 描述 description 接口成员的结构契约。
@@ -132,6 +136,14 @@ export interface CreationApproval {
   canonicalTargetRoot: string
   requirementsSha256?: string
   logoSha256: string
+  initialCreationAuthorization?: InitialCreationAuthorization
+}
+
+/** 冻结完整创建确认与七项首版范围，不授予后续设计变更。 */
+export interface InitialCreationAuthorization {
+  revision: string
+  source: string
+  scope: Record<string, string>
 }
 
 /** 描述与用户确认内容绑定的需求原文快照，不承载执行指令或身份配置。 */

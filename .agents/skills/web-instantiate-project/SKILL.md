@@ -11,8 +11,8 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
 创建前使用 [`references/form-adapter.md`](references/form-adapter.md) 的共享只读表单工具；它决定下一字段、固定显示内容、汇总修订和授权状态，模型只提取真实用户事实。实际写入仍只走 `pnpm instantiate`。同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用基础输入与策略题目的名称、题面、选项与顺序；CLI 使用 `confirmation` 确认工程事务，Agent 使用 `agentConfirmation` 一次确认完整首版范围，不连续询问两种确认；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按工具返回的 `basic` 顺序和条件逐项处理，每轮只展示工具返回的一题；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
-2. 要求用户明确选择唯一宿主：1.Web（`web`）或 2.Extension（`extension`），复用合法选择，不默认或从文档推断。随后复用已提供的文档、全文或口头需求；需求文档可选，首版实际需求不能省略。读取 [创建需求输入与事务交接](references/requirements-intake.md)，需求分析委托 `$web-define-product` 的创建前只读模式；本 Skill 不拥有需求或能力判据，再由其委托 `$web-compose-capabilities` 解析操作。至少明确目标用户、真实首页、必要页面、完整核心流程、数据模式和可观察验收标准。按 catalog 自动补齐操作最小依赖并展示原因；购买必须包含基础用户系统，不由此加入注册、找回、组织或权限。原文经 `--requirements-file` 交接；口头需求沿用当前对话。默认欢迎页与计数器演示已移除，首页由实际需求实施，不能以工程空壳交付。
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按工具返回的 `basic` 顺序和条件逐项处理，每轮只展示工具返回的一题；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。父目录支持相对或绝对路径；聊天以源 Harness 根为解析基准，CLI 以调用时 cwd 为基准。只读解析、校验后，在最终汇总展示绝对保存位置并询问是否保存到该位置，用户同意后继续，不要求重输绝对路径。无交互终端的相对位置参数须通过已确认表单执行；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
+2. 要求用户明确选择唯一宿主：1.Web（`web`）或 2.Extension（`extension`），复用合法选择，不默认或从文档推断。随后复用已提供的 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）文档或直接输入的文字，也可暂不提供。明确告知用途：理解目标用户、页面、核心流程与功能范围，减少后续重复沟通；输入材料可省略，完整创建所需的实际首版范围随后按需澄清。读取 [创建需求输入与事务交接](references/requirements-intake.md)，需求分析委托 `$web-define-product` 的创建前只读模式；本 Skill 不拥有需求或能力判据，再由其委托 `$web-compose-capabilities` 解析操作。至少明确目标用户、真实首页、必要页面、完整核心流程、数据模式和可观察验收标准。按 catalog 自动补齐操作最小依赖并展示原因；购买必须包含基础用户系统，不由此加入注册、找回、组织或权限。Markdown/TXT 经 `--requirements-file` 交接；直接文字及 Word 完整提取正文经 `requirementsText` / `--requirements-text` 冻结交接，沿用当前对话，不重复索取。Word 读取与完整性按输入合同处理，不宣称 CLI 原生解析 Word。默认欢迎页与计数器演示已移除，首页由实际需求实施，不能以工程空壳交付。
 3. 只复用本次创建请求中用户已给的合法策略决定；源模板 YAML 默认值、`pending` 和其他项目的策略不是新项目答案。尚无有效决定时，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户登记记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
@@ -23,7 +23,7 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
 ## 安全复制
 
-1. 用户提供的父目录原始输入本身必须是绝对路径；不得先用当前目录把相对输入静默转绝对。在父目录下拼接已校验项目标识得到最终目录，将源 Harness 根和最终目录解析为规范绝对路径，在最终汇总中同时展示原始父目录、最终目录、规范值与输入来源。最终目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
+1. 用户提供的相对父目录按已展示的解析基准转换为可访问的绝对路径；保留原始输入，在确认中询问是否保存到该位置，用户同意后继续。不能解析、无法访问或校验失败时只提示具体问题，不因相对写法要求重复输入。在父目录下拼接已校验项目标识得到最终目录，将源 Harness 根和最终目录解析为规范绝对路径，在最终汇总中同时展示原始父目录、最终目录、规范值与输入来源。最终目录名必须等于项目标识；拒绝源根及其任意子路径、符号链接歧义和任何路径越界。
 2. 写入前清点目标。目标必须不存在或完全为空，包括隐藏条目；发现任何用户文件都停止，不覆盖、合并或清理。
 3. 正式创建在目标父目录建立同目标唯一的 sibling 租约，并绑定父目录、staging、holding 与预存空目标的设备、inode 和模式；任何身份漂移都停止发布。父目录漂移时不得沿替代路径递归清理，而要报告无法安全回收的原 staging/租约。
 4. 本次首次初始化调用 `$web-check-development-environment` 一次，只检查 Node.js/pnpm；同时运行 `git --version` 和源模板根的 `pnpm validate:harness`。源 Harness 没有 `.harness/project.json`，不得在这里误用只面向已初始化下游的 `pnpm harness validate`。Chrome/Firefox 不属于工程事务门禁，首版开发走查前按当前宿主检查实际可用浏览器；Git 缺失、模板验证失败或模板状态无法可信识别时停止。
@@ -42,15 +42,15 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对父目录、身份、策略模式与唯一类型；BaseURL 仅在用户主动提供时传入。CLI 在父目录下以生成的项目标识创建子目录；英文显示名称可省略 `--english-name`，显式 `--id` 仅用于复用用户已给标识。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
 
    ```text
-   pnpm instantiate -- <absolute-parent-outside-harness> --type <web|extension> \
+   pnpm instantiate -- <parent-outside-harness> --type <web|extension> \
      --name "<display-name>" --english-name "<English translation>" --policy-mode <预设|自定义>
    ```
 
-   有需求文档时追加 `--requirements-file <absolute-md-or-txt>`；Agent 处理附件/全文时使用源与目标之外临时目录中的完整文本。CLI 只交接原文，需求分析与建议由对应 Skill 返回，不能把 CLI 成功声明为业务已实现。
+   有 Markdown/TXT 时追加 `--requirements-file <md-or-txt-path>`；直接文字或 Word 完整正文使用 `requirementsText` / `--requirements-text <text>`，二者互斥。Word 由 Agent 的文档读取能力处理，无法完整读取时说明具体缺口，不用摘要冒充正文；必要的转换文件只放在源与目标之外临时目录。CLI 只交接原文，需求分析与建议由对应 Skill 返回，不能把 CLI 成功声明为业务已实现。
 
    自定义策略模式必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
-   Agent 通过只读工具解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总及首版首页、页面、操作与依赖原因、固定设计、数据模式和验收场景，并使用 JSON 的 `agentConfirmation` 条目确认一次；逐字展示只读工具返回的 `summary` 和 `question`。按表单适配合同记录当前 revision、真实用户回答和来源，使用 `pnpm instantiate -- --form <absolute-input-json>` 复核并执行完全相同的输入；禁止再手工改写 argv。该完整确认授权工程事务及范围内下游 PRD 记录、原型自查登记、代码接线、相关检查和开发浏览器走查；已有明确完整创建授权直接复用，不在工程成功或阶段交接处重复询问。CLI 自身只能确认和完成工程事务，不能宣称业务完成。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
+   Agent 通过只读工具解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总及首版首页、页面、操作与依赖原因、固定设计、数据模式和验收场景，并使用 JSON 的 `agentConfirmation` 条目确认一次；逐字展示只读工具返回的 `summary` 和 `question`。按表单适配合同记录当前 revision、真实用户回答和来源，使用 `pnpm instantiate -- --form <absolute-input-json>` 复核并执行完全相同的输入；禁止再手工改写 argv。该完整确认授权工程事务及范围内下游 PRD 记录、原型自查登记、代码接线、相关检查和开发浏览器走查；已有明确完整创建授权直接复用，不在工程成功或阶段交接处重复询问。已授权表单由工程事务保存 `.harness/initial-creation.json` 的一次性首版授权，绑定完整修订、七项范围、消息来源与项目实例；首版原型仍须展示，凭据按设计 Skill 合同消费，后续设计变更不得沿用。CLI 自身只能确认和完成工程事务，不能宣称业务完成。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的 Ky HTTP 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。默认在项目内检查 `design-taste-frontend`，有效已有版本原样保留，缺失时由 initializer 使用固定快照自动补装至 `.agents/skills/design-taste-frontend/`，不追加用户选择、不依赖全局版本、不执行远程安装器；快照及事务边界见 `docs/TS_WEB_TEMPLATE.md` §3.9，设计适用规则见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。
@@ -60,7 +60,7 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 ## 在下游完成首版
 
 1. 工程事务成功后复核目标 `.harness/project.json`、Git 根和宿主，读取目标 `AGENTS.md`，在同一任务内转到目标根继续，不在源实施产品。
-2. `$web-define-product` 复用完整创建确认登记 Approved PRD，注明实际确认来源；`$web-compose-capabilities` 提供固定设计和操作依赖，`$web-design-prototype` 组合一个真实交互原型、自查并登记，不重复批准同一范围。
+2. `$web-define-product` 复用完整创建确认登记 Approved PRD，注明实际确认来源；`$web-compose-capabilities` 提供固定设计和操作依赖，`$web-design-prototype` 组合一个真实交互原型、自查并展示，在 PRD 记录 `创建确认：<revision>`，按设计 Skill 消费一次性首版授权再交接实施；不重复批准同一首版范围，后续改版重新预览并等待反馈。
 3. `$web-implement-change` 使用 [固定应用装配合同](../web-compose-capabilities/templates/application/wiring.md)，接入所选页面、路由、导航、用户区、HTTP、Query 与状态 owner，并按需求实现真实 HomePage。固定模板不是产品正文。基础身份必须包含登录、用户信息、匿名守卫、安全返回、Token、退出及当前 401 清理；权限同时用于路由、页面、导航、元素和提交前复核。
 4. 运行首版变化需要的类型检查、相关非空行为测试和实际开发浏览器核心流程走查；Extension 走查 Chrome 与 Firefox 的受影响流程。开发走查不调用最终产物 E2E Skill，不产生 Release 候选。Mock 模式明确标识、测试数据支撑实际流程；要求真实接入时必须接通可信 adapter，不能用 Mock 宣告完成。
 5. 产品阶段失败保留已发布下游及修改，修复后复验；不能删除工程回滚现场，也不能以工程事务成功结束完整创建。只有要求最终 dist/zip 或发布时才进入相应门禁；凭据、真实扣款、生产或外部写入按原授权与专用门禁执行。
@@ -68,7 +68,7 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 ## 不变量
 
 - 下游仓库必须是纯 `web` 或纯 `extension`，不能是两者组合、可增减目标的工作区或 monorepo。
-- 源 Harness 的 `pnpm instantiate -- <absolute-parent-outside-harness> ...` 是唯一公开创建入口；模板副本、源根和源内目录不得原地初始化。
+- 源 Harness 的 `pnpm instantiate -- <parent-outside-harness> ...` 是唯一公开创建入口；模板副本、源根和源内目录不得原地初始化。
 - 目标目录与独立 Git 顶层目录必须相同。
 - 保留用户文件优先于完成实例化；任何冲突都必须停止。
 - 不迁移模板的批准结论、日期记忆、验证证据、版本发布记录或人工签署。

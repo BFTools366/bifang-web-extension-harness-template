@@ -16,9 +16,11 @@ pnpm exec tsx scripts/initialization-form.ts <absolute-input-json>
 
 - `values`：以 JSON 题库的 `basic` / `policy` 字段名保存字符串，仅记录当前创建请求实际提供的值。缺失字段省略；主动提供的多个字段一次复用。源策略、其他项目、工具预选、沉默和超时不是用户答案。
 - 不把工具返回的 `identity` 复制回 `values`：它包含派生 id、默认说明与策略。用户显式 id 才保存为 `values.id`，这样改名时派生 id 能重算；改宿主时全部受影响字段由工具重新校验。用户修订直接更新对应原始字段，保留其他值。显示名称变化时，由 Agent 推导的英文译名须同步重译；用户显式指定的译名继续复用，不能误当自动值覆盖。
-- `requirementsFile`：用户明确不提供时保存空字符串；已有附件/全文在外部临时目录完整提取为 `.md` / `.txt` 后传入。缺失时仍展示可选题。工具会实际读取并校验格式、普通文件、UTF-8、非空及 1 MiB 限制，不能把不存在的路径当作已解析。
-- 聊天收到空回答时保持原状态并重用同一问题；用户明确接受建议才保存展示的建议值。用户回答“不提供需求文档”才将 `requirementsFile` 设为 `""`。CLI 实际回车接受建议的行为仅适用于 CLI。
+- `requirementsFile`：Markdown/TXT 文件的相对或绝对路径；`requirementsText`：用户直接输入的完整文字或 Word（.doc/.docx）的完整正文提取，保留换行与首尾空白。二者互斥；提供正文后不再问文件题。Word 按[输入合同](requirements-intake.md)实际读取，不能把二进制文件名或摘要当作正文；CLI 不直接解析 Word。工具校验 UTF-8、非空及 1 MiB 限制。两项均缺失时展示同一可选题并解释用途，用户明确不提供时保存 `requirementsFile: ""`，清除已有 `requirementsText`。
+- 聊天收到空回答时保持原状态并重用同一问题；用户明确接受建议才保存展示的建议值。用户明确选择“不提供”或“暂不提供”才将 `requirementsFile` 设为 `""` 并清除 `requirementsText`。CLI 实际回车接受建议的行为仅适用于 CLI。
 - 用户显式英文译名存 `values.englishName`。Agent 自动译名存 `translation: {name: 原显示名称, englishName: 英文译名}`，不写成用户输入；工具只在名称匹配时采用，改名后旧翻译自动失效。在汇总冻结该译名与派生 id；不同模型不必生成同义词完全相同的英文译名，但不得转拼音或从父目录推断。用户显式译名与 id 优先。
+
+相对 `values.targetRoot` 以源 Harness 根为基准解析，保留原始值，不让用户重输。最终汇总列出基准与绝对保存位置；完整确认同时确认该位置，修改路径或正文后旧修订失效。
 
 ## 状态与唯一下一步
 

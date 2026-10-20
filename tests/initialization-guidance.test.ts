@@ -117,7 +117,7 @@ describe("初始化渐进式引导", () => {
     for (const answer of ["", "no", "取消", "yes", "确认"]) {
       decisions.push(
         await confirmInstantiation(summary, async (question) => {
-          expect(question).toContain("问题名称：创建确认\n按此创建？")
+          expect(question).toContain("问题名称：创建确认\n是否保存到汇总中的指定路径并创建工程？")
           expect(question).toContain(
             "确认（按工程汇总写入目标与暂存目录、安装依赖并建立 Git 基线；首版页面功能由 Agent 在下游继续完成）"
           )
@@ -288,11 +288,11 @@ describe("初始化渐进式引导", () => {
     expect(resolved.inputSources.userOwnedTasks).toBe("命令行参数")
   })
 
-  /** 验证终端只补问中文名称的英文译名，标识自动生成且拒绝相对父路径。 */
-  test("英文译名生成标识且相对路径不能作为父目录", async () => {
+  /** 验证终端只补问英文译名与父目录，相对路径直接解析而不要求重输。 */
+  test("英文译名生成标识且相对路径直接解析", async () => {
     const questions: string[] = []
     const target = path.resolve("..", "notes")
-    const answers = ["", "Notes", "./notes", target]
+    const answers = ["", "Notes", "../notes"]
     const resolved = await collectPromptedIdentity(
       {
         ...{ ...BASE_INPUT, name: "笔记", id: undefined, targetRoot: undefined },
@@ -305,7 +305,7 @@ describe("初始化渐进式引导", () => {
         return answer
       }
     )
-    expect(questions).toHaveLength(4)
+    expect(questions).toHaveLength(3)
     for (const question of questions.slice(0, 2)) {
       expect(question).toContain("字段： englishName")
       expect(question).not.toContain("建议/默认")
@@ -314,8 +314,8 @@ describe("初始化渐进式引导", () => {
       expect(question).toContain("字段： targetRoot")
       expect(question).not.toContain("回车采用")
     }
-    expect(questions[3]).toContain("必须提供绝对路径")
     expect(resolved).toMatchObject({ id: "notes", targetRoot: target, name: "笔记" })
+    expect(resolved.rawParentRoot).toBe("../notes")
     expect(resolved.inputSources.id).toBe("英文名称自动生成")
   })
 

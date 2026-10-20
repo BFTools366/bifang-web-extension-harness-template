@@ -28,10 +28,12 @@ import type {
 /** 描述基础表单解析完成后的项目身份与 Agent 策略。 */
 export interface PromptedIdentity {
   targetRoot: string
+  rawParentRoot?: string
   policyMode: AgentPolicyMode
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
   requirementsFile?: string
+  requirementsText?: string
   name: string
   englishName?: string
   id: string
@@ -49,6 +51,7 @@ export interface InstantiationSummary {
   rawSourceRoot: string
   canonicalSourceRoot: string
   rawParentRoot?: string
+  pathBaseRoot?: string
   rawTargetRoot: string
   canonicalTargetRoot: string
   inputSources: Readonly<Record<string, string>>
@@ -170,10 +173,12 @@ export async function collectPromptedIdentity(
 
   return {
     targetRoot: requiredText(basic.targetRoot, "目标目录"),
+    rawParentRoot: collected.rawParentRoot,
     policyMode,
     inputSources: { ...collected.inputSources, ...policySources },
     projectType,
     requirementsFile: basic.requirementsFile || undefined,
+    requirementsText: basic.requirementsText || undefined,
     name: requiredText(basic.name, "项目名称"),
     englishName: basic.englishName || undefined,
     id: requiredText(basic.id, "项目标识"),
@@ -215,8 +220,10 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 源路径（原始）：${summary.rawSourceRoot}
 - 源路径（规范）：${summary.canonicalSourceRoot}
 - 父目录（原始）：${summary.rawParentRoot ?? "未单独提供"}
+- 相对路径解析基准：${summary.pathBaseRoot ?? "未使用相对路径"}
 - 目标路径（原始）：${summary.rawTargetRoot}
 - 目标路径（规范）：${summary.canonicalTargetRoot}
+- 保存位置：${summary.canonicalTargetRoot}（确认后使用此绝对路径）
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}
 - 需求文档：${summary.requirements === undefined ? "未提供，实际首版需求由 Agent 澄清" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，已有完整范围确认在下游复用）`}

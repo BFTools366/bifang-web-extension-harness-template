@@ -378,6 +378,10 @@
       "mode": "protected"
     },
     {
+      "pattern": ".harness/initial-creation.json",
+      "mode": "protected"
+    },
+    {
       "pattern": ".harness/project-memory-compatibility.json",
       "mode": "protected"
     },

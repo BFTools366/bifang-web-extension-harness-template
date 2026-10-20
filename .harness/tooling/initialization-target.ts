@@ -1,4 +1,5 @@
-import { lstat, readdir, realpath } from "node:fs/promises"
+import { access, lstat, readdir, realpath, stat } from "node:fs/promises"
+import { constants } from "node:fs"
 import path from "node:path"
 import type { PromptDefaults } from "./initialization-input.ts"
 
@@ -15,6 +16,23 @@ export async function canonicalizeProspectiveTarget(targetRoot: string): Promise
       const parent = path.dirname(cursor)
       if (parent === cursor) throw error
       missingNames.push(path.basename(cursor))
+      cursor = parent
+    }
+  }
+}
+
+/** 只读核对父目录最近的真实祖先可访问且可创建子目录，不提前创建任何目录。 */
+export async function validateParentAccess(parentRoot: string): Promise<void> {
+  let cursor = parentRoot
+  while (true) {
+    try {
+      if (!(await stat(cursor)).isDirectory()) throw new Error(`父路径不是目录：${cursor}`)
+      await access(cursor, constants.R_OK | constants.W_OK | constants.X_OK)
+      return
+    } catch (error) {
+      if ((error as { code?: unknown }).code !== "ENOENT") throw error
+      const parent = path.dirname(cursor)
+      if (parent === cursor) throw error
       cursor = parent
     }
   }
@@ -58,6 +76,7 @@ export async function validateInitializationTarget(
   values: PromptDefaults
 ): Promise<void> {
   if (!values.targetRoot || !values.id) return
+  await validateParentAccess(values.targetRoot)
   const target = path.join(values.targetRoot, values.id)
   await preflightConfirmedTarget(
     target,

@@ -4,7 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
 import { INIT_OPTIONS, resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
-import { readCreationRequirements } from "../.harness/tooling/creation-requirements.ts"
+import { readRequirementsInput } from "../.harness/tooling/creation-requirements.ts"
 import { readFile } from "node:fs/promises"
 import { inspectCreationForm } from "../.harness/tooling/initialization-form.ts"
 import {
@@ -23,6 +23,7 @@ import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/type
 import {
   canonicalizeProspectiveTarget,
   preflightConfirmedTarget,
+  validateParentAccess,
   validateInitializationTarget
 } from "../.harness/tooling/initialization-target.ts"
 export { canonicalizeProspectiveTarget } from "../.harness/tooling/initialization-target.ts"
@@ -45,7 +46,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） --name <name> [--requirements-file <absolute-md-or-txt>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
+  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension （1.Web / 2.Extension） --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
 }
 
 /** 标记每个初始化字段来自命令行、交互表单、默认值或预设。 */
@@ -62,11 +63,12 @@ function inputSources(
   const choices = Object.entries(POLICY_OPTIONS).map(([field, option]) => ({ field, option }))
   const result: Record<string, string> = {
     sourceRoot: "脚本固定 Harness 源入口",
-    targetRoot: "命令行绝对位置参数",
+    targetRoot: "命令行父目录位置参数",
     projectType: source("type"),
     requirementsFile: optionNames.has("requirements-file")
       ? "命令行参数"
       : "未提供，按原有题目继续",
+    requirementsText: optionNames.has("requirements-text") ? "命令行直接输入" : "未提供",
     name: source("name"),
     englishName: optionNames.has("english-name") ? "命令行参数" : "未单独提供",
     id: optionNames.has("id") ? "命令行参数" : "英文名称自动生成",
@@ -133,16 +135,13 @@ export async function runInstantiateCli(
   const interactive = runtime.interactive ?? isInteractiveTerminal()
   const positionalParentRoot = parsed.positionals[0]
   if (positionalParentRoot === undefined && !interactive) throw new Error(usage())
-  if (positionalParentRoot !== undefined && !path.isAbsolute(positionalParentRoot)) {
-    throw new Error(
-      `Instantiation parent must be provided as an absolute path: ${positionalParentRoot}`
-    )
-  }
   const initArgs = { ...parsed, positionals: [] }
   let policyMode: "recommended" | "custom" = "recommended"
   let resolvedInteractiveSources: Readonly<Record<string, string>> | undefined
+  let promptedParentRoot: string | undefined
   const init = await resolveInitOptions(initArgs, positionalParentRoot ?? "", {
     interactive,
+    cwd,
     targetRoot: positionalParentRoot,
     promptIdentity: runtime.promptIdentity,
     validateTarget: (values) => validateInitializationTarget(sourceRoot, values),
@@ -151,36 +150,44 @@ export async function runInstantiateCli(
     },
     onInputSourcesResolved: (resolved) => {
       resolvedInteractiveSources = resolved
+    },
+    onParentInputResolved: (raw) => {
+      promptedParentRoot = raw
     }
   })
-  const rawParentRoot = positionalParentRoot ?? init.root
-  if (!path.isAbsolute(rawParentRoot)) {
-    throw new Error(`Instantiation parent must be provided as an absolute path: ${rawParentRoot}`)
-  }
+  const rawParentRoot = promptedParentRoot ?? positionalParentRoot ?? init.root
+  const parentRoot = path.resolve(cwd, init.root)
   validateProjectId(init.id)
-  const rawTargetRoot = path.join(rawParentRoot, init.id)
+  const rawTargetRoot = path.join(parentRoot, init.id)
   const targetRoot = path.normalize(rawTargetRoot)
   if (init.logoPath !== undefined) init.logoPath = path.resolve(cwd, init.logoPath)
-  const requirements = init.requirementsFile
-    ? await readCreationRequirements(init.requirementsFile)
-    : undefined
+  if (init.requirementsFile) init.requirementsFile = path.resolve(cwd, init.requirementsFile)
+  const requirements = await readRequirementsInput(init)
 
+  await validateParentAccess(parentRoot)
   const canonicalSourceRoot = await realpath(sourceRoot)
   const canonicalTargetRoot = await canonicalizeProspectiveTarget(targetRoot)
   await preflightConfirmedTarget(targetRoot, canonicalTargetRoot, canonicalSourceRoot, init.id)
-  if (interactive) {
+  const needsPathConfirmation = !path.isAbsolute(rawParentRoot)
+  if (needsPathConfirmation && !interactive && !runtime.confirm) {
+    throw new Error(
+      `相对路径已解析为 ${canonicalTargetRoot}；需要确认是否保存到此位置。请在交互终端使用同一命令确认，或通过 --form 提交已确认表单，无需重新输入绝对路径。`
+    )
+  }
+  if (interactive || needsPathConfirmation) {
     const summary: InstantiationSummary = {
       rawSourceRoot,
       canonicalSourceRoot,
       rawParentRoot,
+      pathBaseRoot: path.resolve(cwd),
       rawTargetRoot,
       canonicalTargetRoot,
       policyMode,
       requirements:
-        requirements === undefined || init.requirementsFile === undefined
+        requirements === undefined
           ? undefined
           : {
-              sourcePath: init.requirementsFile,
+              sourcePath: init.requirementsFile ?? "直接输入或 Word 提取的需求文本",
               sha256: requirements.sha256,
               byteLength: Buffer.byteLength(requirements.content, "utf8")
             },
@@ -198,9 +205,9 @@ export async function runInstantiateCli(
     if (!confirmed) throw new Error("Project creation cancelled before any target write")
   }
 
-  if (requirements !== undefined && init.requirementsFile !== undefined) {
-    const current = await readCreationRequirements(init.requirementsFile)
-    if (current.sha256 !== requirements.sha256) {
+  if (requirements !== undefined) {
+    const current = await readRequirementsInput(init)
+    if (current?.sha256 !== requirements.sha256) {
       throw new Error("需求文档在确认期间发生变化；请重新读取并确认后再创建")
     }
   }

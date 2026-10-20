@@ -102,6 +102,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   ".env.test": "conditional",
   ".env.production": "conditional",
   ".harness/project.json": "protected",
+  ".harness/initial-creation.json": "protected",
   ".harness/project-memory-compatibility.json": "protected",
   ".harness/release-policy.json": "protected",
   ".harness/brand/**": "protected",

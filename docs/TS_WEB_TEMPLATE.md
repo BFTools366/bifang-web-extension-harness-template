@@ -8,7 +8,7 @@
 
 ## 1. 不变量
 
-- 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <absolute-parent-outside-harness> ...`；在用户提供的源外父目录下，以项目标识创建子目录。
+- 唯一公开创建入口是源 Harness 根的 `pnpm instantiate -- <parent-outside-harness> ...`；在用户提供的源外父目录下，以项目标识创建子目录。
 - 源 Harness 不提供 `pnpm harness:init` script；`pnpm harness init` 明确拒绝原地初始化。底层 initializer 只作为 `instantiate` 在目标同级 同级暂存目录 中调用的内部步骤。
 - 非交互 CLI 必须传入 `--type web` 或 `--type extension`；交互式 TTY 必须提示用户选择且不得提供默认类型。
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
@@ -34,11 +34,11 @@ pnpm instantiate -- /absolute/path --type extension \
   --name "示例扩展" --english-name "Example Extension" --description "示例浏览器扩展。" --policy-mode 预设
 ```
 
-位置参数是源 Harness 之外的绝对父目录；最终项目目录自动拼接为“父目录/项目标识”，该子目录必须不存在或为空。上述示例分别创建 `/absolute/path/example-web` 和 `/absolute/path/example-extension`。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
+位置参数是源 Harness 之外的相对或绝对父目录；相对路径按调用 cwd 解析（聊天表单按源 Harness 根），只读核对可访问性后展示绝对保存位置，询问是否保存到该位置，用户同意后继续，无需重输绝对路径。无交互终端的相对参数须通过已确认表单执行；最终项目目录自动拼接为“父目录/项目标识”，该子目录必须不存在或为空。上述示例分别创建 `/absolute/path/example-web` 和 `/absolute/path/example-extension`。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
 - 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`，无默认值。
 - `--name` 是用户可见名称。
-- 可选 `--requirements-file <absolute-md-or-txt>` 读取最多 1 MiB 的非空 UTF-8 文本；交互在类型之后询问，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
+- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互在类型之后询问，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
 - 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
 - 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。

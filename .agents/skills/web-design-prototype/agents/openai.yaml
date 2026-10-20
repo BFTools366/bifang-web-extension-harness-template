@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：设计单一桌面原型"
-  short_description: "根据已确认 PRD 生成一个桌面交互原型，自查登记后按已有授权交接开发"
-  default_prompt: "使用 $web-design-prototype 在当前已初始化下游根据 PRD 生成一个桌面端可交互 HTML 原型，自查并登记内容摘要后按已有授权交接开发，不生成 A/B 备选方案或 Mobile 布局。"
+  short_description: "设计变更先展示桌面交互原型，绑定当前版本并等待用户反馈"
+  default_prompt: "使用 $web-design-prototype 处理页面、流程或明确设计变更，生成一个桌面 HTML 原型，自查后展示可打开预览并等待用户反馈，绑定当前请求和原型版本后才交接开发；首版授权与明确跳过按专用合同处理。"

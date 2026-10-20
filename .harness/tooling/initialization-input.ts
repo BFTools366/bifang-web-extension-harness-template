@@ -4,7 +4,7 @@ import { assertExtensionIdentityText, parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type { AgentPolicyMode, ProjectType } from "./types.ts"
-import { readCreationRequirements } from "./creation-requirements.ts"
+import { createRequirementsText, readCreationRequirements } from "./creation-requirements.ts"
 
 /** 将创建类型编号或名称解析为唯一宿主，不提供默认类型。 */
 export function parseProjectType(value: string): ProjectType {
@@ -47,6 +47,8 @@ export interface PromptDefaults {
   projectType?: string
   /** 保存可选需求原文路径；空字符串表示用户选择继续逐项引导。 */
   requirementsFile?: string
+  /** 保存直接输入或 Word 提取的完整正文，保留首尾空白与换行。 */
+  requirementsText?: string
   name?: string
   englishName?: string
   id?: string
@@ -74,6 +76,7 @@ export type InteractiveQuestion = (
 /** 控制聊天与终端的空回答语义，并允许调用方注入当前源的只读目标校验。 */
 export interface InitializationInteraction {
   mode?: "cli" | "agent"
+  cwd?: string
   validateTarget?: (values: PromptDefaults) => Promise<void>
 }
 
@@ -134,6 +137,7 @@ export function formatInitializationQuestion(
 interface CollectedBasicFields {
   values: PromptDefaults
   inputSources: Record<string, string>
+  rawParentRoot?: string
 }
 
 /** 描述一轮 JSON 回答实际更新的基础字段。 */
@@ -149,6 +153,7 @@ const BASIC_FIELDS = (Object.keys(INITIALIZATION_QUESTIONS.basic) as BasicField[
 
 /** 保存无需主动询问、但可提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
+  "requirementsText",
   "englishName",
   "description",
   "identityI18n",
@@ -170,23 +175,31 @@ export function requiredText(value: string | undefined, label: string): string {
 async function normalizeBasicField(
   field: BasicField,
   value: string | undefined,
-  allValues: PromptDefaults
+  allValues: PromptDefaults,
+  cwd: string
 ): Promise<string> {
   const isExtension = ["extension", "2"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
   if (field === "targetRoot") {
     const targetRoot = requiredText(value, "目标目录")
-    if (!path.isAbsolute(targetRoot)) throw new Error("必须提供绝对路径")
-    return targetRoot
+    return path.resolve(cwd, targetRoot)
   }
   if (field === "projectType") {
     return parseProjectType(requiredText(value, "项目类型"))
   }
   if (field === "requirementsFile") {
-    if (value === undefined) throw new Error("提供需求文档绝对路径，或回车按原有题目继续")
+    if (value?.trim() && allValues.requirementsText) {
+      throw new Error("需求文件与直接文本只能提供一种")
+    }
+    if (allValues.requirementsText) return ""
+    if (value === undefined) throw new Error("可提供需求文件、直接输入文字，或选择暂不提供")
     const file = value.trim()
-    if (file && !path.isAbsolute(file)) throw new Error("需求文档必须提供绝对路径")
-    if (file) await readCreationRequirements(file)
-    return file
+    const resolved = file ? path.resolve(cwd, file) : ""
+    if (resolved) await readCreationRequirements(resolved)
+    return resolved
+  }
+  if (field === "requirementsText") {
+    if (value) createRequirementsText(value)
+    return value ?? ""
   }
   if (field === "name") {
     const name = requiredText(value, "项目名称")
@@ -276,9 +289,27 @@ function mergeBasicAnswer(
 ): MergedBasicAnswer {
   const field = pending[0]
   if (field === undefined) throw new Error("本轮没有待补充的基础字段")
+  if (field === "requirementsText") {
+    return { values: { ...current, requirementsText: answer }, suppliedFields: [field] }
+  }
   const text = answer.trim()
+  if (field === "requirementsFile" && /^(?:text:|文字：)/i.test(text)) {
+    const content = answer.replace(/^\s*(?:text:|文字：)/i, "")
+    createRequirementsText(content)
+    return {
+      values: { ...current, requirementsFile: "", requirementsText: content },
+      suppliedFields: ["requirementsFile", "requirementsText"]
+    }
+  }
   if (!text.startsWith("{")) {
-    return { values: { ...current, [field]: text }, suppliedFields: [field] }
+    return {
+      values: {
+        ...current,
+        ...(field === "requirementsFile" ? { requirementsText: undefined } : {}),
+        [field]: text
+      },
+      suppliedFields: [field]
+    }
   }
   let parsed: unknown
   try {
@@ -345,6 +376,8 @@ export async function collectBasicFields(
     ...defaults,
     brandColor: defaults.brandColor ?? "#4C6EF5"
   }
+  let rawParentRoot = defaults.targetRoot
+  const cwd = path.resolve(interaction.cwd ?? process.cwd())
   const inputSources: Record<string, string> = {}
   for (const { key } of BASIC_FIELDS) {
     if (defaults[key] !== undefined) inputSources[key] = "命令行参数"
@@ -373,7 +406,7 @@ export async function collectBasicFields(
     const issues = new Map<BasicField, string>()
     for (const { key } of BASIC_FIELDS) {
       try {
-        normalized[key] = await normalizeBasicField(key, values[key], values)
+        normalized[key] = await normalizeBasicField(key, values[key], values, cwd)
       } catch (error) {
         issues.set(key, error instanceof Error ? error.message : String(error))
       }
@@ -393,7 +426,7 @@ export async function collectBasicFields(
       for (const key of ["developmentBaseUrl", "testBaseUrl", "releaseBaseUrl"] as const) {
         if (normalized[key] === "") inputSources[key] = "未配置（可后续补齐）"
       }
-      return { values: normalized, inputSources }
+      return { values: normalized, inputSources, rawParentRoot }
     }
 
     const pending = BASIC_FIELDS.filter(({ key }) => issues.has(key)).map(({ key }) => key)
@@ -415,6 +448,7 @@ export async function collectBasicFields(
         acceptedDefault ? (suggested ?? "") : answer
       )
       values = merged.values
+      if (merged.suppliedFields.includes("targetRoot")) rawParentRoot = values.targetRoot
       for (const key of merged.suppliedFields) {
         inputSources[key] = acceptedDefault
           ? "交互接受默认值"

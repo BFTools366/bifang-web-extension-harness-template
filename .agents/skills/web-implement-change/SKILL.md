@@ -1,6 +1,6 @@
 ---
 name: web-implement-change
-description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中直接实施范围清楚的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。
+description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中先识别需求与设计变化，再实施已满足预览反馈门禁的请求，或执行已由独立事件触发的活动 Work Plan，只运行本次变化需要的相关非空测试或最小替代检查；候选验收失败后回到此 Skill 修复。
 ---
 
 # Web Harness：实施前端变更
@@ -11,13 +11,13 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 用户可见 Task 的创建、编号、绑定、恢复与进度委托 `$web-manage-user-tasks`；只在项目长期开关或用户明确请求触发时调用，普通实现不创建左侧 Task。内部 Subagent 不占用 Task 编号。
 
-1. 直接实现当前授权范围。多步骤、多模块、中等风险或 Agent 偏好本身不创建 Work Plan、全仓检查、构建、冒烟或 E2E；安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、对外兼容契约和正式发布分别进入解决该风险所需的专用门禁。
+1. 先判断本轮需求与设计影响，再实现当前授权范围。多步骤、多模块、中等风险或 Agent 偏好本身不创建 Work Plan、全仓检查、构建、冒烟或 E2E；安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、对外兼容契约和正式发布分别进入解决该风险所需的专用门禁。
    结果超出当前固定 Task 边界时，先由 Task 管理完成必要创建/绑定；同一结果的测试、review 与同范围修复留在原 Task，不为多步骤拆分。
 2. 先识别仓库：存在 `.harness/project.json` 时是唯一类型下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
 3. 确认 Git 顶层目录等于项目根，先检查 diff 并保留用户修改；重叠无法安全处理时停止。实际左侧 Task 在首次写入前由 `$web-manage-user-tasks` 核对精确身份、项目、非 pinned、cwd、环境与基线；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入，绑定异常先修复原 Task，不代做。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
-6. 下游的新产品、新页面、显著交互改版或用户要求原型时，先由 `$web-define-product` 澄清并记录唯一 PRD，再由 `$web-design-prototype` 生成一个桌面端可交互 HTML 原型，自查、展示并登记，不做 A/B 选择或 Mobile 设计。业务实现前读取本轮 `docs/prototypes/<scope>/review.json` 并运行 `pnpm prototype:check <scope>`；PRD、原型漂移或尚未登记时不能进入该范围开发。已有有效登记且检查通过就复用，不要求用户选择方案或追加原型批准；用户要求暂缓开发时仍暂缓。范围清楚的日常小修复、无界面变更及 Harness 自身维护不强制重做 PRD/原型，但不能绕过尚未完成自查登记的同一设计范围。
+6. 下游新产品、新页面、需求变更影响页面或用户流程，以及用户明确要求改变设计、视觉、布局、风格、主题或交互时，必须先调用 `$web-design-prototype`；不能按改动行数或“范围清楚”降为小修复。产品范围、业务规则或验收变化先委托 `$web-define-product` 更新唯一 PRD；纯视觉变更直接复用有效 PRD，设计 Skill 拥有原型修订。生成一个桌面端可交互 HTML 原型，自查并展示可打开预览与最短试用路径；展示后等待用户反馈，不得先改产品代码。普通开发授权、需求批准或旧原型登记不能代替本轮设计反馈；只有用户明确跳过本次预览，或符合设计 Skill 的一次性首版授权合同，才按对应分支继续。实施前读取当前 `docs/prototypes/<scope>/review.json`，运行 `pnpm prototype:check <scope> <设计请求来源>`；只对已批准且覆盖本轮设计的记录放行。无设计变化且既有批准仍覆盖当前范围时可复用；新增设计要求必须重新登记，不能先拿旧 check 通过当许可。纯逻辑修复、文案纠错及恢复既有已确认设计的缺陷可直接实施；Harness 自身维护不生成产品原型。
 7. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 
 真实页面与业务代码、模板装配和相关测试归本 Skill；身份会话状态机实施按事件委托 `$web-implement-auth-session`，模板装配在当前授权范围内完成；需求语义与 PRD 归需求定义，能力判据与资源选择归功能组合，实际原型归设计。按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。

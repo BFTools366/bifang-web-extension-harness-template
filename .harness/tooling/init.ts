@@ -237,6 +237,7 @@ export async function initializeProject(
 
   const collisions = [
     PROJECT_CONFIG_PATH,
+    ".harness/initial-creation.json",
     MASTER_LOGO_PATH,
     ...Object.values(ENVIRONMENT_FILES),
     ...FORBIDDEN_ENVIRONMENT_FILES,
@@ -281,6 +282,15 @@ export async function initializeProject(
   }
   await writeJsonAtomic(path.join(root, "package.json"), projectManifest)
   await writeJsonNew(path.join(root, PROJECT_CONFIG_PATH), config)
+  if (resolvedOptions.initialCreationAuthorization) {
+    await writeJsonNew(path.join(root, ".harness/initial-creation.json"), {
+      schemaVersion: 1,
+      projectId: config.id,
+      projectType: config.projectType,
+      initializedAt: config.initializedAt,
+      authorization: resolvedOptions.initialCreationAuthorization
+    })
+  }
   // 将审核过的第三方原始字节仅写入项目目录，不纳入初始化文本格式化。
   for (const [relativePath, contents] of designSkillFiles) {
     await writeNew(path.join(root, relativePath), contents)

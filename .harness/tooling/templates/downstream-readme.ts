@@ -36,7 +36,7 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；项目运行时/开�
 
 Mantine 主题、令牌、布局、组件层级、交互状态、响应式、无障碍与当前宿主 UI 规范见 \`docs/MANTINE_UI_GUIDELINES.md\`。外观默认跟随系统，并支持用户明确选择亮色或暗色。
 
-项目级 \`.agents/skills/design-taste-frontend/\` 提供落地页、作品集与视觉改版的可选风格建议；初始化时默认补装缺失版本，已有有效文件保留。使用前读取 \`docs/MANTINE_UI_GUIDELINES.md\` 的适用边界。产品工作先由 \`$web-define-product\` 在 \`docs/product_spec/\` 澄清并记录 PRD，再由 \`$web-design-prototype\` 生成一个桌面端可交互 HTML 原型，自查并登记后按已有授权由 \`$web-implement-change\` 开发。原型不做 A/B 选型或 Mobile 设计。完整创建以首版页面与功能跑通为完成条件；工程生成后继续固定设计、代码接线及开发走查，范围确认直接复用。
+项目级 \`.agents/skills/design-taste-frontend/\` 提供落地页、作品集与视觉改版的可选风格建议；初始化时默认补装缺失版本，已有有效文件保留。使用前读取 \`docs/MANTINE_UI_GUIDELINES.md\` 的适用边界。产品工作先由 \`$web-define-product\` 在 \`docs/product_spec/\` 澄清并记录 PRD，再由 \`$web-design-prototype\` 生成一个桌面端可交互 HTML 原型，自查后展示可打开预览并等待用户反馈，绑定当前批准后由 \`$web-implement-change\` 开发；明确设计、视觉、布局或风格修改同样适用。原型不做 A/B 选型或 Mobile 设计。完整创建以首版页面与功能跑通为完成条件；工程生成后继续固定设计、代码接线及开发走查，范围确认仅在设计 Skill 的一次性首版授权合同内复用，不适用于后续设计变更。
 
 ${moduleCapabilities}公开 API 或已实现业务流程变化时，使用 [\`$web-document-api\`](.agents/skills/web-document-api/SKILL.md) 同步文档。在 \`docs/api/\` 导出统一文档包：根关联说明、\`api/\` 内一份通用结构与一份 API 元数据及按业务聚合的接口文档、\`business/\` 内已实现业务目标/调用流程/设计思路。每次对照已有文档、当前接口与真实消费者核对差异；局部委托仅同步受影响范围与关联。REST 保持六项与 JSON 加字段表，GraphQL 保留有来源的 Schema；导出不含本地代码或路径。未接入契约与设计建议仍保留并标明状态，不冒充已实现业务或联调通过。布局、迁移与检查以 Skill 为准，初始化只分发能力，不生成业务文档。
 
