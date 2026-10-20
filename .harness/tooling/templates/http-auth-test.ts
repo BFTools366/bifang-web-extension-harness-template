@@ -152,6 +152,40 @@ test("clears continuation on every current 401 without retriggering the handler"
   expect(handleUnauthorized).toHaveBeenCalledTimes(1)
 })
 
+for (const alreadyExpired of [false, true]) {
+  /** 每次当前 401 都阻断此前已派发的响应，避免较大序号的迟到成功复活失效凭据。 */
+  test("blocks in-flight credentials after a current 401 with prior expiration " + alreadyExpired, async () => {
+    const unauthorized = deferred<Response>()
+    const success = deferred<Response>()
+    const handleUnauthorized = vi.fn()
+    const fetch = vi.fn()
+    if (alreadyExpired) fetch.mockResolvedValueOnce(response(401))
+    fetch.mockImplementationOnce(() => unauthorized.promise)
+      .mockImplementationOnce(() => success.promise).mockResolvedValue(response(200))
+    const client = createHttpClient({ config, fetch, unauthorizedHandler: { handleUnauthorized } })
+    client.setAuthToken("expired-token")
+    if (alreadyExpired) await client.request("expire").catch(() => undefined)
+    const rejected = client.request("unauthorized").catch((error: unknown) => error)
+    const pending = client.request("pending")
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(alreadyExpired ? 3 : 2))
+    unauthorized.resolve(response(401))
+    expect(await rejected).toMatchObject({ status: 401 })
+    success.resolve(response(200, { [HTTP_HEADERS.authToken]: "stale-token", [HTTP_HEADERS.continuation]: "stale-context" }))
+    await pending
+    await client.request("probe")
+    const headers = new Headers(fetch.mock.calls.at(-1)?.[1]?.headers)
+    expect(headers.get(HTTP_HEADERS.authToken)).toBeNull()
+    expect(headers.get(HTTP_HEADERS.continuation)).toBeNull()
+    expect(handleUnauthorized).toHaveBeenCalledTimes(1)
+    fetch.mockResolvedValueOnce(response(200, { [HTTP_HEADERS.authToken]: "fresh-token", [HTTP_HEADERS.continuation]: "fresh-context" }))
+    await client.request("fresh-session")
+    await client.request("fresh-probe")
+    const freshHeaders = new Headers(fetch.mock.calls.at(-1)?.[1]?.headers)
+    expect(freshHeaders.get(HTTP_HEADERS.authToken)).toBe("fresh-token")
+    expect(freshHeaders.get(HTTP_HEADERS.continuation)).toBe("fresh-context")
+  })
+}
+
 /** 重新登录使挂起的旧 401 静默，handler 内的异步导航必须复核 context。 */
 test("suppresses a pending old 401 after explicit login", async () => {
   const gate = deferred<void>()

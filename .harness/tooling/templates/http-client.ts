@@ -232,8 +232,9 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
             if (!unauthorizedLatched) {
               authRevision += 1
             }
-            authSequence = Math.max(authSequence, sequence)
-            continuationSequence = Math.max(continuationSequence, sequence)
+            // 失效门槛覆盖此时所有已派发请求，只允许之后的新请求建立会话。
+            authSequence = Math.max(authSequence, nextSequence + 1)
+            continuationSequence = Math.max(continuationSequence, nextSequence + 1)
             const expiredRevision = authRevision
             // handler 挂起也必须及时结束请求；其失败或截止时间不替换已经收到的原始 401。
             try {
