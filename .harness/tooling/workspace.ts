@@ -106,6 +106,8 @@ export async function initializeWorkspace(
     string,
     unknown
   >
+  // 保留源中已审阅的允许与拒绝决定，未知原生脚本不能由工作区重新授权。
+  const buildPolicy = await readFile(path.join(root, "pnpm-workspace.yaml"), "utf8")
   const contract =
     options.apiContractSnapshot?.content ??
     (options.apiContract ? await readFile(options.apiContract, "utf8") : undefined)
@@ -260,7 +262,7 @@ export async function initializeWorkspace(
     .map((item) => `  - ${JSON.stringify(item.directory)}`)
   await writeNew(
     path.join(root, "pnpm-workspace.yaml"),
-    `${jsMembers.length ? `packages:\n${jsMembers.join("\n")}\n` : "packages: []\n"}allowBuilds:\n  '@parcel/watcher': true\n  esbuild: true\n  sharp: true\n`
+    `${jsMembers.length ? `packages:\n${jsMembers.join("\n")}\n` : "packages: []\n"}${buildPolicy}`
   )
   for (const [file, source] of workspaceDocuments(workspace)) {
     if (file === "docs/README.md") await writeAtomic(path.join(root, file), source)

@@ -67,6 +67,12 @@ describe("workspace creation", () => {
         const manifest = JSON.parse(await readFile(path.join(target, "package.json"), "utf8"))
         expect(manifest.scripts["dev:server"] !== undefined).toBe(expected.includes("server"))
         expect(manifest.dependencies).toBeUndefined()
+        const inheritedPolicy = await readFile(path.join(target, "pnpm-workspace.yaml"), "utf8")
+        const sourcePolicy = await readFile(
+          path.resolve(import.meta.dirname, "../pnpm-workspace.yaml"),
+          "utf8"
+        )
+        expect(inheritedPolicy.endsWith(sourcePolicy)).toBe(true)
         expect(await readdir(path.join(target, ".harness"))).not.toContain("project.json")
         for (const member of expected) {
           const directory = path.join(target, `example_${member}`)
