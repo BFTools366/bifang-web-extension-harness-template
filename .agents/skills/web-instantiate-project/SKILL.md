@@ -9,16 +9,16 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
 ## 收集输入
 
-创建前同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用基础输入与策略题目的名称、题面、选项与顺序；CLI confirmation 确认工程事务，Agent 按本 Skill 的完整创建合同一次确认首版范围；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
+创建前使用 [`references/form-adapter.md`](references/form-adapter.md) 的共享只读表单工具；它决定下一字段、固定显示内容、汇总修订和授权状态，模型只提取真实用户事实。实际写入仍只走 `pnpm instantiate`。同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用基础输入与策略题目的名称、题面、选项与顺序；CLI 使用 `confirmation` 确认工程事务，Agent 使用 `agentConfirmation` 一次确认完整首版范围，不连续询问两种确认；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按依赖顺序逐项引导尚未明确的基础字段，每轮只问一个：唯一项目类型、展示名称、源 Harness 之外的完整绝对父目录和中文策略模式“预设/自定义”；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
+1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按工具返回的 `basic` 顺序和条件逐项处理，每轮只展示工具返回的一题；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。非交互命令仍必须把绝对父目录作为位置参数；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；开发 API 地址可选，可后续配置，测试/正式地址不在首轮询问，未配置地址留空。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
 2. 要求用户明确选择唯一宿主：1.Web（`web`）或 2.Extension（`extension`），复用合法选择，不默认或从文档推断。随后复用已提供的文档、全文或口头需求；需求文档可选，首版实际需求不能省略。读取 [创建需求输入与事务交接](references/requirements-intake.md)，需求分析委托 `$web-define-product` 的创建前只读模式；本 Skill 不拥有需求或能力判据，再由其委托 `$web-compose-capabilities` 解析操作。至少明确目标用户、真实首页、必要页面、完整核心流程、数据模式和可观察验收标准。按 catalog 自动补齐操作最小依赖并展示原因；购买必须包含基础用户系统，不由此加入注册、找回、组织或权限。原文经 `--requirements-file` 交接；口头需求沿用当前对话。默认欢迎页与计数器演示已移除，首页由实际需求实施，不能以工程空壳交付。
-3. 若项目 Agent Policy 尚无有效决定，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户登记记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
+3. 只复用本次创建请求中用户已给的合法策略决定；源模板 YAML 默认值、`pending` 和其他项目的策略不是新项目答案。尚无有效决定时，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户登记记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
 
 ## Logo 与身份本地化
 
 1. 调用 `$web-prepare-brand-identity` 的首次实例化分支：只使用已收集的名称、id、说明、品牌色和用户提供源图。已有图像先查看；复用已选正式源图，否则按品牌 Skill 生成、查看并展示三个独立 Logo 候选，等待用户明确选一。生成授权不代替选图，候选编号与选择只由品牌 Skill 管理。创建需求分析不扩大品牌输入或授权。
-2. 候选放在源/目标之外的临时目录，只把已选图作为 `--logo <absolute-path>` 导入；不向源、目标或 staging 提前写入。没有图像生成能力时复用品牌 Skill 的离线三候选 helper 和同一选择流程，不能把通用几何图形称为已完成定制设计。创建成功后查看规范母版并展示其路径，以及 Web Logo/Favicon 或 Extension icon；不以文件存在替代视觉检查。选图与最终“按此创建？”是两个不同事件，选图后仍按原有规则确认创建。
+2. 候选放在源/目标之外的临时目录，只把已选图作为 `--logo <absolute-path>` 导入；不向源、目标或 staging 提前写入。没有图像生成能力时复用品牌 Skill 的离线三候选 helper 和同一选择流程，不能把通用几何图形称为已完成定制设计。创建成功后查看规范母版并展示其路径，以及 Web Logo/Favicon 或 Extension icon；不以文件存在替代视觉检查。选图与完整创建授权是不同事件；选图不代替完整创建确认，已有覆盖当前汇总的完整创建授权继续复用。
 3. 名称和说明使用根字段作为默认语言，可通过 `--identity-i18n` JSON 提供 `defaultLocale` 和另一语言的完整 `translations`。当前与既有 UI 对齐支持 `en` 和 `zh_CN`；不猜测翻译。精确配置见 `docs/TS_WEB_TEMPLATE.md` §3.1。
 
 ## 安全复制
@@ -50,7 +50,7 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
    自定义策略模式必须显式传入 `--user-owned-tasks enabled|disabled`、`--superpowers enabled|disabled`、`--parallel-worktree-subagents enabled|disabled`、`--acceptance-smoke enabled|disabled` 与 `--e2e-hint enabled|disabled`；推荐模式不得混入逐项覆盖。
 
-   交互模式按依赖顺序逐项解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总及首版首页、页面、操作与依赖原因、固定设计、数据模式和验收场景，并仅询问一次“按此创建并完成首版？”。该完整确认授权工程事务及范围内下游 PRD 记录、原型自查登记、代码接线、相关检查和开发浏览器走查；已有明确完整创建授权直接复用，不在工程成功或阶段交接处重复询问。CLI 自身只能确认和完成工程事务，不能宣称业务完成。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
+   Agent 通过只读工具解析基础字段，再每轮只补一个自定义策略字段；全部字段有效后展示唯一包含 Logo 来源、母版/派生资产与本地化字段的完整汇总及首版首页、页面、操作与依赖原因、固定设计、数据模式和验收场景，并使用 JSON 的 `agentConfirmation` 条目确认一次；逐字展示只读工具返回的 `summary` 和 `question`。按表单适配合同记录当前 revision、真实用户回答和来源，使用 `pnpm instantiate -- --form <absolute-input-json>` 复核并执行完全相同的输入；禁止再手工改写 argv。该完整确认授权工程事务及范围内下游 PRD 记录、原型自查登记、代码接线、相关检查和开发浏览器走查；已有明确完整创建授权直接复用，不在工程成功或阶段交接处重复询问。CLI 自身只能确认和完成工程事务，不能宣称业务完成。该确认前不得创建目标、staging、安装依赖、初始化 Git 或修改任何源文件。非交互模式通过完整必需参数表达本次已确认输入，确认来源自动记录为“当前用户”；Web 说明、三地址、品牌和已明确来源的覆盖参数可省略；Extension 必须传 `--description`。本地化参数可省略，此时按默认身份回退。
 
 2. 底层 initializer 只作为上述 sibling staging 事务的内部步骤，生成正式 Logo、同步当前类型品牌、生成三份环境、类型化 `APP_CONFIG`、统一 logger、分页 session 状态与无 endpoint 的 Ky HTTP 请求基础；源 Harness 的 `pnpm harness init` 明确拒绝，`pnpm harness:init` 不存在。不得在成功后无理由重复运行品牌刷新。默认在项目内检查 `design-taste-frontend`，有效已有版本原样保留，缺失时由 initializer 使用固定快照自动补装至 `.agents/skills/design-taste-frontend/`，不追加用户选择、不依赖全局版本、不执行远程安装器；快照及事务边界见 `docs/TS_WEB_TEMPLATE.md` §3.9，设计适用规则见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。
 3. 初始化验证和一次性裁剪全部通过后，确认源专用 `$web-instantiate-project`、`instantiate` script 和内部 init/instantiate tooling 已从下游删除，且不存在可派生另一个项目的活动入口。

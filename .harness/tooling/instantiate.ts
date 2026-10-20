@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { chmod, lstat, mkdtemp, realpath } from "node:fs/promises"
+import { chmod, lstat, mkdtemp, realpath, readFile } from "node:fs/promises"
 import path from "node:path"
 import {
   CREATION_REQUIREMENTS_DIR,
@@ -12,7 +12,7 @@ import { normalizeAgentPolicy } from "./agent-policy.ts"
 import { createProjectConfig, INSTANTIATION_ONLY_EXCLUDED_PATHS } from "./config.ts"
 import { ENVIRONMENT_FILES, FORBIDDEN_ENVIRONMENT_FILES, validateBaseUrls } from "./environment.ts"
 import { initializeProject } from "./init.ts"
-import { pathExists } from "./files.ts"
+import { pathExists, sha256Hex } from "./files.ts"
 import { createLogo } from "./logo.ts"
 import {
   assertTemplateSnapshotUnchanged,
@@ -155,6 +155,14 @@ export async function instantiateProject(
         : path.resolve(requestedTarget, options.init.logoPath)
   // 保存 targetRoot 变量供当前逻辑使用。
   const targetRoot = await canonicalizeTarget(requestedTarget)
+  if (options.approval) {
+    if (
+      targetRoot !== options.approval.canonicalTargetRoot ||
+      options.requirements?.sha256 !== options.approval.requirementsSha256
+    ) {
+      throw new Error("已批准的规范目标或需求原文发生变化；请重新展示并确认")
+    }
+  }
   if (path.basename(targetRoot) !== previewConfig.id) {
     throw new Error(`Target directory name must exactly match project id "${previewConfig.id}"`)
   }
@@ -196,12 +204,20 @@ export async function instantiateProject(
     (relativePath, name) => !shouldExclude(relativePath, name)
   )
   // 保存 preparedLogo 变量，确保预检与正式写入复用同一次 Logo 压缩结果。
+  const logoBytes = logoPath === undefined ? undefined : await readFile(logoPath)
+  if (
+    options.approval &&
+    (logoBytes === undefined || sha256Hex(logoBytes) !== options.approval.logoSha256)
+  ) {
+    throw new Error("已批准的 Logo 内容发生变化；请重新展示并确认")
+  }
   const preparedLogo = await createLogo({
     root: requestedTarget,
     name: previewConfig.name,
     id: previewConfig.id,
     color: previewConfig.brand.primaryColor,
-    logoPath
+    logoPath,
+    logoBytes
   })
   // 保存 targetParentSnapshot 变量，绑定所有 staging、发布与回收动作的父目录身份。
   const targetParentSnapshot = await prepareTargetParent(targetParentPlan)

@@ -510,6 +510,22 @@
       "mode": "tombstone"
     },
     {
+      "pattern": ".harness/tooling/initialization-form.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".harness/tooling/initialization-target.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "scripts/initialization-form.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/initialization-form.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": ".harness/tooling/saas-commerce-choice.ts",
       "mode": "tombstone"
     },

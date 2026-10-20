@@ -5,6 +5,7 @@ import { pathExists, readJson } from "../../.harness/tooling/files.ts"
 import { assertPackageManagerPins, declaredVersionAtLeast } from "../../.harness/tooling/version.ts"
 import { validatePnpmBuildPolicy } from "../../.harness/tooling/pnpm-policy.ts"
 import { REQUIRED_FILES } from "./contracts.ts"
+import { INITIALIZATION_QUESTIONS } from "../../.harness/tooling/initialization-input.ts"
 import {
   containsIdentifier,
   containsStringLiteral,
@@ -36,6 +37,70 @@ const FORBIDDEN_TEMPLATE_PATHS = [
   ".env.production.local"
 ] as const
 
+/** 检查唯一题库结构和两种确认范围，缺项不能降级为模型自行编写。 */
+export function inspectInitializationCatalog(raw: unknown): string[] {
+  const errors: string[] = []
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return ["初始化题库必须是对象"]
+  const catalog = raw as Record<string, unknown>
+  const expected = Object.keys(INITIALIZATION_QUESTIONS)
+  if (JSON.stringify(Object.keys(catalog)) !== JSON.stringify(expected))
+    errors.push("初始化题库分组缺失、未知或顺序不符")
+  const titles = new Set<string>()
+  for (const group of ["basic", "policy", "confirmation", "agentConfirmation"] as const) {
+    const value = catalog[group]
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
+      errors.push(`初始化题库缺少 ${group}`)
+      continue
+    }
+    const definitions = group === "basic" || group === "policy" ? value : { [group]: value }
+    if (group === "basic" || group === "policy") {
+      if (
+        JSON.stringify(Object.keys(value)) !==
+        JSON.stringify(Object.keys(INITIALIZATION_QUESTIONS[group]))
+      )
+        errors.push(`初始化题库 ${group} 字段或题序不符`)
+    }
+    for (const [field, definition] of Object.entries(definitions)) {
+      if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
+        errors.push(`初始化题目 ${field} 必须是对象`)
+        continue
+      }
+      const question = definition as Record<string, unknown>
+      for (const key of ["title", "question", "hint"]) {
+        if (typeof question[key] !== "string" || !question[key].trim())
+          errors.push(`初始化题目 ${field} 缺少 ${key}`)
+      }
+      if (typeof question.title === "string") {
+        if (titles.has(question.title)) errors.push(`初始化题名重复：${question.title}`)
+        titles.add(question.title)
+      }
+      if (!Array.isArray(question.options)) {
+        errors.push(`初始化题目 ${field} 缺少选项数组`)
+        continue
+      }
+      const values = new Set<string>()
+      for (const option of question.options) {
+        if (!option || typeof option !== "object") {
+          errors.push(`初始化题目 ${field} 选项非法`)
+          continue
+        }
+        for (const key of ["value", "label", "description"]) {
+          if (typeof option[key] !== "string" || !option[key].trim())
+            errors.push(`初始化题目 ${field} 选项缺少 ${key}`)
+        }
+        if (values.has(option.value)) errors.push(`初始化题目 ${field} 选项值重复`)
+        values.add(option.value)
+      }
+      if (
+        (group === "confirmation" || group === "agentConfirmation") &&
+        JSON.stringify([...values]) !== JSON.stringify(["yes", "cancel"])
+      )
+        errors.push(`初始化确认 ${field} 必须同时包含确认与取消`)
+    }
+  }
+  return errors
+}
+
 /** 判断文本是否把当次候选 `--e2e` 选择混入初始化入口，而不是策略字段 `--e2e-hint`。 */
 function mentionsInstantiationE2eSelection(source: string): boolean {
   return /(?:^|[\s"',]|\[|\])--e2e(?:[=\s"',|]|\[|\]|$)/u.test(source)
@@ -43,6 +108,17 @@ function mentionsInstantiationE2eSelection(source: string): boolean {
 
 // 执行 validateToolingContract 函数的处理逻辑。
 export async function validateToolingContract(root: string, errors: string[]): Promise<void> {
+  try {
+    const catalog = await readJson(
+      path.join(
+        root,
+        ".agents/skills/web-instantiate-project/references/initialization-questions.json"
+      )
+    )
+    errors.push(...inspectInitializationCatalog(catalog))
+  } catch (error) {
+    errors.push(`初始化题库无法解析：${error instanceof Error ? error.message : String(error)}`)
+  }
   const requiredExists = await Promise.all(
     REQUIRED_FILES.map((required) => pathExists(path.join(root, required)))
   )

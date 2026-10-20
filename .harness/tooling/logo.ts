@@ -16,6 +16,8 @@ interface LogoInput {
   color: string
   // 描述 logoPath 接口成员的结构契约。
   logoPath?: string
+  /** 使用调用方已冻结的图像字节，避免批准检查与解码之间再次读取可变文件。 */
+  logoBytes?: Buffer
 }
 
 // 执行 stableHash 函数的处理逻辑。
@@ -151,7 +153,7 @@ export async function createLogo(input: LogoInput): Promise<Buffer> {
       ? input.logoPath
       : path.resolve(input.root, input.logoPath)
     try {
-      return await sharp(sourcePath)
+      return await sharp(input.logoBytes ?? sourcePath)
         .resize(1024, 1024, {
           fit: "contain",
           background: { r: 0, g: 0, b: 0, alpha: 0 }

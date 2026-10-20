@@ -15,10 +15,15 @@ import {
   collectBasicFields,
   formatInitializationQuestion,
   INITIALIZATION_QUESTIONS,
+  POLICY_OPTIONS,
   parsePolicyMode,
   requiredText
 } from "./initialization-input.ts"
-import type { InteractiveQuestion, PromptDefaults } from "./initialization-input.ts"
+import type {
+  InitializationInteraction,
+  InteractiveQuestion,
+  PromptDefaults
+} from "./initialization-input.ts"
 
 /** 描述基础表单解析完成后的项目身份与 Agent 策略。 */
 export interface PromptedIdentity {
@@ -84,18 +89,9 @@ function parsePolicyChoice(value: string, label: string): AgentPolicyChoice {
 }
 
 /** 关联固定策略字段与命令行参数，不另行维护题目顺序。 */
-const POLICY_FIELDS = {
-  userOwnedTasks: "user-owned-tasks",
-  superpowers: "superpowers",
-  parallelWorktreeSubagents: "parallel-worktree-subagents",
-  acceptanceSmoke: "acceptance-smoke",
-  e2eHint: "e2e-hint"
-} as const satisfies Record<keyof typeof INITIALIZATION_QUESTIONS.policy, string>
-
-/** 基础字段与自定义策略都以固定清单的键顺序为唯一询问顺序。 */
 const POLICY_QUESTIONS = (
-  Object.keys(INITIALIZATION_QUESTIONS.policy) as (keyof typeof POLICY_FIELDS)[]
-).map((key) => ({ key, field: POLICY_FIELDS[key] }))
+  Object.keys(INITIALIZATION_QUESTIONS.policy) as (keyof typeof POLICY_OPTIONS)[]
+).map((key) => ({ key, field: POLICY_OPTIONS[key] }))
 
 /** 逐轮读取一个自定义策略选择，非法值只重问当前字段。 */
 async function collectPolicyChoice(
@@ -103,7 +99,8 @@ async function collectPolicyChoice(
   field: string,
   key: keyof typeof INITIALIZATION_QUESTIONS.policy,
   suggested: AgentPolicyChoice,
-  ask: InteractiveQuestion
+  ask: InteractiveQuestion,
+  interaction: InitializationInteraction
 ): Promise<ResolvedPolicyChoice> {
   let candidate = supplied
   let source: ResolvedPolicyChoice["source"] = "命令行参数"
@@ -120,10 +117,12 @@ async function collectPolicyChoice(
       formatInitializationQuestion(INITIALIZATION_QUESTIONS.policy[key], {
         field: key,
         suggested,
-        issue
-      })
+        issue,
+        mode: interaction.mode
+      }),
+      { field: key }
     )
-    candidate = answer.trim() || suggested
+    candidate = answer.trim() || (interaction.mode === "agent" ? undefined : suggested)
     source = answer.trim() ? "交互条件问询" : "交互接受默认值"
   }
 }
@@ -131,9 +130,10 @@ async function collectPolicyChoice(
 /** 运行可测试的交互状态机并返回完全解析的初始化输入。 */
 export async function collectPromptedIdentity(
   defaults: PromptDefaults,
-  ask: InteractiveQuestion
+  ask: InteractiveQuestion,
+  interaction: InitializationInteraction = {}
 ): Promise<PromptedIdentity> {
-  const collected = await collectBasicFields(defaults, ask)
+  const collected = await collectBasicFields(defaults, ask, interaction)
   const basic = collected.values
   const projectType = requiredText(basic.projectType, "项目类型") as ProjectType
   const policyMode = parsePolicyMode(requiredText(basic.policyMode, "Agent 策略模式"))
@@ -150,7 +150,14 @@ export async function collectPromptedIdentity(
     const choices: Record<string, AgentPolicyChoice> = {}
     policySources = {}
     for (const { key, field } of POLICY_QUESTIONS) {
-      const resolved = await collectPolicyChoice(basic[key], field, key, suggested[key], ask)
+      const resolved = await collectPolicyChoice(
+        basic[key],
+        field,
+        key,
+        suggested[key],
+        ask,
+        interaction
+      )
       choices[key] = resolved.choice
       policySources[key] = resolved.source
     }
@@ -181,10 +188,17 @@ export async function collectPromptedIdentity(
 }
 
 /** 使用当前终端执行交互初始化表单。 */
-export async function promptForIdentity(defaults: PromptDefaults): Promise<PromptedIdentity> {
+export async function promptForIdentity(
+  defaults: PromptDefaults,
+  interaction: InitializationInteraction = {}
+): Promise<PromptedIdentity> {
   const prompt = createInterface({ input: stdin, output: stdout })
   try {
-    return await collectPromptedIdentity(defaults, (question) => prompt.question(question))
+    return await collectPromptedIdentity(
+      defaults,
+      (question) => prompt.question(question),
+      interaction
+    )
   } finally {
     prompt.close()
   }
@@ -205,7 +219,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}
-- 需求文档：${summary.requirements === undefined ? "未提供，按原有题目继续" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，Agent 在下游确认与实施）`}
+- 需求文档：${summary.requirements === undefined ? "未提供，实际首版需求由 Agent 澄清" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，已有完整范围确认在下游复用）`}
 - 展示名称：${summary.init.name}
 - 英文名称：${summary.init.englishName ?? "未单独提供"}
 - 项目 id：${summary.init.id}

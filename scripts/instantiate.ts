@@ -1,11 +1,17 @@
-import { lstat, readdir, realpath } from "node:fs/promises"
+import { realpath } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
 import { INIT_OPTIONS, resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { readCreationRequirements } from "../.harness/tooling/creation-requirements.ts"
-import { validateProjectId, type PromptDefaults } from "../.harness/tooling/initialization-input.ts"
+import { readFile } from "node:fs/promises"
+import { inspectCreationForm } from "../.harness/tooling/initialization-form.ts"
+import {
+  validateProjectId,
+  POLICY_OPTIONS,
+  type PromptDefaults
+} from "../.harness/tooling/initialization-input.ts"
 import {
   confirmInstantiation,
   isInteractiveTerminal,
@@ -13,6 +19,13 @@ import {
   type PromptedIdentity
 } from "../.harness/tooling/prompts.ts"
 import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/types.ts"
+
+import {
+  canonicalizeProspectiveTarget,
+  preflightConfirmedTarget,
+  validateInitializationTarget
+} from "../.harness/tooling/initialization-target.ts"
+export { canonicalizeProspectiveTarget } from "../.harness/tooling/initialization-target.ts"
 
 /** 保存脚本文件确定的默认 Harness 源根。 */
 const DEFAULT_SOURCE_ROOT = fileURLToPath(new URL("..", import.meta.url))
@@ -26,61 +39,13 @@ export interface InstantiateCliRuntime {
   confirm?: (summary: InstantiationSummary) => Promise<boolean>
   instantiate?: (options: InstantiateOptions) => Promise<ProjectConfig>
   output?: (message: string) => void
+  /** 仅内部递归携带表单已批准事实，公开参数不能覆盖。 */
+  approval?: InstantiateOptions["approval"]
 }
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
   return "用法：pnpm instantiate -- <absolute-parent-outside-harness> --type web|extension （1.Web / 2.Extension） --name <name> [--requirements-file <absolute-md-or-txt>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
-}
-
-/** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
-export async function canonicalizeProspectiveTarget(targetRoot: string): Promise<string> {
-  let cursor = path.resolve(targetRoot)
-  const missingNames: string[] = []
-  while (true) {
-    try {
-      const existingRoot = await realpath(cursor)
-      return path.join(existingRoot, ...missingNames.reverse())
-    } catch (error) {
-      if ((error as { code?: unknown }).code !== "ENOENT") throw error
-      const parent = path.dirname(cursor)
-      if (parent === cursor) throw error
-      missingNames.push(path.basename(cursor))
-      cursor = parent
-    }
-  }
-}
-
-/** 在最终汇总前只读验证目标名称、位置、类型与空目录约束。 */
-async function preflightConfirmedTarget(
-  targetRoot: string,
-  canonicalTargetRoot: string,
-  canonicalSourceRoot: string,
-  projectId: string
-): Promise<void> {
-  if (path.basename(targetRoot) !== projectId) {
-    throw new Error(`Target directory name must exactly match project id "${projectId}"`)
-  }
-  const relativeToSource = path.relative(canonicalSourceRoot, canonicalTargetRoot)
-  if (
-    relativeToSource === "" ||
-    (relativeToSource !== ".." &&
-      !relativeToSource.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relativeToSource))
-  ) {
-    throw new Error("Target must be outside the Harness template directory")
-  }
-  try {
-    const status = await lstat(targetRoot)
-    if (status.isSymbolicLink())
-      throw new Error(`Target must not be a symbolic link: ${targetRoot}`)
-    if (!status.isDirectory()) throw new Error(`Target is not a directory: ${targetRoot}`)
-    if ((await readdir(targetRoot)).length > 0) {
-      throw new Error(`Target directory must be empty: ${targetRoot}`)
-    }
-  } catch (error) {
-    if ((error as { code?: unknown }).code !== "ENOENT") throw error
-  }
 }
 
 /** 标记每个初始化字段来自命令行、交互表单、默认值或预设。 */
@@ -94,13 +59,7 @@ function inputSources(
 ): Record<string, string> {
   const source = (option: string): string =>
     optionNames.has(option) ? "命令行参数" : interactive ? "交互表单" : "缺失"
-  const choices = [
-    { field: "userOwnedTasks", option: "user-owned-tasks" },
-    { field: "superpowers", option: "superpowers" },
-    { field: "parallelWorktreeSubagents", option: "parallel-worktree-subagents" },
-    { field: "acceptanceSmoke", option: "acceptance-smoke" },
-    { field: "e2eHint", option: "e2e-hint" }
-  ]
+  const choices = Object.entries(POLICY_OPTIONS).map(([field, option]) => ({ field, option }))
   const result: Record<string, string> = {
     sourceRoot: "脚本固定 Harness 源入口",
     targetRoot: "命令行绝对位置参数",
@@ -148,6 +107,21 @@ export async function runInstantiateCli(
   runtime: InstantiateCliRuntime = {}
 ): Promise<ProjectConfig> {
   const parsed = parseArgs(argv)
+  if (parsed.options.has("form")) {
+    if (parsed.options.size !== 1 || parsed.positionals.length !== 0) {
+      throw new Error("--form 不接受其他参数覆盖已确认输入")
+    }
+    const file = parsed.options.get("form")
+    if (typeof file !== "string" || !path.isAbsolute(file))
+      throw new Error("--form 必须是绝对 JSON 路径")
+    const form = await inspectCreationForm(
+      runtime.sourceRoot ?? DEFAULT_SOURCE_ROOT,
+      JSON.parse(await readFile(file, "utf8"))
+    )
+    if (form.phase !== "authorized" || !form.argv)
+      throw new Error(form.issue ?? `完整创建未授权：${form.phase}`)
+    return runInstantiateCli(form.argv, { ...runtime, interactive: false, approval: form.approval })
+  }
   assertKnownOptions(parsed, INIT_OPTIONS)
   if (parsed.positionals.length > 1) {
     throw new Error(usage())
@@ -171,6 +145,7 @@ export async function runInstantiateCli(
     interactive,
     targetRoot: positionalParentRoot,
     promptIdentity: runtime.promptIdentity,
+    validateTarget: (values) => validateInitializationTarget(sourceRoot, values),
     onPolicyModeResolved: (resolved) => {
       policyMode = resolved
     },
@@ -235,6 +210,7 @@ export async function runInstantiateCli(
     sourceRoot,
     targetRoot,
     requirements,
+    approval: runtime.approval,
     init: {
       projectType: init.projectType,
       name: init.name,
@@ -253,8 +229,8 @@ export async function runInstantiateCli(
   output(`工程事务完成（ENGINEERING_READY），已创建 ${config.projectType} 项目：${targetRoot}`)
   output(
     requirements === undefined
-      ? "工程事务完成（ENGINEERING_READY）。下一步：在新项目继续已确认首版的 PRD → 固定设计原型 → 页面功能接线 → 开发走查；工程成功不是完整创建完成。"
-      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 复用完整创建确认，在下游继续 PRD → 固定原型 → 页面功能 → 开发走查。CLI 不执行语义分析或装配业务功能。`
+      ? "工程事务完成（ENGINEERING_READY）。下一步：在新项目澄清或复用真实首版范围，再继续 PRD → 固定设计原型 → 页面功能接线 → 开发走查；工程成功不是完整创建完成。"
+      : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 澄清或复用真实完整创建授权，在下游继续 PRD → 固定原型 → 页面功能 → 开发走查。CLI 不执行语义分析或装配业务功能。`
   )
   output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
   output(

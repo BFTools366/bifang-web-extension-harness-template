@@ -50,6 +50,7 @@ describe("创建需求输入", () => {
   /** 验证只重问非法文档路径，已给文档不再次索取。 */
   test("复用文档路径且相对路径只重问当前字段", async () => {
     const file = path.join(await temporaryDirectory("requirements-prompt-"), "brief.md")
+    await writeFile(file, "只需要公开介绍页面。\n")
     const questions: string[] = []
     const result = await collectPromptedIdentity(
       { ...BASICS, requirementsFile: "relative.md" },

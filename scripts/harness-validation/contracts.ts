@@ -1,6 +1,7 @@
 export const REQUIRED_FILES = [
   ".agents/skills/web-prepare-brand-identity/scripts/generate-candidates.ts",
   ".agents/skills/web-instantiate-project/references/initialization-questions.json",
+  ".agents/skills/web-instantiate-project/references/form-adapter.md",
   ".agents/skills/web-instantiate-project/references/requirements-intake.md",
   ".agents/skills/web-define-product/references/requirements-analysis.md",
   ".agents/skills/web-compose-capabilities/references/requirements-selection.md",
@@ -59,6 +60,10 @@ export const REQUIRED_FILES = [
   ".harness/tooling/source-snapshot.ts",
   ".harness/tooling/init.ts",
   ".harness/tooling/initialization-input.ts",
+  ".harness/tooling/initialization-form.ts",
+  ".harness/tooling/initialization-target.ts",
+  "scripts/initialization-form.ts",
+  "tests/initialization-form.test.ts",
   ".harness/tooling/instantiate.ts",
   ".harness/tooling/project-memory.ts",
   ".harness/tooling/pnpm-policy.ts",

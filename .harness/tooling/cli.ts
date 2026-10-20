@@ -67,6 +67,7 @@ export interface InitOptionsResolutionRuntime {
   interactive?: boolean
   targetRoot?: string
   promptIdentity?: (defaults: PromptDefaults) => Promise<PromptedIdentity>
+  validateTarget?: (values: PromptDefaults) => Promise<void>
   onPolicyModeResolved?: (mode: "recommended" | "custom") => void
   onInputSourcesResolved?: (sources: Readonly<Record<string, string>>) => void
 }
@@ -181,7 +182,9 @@ export async function resolveInitOptions(
     | (typeof supplied & { agentPolicy?: AgentPolicySelection })
     | Awaited<ReturnType<typeof promptForIdentity>> = supplied
   if (interactive) {
-    identity = await (runtime.promptIdentity ?? promptForIdentity)(supplied)
+    identity = runtime.promptIdentity
+      ? await runtime.promptIdentity(supplied)
+      : await promptForIdentity(supplied, { validateTarget: runtime.validateTarget })
   } else {
     if (missing.length > 0) {
       throw new Error(

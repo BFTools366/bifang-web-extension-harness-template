@@ -4,6 +4,7 @@ import { assertExtensionIdentityText, parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type { AgentPolicyMode, ProjectType } from "./types.ts"
+import { readCreationRequirements } from "./creation-requirements.ts"
 
 /** 将创建类型编号或名称解析为唯一宿主，不提供默认类型。 */
 export function parseProjectType(value: string): ProjectType {
@@ -65,7 +66,25 @@ export interface PromptDefaults {
 }
 
 /** 描述可注入测试替身的单轮交互问答。 */
-export type InteractiveQuestion = (question: string) => Promise<string>
+export type InteractiveQuestion = (
+  question: string,
+  context?: { field: keyof PromptDefaults }
+) => Promise<string>
+
+/** 控制聊天与终端的空回答语义，并允许调用方注入当前源的只读目标校验。 */
+export interface InitializationInteraction {
+  mode?: "cli" | "agent"
+  validateTarget?: (values: PromptDefaults) => Promise<void>
+}
+
+/** 关联题库策略字段与唯一命令行参数，题序仍只来自题库。 */
+export const POLICY_OPTIONS = {
+  userOwnedTasks: "user-owned-tasks",
+  superpowers: "superpowers",
+  parallelWorktreeSubagents: "parallel-worktree-subagents",
+  acceptanceSmoke: "acceptance-smoke",
+  e2eHint: "e2e-hint"
+} as const satisfies Record<keyof typeof initializationQuestions.policy, string>
 
 /** 枚举初始化基础字段及主动提供 JSON 时使用的稳定键。 */
 type BasicField = keyof typeof initializationQuestions.basic
@@ -84,7 +103,13 @@ interface InitializationQuestion {
 /** 将固定内容与可变建议、校验错误分别展示，重问时不改题名或题面。 */
 export function formatInitializationQuestion(
   definition: InitializationQuestion,
-  context: { field: string; suggested?: string; issue?: string; parseError?: string }
+  context: {
+    field: string
+    suggested?: string
+    issue?: string
+    parseError?: string
+    mode?: "cli" | "agent"
+  }
 ): string {
   const lines = [
     `问题名称：${definition.title}`,
@@ -93,7 +118,11 @@ export function formatInitializationQuestion(
     definition.hint
   ]
   if (context.suggested !== undefined) {
-    lines.push(`建议/默认：${context.suggested}；回车采用，也可输入其他值。`)
+    lines.push(
+      context.mode === "agent"
+        ? `建议：${context.suggested === "" ? "不提供" : context.suggested}；需明确回答接受，也可输入其他值。`
+        : `建议/默认：${context.suggested}；回车采用，也可输入其他值。`
+    )
   }
   if (context.parseError !== undefined) lines.push(`上次回答无法解析：${context.parseError}`)
   if (context.issue !== undefined) lines.push(`当前问题：${context.issue}`)
@@ -138,11 +167,11 @@ export function requiredText(value: string | undefined, label: string): string {
 }
 
 /** 对单个基础字段执行与正式 initializer 一致的只读校验。 */
-function normalizeBasicField(
+async function normalizeBasicField(
   field: BasicField,
   value: string | undefined,
   allValues: PromptDefaults
-): string {
+): Promise<string> {
   const isExtension = ["extension", "2"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
   if (field === "targetRoot") {
     const targetRoot = requiredText(value, "目标目录")
@@ -156,6 +185,7 @@ function normalizeBasicField(
     if (value === undefined) throw new Error("提供需求文档绝对路径，或回车按原有题目继续")
     const file = value.trim()
     if (file && !path.isAbsolute(file)) throw new Error("需求文档必须提供绝对路径")
+    if (file) await readCreationRequirements(file)
     return file
   }
   if (field === "name") {
@@ -287,7 +317,8 @@ function basicQuestion(
   field: BasicField,
   issue: string,
   suggested: string | undefined,
-  parseError?: string
+  parseError?: string,
+  mode?: "cli" | "agent"
 ): string {
   const value =
     field === "policyMode" && suggested !== undefined
@@ -299,14 +330,16 @@ function basicQuestion(
     field,
     suggested: value,
     issue,
-    parseError
+    parseError,
+    mode
   })
 }
 
 /** 按依赖顺序逐项引导，仅重问缺失或非法值并在类型确定后立即检查可用性。 */
 export async function collectBasicFields(
   defaults: PromptDefaults,
-  ask: InteractiveQuestion
+  ask: InteractiveQuestion,
+  interaction: InitializationInteraction = {}
 ): Promise<CollectedBasicFields> {
   let values: PromptDefaults = {
     ...defaults,
@@ -340,13 +373,20 @@ export async function collectBasicFields(
     const issues = new Map<BasicField, string>()
     for (const { key } of BASIC_FIELDS) {
       try {
-        normalized[key] = normalizeBasicField(key, values[key], values)
+        normalized[key] = await normalizeBasicField(key, values[key], values)
       } catch (error) {
         issues.set(key, error instanceof Error ? error.message : String(error))
       }
     }
     if (values.id === undefined && normalized.id !== undefined && !issues.has("id")) {
       inputSources.id = "英文名称自动生成"
+    }
+    if (!issues.has("targetRoot") && !issues.has("id") && interaction.validateTarget) {
+      try {
+        await interaction.validateTarget(normalized)
+      } catch (error) {
+        issues.set("targetRoot", error instanceof Error ? error.message : String(error))
+      }
     }
     if (issues.size === 0) {
       if (!values.description?.trim()) inputSources.description = "默认使用显示名称"
@@ -362,13 +402,17 @@ export async function collectBasicFields(
     const suggested = suggestedBasicValue(field, normalized)
     const issue = issues.get(field)
     if (issue === undefined) throw new Error(`初始化字段缺少校验问题：${field}`)
-    const answer = await ask(basicQuestion(field, issue, suggested, parseError))
-    const acceptedDefault = answer.trim() === "" && suggested !== undefined
+    const answer = await ask(basicQuestion(field, issue, suggested, parseError, interaction.mode), {
+      field
+    })
+    const acceptedDefault =
+      interaction.mode !== "agent" && answer.trim() === "" && suggested !== undefined
+    if (interaction.mode === "agent" && answer.trim() === "") continue
     try {
       const merged = mergeBasicAnswer(
         normalized,
         pending,
-        answer.trim() === "" && suggested !== undefined ? suggested : answer
+        acceptedDefault ? (suggested ?? "") : answer
       )
       values = merged.values
       for (const key of merged.suppliedFields) {
