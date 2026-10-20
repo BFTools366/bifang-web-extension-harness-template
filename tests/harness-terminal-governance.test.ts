@@ -94,6 +94,8 @@ describe("terminal identity, skills and UI governance", () => {
       await writeFile(recoveryFile, recoverySource)
       // 验证真实分发后仍拒绝弱化权限恢复、差异身份或 Mock 协议边界。
       const accessContracts: [string, string][] = [
+        ["web-implement-auth-session", "不创建第二套会话"],
+        ["web-implement-auth-session", "迟到登录、恢复或 401 不得覆盖或清理后来会话"],
         ["web-compose-capabilities", "知识库与模板库独立索引"],
         ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
         ["web-define-product", "仅工程确认不批准产品范围；完整创建范围确认可复用"],
@@ -102,14 +104,17 @@ describe("terminal identity, skills and UI governance", () => {
         ["web-implement-access-control", "不依赖被拒绝的业务权限"],
         ["web-document-api", "客户端控制参数不属于 wire 字段"],
         ["web-document-api", "HTTP 待确认项"],
-        ["web-document-api", "远端列表查询必须使用 GraphQL"],
-        ["web-review-api-contract", "远端列表查询必须使用 GraphQL"],
-        ["web-connect-http-service", "远端列表查询必须使用 GraphQL"],
+        ["web-document-api", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
+        ["web-review-api-contract", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
+        ["web-connect-http-service", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
         ["web-document-api", "沿真实消费者追踪业务流程"],
         ["web-document-api", "每次导出都核对已有文档与当前代码差异"]
       ]
       if (projectType === "web")
-        accessContracts.push(["web-implement-list-view", "远端列表查询必须使用 GraphQL"])
+        accessContracts.push([
+          "web-implement-list-view",
+          "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"
+        ])
       for (const [skill, fragment] of accessContracts) {
         const file = path.join(root, ".agents/skills", skill, "SKILL.md")
         const source = await readFile(file, "utf8")
@@ -193,7 +198,7 @@ describe("terminal identity, skills and UI governance", () => {
       for (const resource of [
         "knowledge/identity.md",
         "templates/identity/session.test.ts.txt",
-        "templates/compositions/account-workspace/session.ts.txt",
+        "templates/compositions/account-workspace/data/storage/authSessionStorage.ts.txt",
         "templates/compositions/purchase-checkout/commerce-reference.js"
       ]) {
         const file = path.join(root, ".agents/skills/web-compose-capabilities", resource)

@@ -26,7 +26,7 @@ export function downstreamAgents(config: ProjectConfig): string {
 
 先检查工作区并保护已有修改。读取本文件、\`.harness/project.json\` 和 \`docs/AGENT_POLICY.md\` 中的能力偏好、标题生命周期、持久计划、并行、冒烟与 E2E 规则。修改代码、测试、文档或配置前读取 \`docs/ENGINEERING_RULES.md\` 及命中的 Skill。主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍工作读取 \`docs/MANTINE_UI_GUIDELINES.md\`；环境工作读取 \`docs/RUNTIME_CONFIGURATION.md\`；日志/错误处理读取 \`docs/LOGGING.md\`；分页、HTTP 请求头、认证、REST/OpenAPI、GraphQL、SSE、多个远端接口、多来源事件流或 RxJS 工作读取 \`docs/DATA_ACCESS.md\`。查阅或采用可选基础 API 与数据模型合同才读取 \`docs/API.md\`，收录文档不代表服务已配置或接入；其他事实按需读取。
 
-${hostMinimumReading}需求语义和唯一 PRD 归 \`$web-define-product\`，独立能力与资源选择归 \`$web-compose-capabilities\`，实际桌面布局和原型归 \`$web-design-prototype\`，真实页面与业务代码及模板装配归 \`$web-implement-change\`。各阶段只读已选知识与模板，不按产品分类自动生成。选择与操作范围复用唯一 PRD；模板类型与宿主限制以索引为准。\n\n授权范围包含有限 REST/GraphQL HTTP 接入或 API Mock 迁移时，调用 \`$web-connect-http-service\`；UI/路由呈现与候选验收仍由调用流程负责。\n\n既有工作树或登记表审计从主检出目录调用 \`$web-audit-worktrees\`，只读检查不授权清理。比较 Harness 或重新规划升级时调用 \`$web-preview-harness-upgrade\`；已批准的应用与基线登记由 \`$web-upgrade-harness\` 负责。\n\n独立事件分别委托 \`$web-review-api-contract\`、\`$web-review-module-boundaries\`、\`$web-implement-access-control\`、\`$web-implement-write-recovery\`、\`$web-implement-browser-storage\` 与 \`$web-implement-event-stream\`；未命中不调用。传入已确认范围、当前阶段和有效证据，叶子只完成当前职责后返回，不反向重启编排。完整读取命中的 Skill，参考资料只读适用阶段/宿主/协议章节。
+${hostMinimumReading}需求语义和唯一 PRD 归 \`$web-define-product\`，独立能力与资源选择归 \`$web-compose-capabilities\`，实际桌面布局和原型归 \`$web-design-prototype\`，真实页面与业务代码及模板装配归 \`$web-implement-change\`。各阶段只读已选知识与模板，不按产品分类自动生成。选择与操作范围复用唯一 PRD；模板类型与宿主限制以索引为准。\n\n授权范围包含有限 REST/GraphQL HTTP 接入或 API Mock 迁移时，调用 \`$web-connect-http-service\`；UI/路由呈现与候选验收仍由调用流程负责。\n\n既有工作树或登记表审计从主检出目录调用 \`$web-audit-worktrees\`，只读检查不授权清理。比较 Harness 或重新规划升级时调用 \`$web-preview-harness-upgrade\`；已批准的应用与基线登记由 \`$web-upgrade-harness\` 负责。\n\n独立事件分别委托 \`$web-implement-auth-session\`、\`$web-review-api-contract\`、\`$web-review-module-boundaries\`、\`$web-implement-access-control\`、\`$web-implement-write-recovery\`、\`$web-implement-browser-storage\` 与 \`$web-implement-event-stream\`；未命中不调用。传入已确认范围、当前阶段和有效证据，叶子只完成当前职责后返回，不反向重启编排。完整读取命中的 Skill，参考资料只读适用阶段/宿主/协议章节。
 
 ## 事件驱动执行
 
@@ -75,6 +75,7 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-review-api-contract\`：只读核对当前接口来源、实现关联与差异，不联网或写文档。
 - \`$web-review-module-boundaries\`：只读定位职责、依赖与状态拥有者，返回有证据的拆分建议。
+- \`$web-implement-auth-session\`：统一登录、恢复、退出及失效转换，隔离迟到结果并清理私有缓存。
 - \`$web-implement-access-control\`：按既有身份和权限统一菜单、路由与动作访问控制。
 - \`$web-implement-write-recovery\`：处理当前写操作的防重复、未知查询、冲突及成功后刷新。
 - \`$web-implement-browser-storage\`：实现真实本地存储访问、校验、迁移及失败反馈。

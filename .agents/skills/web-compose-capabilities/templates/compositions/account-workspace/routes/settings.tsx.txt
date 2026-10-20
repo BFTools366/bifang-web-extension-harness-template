@@ -1,5 +1,0 @@
-import { createFileRoute } from "@tanstack/react-router"
-import { SettingsPage } from "../features/client/SettingsPage"
-
-/** 设置是独立公开路由，不进入认证布局或私有页面守卫。 */
-export const Route = createFileRoute("/settings")({ component: SettingsPage })

@@ -16,13 +16,15 @@ describe("Harness Skill and Agent policy validation", () => {
   })
   /** 验证拆分后的只读、授权、恢复和绑定边界仍受源门禁约束。 */
   test.each([
+    ["web-implement-auth-session", "不创建第二套会话"],
+    ["web-implement-auth-session", "迟到登录、恢复或 401 不得覆盖或清理后来会话"],
     ["web-review-api-contract", "不修改代码、配置、测试或文档"],
     ["web-review-module-boundaries", "只读，不移动文件"],
     ["web-implement-access-control", "权限未加载、不可解析或缺失时默认拒绝"],
     ["web-implement-access-control", "已识别但无权限的目标"],
     ["web-implement-access-control", "不依赖被拒绝的业务权限"],
     ["web-compose-capabilities", "知识库与模板库独立索引"],
-    ["web-compose-capabilities", "远端列表查询必须使用 GraphQL"],
+    ["web-compose-capabilities", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
     ["web-instantiate-project", "需求分析委托 `$web-define-product`"],
     ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
     ["web-define-product", "只读分析完成后返回调用方"],
@@ -32,10 +34,10 @@ describe("Harness Skill and Agent policy validation", () => {
     ["web-compose-capabilities", "读取后返回当前调用方"],
     ["web-document-api", "客户端控制参数不属于 wire 字段"],
     ["web-document-api", "HTTP 待确认项"],
-    ["web-document-api", "远端列表查询必须使用 GraphQL"],
-    ["web-review-api-contract", "远端列表查询必须使用 GraphQL"],
-    ["web-connect-http-service", "远端列表查询必须使用 GraphQL"],
-    ["web-implement-list-view", "远端列表查询必须使用 GraphQL"],
+    ["web-document-api", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
+    ["web-review-api-contract", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
+    ["web-connect-http-service", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
+    ["web-implement-list-view", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
     ["web-document-api", "沿真实消费者追踪业务流程"],
     ["web-document-api", "每次导出都核对已有文档与当前代码差异"],
     ["web-implement-write-recovery", "刷新失败只重试读取"],
@@ -64,7 +66,7 @@ describe("Harness Skill and Agent policy validation", () => {
   test.each([
     "knowledge/organization.md",
     "templates/identity/session.test.ts.txt",
-    "templates/compositions/account-workspace/session.ts.txt",
+    "templates/compositions/account-workspace/data/storage/authSessionStorage.ts.txt",
     "templates/compositions/purchase-checkout/commerce-reference.js"
   ])("requires capability library resource %s", async (resource) => {
     const root = await copyRepository()

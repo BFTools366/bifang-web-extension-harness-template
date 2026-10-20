@@ -1,8 +1,8 @@
-import type { ApplicationOptions } from "./contracts.ts"
+import { permissionFreePaths, serviceName, type ApplicationOptions } from "./contracts.ts"
 
 /** 将已解析操作装配为同一会话、权限和服务实例，不创建第二套请求客户端。 */
 export function runtimeSource(options: ApplicationOptions, operations: readonly string[]): string {
-  const modules = new Set(operations.map((id) => id.split(".")[0]))
+  const modules = new Set(operations.map((id) => id.slice(0, id.indexOf("."))))
   const identity = modules.has("identity")
   const permissions = modules.has("permissions")
   const organization = modules.has("organization")
@@ -15,11 +15,15 @@ export function runtimeSource(options: ApplicationOptions, operations: readonly 
     "export const applicationScope = createApplicationScope()",
     "/** 客户端作用域只用于隔离缓存与迟到回调，不是服务端授权凭据。 */",
     "export const currentScope = () => applicationScope.getSnapshot().revision",
+    "/** 取消并移除已标记私有查询，会话清理与组织切换共用。 */",
+    "function dropPrivateQueries() {",
+    "  void queryClient.cancelQueries({ predicate: (query) => query.meta?.private === true }).catch(() => undefined)",
+    "  queryClient.removeQueries({ predicate: (query) => query.meta?.private === true })",
+    "}",
     "/** 只清理已明确标记的私有查询，保留语言、主题和公共缓存。 */",
     "export function clearPrivateData() {",
     "  applicationScope.invalidate()",
-    "  void queryClient.cancelQueries({ predicate: (query) => query.meta?.private === true }).catch(() => undefined)",
-    "  queryClient.removeQueries({ predicate: (query) => query.meta?.private === true })",
+    "  dropPrivateQueries()",
     "}"
   ]
   const fixtures = options.fixtures ?? {}
@@ -134,12 +138,12 @@ function acceptOrganization(context: Awaited<ReturnType<typeof readOrganizationC
   organizationId = context.current
   organizationUser = context.available.find((row) => row.id === context.current)?.user ?? null
 }
-/** 恢复导航不干扰未完成切换；迟到读取不能复活旧会话。 */
-export async function ensureOrganization() {
+/** 恢复导航不干扰未完成切换；守卫始终权威重读，取消的导航同时中止读取，迟到读取不能复活旧会话。 */
+export async function ensureOrganization(signal?: AbortSignal) {
   if (applicationScope.getSnapshot().blocked) throw new Error("organization_switching")
   const accountId = identityActor()
   const revision = currentScope()
-  const context = await readOrganizationContext()
+  const context = await readOrganizationContext(signal)
   if (accountId !== identityActor() || revision !== currentScope()) throw new Error("organization_superseded")
   const nextUser = context.available.find((row) => row.id === context.current)?.user
   const changed = organizationId !== context.current || organizationUser?.id !== nextUser?.id || organizationUser?.role !== nextUser?.role
@@ -148,7 +152,7 @@ export async function ensureOrganization() {
 }
 /** 拥有者身份与管理权限分别复核，组织恢复页的豁免不延伸到管理。 */
 export function canManageOrganization() {
-  return !applicationScope.getSnapshot().blocked && organizationUser !== null && organizationUser.accountId === identityActor() && organizationUser.role === "owner"${management ? ' && canAct("organization.manage")' : " && false"}
+  return ${management ? '!applicationScope.getSnapshot().blocked && organizationUser !== null && organizationUser.accountId === identityActor() && organizationUser.role === "owner" && canAct("organization.manage")' : "false"}
 }
 /** 切换期间撤下私有正文；服务端未知结果权威重读，不用本地旧值伪装回滚。 */
 export const organizationService = {
@@ -162,8 +166,7 @@ export const organizationService = {
     if (!accountId || applicationScope.getSnapshot().blocked) throw new Error("organization_switching")
     if (organizationId === id && organizationUser?.accountId === accountId) return
     const owned = applicationScope.begin()
-    void queryClient.cancelQueries({ predicate: (query) => query.meta?.private === true }).catch(() => undefined)
-    queryClient.removeQueries({ predicate: (query) => query.meta?.private === true })
+    dropPrivateQueries()
     try {
       let switchError: unknown
       try { await organizationApi.switch(id) } catch (error) { switchError = error }
@@ -220,7 +223,11 @@ export const organizationService = {
 export const pagePermissions: Record<string, readonly string[]> = ${JSON.stringify(options.pagePermissions ?? {})}
 export const actionPermissions: Record<string, readonly string[]> = ${JSON.stringify(options.actionPermissions ?? {})}
 /** 菜单、路由和页面共用相同权限码；缺失要求不会自动放行。 */
-export const canVisit = (path: string) => path === "/forbidden"${organization ? ' || path === "/organization"' : ""}${management ? ' || (path === "/organization/manage" && canManageOrganization() && permissionSession.allow(pagePermissions[path] ?? []))' : ""} || ${management ? '(path !== "/organization/manage" && permissionSession.allow(pagePermissions[path] ?? []))' : "permissionSession.allow(pagePermissions[path] ?? [])"}
+export const canVisit = (path: string) => ${management ? 'path === "/organization/manage" ? canManageOrganization() && permissionSession.allow(pagePermissions[path] ?? []) : ' : ""}${permissionFreePaths(
+      organization
+    )
+      .map((path) => "path === " + JSON.stringify(path))
+      .join(" || ")} || permissionSession.allow(pagePermissions[path] ?? [])
 /** 元素可见性与提交前复核来自同一动作要求。 */
 export const canAct = (action: string) => permissionSession.allow(actionPermissions[action] ?? [])
 /** 真实写操作在执行前再次核验当前授权。 */
@@ -228,11 +235,7 @@ export function assertAction(action: string) { permissionSession.assert(actionPe
   }
   if (options.dataMode === "adapter") {
     for (const module of modules)
-      if (module !== "permissions") {
-        const name = module === "wallet-payments" ? "wallet" : module
-        if (lines.every((line) => !line.includes(`export const ${name}Api`)))
-          lines.push(`export { ${name}Api }`)
-      }
+      if (module !== "permissions") lines.push(`export { ${serviceName(module)}Api }`)
   }
   if (operations.includes("orders.purchase")) {
     imports.push('import { createPurchaseRegistry } from "../orders/purchase"')

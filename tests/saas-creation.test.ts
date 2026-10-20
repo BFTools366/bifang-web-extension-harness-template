@@ -1,126 +1,15 @@
 import { stripVTControlCharacters } from "node:util"
 import { describe, expect, test } from "vitest"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
-import { repositoryRoot, path, temporaryDirectory } from "./harness-tooling-support.ts"
+import { repositoryRoot, path } from "./harness-tooling-support.ts"
 import { execFileSync } from "node:child_process"
-import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, rm, writeFile, readFile } from "node:fs/promises"
 import { fileURLToPath } from "node:url"
 import { webFiles } from "../.harness/tooling/templates/web.ts"
-import { accountWorkspaceFiles } from "../.agents/skills/web-compose-capabilities/templates/compositions/account-workspace/files.ts"
-
-/** 在隔离回归中绑定真实文件路由，保留父子关系与严格上下文类型。 */
-function accountFileRouteTreeFixture(): string {
-  const routes = [
-    {
-      name: "Settings",
-      file: "settings",
-      id: "/settings",
-      path: "/settings",
-      fullPath: "/settings",
-      parent: "rootRoute",
-      localId: "/settings"
-    },
-    {
-      name: "Auth",
-      file: "_auth",
-      id: "/_auth",
-      path: "",
-      fullPath: "/",
-      parent: "rootRoute",
-      localId: "/_auth"
-    },
-    {
-      name: "Login",
-      file: "_auth/login",
-      id: "/_auth/login",
-      path: "/login",
-      fullPath: "/login",
-      parent: "AuthRoute",
-      localId: "/login"
-    },
-    {
-      name: "Register",
-      file: "_auth/register",
-      id: "/_auth/register",
-      path: "/register",
-      fullPath: "/register",
-      parent: "AuthRoute",
-      localId: "/register"
-    },
-    {
-      name: "Reset",
-      file: "_auth/forgot-password",
-      id: "/_auth/forgot-password",
-      path: "/forgot-password",
-      fullPath: "/forgot-password",
-      parent: "AuthRoute",
-      localId: "/forgot-password"
-    },
-    {
-      name: "App",
-      file: "app",
-      id: "/app",
-      path: "/app",
-      fullPath: "/app",
-      parent: "rootRoute",
-      localId: "/app"
-    },
-    {
-      name: "Dashboard",
-      file: "app/dashboard",
-      id: "/app/dashboard",
-      path: "/dashboard",
-      fullPath: "/app/dashboard",
-      parent: "AppRoute",
-      localId: "/dashboard"
-    },
-    {
-      name: "Account",
-      file: "app/account",
-      id: "/app/account",
-      path: "/account",
-      fullPath: "/app/account",
-      parent: "AppRoute",
-      localId: "/account"
-    },
-    {
-      name: "NoAccess",
-      file: "app/forbidden",
-      id: "/app/forbidden",
-      path: "/forbidden",
-      fullPath: "/app/forbidden",
-      parent: "AppRoute",
-      localId: "/forbidden"
-    },
-    {
-      name: "TestPage",
-      file: "app/test",
-      id: "/app/test",
-      path: "/test",
-      fullPath: "/app/test",
-      parent: "AppRoute",
-      localId: "/test"
-    }
-  ]
-  let source = 'import { Route as rootRoute } from "./routes/__root"\n'
-  for (const route of routes)
-    source += `import { Route as ${route.name}RouteImport } from "./routes/${route.file}"\n`
-  for (const route of routes) {
-    const routePath = route.path === "" ? "" : `path: ${JSON.stringify(route.path)}, `
-    source += `const ${route.name}Route = ${route.name}RouteImport.update({ ...${route.name}RouteImport.options, ...{ id: ${JSON.stringify(route.localId)}, ${routePath}getParentRoute: () => ${route.parent} } })\n`
-  }
-  source += 'declare module "@tanstack/react-router" { interface FileRoutesByPath {\n'
-  for (const route of routes)
-    source += `${JSON.stringify(route.id)}: { id: ${JSON.stringify(route.id)}; path: ${JSON.stringify(route.path)}; fullPath: ${JSON.stringify(route.fullPath)}; preLoaderRoute: typeof ${route.name}RouteImport; parentRoute: typeof ${route.parent} }\n`
-  source +=
-    "} }\nexport const routeTree = rootRoute.addChildren([AuthRoute.addChildren([LoginRoute, RegisterRoute, ResetRoute]), AppRoute.addChildren([DashboardRoute, AccountRoute, NoAccessRoute, TestPageRoute]), SettingsRoute])\n"
-  return source
-}
-
-describe("explicit account workspace composition", () => {
-  /** 验证显式组合模板实际编译并运行身份、组织与权限回归。 */
+describe("account service protocol references", () => {
+  /** 验证保留的协议与存储参考独立编译，执行服务合同及最高风险失败回归。 */
   test.each(["", "https://service.invalid"])(
-    "生成的 账户组合 认证通过类型检查和行为回归（测试地址：%s）",
+    "账户协议参考通过类型检查和行为回归（测试地址：%s）",
     async (apiBaseUrl) => {
       const cache = path.join(repositoryRoot, "node_modules/.cache")
       await mkdir(cache, { recursive: true })
@@ -138,7 +27,34 @@ describe("explicit account workspace composition", () => {
           testBaseUrl: apiBaseUrl,
           releaseBaseUrl: ""
         })
-        const files = accountWorkspaceFiles(base)
+        const files = new Map(
+          [...base].filter(
+            ([name]) =>
+              !/\.test\.[jt]sx?$/u.test(name) &&
+              (name === "src/brand.ts" ||
+                name === "src/vite-env.d.ts" ||
+                /^src\/(?:data|config|i18n|observability|pagination|state)\//u.test(name))
+          )
+        )
+        const referenceRoot = path.join(
+          repositoryRoot,
+          ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace"
+        )
+        /** 将保留的数据协议参考放入隔离测试工程，不创建第二套应用入口。 */
+        async function addReferences(directory: string): Promise<void> {
+          for (const entry of await readdir(path.join(referenceRoot, directory), {
+            withFileTypes: true
+          })) {
+            const relative = path.posix.join(directory, entry.name)
+            if (entry.isDirectory()) await addReferences(relative)
+            else
+              files.set(
+                "src/" + relative.replace(/\.txt$/u, ""),
+                await readFile(path.join(referenceRoot, relative), "utf8")
+              )
+          }
+        }
+        await addReferences("data")
         for (const [name, source] of files) {
           if (!name.startsWith("src/")) continue
           await mkdir(path.dirname(path.join(root, name)), { recursive: true })
@@ -154,7 +70,6 @@ describe("explicit account workspace composition", () => {
           `export const APP_CONFIG = { environment: "test", apiBaseUrl: ${JSON.stringify(apiBaseUrl)}, requestTimeoutMs: 1000, logLevel: "error" } as const\n`
         )
         await writeFile(path.join(root, "package.json"), '{"private":true,"type":"module"}\n')
-        await writeFile(path.join(root, "src/routeTree.gen.ts"), accountFileRouteTreeFixture())
         await writeFile(
           path.join(root, "src/fixture-env.d.ts"),
           'interface ImportMeta { readonly hot?: { dispose(callback: () => void): void } }\ndeclare module "*.css" { const classes: Record<string, string>; export default classes }\n'
@@ -239,9 +154,12 @@ describe("explicit account workspace composition", () => {
   )
 })
 
-/** 运行独立会话模板的标准库测试及严格类型检查，不引入组织、权限或UI。 */
+/** 运行独立会话模板的 vitest 测试及严格类型检查，不引入组织、权限或UI。 */
 test("standalone identity template compiles and passes lifecycle behavior", async () => {
-  const root = await temporaryDirectory("identity-template-")
+  // 位于仓库依赖缓存内，模板中的 vitest 导入与下游一样从项目依赖解析。
+  const cache = path.join(repositoryRoot, "node_modules/.cache")
+  await mkdir(cache, { recursive: true })
+  const root = await mkdtemp(path.join(cache, "identity-template-"))
   try {
     for (const name of ["session.ts", "session.test.ts"])
       await writeFile(
@@ -278,13 +196,18 @@ test("standalone identity template compiles and passes lifecycle behavior", asyn
       ],
       { cwd: repositoryRoot, stdio: "pipe", timeout: 40_000 }
     )
-    const output = execFileSync(process.execPath, ["--test", path.join(root, "session.test.ts")], {
+    const vitest = path.join(
+      path.dirname(fileURLToPath(import.meta.resolve("vitest/package.json"))),
+      "vitest.mjs"
+    )
+    const output = execFileSync(process.execPath, [vitest, "run", "--root", root], {
+      cwd: root,
       stdio: "pipe",
       encoding: "utf8",
-      timeout: 10_000
+      timeout: 30_000,
+      env: { ...process.env, NO_COLOR: "1" }
     })
-    expect(output).toMatch(/fail 0/)
-    expect(output).toMatch(/pass 21/)
+    expect(output).toMatch(/Tests\s+21 passed/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

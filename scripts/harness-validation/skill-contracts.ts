@@ -1,6 +1,9 @@
-/** 保存源 Harness 唯一允许的 31 个 Web Skill canonical id。 */
+import { SHARED_SKILL_BODY_REQUIREMENTS } from "../../.harness/tooling/skill-validation.ts"
+
+/** 保存源 Harness 唯一允许的 32 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
   "web-compose-capabilities",
+  "web-implement-auth-session",
   "web-implement-access-control",
   "web-implement-browser-storage",
   "web-implement-event-stream",
@@ -47,8 +50,17 @@ export interface SkillContract {
   defaultPrompt: string
 }
 
-/** 锁定 31 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
+/** 锁定 32 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
+  "web-implement-auth-session": {
+    description:
+      "在已初始化 React Web 或 Plasmo Extension 下游中，按已确认认证契约实施或修复登录提交、会话恢复、退出及失效处理，统一会话状态机、异步结果归属和私有缓存清理；不决定功能选择、登录页设计或凭据持久化授权。",
+    title: "# Web Harness：实施身份会话",
+    displayName: "Web Harness：实施身份会话",
+    shortDescription: "统一认证会话转换、异步结果归属、退出失效和私有缓存清理",
+    defaultPrompt:
+      "使用 $web-implement-auth-session 按已确认认证契约实施或修复唯一会话状态机、异步提交权及退出失效接线，返回实际验证证据。"
+  },
   "web-implement-access-control": {
     description:
       "在已初始化 React Web 或 Plasmo Extension 下游中，按当前服务端权限契约实现或修复菜单、路由和动作访问控制及撤权处理；只消费既有身份与作用域，不负责登录、凭据存储或权限获取，不把功能开关或前端隐藏当成授权。",
@@ -330,152 +342,15 @@ export const SKILL_CONTRACTS = {
   }
 } as const satisfies Record<(typeof EXPECTED_SKILLS)[number], SkillContract>
 
-/** 锁定关键 Skill 正文不可丢失的工作流语义。 */
+/** 锁定关键 Skill 正文不可丢失的工作流语义；共用条目由终端校验拥有，源只追加源专用 Skill。 */
 export const SKILL_BODY_REQUIREMENTS: Partial<
   Record<(typeof EXPECTED_SKILLS)[number], readonly string[]>
 > = {
+  ...SHARED_SKILL_BODY_REQUIREMENTS,
   "web-instantiate-project": [
     "需求分析委托 `$web-define-product`",
     "不拥有需求或能力判据",
     "默认欢迎页与计数器演示已移除"
-  ],
-  "web-define-product": [
-    "创建前只读分析",
-    "源阶段不写 PRD、产品记录、原型或业务代码",
-    "只读分析完成后返回调用方",
-    "仅工程确认不批准产品范围；完整创建范围确认可复用",
-    "references/requirements-analysis.md",
-    "references/prd-outline.md"
-  ],
-  "web-compose-capabilities": [
-    "templates/application/files.ts",
-    "购买自动包含基础用户系统",
-    "固定设计",
-    "知识库与模板库独立索引",
-    "远端列表查询必须使用 GraphQL",
-    "功能选择不授予权限",
-    "结果未知时先查询，不自动重放创建订单或支付",
-    "源阶段不取代码模板、不写入工程、不调用组装器",
-    "代码装配与测试由 `$web-implement-change` 负责",
-    "读取后返回当前调用方"
-  ],
-  "web-review-api-contract": [
-    "只读核对不证明服务可达",
-    "不修改代码、配置、测试或文档",
-    "远端列表查询必须使用 GraphQL",
-    "完成后返回调用方"
-  ],
-  "web-review-module-boundaries": [
-    "只读，不移动文件",
-    "不以文件数量或行数单独决定拆分",
-    "源门禁与运行时门禁"
-  ],
-  "web-implement-access-control": [
-    "功能选择不授予权限",
-    "权限未加载、不可解析或缺失时默认拒绝",
-    "已识别但无权限的目标",
-    "不依赖被拒绝的业务权限",
-    "业务 403",
-    "返回调用方"
-  ],
-  "web-document-api": [
-    "客户端控制参数不属于 wire 字段",
-    "HTTP 待确认项",
-    "沿真实消费者追踪业务流程",
-    "每次导出都核对已有文档与当前代码差异",
-    "远端列表查询必须使用 GraphQL"
-  ],
-  "web-implement-write-recovery": [
-    "写操作不自动重放",
-    "未知时先通过已确认",
-    "刷新失败只重试读取",
-    "返回调用方"
-  ],
-  "web-implement-browser-storage": [
-    "本地能力直接真实实现，不要求 BaseURL",
-    "不扩大例外",
-    "不得用静默 fallback",
-    "完成后返回"
-  ],
-  "web-implement-event-stream": [
-    "不能从查询接口推断支持",
-    "只读命中分支",
-    "不承诺 MV3 service worker 常驻",
-    "返回调用方"
-  ],
-  "web-manage-user-tasks": [
-    "`user_owned_tasks: disabled` 不自动创建或拆分",
-    "当前与逐页归档",
-    "只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入",
-    "git rev-parse --path-format=absolute --git-common-dir",
-    "git worktree list --porcelain",
-    "git status --porcelain=v1 --untracked-files=all",
-    "不置顶"
-  ],
-  "web-audit-worktrees": [
-    "只运行既有 helper 的 `inspect`",
-    "从 primary checkout 的精确 cwd",
-    "不创建目录、登记、分支、Worktree 或报告文件",
-    "orphan/stale 只表示需要调查的证据，不是删除授权"
-  ],
-  "web-preview-harness-upgrade": [
-    "不修改目标工程，可选创建外部计划报告",
-    "目标允许已有本地修改",
-    "CLI 没有 render 子命令",
-    "不调用 `apply`、`record` 或带批准的 `migrate-ownership`"
-  ],
-  "web-check-development-environment": [
-    "新下游首次初始化只检查一次 Node.js/pnpm",
-    "最终 Release 构建、新会话、Agent 切换、宿主或版本约束变化都不触发预探测",
-    "命令已经失败且错误明确指向",
-    "不静默安装或升级"
-  ],
-  "web-implement-change": [
-    "只将依赖该远端 API 的操作",
-    "本地能力直接真实实现，不要求 BaseURL",
-    "只有实际创建新下游时调用一次 `$web-check-development-environment`",
-    "最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测",
-    "只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入",
-    "$web-manage-user-tasks"
-  ],
-  "web-connect-http-service": [
-    "远端列表查询必须使用 GraphQL",
-    "仅用于已初始化且 `projectType=web|extension`",
-    "本地实现继续真实运行，不纳入 Mock 迁移",
-    "真实请求失败不得回落 Mock",
-    "取消相关旧请求并清理对应 Mock Query 缓存",
-    "不扩张生产、付费、凭据或不可逆写入授权"
-  ],
-  "web-review-extension-compatibility": [
-    "仅用于已初始化且 `projectType=extension`",
-    "不修改代码、测试、manifest、权限或依赖",
-    "不自行构建、加载浏览器或创建候选",
-    "消费者 × Chrome MV3 / Firefox MV2"
-  ],
-  "web-design-prototype": [
-    "仅在已初始化下游运行",
-    "正式 PRD、原型与登记只按各自事件创建",
-    "每次只生成一个桌面端原型",
-    "不生成 A/B/C 备选方案",
-    "不规划、生成或验证 Mobile 支持",
-    "pnpm prototype:check",
-    "旧摘要失效"
-  ],
-  "web-implement-list-view": [
-    "远端列表查询必须使用 GraphQL",
-    "仅用于 projectType=web",
-    "完全无 owned key",
-    "不是双向状态同步",
-    "background-color: var(--mantine-color-body)",
-    "assets/listPageState.ts"
-  ],
-  "web-verify-delivery": [
-    "不为最终构建预先调用环境检查",
-    "只有命令已经失败且错误明确指向 Node.js、pnpm、原生依赖或宿主环境时",
-    "`acceptance_smoke: enabled` 在完整候选验收且无更高优先级硬要求时把 smoke 标为 `required`",
-    "`acceptance_smoke: disabled` 在无硬要求时把 smoke 标为 `not-required`",
-    "用户、产品、安全或渠道硬要求优先于持久值",
-    "源 Harness 的 `pending` 不授权可选 smoke"
   ]
 }
 

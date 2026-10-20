@@ -15,7 +15,8 @@ import type { AgentPolicyChoice, AgentPolicySelection, InitOptions, ParsedArgs }
 import { validateProject } from "./validate.ts"
 import { isMainModule } from "./files.ts"
 
-const INIT_OPTIONS = [
+/** 保存创建参数的唯一清单，源公开创建入口直接复用。 */
+export const INIT_OPTIONS = [
   "type",
   "requirements-file",
   "name",

@@ -28,6 +28,7 @@
 | 环境、数据、认证、基础 API 契约、事件流或日志 | 对应 `docs/RUNTIME_CONFIGURATION.md`、`DATA_ACCESS.md`、`LOGGING.md`；基础契约另读 `docs/API.md` | `$web-implement-change`                                                                                    |
 | API 契约核对或漂移审查                        | 当前操作的可信来源、API 实现/类型/消费者/测试；相关数据章节                                      | `$web-review-api-contract`，只读                                                                           |
 | 职责、依赖或状态归属审查                      | 工程规则的模块边界与目标代码/消费者                                                              | `$web-review-module-boundaries`，只读                                                                      |
+| 登录、恢复、退出或会话失效                    | 当前认证契约、会话拥有者与持久化范围                                                             | `$web-implement-auth-session`                                                                              |
 | 权限入口、撤权或作用域变化                    | 当前权限契约、身份与受影响入口                                                                   | `$web-implement-access-control`                                                                            |
 | 写入重复、冲突或未知恢复                      | 当前操作的幂等/版本/查询与允许状态契约                                                           | `$web-implement-write-recovery`                                                                            |
 | 真实本地存储访问或迁移                        | 数据访问的存储与状态所有权章节、实际消费者                                                       | `$web-implement-browser-storage`                                                                           |
@@ -67,13 +68,13 @@
 - 实施与重构：`$web-implement-change`、`$web-refactor-code`、`$web-extract-i18n-strings`。范围清楚的变更；i18n 整理仅下游。
 
 - 接入、文档与宿主审查：`$web-connect-http-service`、`$web-document-api`、`$web-review-extension-compatibility`。已初始化下游；兼容审查仅 Extension、只读。
-- 独立领域能力：`$web-review-api-contract`、`$web-review-module-boundaries`、`$web-implement-access-control`、`$web-implement-write-recovery`、`$web-implement-browser-storage`、`$web-implement-event-stream`。按真实契约与当前受影响范围触发。
+- 独立领域能力：`$web-implement-auth-session`、`$web-review-api-contract`、`$web-review-module-boundaries`、`$web-implement-access-control`、`$web-implement-write-recovery`、`$web-implement-browser-storage`、`$web-implement-event-stream`。按真实契约与当前受影响范围触发。
 - Task、Worktree 与 Git：`$web-manage-user-tasks`、`$web-audit-worktrees`、`$web-run-parallel-worktrees`、`$web-configure-git-commits`。Task、并行与提交各自满足对应触发条件。
 - 计划与记忆：`$web-plan-change`、`$web-summarize-development-history`、`$web-curate-harness-memory`。计划只由独立事件触发；源记忆整理不分发。
 - Harness 升级：`$web-preview-harness-upgrade`、`$web-upgrade-harness`。已初始化下游，先只读预演再按已批准范围应用。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。显式候选、完整验收或真实硬要求。
 
-源 Harness 共保留 31 个 `web-*` Skills；两类终端均删除实例化与源记忆整理能力。Web 删除 Extension 兼容审查，Extension 删除 Web 列表 Skill，均保留 28 个维护 Skills（不含设计支持）。两宿主均分发 `$web-compose-capabilities` 的独立知识库与模板库，未选能力不生成。下游默认在项目内补装缺失的 `design-taste-frontend`，有效已有版本保留，规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。目录、文件头、发现元数据与实际文件必须一致。
+源 Harness 共保留 32 个 `web-*` Skills；两类终端均删除实例化与源记忆整理能力。Web 删除 Extension 兼容审查，Extension 删除 Web 列表 Skill，均保留 29 个维护 Skills（不含设计支持）。两宿主均分发 `$web-compose-capabilities` 的独立知识库与模板库，未选能力不生成。下游默认在项目内补装缺失的 `design-taste-frontend`，有效已有版本保留，规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。目录、文件头、发现元数据与实际文件必须一致。
 
 ## 约束地图
 

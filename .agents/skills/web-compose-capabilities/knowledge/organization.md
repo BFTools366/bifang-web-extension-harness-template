@@ -69,7 +69,7 @@ Query key 含实际影响结果的目标、身份/scope、语言和查询参数�
 
 ## GraphQL 列表与服务合同
 
-组织、账户、成员、邀请及角色候选等远端集合统一走 GraphQL，包含无条件首载、筛选、搜索、排序和分页。没有可信列表 Schema 是缺口，不能因已有 REST 合同绕过；纯本地候选过滤不假造远端接口。详情与写操作依据真实契约，不从 BaseURL、页面名或参考字段猜 endpoint。
+组织、账户、成员、邀请及角色候选集合按 [列表查询协议强约定](../../../../docs/DATA_ACCESS.md#列表查询协议强约定) 判断协议与契约缺口；本领域知识只补充对象语义，纯本地计算不构造远端服务。
 
 ## 验证与交付
 
@@ -79,6 +79,6 @@ Query key 含实际影响结果的目标、身份/scope、语言和查询参数�
 
 ## 可执行参考
 
-[候选计算模板](../templates/organization/organizationChoices.ts.txt) 只处理已认证成员；[工作区组合](../templates/compositions/account-workspace/README.md) 展示新scope恢复与组件后效隔离，不是组织服务授权。
+[候选计算模板](../templates/organization/organizationChoices.ts.txt) 只处理已认证成员；[应用接线](../templates/application/wiring.md) 拥有当前作用域恢复和组件后效隔离；[账户协议参考](../templates/compositions/account-workspace/README.md) 不授予组织服务权限。
 
 基础接线以 [固定设计](../templates/organization/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

@@ -23,7 +23,7 @@ const RELEASE_SENTINELS = [
   "do-not-ship"
 ] as const
 const RELEASE_LOW_LEVEL_LOG_CALLS = ["console.debug", "console.info"] as const
-const HTTP_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/g
+const HTTP_URL_PATTERN = /https?:\/\/[^\s"'`<>]+/gi
 const RELEASE_POLICY_PATH = ".harness/release-policy.json"
 
 // 定义 ReleaseInspection 接口的结构契约。
@@ -213,7 +213,8 @@ async function inspectArtifact(
       for (const logCall of RELEASE_LOW_LEVEL_LOG_CALLS) {
         if (contents.includes(logCall)) fileErrors.push(`${relative} contains ${logCall}`)
       }
-      const withoutUrls = contents.replace(HTTP_URL_PATTERN, "[URL]")
+      // 先还原 JSON 转义斜线，使 "\/Users\/name" 与远端 URL 都按真实路径判定。
+      const withoutUrls = contents.replaceAll("\\/", "/").replace(HTTP_URL_PATTERN, "[URL]")
       // Parcel 相对模块路径不属于本机路径；仍拒绝绝对路径、file URL 与转义后的 Windows 路径。
       if (
         /file:\/\/[^/\s"'<>]*\/(?:Users|home)\/[^/\s]+|(?<![A-Za-z0-9_./-])\/(?:Users|home)\/[^/\s]+|[A-Za-z]:\\+Users\\+[^\\\s]+/i.test(

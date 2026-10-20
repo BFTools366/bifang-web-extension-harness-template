@@ -2,7 +2,7 @@ import { lstat, readdir, realpath } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
-import { resolveInitOptions } from "../.harness/tooling/cli.ts"
+import { INIT_OPTIONS, resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { readCreationRequirements } from "../.harness/tooling/creation-requirements.ts"
 import { validateProjectId, type PromptDefaults } from "../.harness/tooling/initialization-input.ts"
@@ -13,29 +13,6 @@ import {
   type PromptedIdentity
 } from "../.harness/tooling/prompts.ts"
 import type { InstantiateOptions, ProjectConfig } from "../.harness/tooling/types.ts"
-
-/** 保存唯一公开创建入口允许的参数。 */
-const INSTANTIATE_OPTIONS = [
-  "type",
-  "requirements-file",
-  "name",
-  "english-name",
-  "id",
-  "description",
-  "identity-i18n",
-  "development-base-url",
-  "test-base-url",
-  "release-base-url",
-  "brand-color",
-  "logo",
-  "policy-mode",
-  "confirmed-by",
-  "superpowers",
-  "user-owned-tasks",
-  "parallel-worktree-subagents",
-  "acceptance-smoke",
-  "e2e-hint"
-] as const
 
 /** 保存脚本文件确定的默认 Harness 源根。 */
 const DEFAULT_SOURCE_ROOT = fileURLToPath(new URL("..", import.meta.url))
@@ -171,7 +148,7 @@ export async function runInstantiateCli(
   runtime: InstantiateCliRuntime = {}
 ): Promise<ProjectConfig> {
   const parsed = parseArgs(argv)
-  assertKnownOptions(parsed, INSTANTIATE_OPTIONS)
+  assertKnownOptions(parsed, INIT_OPTIONS)
   if (parsed.positionals.length > 1) {
     throw new Error(usage())
   }

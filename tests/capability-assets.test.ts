@@ -1,10 +1,11 @@
 import os from "node:os"
-import { readFile, realpath, readdir, cp, mkdtemp, writeFile, rm } from "node:fs/promises"
+import { readFile, readdir, cp, mkdtemp, writeFile, rm } from "node:fs/promises"
 import path from "node:path"
 import { expect, test } from "vitest"
 import { repositoryRoot } from "./harness-tooling-support.ts"
 import { readCapabilityCatalog } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { inspectChineseComments } from "../.harness/tooling/comment-policy.ts"
+import { countSourceLines, SOURCE_SIZE_HARD_LIMIT } from "../.harness/tooling/source-size-policy.ts"
 import { checkExport } from "../.agents/skills/web-document-api/scripts/check-export.ts"
 
 /** 所有可装配源码均须受索引治理，不能遗漏升级资源、声明注释或规模检查。 */
@@ -18,26 +19,16 @@ test("opt-in capability assets are indexed, readable and governed as source", as
       entry.templates.map((item) => item.path)
     )
   ])
-  const assets = JSON.parse(await readFile(path.join(recipeRoot, "assets.json"), "utf8")) as Record<
-    string,
-    string
-  >
-  expect(Object.keys(assets).length).toBeGreaterThan(50)
-  for (const [target, asset] of Object.entries(assets)) {
-    expect(target).toMatch(/^src\//u)
-    expect(target.split("/")).not.toContain("..")
-    const sourcePath = await realpath(path.join(recipeRoot, asset))
-    expect(sourcePath.startsWith(root + path.sep)).toBe(true)
-    expect(resources.has(path.relative(root, sourcePath).split(path.sep).join("/"))).toBe(true)
-    const source = await readFile(sourcePath, "utf8")
-    expect(source).not.toMatch(/毕方小CB|Bifang workspace|Bifang studio/u)
-    if (/\.(?:ts|tsx)$/u.test(target)) {
-      const report = inspectChineseComments(source, target)
-      expect(report.errors, target).toEqual([])
-      expect(report.violations, target).toEqual([])
-      expect(source.split("\n").length - 1, target).toBeLessThanOrEqual(600)
-    }
-  }
+  for (const retired of [
+    "files.ts",
+    "assets.json",
+    "session.ts.txt",
+    "app",
+    "routes",
+    "features",
+    "i18n"
+  ])
+    await expect(readdir(path.join(recipeRoot, retired))).rejects.toMatchObject({ code: "ENOENT" })
   /** 防止搬走资产后目录留有未编译且无人索引的旧模板。 */
   async function checkDirectory(directory: string): Promise<void> {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
@@ -50,13 +41,13 @@ test("opt-in capability assets are indexed, readable and governed as source", as
   await checkDirectory(recipeRoot)
   await checkDirectory(path.join(root, "templates/application"))
   for (const relative of resources) {
-    if (!relative.startsWith("templates/application/") || !/\.tsx?(?:\.txt)?$/u.test(relative))
-      continue
+    if (!relative.startsWith("templates/") || !/\.tsx?(?:\.txt)?$/u.test(relative)) continue
     const source = await readFile(path.join(root, relative), "utf8")
+    expect(source).not.toMatch(/毕方小CB|Bifang workspace|Bifang studio/u)
     const report = inspectChineseComments(source, relative.replace(/\.txt$/u, ""))
     expect(report.errors, relative).toEqual([])
     expect(report.violations, relative).toEqual([])
-    expect(source.split("\n").length - 1, relative).toBeLessThanOrEqual(600)
+    expect(countSourceLines(source), relative).toBeLessThanOrEqual(SOURCE_SIZE_HARD_LIMIT)
   }
 })
 

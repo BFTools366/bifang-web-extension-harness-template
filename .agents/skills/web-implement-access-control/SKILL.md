@@ -10,7 +10,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，按当�
 ## 范围与事实
 
 - 仅已初始化下游且本次涉及访问控制时应用；源 Harness 只维护本 Skill，不生成产品权限模型。Extension 的服务端业务权限与浏览器 permissions/host permissions 分开，不能相互替代。
-- 复用调用方确认的模式、功能选择、当前身份/作用域及权限码。身份认证、组织切换、权限获取与会话失效继续由既有认证拥有者负责，不新建第二套会话。
+- 复用调用方确认的模式、功能选择、当前身份/作用域及权限码。身份认证、组织切换、权限获取与会话失效继续由既有认证拥有者负责；会话实施缺口返回调用方按事件委托 `$web-implement-auth-session`，不新建第二套会话。
 - 功能选择不授予权限；不发明公共权限码、不从角色名称或网络失败推断授权。仅有本地 UI 可见性需求时保持该含义，不能声称存在服务端鉴权。
 - 读取工程规则、当前宿主 UI/Router 规范与受影响权限契约；凭据和错误语义只按需读 `docs/DATA_ACCESS.md` 的认证章节。领域合同由调用方传入，不为执行本 Skill 重走需求定义。
 
@@ -30,4 +30,4 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，按当�
 
 ## 实现参考
 
-[独立精确权限判定](../web-compose-capabilities/templates/permissions/capability.ts.txt) 不要求组织；[组合的页面声明与门禁](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 演示当前scope、菜单、深链接、返回目标和撤权正文。按真实权限码适配，不默认授予示例能力。
+[独立精确权限判定](../web-compose-capabilities/templates/permissions/capability.ts.txt) 不要求组织；[账户协议参考](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 保留协议边界；实际菜单、深链接、返回目标与撤权正文按 [当前应用接线](../web-compose-capabilities/templates/application/wiring.md) 实施。按真实权限码适配，不默认授予示例能力。

@@ -218,7 +218,9 @@ export async function runBuild(
   }
   console.log(`构建 ${buildVersion} 通过；E2E 选择：${e2e}。`)
   if (e2e === "enabled") {
-    console.log("已选择 E2E，尚待执行：对本次精确产物运行 $web-test-final-artifact-e2e。")
+    console.log(
+      "已选择 E2E，尚待执行：将本次精确产物交给 $web-verify-delivery，由其批准场景并委托 E2E。"
+    )
   }
   return { buildVersion, e2e }
 }

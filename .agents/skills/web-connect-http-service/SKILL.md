@@ -18,7 +18,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 
 读取 `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 的 HTTP/认证、迁移与测试章节；仅按真实传输需要扩大读取。没有消费者时不新增依赖、跨上下文架构或通用 adapter。
 
-远端列表查询必须使用 GraphQL，先读取数据规则的“列表查询协议强约定”并核对实际 Query、Schema 与条件/排序/分页变量；TanStack Query 或 HTTP POST 不等于 GraphQL。只有 REST 列表的服务保持协议阻断，不降级绕过或猜造 GraphQL 能力；单对象与写操作仍按现有分工，迁移不超出当前实现授权。
+按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 核对实际操作和可信服务契约；协议不符合或契约缺失时返回阻断，迁移不超出当前实现授权。
 
 按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
@@ -31,7 +31,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
    按 DATA_ACCESS 的“已选服务的通用 HTTP 合同”装配真实请求 Header：X-Lang、逐请求 X-Request-Id 和受保护请求的 Authorization: Bearer 不写入业务 JSON/URL；公开请求隔离旧凭据与 401 副作用。现有默认 client 协议不同则先做显式服务适配，不仅替换 extractor。保留响应 Header、REST 合同已定义的 JSON request_id、TokenPair 与刷新请求体各自的方向，逐 endpoint 校验成功/错误 envelope、字符串 ID、秒时间和分页映射。
 3. 已迁移服务移除运行路径中的 Mock 分支和业务样例；未配置地址的远端 API 保持完整 API Mock 并报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。真实请求失败不得回落 Mock，测试样例 留在测试边界内。
 4. 按配置加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，防止样例数据或迟到响应覆盖真实结果。
-5. 复用既有认证及反馈所有者；真实登录入口存在时才装配批准的导航。新增凭据刷新、Cookie、自动重放、跨上下文认证或权限变化交回调用方处理范围和专用门禁。
+5. 复用既有认证及反馈所有者；真实登录入口存在时才装配批准的导航。会话转换或失效接线变化交回当前实施入口委托 `$web-implement-auth-session`；新增凭据刷新、Cookie、自动重放、跨上下文认证或权限变化先由调用方处理范围和专用门禁。
 6. 网络验证仅使用已授权环境、身份及操作，不扩张生产、付费、凭据或不可逆写入授权。Extension 的 BaseURL 不授予 host 权限；相关兼容审查调用 `$web-review-extension-compatibility`，真实双浏览器硬门禁交回调用方的既有候选验收链。
 7. 真实接入改变公开 API、传输或消费者业务流程后，委托 `$web-document-api` 同步受影响接口、已实现业务说明与关联，并核对旧文档和当前代码差异。沿用其聚合布局、协议格式与只读检查；调用方已同步的同一变更复用，不重复全项目生成。
 

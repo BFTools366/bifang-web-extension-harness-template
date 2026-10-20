@@ -39,7 +39,7 @@ Extension 不继承 Web LocalStorage 例外或文件路由。Popup、Options、b
 
 ## 退出 SOP
 
-阻止新私有操作 → 使旧异步结果失效并停止请求/订阅 → 以当前凭据按合同尝试一次有界吊销 → 清理精确持久项、内存凭据/continuation、私有 Query 和实际附属上下文 → 返回公开恢复入口。
+阻止新私有操作 → 使旧异步结果失效并停止请求/订阅 → 清理精确持久项、内存凭据/continuation、私有 Query 和实际附属上下文并阻止旧记录恢复 → 使用捕获的旧凭据按合同尝试一次有界吊销 → 复核归属后返回公开恢复入口。本地失效不等待远端。
 
 保留语言/主题，不清空整个 Storage。远端失败不阻止本地退出，也不宣称全部设备已退出；删除失败必须阻止本页重新恢复旧记录并提供清理重试。退出接口自身的 401 不递归退出。临时签发因保存失败或迟到被丢弃时，只能处置本次签发，不能借全账号 logout 误伤后来登录。
 
@@ -59,7 +59,7 @@ Extension 不继承 Web LocalStorage 例外或文件路由。Popup、Options、b
 
 ## 接口与列表强约定
 
-单对象的登录、账号档案、凭据校验和写操作采用真实语义与契约。涉及远端账号、会话或其他集合查询时统一使用 GraphQL，包括无条件首载、搜索、筛选、排序和分页。可信 Schema 缺失是契约缺口；已有 REST 列表如实标记不符合，不能自动作为例外。纯本地集合不制造远端服务。
+远端账号、会话等集合与单对象身份操作按 [列表查询协议强约定](../../../../docs/DATA_ACCESS.md#列表查询协议强约定) 判断协议与契约缺口；本领域知识只补充对象语义，纯本地计算不构造远端服务。
 
 不从 BaseURL 猜 endpoint。Header 采用真实服务适配，公开请求隔离，受控 target 才接收凭据；日志、URL、Query key 不含秘密。
 
@@ -71,6 +71,6 @@ Mock 明确账号、签发、验证码与时间所有者；共享服务态和刷
 
 ## 可执行参考
 
-独立会话代码不依赖组织或权限；需要完整组合时参考 [实现地图](../templates/compositions/account-workspace/README.md) 的API、Mock、表单与会话边界。
+独立会话代码不依赖组织或权限；会话状态机实施由 `web-implement-auth-session` 负责。[账户协议参考](../templates/compositions/account-workspace/README.md) 仅提供API、Mock与存储边界，当前应用使用唯一 application 装配。
 
 基础接线以 [固定设计](../templates/identity/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

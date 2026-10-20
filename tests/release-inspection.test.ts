@@ -345,6 +345,9 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
       )
       await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
     }
+    // JSON 转义斜线不能绕过本机路径门禁。
+    await writeFile(indexPath, '<script>const localPath = "\\/Users\\/alice\\/project"</script>\n')
+    await expect(inspectReleaseArtifact(root)).rejects.toThrow(/local absolute path/)
   })
 
   /** 验证 Web 产物包含当次 YYMMDDHHMMSS 版本并拒绝旧字段顺序。 */

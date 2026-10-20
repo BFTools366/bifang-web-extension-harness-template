@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施身份会话"
+  short_description: "统一认证会话转换、异步结果归属、退出失效和私有缓存清理"
+  default_prompt: "使用 $web-implement-auth-session 按已确认认证契约实施或修复唯一会话状态机、异步提交权及退出失效接线，返回实际验证证据。"

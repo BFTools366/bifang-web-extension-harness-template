@@ -50,8 +50,8 @@ test("readonly fixture isolates subjects and snapshots", async () => {
   const rows = await ordersApi.list()
   expect(rows.map((row) => row.id)).toEqual(["public-order"])
   expect(Object.keys(ordersApi)).toEqual(["list"])
-  rows[0].total.minor = 999
-  expect((await ordersApi.list())[0].total.minor).toBe(100)
+  rows[0]!.total.minor = 999
+  expect((await ordersApi.list())[0]?.total.minor).toBe(100)
   let actor: string | null = "member"
   const api = createOrdersReadMock(() => actor, { member: rows })
   expect(await api.list()).toHaveLength(1)

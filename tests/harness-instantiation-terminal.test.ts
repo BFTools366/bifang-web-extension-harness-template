@@ -3,6 +3,9 @@ import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { initializeProject } from "../.harness/tooling/init.ts"
 import { runCommand } from "../.harness/tooling/process.ts"
+import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
+import ts from "typescript"
+import { walkFiles } from "../.harness/tooling/files.ts"
 import { checkCommitConfiguration } from "../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import {
   INSTANTIATION_ONLY_EXCLUDED_PATHS,
@@ -18,6 +21,76 @@ import {
   temporaryDirectory
 } from "./harness-tooling-support.ts"
 import "./harness-instantiation-fixture.ts"
+
+/** 收集模块顶层导出名，包括类型、值与重导出。 */
+function exportedNames(source: ts.SourceFile): Set<string> {
+  const names = new Set<string>()
+  for (const statement of source.statements) {
+    const exported = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)?.some((item) => item.kind === ts.SyntaxKind.ExportKeyword)
+      : false
+    if (ts.isExportDeclaration(statement)) {
+      if (statement.exportClause && ts.isNamedExports(statement.exportClause))
+        for (const element of statement.exportClause.elements) names.add(element.name.text)
+      continue
+    }
+    if (!exported) continue
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations)
+        if (ts.isIdentifier(declaration.name)) names.add(declaration.name.text)
+    } else if (
+      (ts.isFunctionDeclaration(statement) ||
+        ts.isClassDeclaration(statement) ||
+        ts.isInterfaceDeclaration(statement) ||
+        ts.isTypeAliasDeclaration(statement) ||
+        ts.isEnumDeclaration(statement)) &&
+      statement.name
+    )
+      names.add(statement.name.text)
+  }
+  return names
+}
+
+/** 静态核对生成终端 tooling 的相对具名导入均有对应导出，替代需要依赖安装的真实链接。 */
+async function missingTerminalToolingImports(root: string): Promise<string[]> {
+  const tooling = path.join(root, ".harness/tooling")
+  const files = await walkFiles(tooling, { filter: (name) => name.endsWith(".ts") })
+  const parsed = new Map<string, ts.SourceFile>()
+  /** 每个模块只解析一次，导入目标可位于 tooling 之外的终端文件。 */
+  async function load(file: string): Promise<ts.SourceFile | undefined> {
+    if (!parsed.has(file)) {
+      const source = await readFile(file, "utf8").catch(() => undefined)
+      if (source === undefined) return undefined
+      parsed.set(file, ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true))
+    }
+    return parsed.get(file)
+  }
+  const missing: string[] = []
+  for (const file of files) {
+    const source = await load(file)
+    for (const statement of source?.statements ?? []) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier))
+        continue
+      const specifier = statement.moduleSpecifier.text
+      if (!specifier.startsWith(".")) continue
+      const target = path.resolve(path.dirname(file), specifier)
+      const relative = path.relative(root, file)
+      const targetSource = await load(target)
+      if (!targetSource) {
+        missing.push(`${relative} -> ${specifier}`)
+        continue
+      }
+      const bindings = statement.importClause?.namedBindings
+      if (!bindings || !ts.isNamedImports(bindings)) continue
+      const exports = exportedNames(targetSource)
+      for (const element of bindings.elements) {
+        const name = (element.propertyName ?? element.name).text
+        if (!exports.has(name)) missing.push(`${relative} -> ${specifier}#${name}`)
+      }
+    }
+  }
+  return missing
+}
 
 /** 验证 terminal source projection 的完整回归场景。 */
 describe("terminal source projection", () => {
@@ -64,13 +137,10 @@ describe("terminal source projection", () => {
     expect(git(["rev-list", "--count", "HEAD"])).toBe("1")
     expect(git(["status", "--porcelain=v1"])).toBe("")
     expect(git(["remote"])).toBe("")
-    // 源模板装配与离线参考回归不能携带到缺少源 fixture 的终端项目。
-    for (const sourceTest of [
-      "tests/application-content.test.ts",
-      "tests/application-shell.test.ts",
-      "tests/application-settings.test.ts",
-      "tests/capability-source-reference.test.ts"
-    ]) {
+    // 终端 tooling 由手写模板生成，任一相对具名导入缺少文件或导出都会在真实下游链接失败。
+    expect(await missingTerminalToolingImports(targetRoot)).toEqual([])
+    // 所有登记为源专用的回归都不能携带到缺少源 fixture 的终端项目。
+    for (const sourceTest of HARNESS_ONLY_PATHS.filter((entry) => entry.startsWith("tests/"))) {
       expect(git(["ls-files", sourceTest])).toBe("")
       await expect(readFile(path.join(targetRoot, sourceTest))).rejects.toMatchObject({
         code: "ENOENT"
@@ -111,13 +181,14 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(29)
+    expect(skills).toHaveLength(30)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
         "design-taste-frontend",
         "web-review-api-contract",
         "web-review-module-boundaries",
+        "web-implement-auth-session",
         "web-implement-access-control",
         "web-implement-write-recovery",
         "web-implement-browser-storage",
@@ -167,7 +238,7 @@ describe("terminal source projection", () => {
       "knowledge/wallet-payments.md",
       "knowledge/audit.md",
       "templates/identity/session.ts.txt",
-      "templates/compositions/account-workspace/files.ts",
+      "templates/compositions/account-workspace/data/api/auth/mockAuth.ts.txt",
       "templates/compositions/purchase-checkout/commerce-reference.js"
     ]) {
       const relativePath = path.join(".agents/skills/web-compose-capabilities", file)

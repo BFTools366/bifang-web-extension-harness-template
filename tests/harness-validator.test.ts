@@ -16,7 +16,7 @@ describe("Harness template validator", () => {
   /** 验证 accepts the complete clean template contract 场景。 */
   test("accepts the complete clean template contract", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     const report = await validateHarness(repositoryRoot)
-    expect(report.skills).toHaveLength(31)
+    expect(report.skills).toHaveLength(32)
     expect(report.skills).toContain("web-compose-capabilities")
     expect(report.skills).toContain("web-implement-list-view")
     const verifyDelivery = await readFile(
@@ -183,9 +183,17 @@ describe("Harness template validator", () => {
     const e2eRoot = await copyRepository()
     const e2eEntryPath = path.join(e2eRoot, "scripts/instantiate.ts")
     const e2eEntry = await readFile(e2eEntryPath, "utf8")
-    await writeFile(e2eEntryPath, e2eEntry.replace('"logo",', '"logo",\n    "--e2e",'))
+    await writeFile(e2eEntryPath, e2eEntry + "\n// usage: --e2e enabled\n")
     await expect(validateHarness(e2eRoot)).rejects.toThrow(
       /Public instantiate entry must not accept an E2E selection/
+    )
+
+    const e2eOptionsRoot = await copyRepository()
+    const e2eOptionsPath = path.join(e2eOptionsRoot, ".harness/tooling/cli.ts")
+    const e2eOptions = await readFile(e2eOptionsPath, "utf8")
+    await writeFile(e2eOptionsPath, e2eOptions.replace('"logo",', '"logo",\n  "--e2e",'))
+    await expect(validateHarness(e2eOptionsRoot)).rejects.toThrow(
+      /Harness initialization options must not accept an E2E selection/
     )
 
     const environmentSkillRoot = await copyRepository()

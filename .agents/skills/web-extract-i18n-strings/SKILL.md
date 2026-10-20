@@ -32,4 +32,4 @@ description: 扫描当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefo
 
 ## 功能资源参考
 
-[账户资源与偏好示例](../web-compose-capabilities/templates/compositions/account-workspace/README.md) 展示功能域文案、插值、语言标题与稳定表单输入；项目身份继续来自BRAND，不把示例产品名称复制为身份事实。
+[当前应用资源](../web-compose-capabilities/templates/application/wiring.md) 提供功能域文案与公开设置接线；项目身份继续来自BRAND，不把示例产品名称复制为身份事实。

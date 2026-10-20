@@ -32,7 +32,7 @@ Web 保留 Vite 与 TanStack 文件路由。Extension 每个入口有独立 Rout
 
 ## 组织操作的独立接线
 
-organization.switch 生成多组织账号弹窗和 /organization 恢复页；只有一个候选时隐藏菜单，同目标在服务层直接返回。organization.manage 额外要求权限能力、可信页面与动作要求，才生成拥有者管理页及 rename 接线；它不自动启用切换、注册或邀请；真实管理 adapter 只需 OrganizationManagementApi 的 read + rename，switch 独立扩展只读合同。未选择 manage 时不存在管理页面、路由与 rename facade。主装配仍不支持 identity.register，注册个人组织的可执行示例见账户工作区组合。
+organization.switch 生成多组织账号弹窗和 /organization 恢复页；只有一个候选时隐藏菜单，同目标在服务层直接返回。organization.manage 额外要求权限能力、可信页面与动作要求，才生成拥有者管理页及 rename 接线；它不自动启用切换、注册或邀请；真实管理 adapter 只需 OrganizationManagementApi 的 read + rename，switch 独立扩展只读合同。未选择 manage 时不存在管理页面、路由与 rename facade。主装配仍不支持 identity.register；注册和个人组织生命周期只保留 [协议与知识参考](../compositions/account-workspace/README.md)，实际页面与会话接线按已确认需求实施。
 
 Web 管理页文件为 _application/organization_.manage.tsx，对应路由 ID /_application/organization_/manage，公共 URL /organization/manage，直接属于应用布局；/organization 不是提供 Outlet 的布局。两宿主回归分别编译并验证。
 

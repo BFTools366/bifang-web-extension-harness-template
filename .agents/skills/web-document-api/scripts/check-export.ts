@@ -52,6 +52,8 @@ function splitMarkdown(
   return { prose: prose.join("\n"), blocks }
 }
 
+/** file URL 协议名不区分大小写，任意写法都指向本地资源。 */
+const FILE_URL_PATTERN = /file:\/\//iu
 /** 远端 HTTP(S) 地址的路径属于协议值，不应被当作本地磁盘路径。 */
 function withoutRemoteUrls(source: string): string {
   return source.replaceAll("\\/", "/").replace(/https?:\/\/[^\s"'<>`]+/giu, "")
@@ -168,13 +170,16 @@ function parseDocument(file: string, source: string, errors: string[]): Document
       errors.push(`${file}：包含客户端代码或执行代码`)
     }
   }
-  const protocolText = blocks
-    .filter((block) => ["json", "graphql"].includes(block.language))
-    .map((block) => block.body)
-    .join("\n")
+  const protocolText = withoutRemoteUrls(
+    blocks
+      .filter((block) => ["json", "graphql"].includes(block.language))
+      .map((block) => block.body)
+      .join("\n")
+  )
   if (
-    /(?:file:\/\/|\/(?:Users|home|tmp|private\/var|var\/folders)\/|~[/\\]|[A-Za-z]:[/\\]|\\\\[^\\\s]+\\)/u.test(
-      withoutRemoteUrls(protocolText)
+    FILE_URL_PATTERN.test(protocolText) ||
+    /(?:\/(?:Users|home|tmp|private\/var|var\/folders)\/|~[/\\]|[A-Za-z]:[/\\]|\\\\[^\\\s]+\\)/u.test(
+      protocolText
     )
   )
     errors.push(`${file}：包含本地代码或路径`)
@@ -202,7 +207,8 @@ function parseDocument(file: string, source: string, errors: string[]): Document
     ""
   )
   if (
-    /(?:\b(?:src|tests|node_modules)[\\/]|\.harness[\\/]|file:\/\/|\/(?:Users|home|tmp|private\/var|var\/folders)\/|~[\\/]|[A-Za-z]:[\\/]|\\\\[^\\\s]+\\)/u.test(
+    FILE_URL_PATTERN.test(inspectionText) ||
+    /(?:\b(?:src|tests|node_modules)[\\/]|\.harness[\\/]|\/(?:Users|home|tmp|private\/var|var\/folders)\/|~[\\/]|[A-Za-z]:[\\/]|\\\\[^\\\s]+\\)/u.test(
       inspectionText
     )
   ) {

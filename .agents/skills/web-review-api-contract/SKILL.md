@@ -25,7 +25,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，只读�
 3. 核对请求路径、请求方法、请求头、参数位置与 JSON 结构、响应映射、错误、分页、认证/权限/组织作用域、取消/重试及写入语义。只核对适用项；缺失写“未确认”，没有执行测试只写“读取测试作为依据”。
    请求语言、逐请求追踪及访问鉴权按服务放 Header，核对实际发出的 X-Lang/X-Request-Id/Authorization、公开请求隔离及 CORS。响应 Header、REST 合同已定义的 JSON request_id、登录 TokenPair 与刷新请求的 refresh_token 分别核对；不得把 continuation 改名为 RequestID，或把访问凭据放进 query/body。通用成功、异常和分页模型核对原始字段及内部映射，不因当前没有列表接口而漏掉固定模型。
 4. GraphQL 核对可信 Schema 与实际 operation、参数/列表可空性、映射及错误策略；只有 query/fragment 或客户端类型不能反推完整 Schema。推送只按已确认协议核对。
-   远端列表查询必须使用 GraphQL，按 `docs/DATA_ACCESS.md` 的“列表查询协议强约定”识别集合、条件查询与分页用途。已有 REST 列表/契约列为阻断符合性的差异，不改写事实；缺少可信 GraphQL 契约时不能将 REST 接入或文档改名当作迁移。
+   按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 识别集合操作，返回实际协议差异与缺失契约，不改写事实或将文档改名当作迁移。
 5. 将差异分为阻断当前操作、可继续的非阻断待定、实现与文档漂移。按工程规则渐进补问阻断项，每轮优先一个关键问题；有效既有资料直接复用，不要求全套接口一次提供。
 
 ## 返回结果

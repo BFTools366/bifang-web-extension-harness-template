@@ -25,7 +25,7 @@ description: 为单 package React Web 下游创建、修改、重构或审查重
 
 ### 路由、分页与 Query
 
-- 远端列表查询必须使用 GraphQL，按数据规则核对实际 operation、可信 Schema 与筛选/排序/分页变量；首次无条件列表也适用，TanStack Query 缓存不能代替 GraphQL 协议。纯本地集合不虚构服务；已有 REST 列表如实报告不符合项，缺失 GraphQL 契约时不宣布该远端列表通过。
+- 按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 核对列表实际操作与可信服务契约；缓存机制不证明协议符合，缺口如实报告。
 
 - 复用 `src/pagination/` 的 1-based `page`、`pageSize` 和 `[10, 20, 50, 100]` 契约。外部 cursor/offset 只在 endpoint adapter 映射，不建立页面私有分页标准。
 - Router search 是已应用搜索、筛选、排序、页码和 pageSize 的运行时权威。原始 URL 含任一 owned key 时只采用合法 URL 值并以默认值补齐；完全无 owned key 时才读取按 `listId` 隔离的 sessionStorage 恢复快照。这是单向启动恢复，不是双向状态同步。

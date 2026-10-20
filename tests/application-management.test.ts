@@ -195,7 +195,7 @@ test("management needs no switch and recovers a failed post-save read", async ()
   expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled()
   reading.mockRestore()
   // 读取错误面板和成功写入恢复提示各有重试；任意一个只读取，不再次写。
-  await user.click(screen.getAllByRole("button", { name: "Retry" })[0])
+  await user.click(screen.getAllByRole("button", { name: "Retry" })[0]!)
   await screen.findByText("Organization updated.")
   expect(screen.queryByText("Name saved. Refresh organization details to synchronize the display.")).not.toBeInTheDocument()
   await waitFor(() => expect(screen.getByRole("textbox", { name: /Organization name/ })).toHaveValue("Saved team"))

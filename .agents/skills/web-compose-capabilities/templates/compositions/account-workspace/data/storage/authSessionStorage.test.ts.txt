@@ -1,7 +1,20 @@
 import { fixtureValue } from "../api/auth/mockTestAssertions"
 import { expect, test } from "vitest"
 import { createAuthSessionStorage, AUTH_STORAGE_KEY } from "./authSessionStorage"
-import { memoryAuthStorage } from "../../features/auth/authTestFixtures"
+
+/** 测试只注入原生存储替身，校验和写后核实仍由真实适配器执行。 */
+function memoryAuthStorage(): Storage {
+  const entries = new Map<string, string>()
+  return {
+    /** 返回当前条目数量。 */
+    get length() { return entries.size },
+    clear: () => entries.clear(),
+    getItem: (key) => entries.get(key) ?? null,
+    key: (index) => [...entries.keys()][index] ?? null,
+    setItem: (key, value) => { entries.set(key, value) },
+    removeItem: (key) => { entries.delete(key) }
+  }
+}
 const credential = {
   kind: "mock",
   sessionId: "demo-session",

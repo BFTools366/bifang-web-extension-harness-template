@@ -1,4 +1,5 @@
-import { execFileSync } from "node:child_process"
+import { execFile } from "node:child_process"
+import { promisify } from "node:util"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -127,7 +128,8 @@ export async function runApplicationFixture(
         continue
       }
       if (["src/main.tsx", "src/popup.tsx", "src/options.tsx"].includes(name)) continue
-      if (/\.tsx?$/u.test(name)) {
+      // 未改动的中性基线由自身源测试治理，这里只检查装配产生或改写的源码。
+      if (/\.tsx?$/u.test(name) && base.get(name) !== contents) {
         const report = inspectChineseComments(contents, name)
         if (report.errors.length || report.violations.length)
           throw new Error(JSON.stringify({ name, report }))
@@ -169,6 +171,8 @@ export async function runApplicationFixture(
           jsx: "react-jsx",
           lib: ["ES2023", "DOM", "DOM.Iterable"],
           strict: true,
+          // 与源根 tsconfig 一致：下游工程启用索引访问检查。
+          noUncheckedIndexedAccess: true,
           noEmit: true,
           skipLibCheck: true,
           types: ["node", "vitest/globals", "@testing-library/jest-dom/vitest"]
@@ -201,26 +205,18 @@ export async function runApplicationFixture(
       path.dirname(fileURLToPath(import.meta.resolve("eslint/package.json"))),
       "bin/eslint.js"
     )
-    try {
-      execFileSync(node, [eslint, "src", "--ignore-pattern", "src/application.test.tsx"], {
+    // 异步执行不阻塞测试 worker 的超时计时；测试文件已并行，三项检查保持顺序以免加剧争用。
+    const run = (args: string[]) =>
+      promisify(execFile)(node, args, {
         cwd: root,
         encoding: "utf8",
         timeout: 30_000,
-        stdio: "pipe"
-      })
-      execFileSync(node, [tsc, "--noEmit"], {
-        cwd: root,
-        encoding: "utf8",
-        timeout: 30_000,
-        stdio: "pipe"
-      })
-      return execFileSync(node, [vitest, "run"], {
-        cwd: root,
-        encoding: "utf8",
-        timeout: 30_000,
-        stdio: "pipe",
         env: { ...process.env, NO_COLOR: "1" }
       })
+    try {
+      await run([eslint, "src", "--ignore-pattern", "src/application.test.tsx"])
+      await run([tsc, "--noEmit"])
+      return (await run([vitest, "run"])).stdout
     } catch (error) {
       const result = error as { stdout?: string; stderr?: string }
       throw new Error((result.stdout ?? "") + (result.stderr ?? ""), { cause: error })

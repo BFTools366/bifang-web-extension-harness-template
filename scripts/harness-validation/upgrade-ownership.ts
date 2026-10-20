@@ -17,6 +17,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   ".agents/skills/web-check-development-environment/**": "managed",
   ".agents/skills/web-configure-git-commits/**": "managed",
   ".agents/skills/web-connect-http-service/**": "managed",
+  ".agents/skills/web-implement-auth-session/**": "managed",
   ".agents/skills/web-implement-access-control/**": "managed",
   ".agents/skills/web-implement-browser-storage/**": "managed",
   ".agents/skills/web-implement-event-stream/**": "managed",

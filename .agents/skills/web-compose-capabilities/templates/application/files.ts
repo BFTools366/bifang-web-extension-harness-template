@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { resolveCapabilitySelection } from "../../scripts/capabilities.ts"
-import type { ApplicationOptions, ApplicationPage, ApplicationWiring } from "./contracts.ts"
+import {
+  PERMISSION_FREE_ACTIONS,
+  permissionFreePaths,
+  type ApplicationOptions,
+  type ApplicationPage,
+  type ApplicationWiring
+} from "./contracts.ts"
 import { applicationLocales } from "./locales.ts"
 import { applicationRoutes, accessSource } from "./route-source.ts"
 import { runtimeSource } from "./runtime-source.ts"
@@ -61,6 +67,19 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
     "src/features/audit/AuditPage.tsx": "audit/AuditPage.tsx.txt"
   }
 }
+/** 只随具体操作装配的固定资产，不因模块启用而附带写入能力。 */
+const OPERATION_ASSETS: Record<string, Record<string, string>> = {
+  "organization.manage": {
+    "src/features/organization/OrganizationManagementPage.tsx":
+      "organization/OrganizationManagementPage.tsx.txt"
+  },
+  "orders.purchase": {
+    "src/features/orders/purchase.ts": "orders/purchase.ts.txt",
+    "src/features/orders/PurchasePanel.tsx": "orders/PurchasePanel.tsx.txt"
+  }
+}
+/** 可执行操作入口，未选择时不进入接线清单。 */
+const ACTIONS = ["orders.purchase", "organization.switch", "organization.manage"]
 /** 对应固定能力页的规范 URL，基础主界面始终存在。 */
 const MODULE_PAGES: ApplicationPage[] = [
   {
@@ -96,6 +115,13 @@ const MODULE_PAGES: ApplicationPage[] = [
 /** 从当前固定资源根读取，不依赖调用者工作目录。 */
 function asset(name: string): string {
   return readFileSync(new URL("./files/" + name, import.meta.url), "utf8")
+}
+/** Extension 宿主不展示品牌图片，同时移除随之失效的导入。 */
+function stripBrandImage(source: string): string {
+  return source
+    .replace(/<Image src=\{BRAND.logoPath\}[^>]*\/>/u, "")
+    .replace(/^import \{ BRAND \} from "..\/..\/brand"\r?\n/mu, "")
+    .replace(/\bImage,\s*/u, "")
 }
 /** 在任何输出产生前核对数据模式、真实首页及权限要求。 */
 function validateOptions(
@@ -133,12 +159,14 @@ function validateOptions(
     for (const [kind, ids, mapping] of [
       [
         "页面",
-        pages.filter((page) => page.path !== "/organization").map((page) => page.path),
+        pages
+          .map((page) => page.path)
+          .filter((path) => !permissionFreePaths(modules.includes("organization")).includes(path)),
         options.pagePermissions
       ],
       [
         "动作",
-        actions.filter((action) => action !== "organization.switch"),
+        actions.filter((action) => !PERMISSION_FREE_ACTIONS.includes(action)),
         options.actionPermissions
       ]
     ] as const) {
@@ -173,11 +201,10 @@ export function applicationFiles(
         ]
       : [])
   ]
-  const actions = [
-    ...(selected.resolved.includes("orders.purchase") ? ["orders.purchase"] : []),
-    ...(selected.resolved.includes("organization.switch") ? ["organization.switch"] : []),
-    ...(selected.resolved.includes("organization.manage") ? ["organization.manage"] : [])
-  ]
+  const actions = ACTIONS.filter((action) => selected.resolved.includes(action))
+  const organizationPaths = pages
+    .filter((page) => page.module === "organization")
+    .map((page) => page.path)
   validateOptions(options, modules, pages, actions)
   // 全量装配只用于首次工程基线；后续能力添加按现有 owner 增量接线。
   if (base.has(".harness/application-wiring.json") || base.has("src/features/home/HomePage.tsx"))
@@ -197,11 +224,10 @@ export function applicationFiles(
     for (const [target, source] of Object.entries(APPLICATION_ASSETS[module] ?? {}))
       files.set(target, asset(source))
   }
-  if (selected.resolved.includes("organization.manage"))
-    files.set(
-      "src/features/organization/OrganizationManagementPage.tsx",
-      asset("organization/OrganizationManagementPage.tsx.txt")
-    )
+  for (const operation of selected.resolved) {
+    for (const [target, source] of Object.entries(OPERATION_ASSETS[operation] ?? {}))
+      files.set(target, asset(source))
+  }
   for (const [module, source] of Object.entries(options.content?.pageSources ?? {})) {
     const page = pages.find((item) => item.module === module)
     if (
@@ -215,33 +241,19 @@ export function applicationFiles(
   if (modules.some((id) => ["catalog", "orders", "wallet-payments"].includes(id)))
     files.set("src/data/api/commerce/price.ts", asset("base/price.ts.txt"))
   if (modules.includes("identity")) {
-    files.set(
-      "src/features/identity/session.ts",
-      readFileSync(new URL("../identity/session.ts.txt", import.meta.url), "utf8")
-    )
-    files.set(
-      "src/features/identity/session.test.ts",
-      readFileSync(new URL("../identity/session.test.ts.txt", import.meta.url), "utf8").replace(
-        'import { test } from "node:test"',
-        'import { test } from "vitest"'
-      )
-    )
-  }
-  if (selected.resolved.includes("orders.purchase")) {
-    files.set("src/features/orders/purchase.ts", asset("orders/purchase.ts.txt"))
-    files.set("src/features/orders/PurchasePanel.tsx", asset("orders/PurchasePanel.tsx.txt"))
+    files.set("src/features/identity/session.ts", asset("../../identity/session.ts.txt"))
+    files.set("src/features/identity/session.test.ts", asset("../../identity/session.test.ts.txt"))
   }
   for (const module of modules) {
     if (options.dataMode === "adapter")
       files.set(`src/data/api/${module}/adapter.ts`, options.adapters?.[module] ?? "")
     else {
-      const readonlyWallet =
-        module === "wallet-payments" && !selected.resolved.includes("wallet-payments.pay")
-      const readonlyOrders = module === "orders" && !selected.resolved.includes("orders.create")
-      files.set(
-        `src/data/api/${module}/${readonlyWallet || readonlyOrders ? "readMock" : "mock"}.ts`,
-        asset(`${module}/${readonlyWallet || readonlyOrders ? "readMock" : "mock"}.ts.txt`)
-      )
+      // 只读订单与钱包使用 readMock，runtime-source 按同一写操作选择导入。
+      const readonly =
+        (module === "wallet-payments" && !selected.resolved.includes("wallet-payments.pay")) ||
+        (module === "orders" && !selected.resolved.includes("orders.create"))
+      const name = readonly ? "readMock" : "mock"
+      files.set(`src/data/api/${module}/${name}.ts`, asset(`${module}/${name}.ts.txt`))
     }
   }
   files.set("src/features/home/HomePage.tsx", options.homePageSource)
@@ -252,17 +264,11 @@ export function applicationFiles(
   )
   files.set(
     "src/features/application/routeAccess.ts",
-    accessSource(
-      selected.resolved,
-      pages.filter((page) => page.module === "organization").map((page) => page.path)
-    )
+    accessSource(selected.resolved, organizationPaths)
   )
   files.set(
     "src/features/application/settingsNavigation.ts",
-    settingsNavigationSource(
-      modules.includes("identity"),
-      pages.filter((page) => page.module === "organization").map((page) => page.path)
-    )
+    settingsNavigationSource(modules.includes("identity"), organizationPaths)
   )
   files.set(
     "src/features/application/navigation.ts",
@@ -280,42 +286,19 @@ export function applicationFiles(
   for (const [target, source] of applicationRoutes(options, selected.resolved, pages))
     files.set(target, source)
   if (options.selection.host === "extension") {
-    const router = files.get("src/extension-router.tsx")
-    if (router)
-      files.set(
-        "src/extension-router.tsx",
-        router
-          .replace(
-            "import { ExtensionNotFoundPage }",
-            'import { ExtensionShell } from "./ExtensionShell"\nimport { ExtensionNotFoundPage }'
-          )
-          .replace(
-            "component: Outlet, notFoundComponent:",
-            "component: () => <ExtensionShell surface={surface} />, notFoundComponent:"
-          )
-          .replace("import { Outlet, createRootRoute", "import { createRootRoute")
-      )
     const layout = files.get("src/features/application/ApplicationLayout.tsx")
     if (layout)
       files.set(
         "src/features/application/ApplicationLayout.tsx",
-        layout
-          .replace('import { BUILD_VERSION } from "../../buildVersion"\n', "")
-          .replace(/\s*<footer>[\s\S]*?<\/footer>/u, "")
-          .replace("const useSidebar = navigation.length > 1", "const useSidebar = false")
-          .replace(/<Image src=\{BRAND.logoPath\}[^>]*\/>/u, "")
-          .replace(/^import \{ BRAND \} from "..\/..\/brand"\r?\n/mu, "")
-          .replace(/\bImage,\s*/u, "")
+        stripBrandImage(
+          layout
+            .replace('import { BUILD_VERSION } from "../../buildVersion"\n', "")
+            .replace(/\s*<footer>[\s\S]*?<\/footer>/u, "")
+            .replace("const useSidebar = navigation.length > 1", "const useSidebar = false")
+        )
       )
     const login = files.get("src/features/identity/LoginPage.tsx")
-    if (login)
-      files.set(
-        "src/features/identity/LoginPage.tsx",
-        login
-          .replace(/<Image src=\{BRAND.logoPath\}[^>]*\/>/u, "")
-          .replace(/^import \{ BRAND \} from "..\/..\/brand"\r?\n/mu, "")
-          .replace(/\bImage,\s*/u, "")
-      )
+    if (login) files.set("src/features/identity/LoginPage.tsx", stripBrandImage(login))
   }
   const wiring: ApplicationWiring = {
     schemaVersion: 1,

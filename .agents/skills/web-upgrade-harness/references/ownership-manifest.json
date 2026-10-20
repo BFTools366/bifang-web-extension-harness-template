@@ -47,6 +47,10 @@
       "mode": "managed"
     },
     {
+      "pattern": ".agents/skills/web-implement-auth-session/**",
+      "mode": "managed"
+    },
+    {
       "pattern": ".agents/skills/web-implement-access-control/**",
       "mode": "managed"
     },

@@ -99,6 +99,10 @@ export async function validateToolingContract(root: string, errors: string[]): P
   if (mentionsInstantiationE2eSelection(usageText ?? "")) {
     errors.push("Harness initialization help must not accept an E2E selection")
   }
+  // 公开创建入口复用 INIT_OPTIONS，参数清单的门禁随清单留在 CLI。
+  if (mentionsInstantiationE2eSelection(cli)) {
+    errors.push("Harness initialization options must not accept an E2E selection")
+  }
   const runBrand = findFunctionDeclaration(cliSourceFile, "runBrand")
   if (
     runBrand === undefined ||

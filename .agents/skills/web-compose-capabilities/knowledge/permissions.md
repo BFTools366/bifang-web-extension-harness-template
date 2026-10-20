@@ -53,7 +53,7 @@ Web 菜单、文件路由和动作复用现有 Router/Query；拒绝恢复 URL �
 
 ## GraphQL 列表与契约
 
-角色、操作员、成员权限候选等远端集合查询统一使用 GraphQL，覆盖无条件首载、筛选、搜索、排序、分页。权限详情或当前上下文的单对象读取与写入按其真实语义；不能换名字把列表伪装成详情。可信 Schema 缺失是契约缺口，已有 REST 列表如实标记不符合；本地权限集合判定无需构造远端查询。
+角色、操作员及成员权限候选集合按 [列表查询协议强约定](../../../../docs/DATA_ACCESS.md#列表查询协议强约定) 判断协议与契约缺口；本领域知识只补充对象语义，纯本地计算不构造远端服务。
 
 ## 验证矩阵
 
@@ -63,6 +63,6 @@ Web 菜单、文件路由和动作复用现有 Router/Query；拒绝恢复 URL �
 
 ## 可执行参考
 
-[精确权限模板](../templates/permissions/capability.ts.txt) 可独立使用，不制造组织依赖；[组合门禁](../templates/compositions/account-workspace/README.md) 展示实际页面与撤权回归。
+[精确权限模板](../templates/permissions/capability.ts.txt) 可独立使用，不制造组织依赖；[应用接线](../templates/application/wiring.md) 提供当前页面与撤权回归。
 
 基础接线以 [固定设计](../templates/permissions/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

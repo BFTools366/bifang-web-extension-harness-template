@@ -33,18 +33,14 @@ const REQUIRED_SOURCE_FILES = [
   ".agents/skills/web-compose-capabilities/templates/application/files/identity/identity.module.css.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/identity/AccountMenu.tsx.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationContext.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/features/client/SettingsPage.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/features/client/SettingsLink.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/features/client/settingsNavigation.ts.txt",
-  ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/features/client/SettingsPage.test.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/routes/settings.tsx.txt",
   ".agents/skills/web-compose-capabilities/knowledge/identity.md",
-  ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/session.ts.txt",
   ".agents/skills/web-compose-capabilities/templates/compositions/purchase-checkout/commerce-reference.js",
   ".agents/skills/web-review-api-contract/SKILL.md",
   ".agents/skills/web-review-api-contract/agents/openai.yaml",
   ".agents/skills/web-review-module-boundaries/SKILL.md",
   ".agents/skills/web-review-module-boundaries/agents/openai.yaml",
+  ".agents/skills/web-implement-auth-session/SKILL.md",
+  ".agents/skills/web-implement-auth-session/agents/openai.yaml",
   ".agents/skills/web-implement-access-control/SKILL.md",
   ".agents/skills/web-implement-access-control/agents/openai.yaml",
   ".agents/skills/web-implement-write-recovery/SKILL.md",
@@ -281,6 +277,7 @@ describe("upgrade ownership protection", () => {
     const absent = new Set([
       ".agents/skills/web-review-api-contract/**",
       ".agents/skills/web-review-module-boundaries/**",
+      ".agents/skills/web-implement-auth-session/**",
       ".agents/skills/web-implement-access-control/**",
       ".agents/skills/web-implement-write-recovery/**",
       ".agents/skills/web-implement-browser-storage/**",
@@ -415,6 +412,15 @@ describe("upgrade ownership protection", () => {
         minimumTombstones.has(pattern)
       )
       expect(matchingPatterns, `${sourceOnlyPath} must have one tombstone rule`).toHaveLength(1)
+    }
+    // 仍存在于源的测试墓碑必须同时登记为源专用，否则终端会携带缺少 fixture 的源回归。
+    for (const pattern of minimumTombstones) {
+      if (!pattern.startsWith("tests/")) continue
+      const exists = await readFile(path.join(import.meta.dirname, "..", pattern)).then(
+        () => true,
+        () => false
+      )
+      if (exists) expect(HARNESS_ONLY_PATHS, pattern).toContain(pattern)
     }
     for (const protectedConfiguration of [
       ".harness/project-memory-compatibility.json",

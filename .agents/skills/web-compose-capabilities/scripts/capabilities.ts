@@ -66,7 +66,7 @@ function resource(relative: string, root: string): string {
   )
     throw new Error(`非法资源：${relative}`)
   const resolved = realpathSync(path.join(root, relative))
-  if (!resolved.startsWith(realpathSync(root) + path.sep)) throw new Error(`资源越界：${relative}`)
+  if (!resolved.startsWith(root + path.sep)) throw new Error(`资源越界：${relative}`)
   if (!statSync(resolved).isFile()) throw new Error(`资源必须是普通文件：${relative}`)
   return relative
 }
@@ -132,6 +132,16 @@ function operationGraph(catalog: CapabilityCatalog): Map<string, CapabilityOpera
 
 /** 验证源与下游共同使用的唯一能力索引。 */
 export function readCapabilityCatalog(root = resourceRoot): CapabilityCatalog {
+  return loadCatalog(root).catalog
+}
+
+/** 读取并完整校验索引，同时返回已校验的操作图，避免调用方重复构建。 */
+function loadCatalog(requestedRoot: string): {
+  catalog: CapabilityCatalog
+  graph: Map<string, CapabilityOperation>
+} {
+  // 资源越界判定统一基于真实根路径，只解析一次。
+  const root = realpathSync(requestedRoot)
   const catalog = JSON.parse(
     readFileSync(path.join(root, "catalog.json"), "utf8")
   ) as CapabilityCatalog
@@ -184,15 +194,20 @@ export function readCapabilityCatalog(root = resourceRoot): CapabilityCatalog {
     )
       throw new Error("组合依赖无效")
   }
-  return catalog
+  return { catalog, graph }
 }
+
+/** 同一进程内的解析复用已校验索引；结构门禁仍通过 readCapabilityCatalog 每次重读。 */
+const selectionCatalogs = new Map<string, ReturnType<typeof loadCatalog>>()
 
 /** 只补具体操作的明确依赖，保留原因，不隐式加入组织、注册或找回。 */
 export function resolveCapabilitySelection(
   request: CapabilityRequest,
   root = resourceRoot
 ): CapabilitySelection {
-  const catalog = readCapabilityCatalog(root)
+  let loaded = selectionCatalogs.get(root)
+  if (!loaded) selectionCatalogs.set(root, (loaded = loadCatalog(root)))
+  const { catalog, graph } = loaded
   if (!["web", "extension"].includes(request.host)) throw new Error("必须明确宿主 web|extension")
   if (
     [request.modules, request.operations, request.recipe].filter((item) => item !== undefined)
@@ -221,7 +236,6 @@ export function resolveCapabilitySelection(
     (request.modules !== undefined && new Set(request.modules).size !== request.modules.length)
   )
     throw new Error("模块或操作不能为空或重复")
-  const graph = operationGraph(catalog)
   for (const id of requested)
     if (graph.get(id)?.internal)
       throw new Error(`内部接线操作不能独立选择：${id}，请选择 orders.purchase`)

@@ -47,6 +47,11 @@
           "hosts": ["web", "extension"]
         },
         {
+          "path": "templates/application/files/identity/SettingsLink.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
           "path": "templates/application/files/identity/LoginPage.tsx.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
@@ -409,33 +414,8 @@
       "modules": ["identity", "organization", "permissions"],
       "templates": [
         {
-          "path": "templates/compositions/account-workspace/files.ts",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/assets.json",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
           "path": "templates/compositions/account-workspace/README.md",
           "kind": "design",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/app/AppProviders.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/app/authSession.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/app/router.tsx.txt",
-          "kind": "code",
           "hosts": ["web"]
         },
         {
@@ -520,231 +500,6 @@
         },
         {
           "path": "templates/compositions/account-workspace/data/storage/authSessionStorage.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/AuthPage.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/AuthProvider.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/AuthStatePanel.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/access.test.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/access.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/authTestFixtures.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/guards.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/navigation.test.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/search.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/session.test.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/session.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/sessionOperations.test.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/AccountMenu.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/AccountPage.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/ApplicationRoot.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/AuthLayout.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/ClientFlows.test.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/ClientIcon.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/ClientLayout.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/DashboardPage.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/OrganizationSwitcher.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/SettingsPage.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/SettingsLink.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/settingsNavigation.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/SettingsPage.test.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/settings.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/Preferences.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/TestMenuPage.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/client.module.css.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/__root.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/_auth.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/_auth/forgot-password.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/_auth/login.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/_auth/register.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/app.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/app/account.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/app/dashboard.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/app/forbidden.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/routes/app/test.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/clientTestFixtures.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/ClientAccess.test.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/client/ClientNavigation.test.tsx.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/app/queryClient.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/features/auth/useOperationGuard.ts.txt",
-          "kind": "code",
-          "hosts": ["web"]
-        },
-        {
-          "path": "templates/compositions/account-workspace/i18n/locales/accountWorkspace.ts.txt",
           "kind": "code",
           "hosts": ["web"]
         },
@@ -897,11 +652,6 @@
     },
     {
       "path": "templates/application/files/base/SettingsPage.tsx.txt",
-      "kind": "code",
-      "hosts": ["web", "extension"]
-    },
-    {
-      "path": "templates/application/files/identity/SettingsLink.tsx.txt",
       "kind": "code",
       "hosts": ["web", "extension"]
     },

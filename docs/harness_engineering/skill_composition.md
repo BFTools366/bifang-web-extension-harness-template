@@ -12,7 +12,7 @@
 
 ## 全部能力地图
 
-以下 31 个 `web-*` Skill 为源能力；实际下游只分发当前宿主适用部分。表中名称均对应 `.agents/skills/<名称>/SKILL.md`。
+以下 32 个 `web-*` Skill 为源能力；实际下游只分发当前宿主适用部分。表中名称均对应 `.agents/skills/<名称>/SKILL.md`。
 
 | 职责组     | 独立入口                                                                                       | 结果与保留边界                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -22,6 +22,7 @@
 | 模块审查   | [`web-review-module-boundaries`](../../.agents/skills/web-review-module-boundaries/SKILL.md)   | 只读职责、依赖和状态拥有者地图；不自动重构                           |
 | 接口契约   | [`web-review-api-contract`](../../.agents/skills/web-review-api-contract/SKILL.md)             | 只读当前操作的来源/实现关联与差异；不联网、不写模块文档              |
 | 服务与文档 | `web-connect-http-service`、`web-document-api`                                                 | 已授权真实接入与合同/实现文档分别负责；设计与 Mock 不冒充已联调      |
+| 身份会话   | [`web-implement-auth-session`](../../.agents/skills/web-implement-auth-session/SKILL.md)       | 唯一会话状态机、异步归属和退出失效接线；不拥有页面设计或持久化授权   |
 | 访问控制   | [`web-implement-access-control`](../../.agents/skills/web-implement-access-control/SKILL.md)   | 菜单、路由和动作的一致判断与撤权；消费既有身份、作用域与权限         |
 | 写入恢复   | [`web-implement-write-recovery`](../../.agents/skills/web-implement-write-recovery/SKILL.md)   | 当前操作的防重复、未知查询、冲突和成功后刷新；允许状态仍归领域       |
 | 本地存储   | [`web-implement-browser-storage`](../../.agents/skills/web-implement-browser-storage/SKILL.md) | 真实存储访问、校验、迁移与失败语义；凭据例外和列表 key 仍归领域      |
@@ -46,7 +47,7 @@
 | 文档语义、基础页面/工作区需求与唯一 PRD                | [`web-define-product`](../../.agents/skills/web-define-product/SKILL.md)             | 创建前只读返回需求事实与界面需求；成功下游确认并记录唯一范围     |
 | 身份、权限、组织、商品、订单、钱包支付、审计的具体操作 | [`web-compose-capabilities`](../../.agents/skills/web-compose-capabilities/SKILL.md) | 根据已分析流程返回独立能力与资源；不拥有完整文档分析或业务装配   |
 | 实际桌面布局、交互原型、自查和摘要登记                 | [`web-design-prototype`](../../.agents/skills/web-design-prototype/SKILL.md)         | 只消费 Approved PRD；需求变化返回需求定义，不重新决定产品范围    |
-| 真实页面、认证与业务代码及相关验证                     | [`web-implement-change`](../../.agents/skills/web-implement-change/SKILL.md)         | 按授权范围适配模板并实施，真实领域事件委托相应叶子               |
+| 真实页面、业务代码与模板装配及相关验证                 | [`web-implement-change`](../../.agents/skills/web-implement-change/SKILL.md)         | 按授权范围适配模板并实施，真实领域事件委托相应叶子               |
 
 PRD 结构归需求定义的 `references/prd-outline.md`；需求分析合同归其 `references/requirements-analysis.md`；模块判据归功能组合的 `references/requirements-selection.md`；输入与创建 SOP 归实例化的 `references/requirements-intake.md`。原型目录不保留第二份 PRD 合同。
 
@@ -64,7 +65,7 @@ flowchart TD
   entry --> domain[仅命中时消费 功能模块或列表合同]
   entry --> review[契约或模块只读审查]
   domain --> review
-  entry --> leaf[权限 / 写入恢复 / 存储 / 事件实施叶子]
+  entry --> leaf[会话 / 权限 / 写入恢复 / 存储 / 事件实施叶子]
   domain --> leaf
   review --> evidence[返回当前入口的证据与缺口]
   leaf --> evidence
@@ -78,13 +79,13 @@ flowchart TD
 
 ## 继续保持内聚的部分
 
-- 登录、注册、找回与退出共享身份模块知识和会话模板，按实际操作选择；不恢复已删除的产品模式 Skill，也不将组织或权限强绑到登录。
+- 身份会话实施由 `web-implement-auth-session` 统一拥有状态机和异步提交权；领域不变量仍归身份知识。登录、注册、找回与退出共享身份模块知识和会话模板，按实际操作选择；不恢复已删除的产品模式 Skill，也不将组织或权限强绑到登录。
 - REST、GraphQL 与已实现业务说明由同一 API 文档 Skill 按真实业务聚合并核对漂移，不建立与接口或业务拥有者竞争的记录。
 - 初始化与环境、Worktree 审计与执行、升级预演与应用、候选与验收已有独立结果，不再按每个命令拆转发壳。
 - 渐进式提问和默认建议是通用工程约定，保留在工程规则，不新增每次必读的交互 Skill。
 
 ## 分发与升级
 
-源为 **31** 个；Web 删除 2 个源专用与 1 个 Extension 专属，保留 **28** 个维护 Skill；Extension 删除 2 个源专用与 1 个 Web 专属，同样保留 **28** 个。项目级 `design-taste-frontend` 单独计数。
+源为 **32** 个；Web 删除 2 个源专用与 1 个 Extension 专属，保留 **29** 个维护 Skill；Extension 删除 2 个源专用与 1 个 Web 专属，同样保留 **29** 个。项目级 `design-taste-frontend` 单独计数。
 
 新增叶子同时进入源发现合同、终端目录/关键正文门禁、三份独立升级所有权及精确文件传播清单。现有下游升级须先补齐叶子与元数据再委托或更新父入口，不能因目录数量正确就忽略内容陈旧。

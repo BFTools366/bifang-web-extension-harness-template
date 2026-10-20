@@ -1,4 +1,10 @@
-import type { ApplicationOptions, ApplicationPage } from "./contracts.ts"
+import {
+  permissionFreePaths,
+  routeComponent,
+  serviceName,
+  type ApplicationOptions,
+  type ApplicationPage
+} from "./contracts.ts"
 
 /** 生成模板组件到当前应用唯一 runtime 的实际接线，不让页面另建会话或请求 owner。 */
 export function applicationPageSource(
@@ -13,11 +19,11 @@ export function applicationPageSource(
   const management = operations.includes("organization.manage")
   const imports = [
     "import { useSyncExternalStore" +
-      (purchase || operations.some((id) => id.startsWith("organization.")) ? ", useState" : "") +
+      (purchase || organization ? ", useState" : "") +
       (identity ? ", useCallback" : "") +
       (organization ? ", useRef" : "") +
       ' } from "react"',
-    ...(identity || operations.includes("organization.switch")
+    ...(identity
       ? [
           `import { Outlet, useRouter${organization && permissions ? ", Link" : ""} } from "@tanstack/react-router"`
         ]
@@ -107,8 +113,8 @@ export function ForbiddenPage() {
     }
     const module = page.module
     const component = page.component
-    const serviceName = module === "wallet-payments" ? "wallet" : module
     if (!module) continue
+    const service = module === "organization" ? "organizationService" : serviceName(module) + "Api"
     if (component === "OrganizationManagementPage") {
       imports.push(
         'import { OrganizationManagementPage } from "../organization/OrganizationManagementPage"'
@@ -122,14 +128,11 @@ export function OrganizationManagement() {
       continue
     }
     imports.push(`import { ${component} } from "../${module}/${component}"`)
-    if (module !== "organization")
-      imports.push(
-        `import { ${serviceName === "organization" ? "organizationService" : serviceName + "Api"} } from "./runtime"`
-      )
-    const name = component.replace(/Page$/u, "")
-    const content = `<${component} api={${serviceName === "organization" ? "organizationService" : serviceName + "Api"}} scope={scope.revision}${module === "catalog" && purchase ? " canPurchase={" + (permissions ? 'canAct("orders.purchase")' : "true") + "} onPurchase={(product) => { assertPurchase(); setSelection({ product, purchase: purchaseRegistry.get(product.id), scope: scope.revision }) }}" : ""}${module === "organization" ? " canSwitch={" + JSON.stringify(operations.includes("organization.switch")) + "} changed={async () => { await router.invalidate({ sync: true }) }}" : ""} />`
+    if (module !== "organization") imports.push(`import { ${service} } from "./runtime"`)
+    const name = routeComponent(page)
+    const content = `<${component} api={${service}} scope={scope.revision}${module === "catalog" && purchase ? " canPurchase={" + (permissions ? 'canAct("orders.purchase")' : "true") + "} onPurchase={(product) => { assertPurchase(); setSelection({ product, purchase: purchaseRegistry.get(product.id), scope: scope.revision }) }}" : ""}${module === "organization" ? " canSwitch={" + JSON.stringify(operations.includes("organization.switch")) + "} changed={async () => { await router.invalidate({ sync: true }) }}" : ""} />`
     const wrapped =
-      permissions && module !== "organization"
+      permissions && !permissionFreePaths(organization).includes(page.path)
         ? `<PageAccess path=${JSON.stringify(page.path)}>${content}</PageAccess>`
         : content
     if (module === "catalog" && purchase) {

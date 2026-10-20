@@ -61,6 +61,17 @@ export interface ApplicationPage {
   title: string
   module?: string
 }
+/** 路由与 Application 导出共用同一组件名，固定页面去掉 Page 后缀。 */
+export const routeComponent = (page: ApplicationPage) => page.component.replace(/Page$/u, "")
+/** 不要求业务权限码的页面：拒绝页始终豁免，组织恢复页随组织能力豁免。 */
+export const permissionFreePaths = (organization: boolean): string[] => [
+  "/forbidden",
+  ...(organization ? ["/organization"] : [])
+]
+/** 不要求业务权限码的动作：组织切换属于撤权后的恢复入口。 */
+export const PERMISSION_FREE_ACTIONS: readonly string[] = ["organization.switch"]
+/** runtime 服务名沿用既有 API 变量名，钱包能力的目录与变量名不同。 */
+export const serviceName = (module: string) => (module === "wallet-payments" ? "wallet" : module)
 /** 装配后提供可检查的路由与操作依赖清单。 */
 export interface ApplicationWiring {
   schemaVersion: 1

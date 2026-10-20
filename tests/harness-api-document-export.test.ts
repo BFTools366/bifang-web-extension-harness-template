@@ -328,6 +328,7 @@ describe("API and business export bundle", () => {
     "/home/example/repository/items.ts",
     "~/repository/items.ts",
     "/Users/example/code",
+    "FILE:///Users/example/code",
     "```typescript\nconst token = await read();\n```"
   ])("rejects source leakage: %s", async (leak) => {
     const root = await bundle()
@@ -391,6 +392,7 @@ test.each([
   "```graphql\n# Schema source: src/data/api/schema.graphql\ntype Query { health: String }\n```",
   "```graphql\ntype Query { health: String } # src/data/api/schema.graphql\n```",
   '```json\n{"schemaOrigin":"/Users/example/workspace/src/api/schema.graphql"}\n```',
+  '```json\n{"schemaOrigin":"FILE:///srv/schema.graphql"}\n```',
   "> ```typescript\n> const enabled = true\n> ```",
   "    const enabled = true",
   "- ```typescript\n  export const enabled = true\n  ```"

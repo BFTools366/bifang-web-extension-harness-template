@@ -93,7 +93,7 @@ UI、分页和 i18n 保留呈现与状态职责，存储访问经本层完成。
 
 - \`client/\`：已批准基地址、动态认证、取消、超时与规范化 API 错误；不声明业务接口或登录地址。
 - \`<domain>/\`：类型化远端接口函数、请求与响应合同、运行时边界校验，以及只用于未配置 BaseURL 的远端 API 的 Mock。本地能力无需 BaseURL，直接真实实现；本地业务逻辑留在功能模块，真实持久化放在 \`../storage/\`。混合流程只模拟不可用的远端边界。
-- REST 负责单对象读取、命令、认证、上传与主要业务交互。远端列表查询必须使用 GraphQL，条件、排序与分页按真实 Schema 传变量；GraphQL 也负责复杂聚合查询及服务端推送的 Subscription 更新，不另建第二套写入 API。
+- API 协议分工遵循 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定)；域模块按可信契约映射输入输出，不另建第二套写入 API。
 - \`graphql/\` 只在有真实 Schema 与接口时加入。HTTP 查询复用受管 Ky 传输；订阅采用服务端的 \`graphql-ws\` 或 \`graphql-sse\` 协议，明确清理与认证生命周期。
 - 功能 hooks 在组件、路由加载器和命令式读取间共享 queryOptions 与当前上下文的 QueryClient。TanStack Query 负责 REST/GraphQL 缓存查询、在途读取去重、新鲜度、失效与事件投影；Ky 和协议适配只负责传输。缓存已解析校验的领域数据，不缓存会被消费的 Response 响应体。入口与 staleTime 语义见项目根 \`docs/DATA_ACCESS.md\` §2.7。
 - 写操作更新或失效精确查询键；订阅将已校验事件投影到同一 Query 缓存。不得把服务器状态镜像到 Jotai 或存储。Extension 各上下文具有独立 QueryClient 与生命周期，不因此获得跨上下文或持久缓存。
