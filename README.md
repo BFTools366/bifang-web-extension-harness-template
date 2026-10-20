@@ -60,7 +60,7 @@ Logo、品牌色和身份本地化可一并提供。Agent 创建流程生成并�
 - 项目内的 `design-taste-frontend` 设计支持 Skill；已有有效版本保留，缺失时默认补装，使用时遵循 [Mantine 与宿主规范](docs/MANTINE_UI_GUIDELINES.md#11-设计风格支持)。
 - 一个独立的本地 Git 仓库和通用基线提交，尚未绑定远端。
 
-创建完成表示已确认首版页面与功能实现并完成实际流程验证，工程生成只是内部阶段。各项能力采用固定设计模板和代码接线；购买自动包含基础用户系统。开发走查不代表最终产物或发布就绪。
+创建完成表示已确认首版页面与功能实现并完成实际流程验证，工程生成只是内部阶段。各项能力采用固定设计模板和代码接线；当前购买图补齐基础身份资源，完整用户方案还需满足账号与组织基线。开发走查不代表最终产物或发布就绪。
 
 ### 使用命令行创建
 
@@ -93,7 +93,7 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 
 创建输入与原文事务归 `web-instantiate-project`，需求语义和唯一 PRD 归 `web-define-product`，模块与操作选择归 `web-compose-capabilities`；实际桌面布局和原型登记归 `web-design-prototype`，真实代码归 `web-implement-change`。完整归属见 [Skill 职责地图](docs/harness_engineering/skill_composition.md#创建需求与能力的归属)。
 
-Harness 提供独立的知识库和模板库：[身份认证、组织、权限、商品目录、订单、钱包支付、审计](.agents/skills/web-compose-capabilities/SKILL.md)。模块按具体操作及其最小依赖组合；不再提供 Web 产品分类。可根据需求推荐布局与独立能力，正式模块选择在下游唯一 PRD 中记录，未选功能不生成；购买自动依赖基础身份，身份不自动依赖组织和权限。
+Harness 提供独立的知识库和模板库：[身份认证、组织、权限、商品目录、订单、钱包支付、审计](.agents/skills/web-compose-capabilities/SKILL.md)。模块按具体操作及其最小依赖组合；不再提供 Web 产品分类。可根据需求推荐布局与独立能力，正式模块选择在下游唯一 PRD 中记录，未选功能不生成；购买自动依赖基础身份；当前低层依赖图不自动生成组织/权限，不代表完整用户系统可以省略组织。完整用户方案遵循[账号与组织基线](.agents/skills/web-compose-capabilities/knowledge/identity.md#完整用户信息)，已确认目标与当前装配器差异见[接线合同](.agents/skills/web-compose-capabilities/templates/application/wiring.md#当前装配器与目标规范的差异)。
 
 模板明确区分代码、操作设计表单和离线演示。身份认证有独立代码模板；账户服务保留协议与 Mock 参考，购买保留显式设计组合，均不能冒充真实服务。两类宿主共用业务知识，按模板索引适配宿主。接口按 [功能模块与 API 关联](docs/API.md#功能模块与-api-关联) 核对，所有远端列表查询走 GraphQL。API 导出继续按实际业务聚合并核对代码差异。
 

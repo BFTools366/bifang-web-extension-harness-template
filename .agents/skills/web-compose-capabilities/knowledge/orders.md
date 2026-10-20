@@ -63,4 +63,4 @@ Web 采用现有列表、Router/Query/i18n 合同；Extension 采用本 surface 
 
 真实付费、生产订单写入不因知识或模板使用得到授权；Mock/规范检查、真实服务及最终候选分别报告。
 
-基础接线以 [固定设计](../templates/orders/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。
+基础接线以 [固定设计](../templates/orders/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 只描述当前可执行资源的最小前置，不随模块名启用全部操作；完整用户信息遵循[账号与组织基线](identity.md#完整用户信息)，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

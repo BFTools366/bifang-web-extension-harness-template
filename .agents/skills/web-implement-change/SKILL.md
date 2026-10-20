@@ -79,6 +79,6 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 ## 完整创建的固定能力装配
 
-完整创建授权包含成功下游首版实施，工程事务不是完成边界。复用已确认 PRD、固定设计和有效原型登记，通过 `$web-compose-capabilities` 的 `templates/application/files.ts` 装配当前宿主基线与实际 HomePage，按 wiring.md 接入所选能力。identity.session 包含登录页/路由、用户区、匿名守卫、Token 和退出/401；permissions.enforce 将同一权限码用于页面/导航/路由/元素和执行前；orders.purchase 自动依赖基础用户系统及商品/订单/钱包。未决购买由当前作用域持续持有，关闭弹窗或切换路由不能丢弃后重新下单。
+完整创建授权包含成功下游首版实施，工程事务不是完成边界。复用已确认 PRD、固定设计和有效原型登记，通过 `$web-compose-capabilities` 的 `templates/application/files.ts` 装配当前宿主基线与实际 HomePage，按 wiring.md 接入所选能力。identity.session 包含登录页/路由、用户区、匿名守卫、Token 和退出/401；permissions.enforce 将同一权限码用于页面/导航/路由/元素和执行前；orders.purchase 当前自动依赖基础身份资源及商品/订单/钱包。完整用户方案仍须按[账号与组织基线](../web-compose-capabilities/knowledge/identity.md#完整用户信息)及接线差异表补齐，不能用当前闭包省略组织或已确认流程。未决购买由当前作用域持续持有，关闭弹窗或切换路由不能丢弃后重新下单。
 
 运行首版相关类型检查、非空行为测试和开发浏览器核心流程走查；Extension 覆盖 Chrome/Firefox。此触发源于完整创建合同，不扩大普通修复的默认检查。Mock 明示且可交互，真实接入需求必须有可信 adapter，缺项不能宣告首版完成。只在要求最终 dist/zip 时转最终候选门禁。

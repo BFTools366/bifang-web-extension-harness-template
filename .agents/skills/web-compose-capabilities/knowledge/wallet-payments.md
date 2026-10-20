@@ -62,4 +62,4 @@ Web复用 Router/Query、数据层和 i18n，金额带币种、状态播报与�
 
 离线演示可使用明确示例单位，不能证明真实金额、服务账本或扣款。真实资金/生产操作必须有当次明确环境和授权；知识分发、模板填写、Mock或普通测试不自动授予。
 
-基础接线以 [固定设计](../templates/wallet-payments/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。
+基础接线以 [固定设计](../templates/wallet-payments/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 只描述当前可执行资源的最小前置，不随模块名启用全部操作；完整用户信息遵循[账号与组织基线](identity.md#完整用户信息)，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

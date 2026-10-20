@@ -24,6 +24,12 @@ describe("Harness Skill and Agent policy validation", () => {
     ["web-implement-access-control", "已识别但无权限的目标"],
     ["web-implement-access-control", "不依赖被拒绝的业务权限"],
     ["web-compose-capabilities", "知识库与模板库独立索引"],
+    ["web-compose-capabilities", "完整用户方案必须满足[账号与组织基线]"],
+    [
+      "web-compose-capabilities",
+      "组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计"
+    ],
+    ["web-compose-capabilities", "Web 默认左侧仅工作台与底部设置"],
     ["web-compose-capabilities", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
     ["web-instantiate-project", "需求分析委托 `$web-define-product`"],
     ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],
@@ -47,7 +53,9 @@ describe("Harness Skill and Agent policy validation", () => {
   ])("rejects a weakened leaf workflow in %s", async (skill, fragment) => {
     const root = await copyRepository()
     const file = path.join(root, ".agents/skills", skill, "SKILL.md")
-    await writeFile(file, (await readFile(file, "utf8")).replaceAll(fragment, "被弱化的边界"))
+    const source = await readFile(file, "utf8")
+    expect(source).toContain(fragment)
+    await writeFile(file, source.replaceAll(fragment, "被弱化的边界"))
     await expect(validateHarness(root)).rejects.toThrow(/missing required workflow/)
   })
 

@@ -17,7 +17,7 @@ export function downstreamReadme(config: ProjectConfig): string {
   // 保留明确的创建输入；业务范围与后续模式变更仍由唯一 PRD 管理。
   const moduleCapabilities = `## 功能组合
 
-若存在 \`docs/requirements/source.txt\`，按同目录 README 交接给需求定义 Skill，不要求重贴文档；没有文档时按渐进式需求澄清处理。下游按具体操作选用 [功能组合 Skill](.agents/skills/web-compose-capabilities/SKILL.md) 中独立的身份认证、组织、权限、商品目录、订单、钱包支付和审计知识与模板。按具体操作组合固定设计与代码接线，自动补齐明确最小依赖；购买要求基础用户系统，身份不附带组织、权限、注册或找回；选择结果和数据范围保存在唯一 PRD，未选功能不生成。模板类型和宿主限制以模块索引为准。
+若存在 \`docs/requirements/source.txt\`，按同目录 README 交接给需求定义 Skill，不要求重贴文档；没有文档时按渐进式需求澄清处理。下游按具体操作选用 [功能组合 Skill](.agents/skills/web-compose-capabilities/SKILL.md) 中独立的身份认证、组织、权限、商品目录、订单、钱包支付和审计知识与模板。按具体操作组合固定设计与代码接线，自动补齐明确最小依赖；当前购买依赖补齐基础身份资源，低层认证不自动生成组织、权限、注册或找回；完整用户方案必须满足[账号与组织基线](.agents/skills/web-compose-capabilities/knowledge/identity.md#完整用户信息)，未覆盖接线按已确认范围补齐，不能以技术依赖闭包代替完整需求；选择结果和数据范围保存在唯一 PRD，未选功能不生成。模板类型和宿主限制以模块索引为准。
 
 `
   return `# ${config.name}

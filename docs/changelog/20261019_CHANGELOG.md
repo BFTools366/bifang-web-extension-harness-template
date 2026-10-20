@@ -1,6 +1,6 @@
 # 2026-10-19 变更记录
 
-本文件只呈现当前有效变化；被完整取代的旧描述见 [历史卷](CHANGELOG_history.md)，当前设计见 [ADR](../adr/20261019_ADR.md)。
+本文件只呈现当前有效变化；被完整取代的旧描述见 [历史卷](CHANGELOG_history.md)，当前设计见 [ADR](../adr/20261020_ADR.md)。
 
 ## Added
 

@@ -52,4 +52,4 @@ Chrome MV3和Firefox MV2的实际请求、上下文生命周期与权限拒绝�
 
 当前没有真实服务时只报告知识/设计/Mock检查，不声明服务器审计、数据库保留或真实浏览器已验证。构建、完整候选、发布与新增导出均按各自独立触发范围执行。
 
-基础接线以 [固定设计](../templates/audit/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 的操作依赖是最小前置，不随模块名启用全部功能；身份不隐含组织/权限，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。
+基础接线以 [固定设计](../templates/audit/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 只描述当前可执行资源的最小前置，不随模块名启用全部操作；完整用户信息遵循[账号与组织基线](identity.md#完整用户信息)，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。

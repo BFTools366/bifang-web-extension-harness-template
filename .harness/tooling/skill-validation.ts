@@ -58,7 +58,10 @@ export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly str
   ],
   "web-compose-capabilities": [
     "templates/application/files.ts",
-    "购买自动包含基础用户系统",
+    "购买自动包含基础身份",
+    "完整用户方案必须满足[账号与组织基线]",
+    "组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计",
+    "Web 默认左侧仅工作台与底部设置",
     "固定设计",
     "知识库与模板库独立索引",
     "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)",
