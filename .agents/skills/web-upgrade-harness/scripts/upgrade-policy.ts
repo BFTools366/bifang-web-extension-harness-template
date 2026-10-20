@@ -71,6 +71,10 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   ".harness/tooling/workspace-skills.ts": "managed",
   "docs/WORKSPACE_TEMPLATE.md": "managed",
   "docs/GO_SERVICE.md": "managed",
+  "docs/GO_CLIENT_CONTRACT.md": "managed",
+  "tests/go-identity-contract.test.ts": "tombstone",
+  "tests/go-identity-support.ts": "tombstone",
+  "tests/fixtures/go-identity.test.ts.txt": "tombstone",
   ".harness/workspace.json": "protected",
   ".harness/tooling/workspace.ts": "tombstone",
   ".harness/tooling/workspace-selection.ts": "tombstone",
@@ -290,6 +294,7 @@ export const MINIMUM_REQUIRED_OWNERSHIP_PATTERNS = new Set([
 
 /** 保存必须从 source 精确传播到候选的关键 managed 文件。 */
 export const REQUIRED_MANAGED_SOURCE_PATHS = [
+  "docs/GO_CLIENT_CONTRACT.md",
   ".harness/tooling/workspace-context.ts",
   ".harness/tooling/workspace-skills.ts",
   ".agents/skills/web-compose-capabilities/templates/application/extraction.md",

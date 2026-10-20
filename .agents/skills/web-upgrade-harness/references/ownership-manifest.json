@@ -95,6 +95,22 @@
       "mode": "managed"
     },
     {
+      "pattern": "docs/GO_CLIENT_CONTRACT.md",
+      "mode": "managed"
+    },
+    {
+      "pattern": "tests/go-identity-contract.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/go-identity-support.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/fixtures/go-identity.test.ts.txt",
+      "mode": "tombstone"
+    },
+    {
       "pattern": ".harness/workspace.json",
       "mode": "protected"
     },
