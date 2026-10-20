@@ -189,8 +189,8 @@ test("changes passwords with account-wide revocation and stable account times", 
   await expect(
     service.api.changePassword(first, "wrong", "Changed123", signal)
   ).rejects.toMatchObject({
-    serviceCode: "auth.old.password.wrong",
-    status: 400,
+    serviceCode: "account.password.mismatch",
+    status: 422,
     kind: "input"
   })
   await expect(service.api.validateSession(first, signal)).resolves.toMatchObject(first)
@@ -200,7 +200,7 @@ test("changes passwords with account-wide revocation and stable account times", 
     serviceCode: "auth.token.revoked"
   })
   await expect(service.api.login("demo", "demo-password", signal)).rejects.toMatchObject({
-    serviceCode: "auth.password.wrong"
+    serviceCode: "auth.credentials.invalid"
   })
   const next = await service.api.login("demo", "Changed123", signal)
   const updated = (await service.profile(next, signal)).data
@@ -235,7 +235,7 @@ test("registers by phone and preserves codes through uniqueness conflicts", asyn
     code(
       await service.request({ method: "POST", path: "/api/v1/auth/register", body: input }, signal)
     )
-  ).toBe("account.username.exists")
+  ).toBe("account.username.taken")
   const created = await service.request(
     {
       method: "POST",

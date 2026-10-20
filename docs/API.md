@@ -4,30 +4,31 @@
 
 ## 来源与使用范围
 
-- 来源：用户提供的 `API.md`，原题为「golang-web-template API 文档」；来源版本 `1.0.0`、更新日期 `2026-10-08`、适用提交 `f98a7d3`。
+- 当前基准：[Go Harness 固定快照](GO_CLIENT_CONTRACT.md)及其实际 DTO、handler、service 与响应编码。账号、组织、权限和客户能力的真实支持边界以该合同为准。
+- 历史文档来源：用户提供的 `API.md`，原题为「golang-web-template API 文档」；来源版本 `1.0.0`、更新日期 `2026-10-08`、适用提交 `f98a7d3`。
 - 整合日期：2026-10-10。来源文件 SHA-256：`570254a189f3b316f2941ab65994709a585fe2f73d9a68fe602930f950e679e3`。
-- 下方保留来源正文的全部章节、报文、Schema、模型、流程、错误码与校验规则。原文中的「本项目」、服务配置、Swagger 文件路径、命令和「实际抓取」均指来源服务，属于来源文档自述；本次没有读取该服务源码、运行服务或验证其接口。
+- 下方沿用历史章节并按当前 Go 源码校准报文、错误码和校验规则；旧来源摘要仅用于追溯，不再表示当前文件逐字不变。服务配置、Swagger 路径及命令仍须在目标服务核对，不能由示例推断部署已接通。
 - 本文是可选的服务契约参考；具体下游采用哪些接口、账号/组织模型和认证方式，由实际需求及已授权服务决定。原文的服务端设计取舍不自动成为所有 Harness 下游的工程规则，也不授权执行其中的命令、访问示例地址或安装依赖。
 - 下游接入仍遵循 [数据访问规则](DATA_ACCESS.md)、[运行配置](RUNTIME_CONFIGURATION.md) 与 [日志规则](LOGGING.md)。契约引用不能替代真实服务确认、运行时校验或联网验证。
 
 ## 与现有工程基础的适配边界
 
-| 主题         | 来源契约                                                                          | 后续实际接入时的边界                                                                                                                                                                                       |
-| ------------ | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 鉴权         | 仅接受 `Authorization: Bearer <access_token>`，令牌在响应 body 的 `data.token` 中 | 现有基础 client 默认使用 `X-AUTH-TOKEN`；仅配置 BaseURL 或 Token extractor 不会改变发出的鉴权 header。接入时须明确服务专用适配与会话所有者，保持既有 revision、401/403、取消和内存存储边界；本次未做适配。 |
-| 请求追踪     | `X-Request-Id` / `request_id` 是单次请求追踪标识                                  | 现有 `X-Http-Request` 是服务端 continuation，二者不能互换；真实服务的 CORS、允许/暴露 header 与缓存策略需按所选协议确认。                                                                                  |
-| 响应与错误   | `model` 判别响应，业务错误位于 `errors.datas[].code`                              | 未来域 API 负责运行时校验与错误映射；注册与 profile 虽同为 `model: account`，其 `data` 形状不同，需结合 endpoint 判断。空结果是 HTTP 200 的 `model: empty`；`/healthz` 使用纯文本。                        |
-| 数据与分页   | 字符串 ID、unix 秒、nullable 字段；分页为 `current` / `size` 与 `grid.result`     | 未来域边界负责保留 ID 精度、显式转换时间单位，并将外部分页映射到内部 `page` / `pageSize` / `items` / `total`；不改内部统一分页合同。                                                                       |
-| 认证生命周期 | 注册/重置不自动登录；登出、改密与重置吊销全部令牌                                 | refresh、缓存清理、登录导航和并发重放均须在实际功能中明确所有者与验证范围；当前基础没有自动 refresh/replay。                                                                                               |
-| GraphQL      | 只读独立投影，可选鉴权；业务错误 200，语法/校验错误 422                           | 该行为只属于来源服务，接入时分别处理协议错误、业务错误与 partial data；当前没有安装 GraphQL 依赖或生成客户端。                                                                                             |
+| 主题         | 来源契约                                                                          | 后续实际接入时的边界                                                                                                                                                                                                                                                |
+| ------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 鉴权         | 仅接受 `Authorization: Bearer <access_token>`，令牌在响应 body 的 `data.token` 中 | 现有基础 client 默认使用 `X-AUTH-TOKEN`；仅配置 BaseURL 或 Token extractor 不会改变发出的鉴权 header。接入时须明确服务专用适配与会话所有者，保持既有 revision、401/403、取消和内存存储边界；Workspace 自建服务已有 Bearer/语言/追踪桥接；已有服务仍按目标合同接线。 |
+| 请求追踪     | `X-Request-Id` / `request_id` 是单次请求追踪标识                                  | 现有 `X-Http-Request` 是服务端 continuation，二者不能互换；真实服务的 CORS、允许/暴露 header 与缓存策略需按所选协议确认。                                                                                                                                           |
+| 响应与错误   | `model` 判别响应，业务错误位于 `errors.datas[].code`                              | 未来域 API 负责运行时校验与错误映射；注册与 profile 虽同为 `model: account`，其 `data` 形状不同，需结合 endpoint 判断。空结果是 HTTP 200 的 `model: empty`；`/healthz` 使用纯文本。                                                                                 |
+| 数据与分页   | 字符串 ID、unix 秒、nullable 字段；分页为 `current` / `size` 与 `grid.result`     | 未来域边界负责保留 ID 精度、显式转换时间单位，并将外部分页映射到内部 `page` / `pageSize` / `items` / `total`；不改内部统一分页合同。                                                                                                                                |
+| 认证生命周期 | 注册/重置不自动登录；登出、改密与重置吊销全部令牌                                 | refresh、缓存清理、登录导航和并发重放均须在实际功能中明确所有者与验证范围；当前基础没有自动 refresh/replay。                                                                                                                                                        |
+| GraphQL      | 只读独立投影，可选鉴权；业务错误 200，语法/校验错误 422                           | 该行为只属于来源服务，接入时分别处理协议错误、业务错误与 partial data；当前没有安装 GraphQL 依赖或生成客户端。                                                                                                                                                      |
 
-源码未随文档提供，以下两处来源表述须在真实接入前核实：§4.2 同时描述验证码关闭时忽略 `code`，又列出携带 `code` 时可能返回 `verification.disabled`；§5 开头对 GraphQL HTTP 200 的概括须结合 §5.4 的 422 协议错误分界理解。保留原文，不据此猜测服务端行为。
+当前 Go 源码在 verification.enabled=false 时忽略注册 code；发码与找回仍要求验证码能力启用。GraphQL 业务错误通常为 HTTP 200，协议错误按 §5.4 的 422 分界处理；目标服务升级后重新核对。
 
 ## 功能模块与 API 关联
 
 本节按实际操作关联身份、组织、权限、目录、订单、钱包支付与审计；通过 `$web-compose-capabilities` 按需读取知识与模板，两类宿主均不因参考文档而启用功能。“参考已定义”只代表来源正文描述该操作，不表示当前实现或服务验证。
 
-关联阅读：[认证操作映射](#认证操作映射)、[协议与会话适配](#协议与会话适配)、[组合契约缺口](#组合契约缺口)、[管理操作契约缺口](#管理操作契约缺口)、[下游落地与文档回写](#下游落地与文档回写)。来源正文保持完整，补充需求不写进原始报文或 Schema。
+关联阅读：[认证操作映射](#认证操作映射)、[协议与会话适配](#协议与会话适配)、[组合契约缺口](#组合契约缺口)、[管理操作契约缺口](#管理操作契约缺口)、[下游落地与文档回写](#下游落地与文档回写)。新增操作仍需真实服务合同，不凭文档生成未实现的 endpoint。
 
 ### 认证操作映射
 
@@ -36,7 +37,7 @@
 | 用户操作 / 能力         | 参考已定义的操作与来源                                           | 输入与成功结果                                                                                                  | 与所选操作的关联                                                                                                                                                   |
 | ----------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 发送邮箱验证码          | `POST /api/v1/auth/verification-code`，[§4.1](#41-发送验证码)    | `{ target, target_type: "email", scene }` → `model: verification.code`，`data.expires_in` / `resend_after` 为秒 | 注册显式用 `scene: "register"`，找回用 `"reset_password"`；更换邮箱、场景或重发后重置旧验证码状态。不能依赖非 mock 响应存在 `code`。                               |
-| 客户端注册              | `POST /api/v1/auth/register`，[§4.2](#42-注册)                   | `{ username, email, password, code, code_type: "email" }` → `model: account`，`data` 是 Account                 | 成功创建默认组织但不返回令牌、不自动登录，回到登录页；未选择注册时不提供页面或调用分支。通用邮箱验证要求不能因来源允许关闭验证码而被静默取消。                     |
+| 客户端注册              | `POST /api/v1/auth/register`，[§4.2](#42-注册)                   | `{ username, email, password, code, code_type: "email" }` → `model: account`，`data` 是 Account                 | 成功创建默认组织但不返回令牌、不自动登录，回到登录页；未选择注册时不提供页面或调用分支。验证码仅在明确要求且服务启用时提交；默认账号装配不启用发码或找回。         |
 | 登录                    | `POST /api/v1/auth/login`，[§4.3](#43-登录)                      | `{ account, password }` → `model: auth.token`，`data.token` 与 `data.account`                                   | 用户名映射到 `account`；该契约也支持邮箱。只从 `data.token.access_token` 获取访问凭据；用户、权限和组织上下文就绪后才进入主 UI，不能把返回 Account 当成完整授权。  |
 | 当前用户 / 导航校验候选 | `GET /api/v1/auth/profile`，[§4.7](#47-当前账号)                 | 无目标账号 ID → `model: account`，`data: { account, org }`                                                      | 可在确认真实服务满足当前会话校验语义后，以每次导航的新鲜请求校验凭据；不能用旧 Query 命中替代。返回的 `org` 仅是默认组织，不是多组织列表或已切换组织，且无权限码。 |
 | 退出登录                | `POST /api/v1/auth/logout`，[§4.6](#46-登出)                     | 无 body，带访问令牌 → HTTP 200、`model: empty`                                                                  | 来源会吊销该账号全部令牌，含其他设备/客户端；采用时 UI 必须说明这个范围。远端失败仍执行本地退出，不能宣称服务器已吊销成功，退出自身失败不递归调用。                |
@@ -46,7 +47,7 @@
 
 采用上述契约时，用户名、密码、邮箱和验证码格式直接核对 [§9 参数规则](#9-参数校验规则)，不把这些来源限制升级为所有服务的统一规则。验证码倒计时取已校验的 `resend_after` / `expires_in`；失败时按稳定错误码反馈，不从本地化 `message` 中解析秒数。注册/找回场景隔离、重发旧码失效和错误次数限制由服务端保证。
 
-两个差异须明确解决：邮箱验证码注册要求实际服务启用验证，生产不能使用回显明文验证码的 mock 模式；来源关于关闭验证码时 `code` 的行为存在前述矛盾，接入前核实，不能降级为无验证注册。找回接口会以 `verification.target.not.registered` 暴露账号是否存在，UI 可保持中性提示，但不能因此声称服务端已经防止枚举；下游采用时记录差异，需要消除时由服务端提供统一反馈契约。
+若要求邮箱验证码注册，实际服务必须启用验证，生产不能使用回显明文验证码的 mock 模式；未要求验证码时沿用 Go 默认关闭的装配，不生成验证码入口。找回接口会以 `verification.target.not.registered` 暴露账号是否存在，UI 可保持中性提示，但不能因此声称服务端已经防止枚举；下游采用时记录差异，需要消除时由服务端提供统一反馈契约。
 
 ### 协议与会话适配
 
@@ -218,9 +219,8 @@ http://{host}:{port}
 ```json
 {
   "model": "grid.result",
-  "page": { "model": "page", "current": 1, "size": 10, "total": 0, "total_page": 0 },
-  "result": { "model": "data.set", "datas": [], "total": 0 },
-  "request_id": "..."
+  "page": { "current": 1, "size": 10, "total": 0 },
+  "result": { "model": "data.set", "datas": [], "total": 0, "request_id": "..." }
 }
 ```
 
@@ -240,7 +240,7 @@ http://{host}:{port}
     "datas": [
       {
         "model": "error",
-        "code": "auth.password.wrong",
+        "code": "auth.credentials.invalid",
         "message": "账号或密码错误"
       }
     ],
@@ -295,7 +295,7 @@ X-Lang: en-US
 ```json
 {
   "errors": {
-    "datas": [{ "code": "auth.password.wrong", "message": "Incorrect account or password" }]
+    "datas": [{ "code": "auth.credentials.invalid", "message": "Incorrect account or password" }]
   }
 }
 ```
@@ -493,15 +493,15 @@ POST /api/v1/auth/register
 
 **请求体**
 
-| 字段        | 类型   | 必填 | 约束                    | 说明                                           |
-| ----------- | ------ | ---- | ----------------------- | ---------------------------------------------- |
-| `username`  | string | ✅   | 3-32 位 `[A-Za-z0-9_-]` | 用户名                                         |
-| `email`     | string | ✅   | 合法邮箱，≤ 128         | 邮箱，服务端归一化为小写                       |
-| `password`  | string | ✅   | 8-64 位，含字母与数字   | 密码                                           |
-| `phone`     | string | -    | E.164                   | 手机号。填了会做唯一性校验，也可作为验证码目标 |
-| `nickname`  | string | -    | ≤ 64                    | 昵称，留空回落为用户名                         |
-| `code`      | string | 见下 | 纯数字，≤ 16            | 验证码                                         |
-| `code_type` | string | -    | `email` / `phone`       | 用哪个标识匹配验证码，留空默认 `email`         |
+| 字段        | 类型   | 必填 | 约束                   | 说明                                           |
+| ----------- | ------ | ---- | ---------------------- | ---------------------------------------------- |
+| `username`  | string | ✅   | 3-32 位 `[A-Za-z0-9_]` | 用户名                                         |
+| `email`     | string | ✅   | 合法邮箱，≤ 128        | 邮箱，服务端归一化为小写                       |
+| `password`  | string | ✅   | 8-64 位，含字母与数字  | 密码                                           |
+| `phone`     | string | -    | E.164                  | 手机号。填了会做唯一性校验，也可作为验证码目标 |
+| `nickname`  | string | -    | ≤ 64                   | 昵称，留空回落为用户名                         |
+| `code`      | string | 见下 | 纯数字，≤ 16           | 验证码                                         |
+| `code_type` | string | -    | `email` / `phone`      | 用哪个标识匹配验证码，留空默认 `email`         |
 
 > `code` 的必填性**取决于服务端配置** `verification.enabled`：开启时必填，关闭时忽略。所以它没有写死在参数校验里，缺失时由业务层返回 `verification.code.required`（而不是笼统的参数校验失败）。
 
@@ -546,9 +546,9 @@ POST /api/v1/auth/register
 | 400    | `verification.code.invalid`           | 验证码不正确，或已被使用 / 被重发顶掉           |
 | 400    | `verification.code.expired`           | 验证码已过期                                    |
 | 400    | `verification.target.missing`         | `code_type=phone` 但未填 `phone`                |
-| 409    | `account.username.exists`             | 用户名已被占用                                  |
-| 409    | `account.email.exists`                | 邮箱已被注册                                    |
-| 409    | `account.phone.exists`                | 手机号已被注册                                  |
+| 409    | `account.username.taken`              | 用户名已被占用                                  |
+| 409    | `account.exists`                      | 邮箱已被注册                                    |
+| 409    | `account.phone.taken`                 | 手机号已被注册                                  |
 | 429    | `verification.code.attempts.exceeded` | 该验证码错误次数超限                            |
 | 503    | `verification.disabled`               | 验证码功能未启用（此时不该带 `code`）           |
 
@@ -611,11 +611,11 @@ POST /api/v1/auth/login
 
 **错误**
 
-| 状态码 | 错误码                  | 触发条件                                             |
-| ------ | ----------------------- | ---------------------------------------------------- |
-| 400    | `common.validate.error` | 缺字段                                               |
-| 401    | `auth.password.wrong`   | **账号不存在与密码错误返回同一个错误**，避免账号枚举 |
-| 403    | `auth.account.disabled` | 账号已被禁用                                         |
+| 状态码 | 错误码                     | 触发条件                                             |
+| ------ | -------------------------- | ---------------------------------------------------- |
+| 400    | `common.validate.error`    | 缺字段                                               |
+| 401    | `auth.credentials.invalid` | **账号不存在与密码错误返回同一个错误**，避免账号枚举 |
+| 403    | `auth.account.disabled`    | 账号已被禁用                                         |
 
 ### 4.4 刷新令牌
 
@@ -623,7 +623,7 @@ POST /api/v1/auth/login
 POST /api/v1/auth/refresh
 ```
 
-用刷新令牌换取新的令牌对。返回结构与登录相同。
+用刷新令牌换取新的令牌对。返回结构与登录相同。重发不撤销旧 refresh，也不递增 token_version；不能假定单次轮换或自动重放。
 
 **请求体**
 
@@ -633,14 +633,12 @@ POST /api/v1/auth/refresh
 
 **错误**
 
-| 状态码 | 错误码                   | 触发条件                                     |
-| ------ | ------------------------ | -------------------------------------------- |
-| 401    | `auth.token.invalid`     | 令牌无效                                     |
-| 401    | `auth.token.expired`     | 令牌已过期                                   |
-| 401    | `auth.token.wrong.type`  | 传的是访问令牌                               |
-| 401    | `auth.token.revoked`     | 账号已登出 / 改密 / 重置密码，令牌版本不匹配 |
-| 401    | `auth.account.not.found` | 账号不存在或已注销                           |
-| 403    | `auth.account.disabled`  | 账号已被禁用                                 |
+| 状态码 | 错误码                  | 触发条件                                     |
+| ------ | ----------------------- | -------------------------------------------- |
+| 401    | `auth.token.invalid`    | 解析失败、过期或类型错误均归此码             |
+| 401    | `auth.token.revoked`    | 账号已登出 / 改密 / 重置密码，令牌版本不匹配 |
+| 404    | `account.not.found`     | 账号不存在或已注销                           |
+| 403    | `auth.account.disabled` | 账号已被禁用                                 |
 
 ### 4.5 重置密码（忘记密码）
 
@@ -806,11 +804,11 @@ PUT /api/v1/auth/password
 
 **错误**
 
-| 状态码 | 错误码                    | 触发条件             |
-| ------ | ------------------------- | -------------------- |
-| 400    | `auth.old.password.wrong` | 原密码错误           |
-| 400    | `common.validate.error`   | 新密码不符合强度要求 |
-| 401    | 同 4.6                    | 鉴权失败             |
+| 状态码 | 错误码                      | 触发条件             |
+| ------ | --------------------------- | -------------------- |
+| 422    | `account.password.mismatch` | 原密码错误           |
+| 400    | `common.validate.error`     | 新密码不符合强度要求 |
+| 401    | 同 4.6                      | 鉴权失败             |
 
 ---
 
@@ -1073,7 +1071,7 @@ GraphQL 类型是**独立投影**，不复用数据库实体，也不含 `passwo
 ② POST /api/v1/auth/password/reset      {target, target_type, code, new_password}
    ← 200 { model: "empty" }
 
-③ 旧密码登录 → 401 auth.password.wrong
+③ 旧密码登录 → 401 auth.credentials.invalid
    旧 refresh_token → 401 auth.token.revoked      ← 重置前签发的令牌全部失效
    新密码登录 → 200
 ```
@@ -1114,28 +1112,28 @@ GraphQL 类型是**独立投影**，不复用数据库实体，也不含 `passwo
 
 ### 8.2 鉴权
 
-| 错误码                    | HTTP | 说明                                     |
-| ------------------------- | ---- | ---------------------------------------- |
-| `auth.token.missing`      | 401  | 缺少鉴权令牌（或用了不支持的携带方式）   |
-| `auth.token.malformed`    | 401  | 令牌格式非法，期望 `Bearer <token>`      |
-| `auth.token.invalid`      | 401  | 令牌无效                                 |
-| `auth.token.expired`      | 401  | 令牌已过期                               |
-| `auth.token.revoked`      | 401  | 令牌已失效（登出 / 改密 / 重置密码后）   |
-| `auth.token.wrong.type`   | 401  | 令牌类型不正确（如用刷新令牌访问接口）   |
-| `auth.account.not.found`  | 401  | 账号不存在或已注销                       |
-| `auth.password.wrong`     | 401  | 账号或密码错误（**不区分账号是否存在**） |
-| `auth.old.password.wrong` | 400  | 原密码错误                               |
-| `auth.account.disabled`   | 403  | 账号已被禁用                             |
-| `auth.token.sign.failed`  | 500  | 令牌签发失败                             |
+| 错误码                      | HTTP | 说明                                     |
+| --------------------------- | ---- | ---------------------------------------- |
+| `auth.token.missing`        | 401  | 缺少鉴权令牌（或用了不支持的携带方式）   |
+| `auth.token.malformed`      | 401  | 令牌格式非法，期望 `Bearer <token>`      |
+| `auth.token.invalid`        | 401  | 令牌无效                                 |
+| `auth.token.expired`        | 401  | 令牌已过期                               |
+| `auth.token.revoked`        | 401  | 令牌已失效（登出 / 改密 / 重置密码后）   |
+| `auth.token.wrong.type`     | 401  | 令牌类型不正确（如用刷新令牌访问接口）   |
+| `account.not.found`         | 404  | 账号不存在或已注销                       |
+| `auth.credentials.invalid`  | 401  | 账号或密码错误（**不区分账号是否存在**） |
+| `account.password.mismatch` | 422  | 原密码错误                               |
+| `auth.account.disabled`     | 403  | 账号已被禁用                             |
+| `auth.token.sign.failed`    | 500  | 令牌签发失败                             |
 
 ### 8.3 账号
 
 | 错误码                         | HTTP | 说明           |
 | ------------------------------ | ---- | -------------- |
 | `account.not.found`            | 404  | 账号不存在     |
-| `account.username.exists`      | 409  | 用户名已被占用 |
-| `account.email.exists`         | 409  | 邮箱已被注册   |
-| `account.phone.exists`         | 409  | 手机号已被注册 |
+| `account.username.taken`       | 409  | 用户名已被占用 |
+| `account.exists`               | 409  | 邮箱已被注册   |
+| `account.phone.taken`          | 409  | 手机号已被注册 |
 | `account.create.failed`        | 500  | 创建账号失败   |
 | `account.update.failed`        | 500  | 更新账号失败   |
 | `account.password.hash.failed` | 500  | 密码加密失败   |
@@ -1176,15 +1174,15 @@ GraphQL 类型是**独立投影**，不复用数据库实体，也不含 `passwo
 
 字段格式校验失败统一返回 `common.validate.error`，`message` 形如 `参数校验失败: password 需为 8-64 位且同时包含字母和数字`。
 
-| 字段                        | 规则                                        | 提示                                   |
-| --------------------------- | ------------------------------------------- | -------------------------------------- |
-| `username`                  | `^[A-Za-z0-9_-]{3,32}$`                     | 需为 3-32 位字母、数字、下划线或短横线 |
-| `password` / `new_password` | 8-64 位，**同时**含字母和数字               | 需为 8-64 位且同时包含字母和数字       |
-| `email`                     | 标准邮箱格式，≤ 128                         | 邮箱格式不正确                         |
-| `phone`                     | E.164：`+` 开头，1-9 起头，总长 7-15 位数字 | 需为合法国际手机号                     |
-| `target`（验证码）          | 邮箱或 E.164 手机号，≤ 128                  | 目标格式不正确                         |
-| `code`                      | 纯数字，≤ 16 位                             | -                                      |
-| `nickname`                  | ≤ 64                                        | -                                      |
+| 字段                        | 规则                                        | 提示                             |
+| --------------------------- | ------------------------------------------- | -------------------------------- |
+| `username`                  | `^[A-Za-z0-9_]{3,32}$`                      | 需为 3-32 位字母、数字或下划线   |
+| `password` / `new_password` | 8-64 位，**同时**含字母和数字               | 需为 8-64 位且同时包含字母和数字 |
+| `email`                     | 标准邮箱格式，≤ 128                         | 邮箱格式不正确                   |
+| `phone`                     | E.164：`+` 开头，1-9 起头，总长 7-15 位数字 | 需为合法国际手机号               |
+| `target`（验证码）          | 邮箱或 E.164 手机号，≤ 128                  | 目标格式不正确                   |
+| `code`                      | 纯数字，≤ 16 位                             | -                                |
+| `nickname`                  | ≤ 64                                        | -                                |
 
 **手机号归一化**：服务端会去掉空格、短横线、括号、点，再做 E.164 校验。因此 `+86 138-0013-8000`、`+86 138.0013.8000` 都能通过；但**缺国家码的 `13800138000` 会被拒**（`verification.target.invalid`）。
 

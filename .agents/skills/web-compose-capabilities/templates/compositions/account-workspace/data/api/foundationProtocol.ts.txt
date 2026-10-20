@@ -25,9 +25,8 @@ export interface ServiceEmpty {
 /** 服务端分页原始结构，与前端分页状态分开维护。 */
 export interface ServiceGrid<T> {
   model: "grid.result"
-  page: { model: "page"; current: number; size: number; total: number; total_page: number }
-  result: { model: "data.set"; datas: T[]; total: number }
-  request_id: string
+  page: { current: number; size: number; total: number }
+  result: { model: "data.set"; datas: T[]; total: number; request_id: string }
 }
 
 /** 只保存稳定错误码、状态和追踪标识，不保存远端错误正文。 */
@@ -146,7 +145,6 @@ export function parseServiceGrid<T>(value: unknown, valid: (item: unknown) => it
   if (
     !isRecord(value) ||
     value.model !== "grid.result" ||
-    !protocolText(value.request_id) ||
     !isRecord(value.page) ||
     !isRecord(value.result)
   )
@@ -155,19 +153,17 @@ export function parseServiceGrid<T>(value: unknown, valid: (item: unknown) => it
   const integer = (number: unknown, minimum: number) =>
     typeof number === "number" && Number.isSafeInteger(number) && number >= minimum
   if (
-    page.model !== "page" ||
+    !protocolText(result.request_id) ||
     !integer(page.current, 1) ||
     !integer(page.size, 1) ||
     (page.size as number) > 200 ||
     !integer(page.total, 0) ||
-    !integer(page.total_page, 0) ||
     result.model !== "data.set" ||
     result.total !== page.total ||
     !Array.isArray(result.datas) ||
     !result.datas.every(valid) ||
     result.datas.length > (page.size as number) ||
-    result.datas.length > (page.total as number) ||
-    page.total_page !== Math.ceil((page.total as number) / (page.size as number))
+    result.datas.length > (page.total as number)
   )
     throw new ServiceFailure("invalid_service_response", 200)
   return {

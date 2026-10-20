@@ -11,6 +11,8 @@ description: 在 Workspace 按具体操作完成用户生命周期、注册、�
 
 复用 Go 账号条件资产和前端身份状态机；注册在数据库同一事务创建 Account、自有 Organization 与 owner OrganizationUser，不能只有旧 Org.owner_id。账号加入其他组织不丢自有组织。基础无需验证码时保持 enabled=false、mock=false；发码与找回仅命中需求时委托 go-implement-verification。TokenPair/Unix 秒/字符串 ID、全账号 logout 与 refresh 失效语义必须按真实实现告知前端；非开发环境拒绝公开默认 JWT secret。
 
+上游真实支持与本地成员扩展的区别以 [Go 客户端合同](../../../docs/GO_CLIENT_CONTRACT.md) 为准；不是把账号自服务当成客户 CRM 或管理端 CRUD。连接既有标准 Go 服务时不得要求其返回本地 organization_user 扩展。
+
 先锁定数据和 wire 合同：实体/ID/单位/租户 → REST 写与单对象 → GraphQL 集合 → 认证/权限/错误 → 幂等及恢复。只为本次操作补最小依赖，不从模块名自动启用全部功能；与其他领域共享的事实通过明确接口消费，避免双向依赖。前端状态归既有 Query/会话 owner，不复制到新的全局状态。
 
 产品运行只用真实服务，禁止业务 Mock、默认演示账号或 fixtures。测试使用隔离数据库和测试替身可行；完成需真实 HTTP 证明核心成功、最高风险失败和数据持久化，核对前端实际请求及恢复。同步根 docs/api 的受影响契约和业务关联，返回实际路径、运行结果及未决外部条件。
@@ -18,3 +20,5 @@ description: 在 Workspace 按具体操作完成用户生命周期、注册、�
 自建服务首次用户场景：先按 go-implement-service 的账号装配器完成 register/login/profile/logout 及 owner 成员事务，再把 [Go 身份 adapter](assets/go-identity-adapter.ts.txt) 放入对应前端 src/data/api/identity/adapter.ts；复用已有 session/Query/client，不能再写 fetch。为已选 register/profile 实现真实页面、路由、账号菜单入口及 i18n，验证取消、错误及注册后显式登录。基础应用装配器仅支持既有基础操作；扩展操作由本 Skill 增量完成，不能仅把它写入 wiring.resolved 当作已实现。两前端同时选中时分别接入，后端只实现一次。若只加 refresh/改密则不重复安装账号模板；按现有 owner 增量挂载已选路由。资料必须含有效 Account、Organization、OrganizationUser；重启服务后重读一致，并证明退出使旧 access/refresh 失效。
 
 成员范围严格来自 Workspace：纯 Server 只完成后端、接口及实际 HTTP/持久化验证，不生成前端或索要 UI 表单；存在所选前端成员时完成这些成员的真实消费端与联调。
+
+Go adapter 接线同时复制 [共享 wire 类型](../web-compose-capabilities/templates/compositions/account-workspace/data/api/auth/serviceContract.ts.txt) 到 src/data/api/identity/goContract.ts、[REST 信封](../web-compose-capabilities/templates/compositions/account-workspace/data/api/foundationProtocol.ts.txt) 到 src/data/api/foundationProtocol.ts，保持同一来源，不重新定义 DTO。默认 workspace 模式要求真实成员扩展；既有未扩展 Go 服务显式选择 upstream 模式，仅证明账号身份，不把 nullable org 当完整用户。adapter.refresh 返回完整 TokenPair/Account，changePassword 调用真实 PUT；这些窄方法不自动采用新凭据、清理会话或提供页面，调用方按唯一 owner 处理成功、失效和未知结果。未选中/未挂载操作不得生成入口。

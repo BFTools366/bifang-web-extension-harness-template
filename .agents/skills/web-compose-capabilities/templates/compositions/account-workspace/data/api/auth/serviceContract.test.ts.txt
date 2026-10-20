@@ -80,7 +80,7 @@ test("preserves service error codes, request ids and server cooldown mapping", a
   const signal = new AbortController().signal
   await expect(api.login("test", "wrong", signal)).rejects.toMatchObject({
     code: "credentialsInvalid",
-    serviceCode: "auth.password.wrong",
+    serviceCode: "auth.credentials.invalid",
     status: 401,
     requestId: expect.any(String)
   })
@@ -89,7 +89,7 @@ test("preserves service error codes, request ids and server cooldown mapping", a
     errors: {
       model: "data.set",
       total: 1,
-      datas: [{ model: "error", code: "auth.password.wrong" }]
+      datas: [{ model: "error", code: "auth.credentials.invalid" }]
     }
   })
   expect(await api.sendCode("test@example.invalid", "reset", signal)).toEqual({

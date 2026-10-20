@@ -242,7 +242,7 @@ client 会先移除调用方伪造的三个标准 header，再根据当前受控
 
 基础 client 的 §3.2 仍是现有 X-AUTH-TOKEN / X-Http-Request 协议。接入 Bearer 服务须实施明确的服务专用请求适配和公开请求隔离，不能只设置 BaseURL、换 Token extractor 或把 continuation 重命名为 RequestID。单次 RequestID 不持久化、不复用于后续请求、不作为幂等键、会话版本或权限证据；迟到响应不能污染当前追踪或会话。
 
-以下 envelope、JSON request_id、异常与分页仅适用于已选基础服务的 REST JSON 合同；GraphQL 沿用自身 data/errors[] 与 extensions.code，不额外注入这些字段。统一 REST 响应按原始模型记录：单对象 `{model,data,request_id}`、HTTP 200 的 `{model:"empty",request_id}`、数据集 `data.set` 和分页 `grid.result`。分页保留 `page:{model,current,size,total,total_page}` 与 `result:{model,datas,total}`，两处 total 一致；请求 current 从 1 开始、size 默认 10 上限 200、order 默认 desc、order_by 按模型白名单。域 API 显式映射内部 page/pageSize/items/total，内部默认 20 不静默改成服务默认 10。尚无列表 endpoint 时仍记录固定模型，不伪造列表功能。
+以下 envelope、JSON request_id、异常与分页仅适用于已选基础服务的 REST JSON 合同；GraphQL 沿用自身 data/errors[] 与 extensions.code，不额外注入这些字段。统一 REST 响应按原始模型记录：单对象 `{model,data,request_id}`、HTTP 200 的 `{model:"empty",request_id}`、数据集 `data.set` 和分页 `grid.result`。以 [Go 当前合同](GO_CLIENT_CONTRACT.md) 为基准，分页保留 `page:{current,size,total}` 与 `result:{model,datas,total,request_id}`；没有 page.model、page.total_page 或顶层 request_id，两处 total 一致；请求 current 从 1 开始、size 默认 10 上限 200、order 默认 desc、order_by 按模型白名单。域 API 显式映射内部 page/pageSize/items/total，内部默认 20 不静默改成服务默认 10。尚无列表 endpoint 时仍记录固定模型，不伪造列表功能。
 
 错误 JSON 保留 `model:"errors"`、`errors:{model:"data.set",datas:[{model:"error",code,message}],total}` 与 request_id；按首项稳定 code 和 HTTP 状态处理，不匹配多语言 message。404/405、参数校验与限流同样采用服务错误封装；通用 client 的 ApiError 与服务原始错误分开描述。字符串 ID 不转换为 Number，Unix 秒与 expires_in/resend_after 持续时间分开，可空值与字段缺省分开校验。业务模型、错误码、限流阈值和认证生命周期以实际采用合同为准，不把这套 envelope 强加给其他服务。
 

@@ -10,6 +10,7 @@ export const requestGoTransport: FetchLike = (input, init = {}) => {
   headers.delete("X-AUTH-TOKEN")
   headers.delete("X-Http-Request")
   headers.delete("X-Request-Id")
+  headers.set("X-Request-Id", globalThis.crypto.randomUUID())
   if (token) headers.set("Authorization", "Bearer " + token)
   const language = headers.get("X-Lang")
   headers.set("X-Lang", language === "zh_CN" || language === "zh" ? "zh-CN" : "en-US")

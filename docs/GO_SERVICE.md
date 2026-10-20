@@ -30,6 +30,8 @@ ID 一律字符串，时间单位显式为 Unix 秒，前端不得当毫秒或 N
 
 CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；Extension host 权限另按已授权服务精确配置，不因存在 BaseURL 自动增加宽权限。
 
+客户端能力、原始 DTO、操作矩阵与扩展边界统一见 [Go 客户端合同](GO_CLIENT_CONTRACT.md)。它明确区分上游账号自服务、Workspace 成员扩展、未实现 CRM 与角色权限接口。
+
 ## 身份、组织与验证码
 
 上游账号条件资产提供真实 SQLite 密码哈希、JWT、注册/登录/profile/refresh/logout/已登录改密；不是完整用户方案。完整用户模块需要同一注册事务创建账号、自有组织和 owner 成员，组织 ID 与成员授权主体分开。

@@ -41,7 +41,7 @@ ID 保持字符串；时间字段为 Unix 秒，expires_in/resend_after 是持�
 | model              | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "account"                                                                                                                                                                                                                         |
 | data               | object    | 是        | 否   | 当前操作的结果对象                              | {"id":"2108046372081659904","username":"example_user","email":"user@example.com","phone":null,"nickname":"示例用户","status":1,"last_login_at":1791432395,"last_login_ip":"","created_time":1791432395,"updated_time":1791432395} |
 | data.id            | string    | 是        | 否   | 字符串标识，不转换为 Number                     | "2108046372081659904"                                                                                                                                                                                                             |
-| data.username      | string    | 是        | 否   | 用户名，3–32 位字母、数字、下划线或短横线       | "example_user"                                                                                                                                                                                                                    |
+| data.username      | string    | 是        | 否   | 用户名，3–32 位字母、数字或下划线               | "example_user"                                                                                                                                                                                                                    |
 | data.email         | string    | 是        | 否   | 合法邮箱，最多 128 字符；归一化为小写           | "user@example.com"                                                                                                                                                                                                                |
 | data.phone         | string    | 是        | 是   | E.164 手机号；未填写时为 null                   | null                                                                                                                                                                                                                              |
 | data.nickname      | string    | 是        | 否   | 昵称，最多 64 字符；注册留空回落为用户名        | "示例用户"                                                                                                                                                                                                                        |
@@ -98,47 +98,34 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
 
 ## 分页数据集
 
-服务固定契约，暂无已实现列表 endpoint。result.datas 仅为本页元素；page.total 与 result.total 均为查询匹配总数，必须一致。空集时两处 total 及 total_page 为 0，datas=[]。
+以固定 Go 快照的 response.Page 实际编码为准，暂无已实现列表 endpoint。result.datas 仅为本页元素；page.total 与 result.total 均为查询匹配总数。request_id 位于 result 内；page 不输出 model 或 total_page，顶层不输出 request_id。总页数由客户端计算。
 
 ```json
 {
   "model": "grid.result",
-  "page": {
-    "model": "page",
-    "current": 1,
-    "size": 10,
-    "total": 1,
-    "total_page": 1
-  },
+  "page": { "current": 1, "size": 10, "total": 1 },
   "result": {
     "model": "data.set",
-    "datas": [
-      {
-        "id": "2108046372081659904"
-      }
-    ],
-    "total": 1
-  },
-  "request_id": "00000000-0000-4000-8000-000000000001"
+    "datas": [{ "id": "2108046372081659904" }],
+    "total": 1,
+    "request_id": "00000000-0000-4000-8000-000000000001"
+  }
 }
 ```
 
-| 字段路径          | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                |
-| ----------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------- |
-| model             | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "grid.result"                                                         |
-| page              | object    | 是        | 否   | 分页元数据                                      | {"model":"page","current":1,"size":10,"total":1,"total_page":1}       |
-| page.model        | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "page"                                                                |
-| page.current      | number    | 是        | 否   | 从 1 开始的页码                                 | 1                                                                     |
-| page.size         | number    | 是        | 否   | 每页条数，1–200；服务默认 10                    | 10                                                                    |
-| page.total        | number    | 是        | 否   | 查询匹配总数，非本页条数                        | 1                                                                     |
-| page.total_page   | number    | 是        | 否   | 总页数，等于 ceil(total / size)，空集为 0       | 1                                                                     |
-| result            | object    | 是        | 否   | 本页数据集；其 total 与 page.total 一致         | {"model":"data.set","datas":[{"id":"2108046372081659904"}],"total":1} |
-| result.model      | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                            |
-| result.datas      | array     | 是        | 否   | 数据元素数组                                    | [{"id":"2108046372081659904"}]                                        |
-| result.datas[]    | object    | 是        | 否   | 本页领域对象示例；真实元素结构由具体操作定义    | {"id":"2108046372081659904"}                                          |
-| result.datas[].id | string    | 是        | 否   | 字符串标识，不转换为 Number                     | "2108046372081659904"                                                 |
-| result.total      | number    | 是        | 否   | 查询匹配总数，与 page.total 相同，非本页条数    | 1                                                                     |
-| request_id        | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                |
+| 字段路径          | JSON 类型 | 必填/必有 | 可空 | 说明与约束                           |
+| ----------------- | --------- | --------- | ---- | ------------------------------------ |
+| model             | string    | 是        | 否   | 当前分页模型判别标识                 |
+| page              | object    | 是        | 否   | 分页元数据                           |
+| page.current      | number    | 是        | 否   | 从 1 开始的页码                      |
+| page.size         | number    | 是        | 否   | 每页条数，1–200                      |
+| page.total        | number    | 是        | 否   | 查询匹配总数                         |
+| result            | object    | 是        | 否   | 当前页数据集                         |
+| result.model      | string    | 是        | 否   | data.set                             |
+| result.datas      | array     | 是        | 否   | 本页领域对象                         |
+| result.datas[].id | string    | 是        | 否   | 示例对象的字符串 ID，不转换为 Number |
+| result.total      | number    | 是        | 否   | 必须与 page.total 相同               |
+| result.request_id | string    | 是        | 否   | 当前请求追踪标识，不是幂等键         |
 
 ### 原始分页参数
 
@@ -149,7 +136,7 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
 | order_by | query | string  | 未指定 | 按实际模型字段白名单；非法字段回落 id |
 | order    | query | string  | desc   | asc / desc                            |
 
-客户端保留从 1 开始的页码，显式提交每页条数；展示前核对两处总数、页内条数和总页数。上述 REST 分页仅为来源固定模型，目前没有业务列表消费者；新远端列表使用 GraphQL，不据此新增 REST 列表。
+客户端保留从 1 开始的页码，显式提交每页条数；展示前核对两处总数和页内条数，再计算总页数。上述 REST 分页仅为来源固定模型，目前没有业务列表消费者；新远端列表使用 GraphQL，不据此新增 REST 列表。
 
 ## 统一异常
 
@@ -210,15 +197,15 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
 | auth.token.expired                  | 401  | 令牌已过期                                             |
 | auth.token.revoked                  | 401  | 令牌已失效（登出 / 改密 / 重置密码后）                 |
 | auth.token.wrong.type               | 401  | 令牌类型不正确（如用刷新令牌访问接口）                 |
-| auth.account.not.found              | 401  | 账号不存在或已注销                                     |
-| auth.password.wrong                 | 401  | 账号或密码错误（**不区分账号是否存在**）               |
-| auth.old.password.wrong             | 400  | 原密码错误                                             |
+| account.not.found                   | 404  | 账号不存在或已注销                                     |
+| auth.credentials.invalid            | 401  | 账号或密码错误（**不区分账号是否存在**）               |
+| account.password.mismatch           | 422  | 原密码错误                                             |
 | auth.account.disabled               | 403  | 账号已被禁用                                           |
 | auth.token.sign.failed              | 500  | 令牌签发失败                                           |
 | account.not.found                   | 404  | 账号不存在                                             |
-| account.username.exists             | 409  | 用户名已被占用                                         |
-| account.email.exists                | 409  | 邮箱已被注册                                           |
-| account.phone.exists                | 409  | 手机号已被注册                                         |
+| account.username.taken              | 409  | 用户名已被占用                                         |
+| account.exists                      | 409  | 邮箱已被注册                                           |
+| account.phone.taken                 | 409  | 手机号已被注册                                         |
 | account.create.failed               | 500  | 创建账号失败                                           |
 | account.update.failed               | 500  | 更新账号失败                                           |
 | account.password.hash.failed        | 500  | 密码加密失败                                           |

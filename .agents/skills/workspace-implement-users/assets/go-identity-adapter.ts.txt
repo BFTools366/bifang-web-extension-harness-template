@@ -3,6 +3,20 @@ import { requestGoTransport } from "../client/goTransport"
 import { requestHttpQuery } from "../client/httpRuntime"
 import { IdentityError } from "../../../features/identity/session"
 import type { LoginApi } from "./contracts"
+import {
+  isServiceAccount,
+  isServiceAuthResult,
+  isServiceProfile,
+  type ServiceAccount,
+  type ServiceAuthResult,
+  type ServiceProfile
+} from "./goContract"
+import {
+  parseServiceEmpty,
+  parseServiceObject,
+  parseServiceFailure,
+  ServiceFailure
+} from "../foundationProtocol"
 
 /** 仅对应自建 Go 用户合同，已有服务须按实际合同另外映射。 */
 export interface RegisterInput {
@@ -10,10 +24,13 @@ export interface RegisterInput {
   email: string
   password: string
   nickname?: string
+  phone?: string
+  code?: string
+  code_type?: "email" | "phone"
 }
 /** 完整资料中的成员必须来自服务端，不从组织 owner 字段推导。 */
 export interface UserProfile {
-  account: { id: string; username: string; nickname: string; email: string }
+  account: ServiceAccount
   organization: { id: string; name: string; ownerAccountId: string }
   organizationUser: { id: string; organizationId: string; accountId: string; role: "owner" }
 }
@@ -34,19 +51,29 @@ function text(value: unknown): string {
   if (typeof value !== "string") throw new IdentityError("invalidIdentity")
   return value
 }
-/** 解析单对象 REST 信封；GraphQL 与分页不使用此解析器。 */
-async function data(response: Response, model: string) {
-  const envelope = object(await response.json())
-  if (envelope.model !== model || typeof envelope.request_id !== "string" || !envelope.request_id)
-    throw new IdentityError("invalidIdentity")
-  return object(envelope.data)
+/** 上游资料与本地成员扩展共用完整账号 DTO，原始 org 允许 null。 */
+function serviceProfile(value: unknown): value is ServiceProfile {
+  return (
+    isServiceProfile(value) &&
+    id(value.account.id) === value.account.id &&
+    (value.org === null ||
+      (id(value.org.id) === value.org.id && id(value.org.owner_id) === value.org.owner_id))
+  )
+}
+/** 单对象解包复用 Go wire 校验，不把任意 2xx 当成认证成功。 */
+async function data<T>(
+  response: Response,
+  model: string,
+  valid: (value: unknown) => value is T
+): Promise<T> {
+  return parseServiceObject(await response.json(), model, valid).data
 }
 
 /** 解析并验证完整资料，公开资料读取和会话校验共用同一事实。 */
-function profileData(result: Record<string, unknown>): UserProfile {
-  const account = object(result.account),
+function profileData(result: ServiceProfile): UserProfile {
+  const account = result.account,
     org = object(result.org),
-    member = object(result.organization_user)
+    member = object(object(result).organization_user)
   const accountId = id(account.id),
     orgId = id(org.id)
   if (
@@ -57,19 +84,17 @@ function profileData(result: Record<string, unknown>): UserProfile {
   )
     throw new IdentityError("invalidIdentity")
   return {
-    account: {
-      id: accountId,
-      username: text(account.username),
-      nickname: text(account.nickname),
-      email: text(account.email)
-    },
+    account,
     organization: { id: orgId, name: text(org.name), ownerAccountId: accountId },
     organizationUser: { id: id(member.id), organizationId: orgId, accountId, role: "owner" }
   }
 }
 
 /** 公开登录与指定凭据验证使用短生命周期 client，不修改已接受的应用会话。 */
-export function createGoIdentityAdapter(config?: HttpClientOptions["config"]) {
+export function createGoIdentityAdapter(
+  config?: HttpClientOptions["config"],
+  profileMode: "workspace" | "upstream" = "workspace"
+) {
   /** 复用受管 Ky/超时/取消/错误边界；401 只返回该次验证，失效归 session owner。 */
   async function request(
     endpoint: string,
@@ -78,9 +103,20 @@ export function createGoIdentityAdapter(config?: HttpClientOptions["config"]) {
     credential?: string,
     signal?: AbortSignal
   ) {
+    let failure: ServiceFailure | undefined
     const client = createHttpClient({
       config,
-      fetch: requestGoTransport,
+      fetch: async (input, init) => {
+        const response = await requestGoTransport(input, init)
+        if (!response.ok) {
+          try {
+            failure = parseServiceFailure(await response.clone().json(), response.status)
+          } catch {
+            failure = new ServiceFailure("invalid_service_response", response.status)
+          }
+        }
+        return response
+      },
       unauthorizedHandler: { handleUnauthorized() {} },
       extractAuthToken: () => undefined
     })
@@ -97,50 +133,92 @@ export function createGoIdentityAdapter(config?: HttpClientOptions["config"]) {
     } catch (error) {
       if (error instanceof ApiError && error.status === 401 && credential)
         throw new IdentityError("expired")
+      if (error instanceof ApiError && error.kind === "http" && failure)
+        throw new ApiError({
+          kind: "http",
+          code: failure.code,
+          message: failure.code,
+          status: failure.status,
+          retryable: error.retryable,
+          ignoreGlobalFeedback: error.ignoreGlobalFeedback
+        })
       throw error
     }
   }
-  /** 注册不自动登录；账号、自有组织和 owner 成员由同一后端事务创建。 */
+  /** 注册不自动登录；Workspace 装配器另在同一事务中创建 owner 成员。 */
   async function register(input: RegisterInput, signal?: AbortSignal): Promise<string> {
     const account = await data(
       await request("register", "POST", input, undefined, signal),
-      "account"
+      "account",
+      isServiceAccount
     )
     return id(account.id)
   }
-  /** 权威读取完整关系，错误成员不能被会话或组织 owner 接受。 */
-  async function readProfile(credential: string, signal?: AbortSignal): Promise<UserProfile> {
-    const result = await data(
+  /** 原样读取 Go Harness 的本人资料；空默认组织不是成员授权。 */
+  async function readServiceProfile(
+    credential: string,
+    signal?: AbortSignal
+  ): Promise<ServiceProfile> {
+    return data(
       await request("profile", "GET", undefined, credential, signal),
-      "account"
+      "account",
+      serviceProfile
     )
-    return profileData(result)
+  }
+  /** Workspace 完整资料必须另有服务端成员扩展，不能从 owner_id 生成权限。 */
+  async function readProfile(credential: string, signal?: AbortSignal): Promise<UserProfile> {
+    return profileData(await readServiceProfile(credential, signal))
+  }
+  /** 登录和刷新均返回完整令牌对；采用与持久化由唯一 session owner 决定。 */
+  async function tokenResult(response: Response): Promise<ServiceAuthResult> {
+    const result = await data(response, "auth.token", isServiceAuthResult)
+    id(result.account.id)
+    if (result.account.status !== 1) throw new IdentityError("invalidIdentity")
+    return result
+  }
+  /** 显式刷新是公开请求，不附旧 access token，也不声称撤销旧 refresh。 */
+  async function refresh(refreshToken: string, signal?: AbortSignal): Promise<ServiceAuthResult> {
+    if (!refreshToken || refreshToken.length > 8192 || /[^\x21-\x7e]/u.test(refreshToken))
+      throw new IdentityError("invalidIdentity")
+    return tokenResult(
+      await request("refresh", "POST", { refresh_token: refreshToken }, undefined, signal)
+    )
+  }
+  /** 改密会撤销全账号令牌；成功后由调用方使当前会话失效，不自动重放。 */
+  async function changePassword(
+    credential: string,
+    oldPassword: string,
+    newPassword: string,
+    signal?: AbortSignal
+  ): Promise<void> {
+    parseServiceEmpty(
+      await (
+        await request(
+          "password",
+          "PUT",
+          {
+            old_password: oldPassword,
+            new_password: newPassword
+          },
+          credential,
+          signal
+        )
+      ).json()
+    )
   }
 
   const api: LoginApi = {
     async login(input, signal) {
-      const result = await data(
-        await request("login", "POST", input, undefined, signal),
-        "auth.token"
-      )
-      const pair = object(result.token)
-      if (
-        typeof pair.access_token !== "string" ||
-        !pair.access_token ||
-        typeof pair.refresh_token !== "string" ||
-        !pair.refresh_token ||
-        pair.token_type !== "Bearer" ||
-        typeof pair.expires_in !== "number" ||
-        !Number.isSafeInteger(pair.expires_in) ||
-        pair.expires_in <= 0
-      )
-        throw new IdentityError("invalidIdentity")
+      const result = await tokenResult(await request("login", "POST", input, undefined, signal))
+      const pair = result.token
       // 当前状态机只接受 access token；refresh 持久化与轮换由明确需求另行实现。
       return pair.access_token
     },
     async validate(credential, signal) {
       try {
-        const profile = await readProfile(credential, signal)
+        const profile = await readServiceProfile(credential, signal)
+        if (profile.account.status !== 1) throw new IdentityError("invalidIdentity")
+        if (profileMode === "workspace") profileData(profile)
         return {
           id: profile.account.id,
           displayName: profile.account.nickname || profile.account.username
@@ -153,16 +231,10 @@ export function createGoIdentityAdapter(config?: HttpClientOptions["config"]) {
       }
     },
     async logout(credential) {
-      const envelope = object(await (await request("logout", "POST", undefined, credential)).json())
-      if (
-        envelope.model !== "empty" ||
-        typeof envelope.request_id !== "string" ||
-        !envelope.request_id
-      )
-        throw new IdentityError("invalidIdentity")
+      parseServiceEmpty(await (await request("logout", "POST", undefined, credential)).json())
     }
   }
-  return { api, register, readProfile }
+  return { api, register, readProfile, readServiceProfile, refresh, changePassword }
 }
 const adapter = createGoIdentityAdapter()
 export const api = adapter.api
@@ -170,6 +242,6 @@ export const registerAccount = adapter.register
 /** 资料页面复用已接受会话的 HTTP owner，不读取或暴露凭据存储。 */
 export async function readUserProfile(signal?: AbortSignal): Promise<UserProfile> {
   return profileData(
-    await data(await requestHttpQuery("api/v1/auth/profile", { signal }), "account")
+    await data(await requestHttpQuery("api/v1/auth/profile", { signal }), "account", serviceProfile)
   )
 }

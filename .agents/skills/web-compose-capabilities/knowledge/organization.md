@@ -4,6 +4,10 @@
 
 本库描述已有通用 SOP 与不变量，不声明真实 endpoint、权限码、状态值或完整服务能力。
 
+## Go 服务基准
+
+[固定 Go 合同](../../../../docs/GO_CLIENT_CONTRACT.md) 只实现默认 Org 的注册创建与本人资料读取，没有组织切换、成员、邀请或组织管理接口。下文 OrganizationUser 和加入他人组织属于完整 Workspace 方案的实施要求；不能把上游 owner_id 当成员 ID 或权限。当前账号装配器增加 owner 成员和 profile 扩展；默认组织资料仍不等于任意当前组织上下文。
+
 ## 账号、组织与组织用户
 
 - Account 是全局登录账号；Organization 是独立租户；OrganizationUser 是有独立 ID 的成员身份，关联 accountId 与 organizationId。同一账号在不同组织有不同组织用户，同一账号和组织的有效关系唯一。

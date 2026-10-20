@@ -1,0 +1,159 @@
+import { expect, test, vi } from "vitest"
+import { createGoIdentityAdapter } from "./adapter"
+import { isServiceAccount, isServiceProfile } from "./goContract"
+import { APP_CONFIG } from "../../../config/environment"
+import { requestGoTransport } from "../client/goTransport"
+
+/** 真实 SQLite/HTTP 验证公开隔离、完整资料、刷新复用、改密及全账号退出。 */
+test("real Go endpoints match the frontend adapter and token lifecycle", async () => {
+  const adapter = createGoIdentityAdapter()
+  const id = await adapter.register({
+    username: "contract_user",
+    email: "contract@example.invalid",
+    password: "Example123"
+  })
+  expect(id).toMatch(/^[1-9][0-9]*$/u)
+  await expect(
+    adapter.register({
+      username: "contract_user",
+      email: "other@example.invalid",
+      password: "Example123"
+    })
+  ).rejects.toMatchObject({ status: 409, code: "account.username.taken" })
+  await expect(
+    adapter.api.login({ account: "contract_user", password: "wrong" })
+  ).rejects.toMatchObject({ status: 401, code: "auth.credentials.invalid" })
+  const access = await adapter.api.login({ account: "contract_user", password: "Example123" })
+  expect(await adapter.api.validate(access)).toMatchObject({ id, displayName: "contract_user" })
+  const profile = await adapter.readProfile(access)
+  expect(profile.account).toMatchObject({ id, nickname: "contract_user", phone: null, status: 1 })
+  expect(Number.isSafeInteger(profile.account.created_time)).toBe(true)
+  expect(profile.organizationUser).toMatchObject({
+    accountId: id,
+    organizationId: profile.organization.id,
+    role: "owner"
+  })
+  const response = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ account: "contract_user", password: "Example123" })
+  })
+  const result = await response.json()
+  const refreshToken = result.data.token.refresh_token
+  await expect(adapter.refresh(access)).rejects.toMatchObject({
+    status: 401,
+    code: "auth.token.invalid"
+  })
+  await expect(adapter.api.validate(refreshToken)).rejects.toMatchObject({ code: "expired" })
+  expect((await adapter.refresh(refreshToken)).account.id).toBe(id)
+  // 上游刷新不会吊销旧 refresh；不要把重发误当作单次轮换。
+  expect((await adapter.refresh(refreshToken)).account.id).toBe(id)
+  await adapter.changePassword(access, "Example123", "Changed123")
+  await expect(adapter.api.validate(access)).rejects.toMatchObject({ code: "expired" })
+  await expect(adapter.refresh(refreshToken)).rejects.toMatchObject({ status: 401 })
+  const next = await adapter.api.login({ account: "contract_user", password: "Changed123" })
+  const secondResponse = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ account: "contract_user", password: "Changed123" })
+  })
+  const second = await secondResponse.json()
+  await adapter.api.logout(next)
+  await expect(adapter.refresh(second.data.token.refresh_token)).rejects.toMatchObject({
+    status: 401,
+    code: "auth.token.revoked"
+  })
+  await expect(adapter.api.validate(next)).rejects.toMatchObject({ code: "expired" })
+})
+
+/** 上游 nullable org 可被最小身份消费，但不能伪造 Workspace 成员或权限。 */
+test("upstream profile remains distinct from the workspace member extension", async () => {
+  const account = {
+    id: "2108046372081659904",
+    username: "user",
+    email: "user@example.invalid",
+    nickname: "",
+    phone: null,
+    status: 1,
+    last_login_at: null,
+    last_login_ip: "",
+    created_time: 1790000000,
+    updated_time: 1790000000
+  }
+  expect(isServiceAccount(account)).toBe(true)
+  expect(isServiceProfile({ account, org: null })).toBe(true)
+  expect(isServiceAccount({ ...account, created_time: "1790000000" })).toBe(false)
+  const headers: Headers[] = []
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    headers.push(input instanceof Request ? input.headers : new Headers(init?.headers))
+    const response = new Response(
+      JSON.stringify({ model: "account", data: { account, org: null }, request_id: "fixture" }),
+      { status: 200 }
+    )
+    Object.defineProperty(response, "url", {
+      value: input instanceof Request ? input.url : String(input)
+    })
+    return response
+  })
+  try {
+    await expect(
+      createGoIdentityAdapter(undefined, "upstream").api.validate("opaque-access")
+    ).resolves.toMatchObject({ id: account.id })
+    await expect(createGoIdentityAdapter().api.validate("opaque-access")).rejects.toMatchObject({
+      code: "invalidIdentity"
+    })
+    expect(headers[0]?.get("Authorization")).toBe("Bearer opaque-access")
+    expect(headers[0]?.get("X-AUTH-TOKEN")).toBeNull()
+    expect(headers[0]?.get("X-Request-Id")).not.toBe(headers[1]?.get("X-Request-Id"))
+    spy.mockClear()
+    await requestGoTransport(APP_CONFIG.apiBaseUrl, {
+      headers: {
+        Authorization: "Bearer injected",
+        "X-Http-Request": "continuation",
+        "X-Request-Id": "caller-owned"
+      }
+    })
+    expect(headers.at(-1)?.get("Authorization")).toBeNull()
+    expect(headers.at(-1)?.get("X-Http-Request")).toBeNull()
+    expect(headers.at(-1)?.get("X-Request-Id")).not.toBe("caller-owned")
+  } finally {
+    spy.mockRestore()
+  }
+})
+
+/** 非法令牌对和状态不能被登录或刷新采用；公开请求不带残留 Bearer。 */
+test("malformed token responses fail closed for login and refresh", async () => {
+  const headers: Headers[] = []
+  const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    headers.push(input instanceof Request ? input.headers : new Headers(init?.headers))
+    const response = new Response(
+      JSON.stringify({
+        model: "auth.token",
+        data: {
+          token: {
+            access_token: "valid",
+            refresh_token: "refresh",
+            token_type: "Basic",
+            expires_in: 3600
+          }
+        },
+        request_id: "fixture"
+      }),
+      { status: 200 }
+    )
+    Object.defineProperty(response, "url", {
+      value: input instanceof Request ? input.url : String(input)
+    })
+    return response
+  })
+  try {
+    const adapter = createGoIdentityAdapter()
+    await expect(adapter.api.login({ account: "user", password: "secret" })).rejects.toThrow(
+      "invalid_service_response"
+    )
+    await expect(adapter.refresh("opaque-refresh")).rejects.toThrow("invalid_service_response")
+    expect(headers.every((header) => !header.has("Authorization"))).toBe(true)
+  } finally {
+    spy.mockRestore()
+  }
+})

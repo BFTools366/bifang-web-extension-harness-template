@@ -99,7 +99,8 @@ export function isServiceVerification(value: unknown): value is ServiceVerificat
 export function isServiceAccount(value: unknown): value is ServiceAccount {
   return (
     isRecord(value) &&
-    [value.id, value.username, value.email, value.nickname].every(protocolText) &&
+    [value.id, value.username, value.email].every(protocolText) &&
+    typeof value.nickname === "string" &&
     (value.phone === null || protocolText(value.phone)) &&
     [0, 1].includes(value.status as number) &&
     (value.last_login_at === null || seconds(value.last_login_at)) &&

@@ -4,6 +4,10 @@
 
 本库是可复用设计知识，不是已经接入的服务、可直接运行的代码或产品规格。真实需求进入下游唯一 Product Spec；缺少的 endpoint、密码规则、验证码期限和账号开通流程保留待确认。
 
+## Go 服务基准
+
+当前 Go Harness 的账号自服务、原始 DTO、Token 生命周期及客户端接线边界见 [Go 客户端合同](../../../../docs/GO_CLIENT_CONTRACT.md)。上游 profile 仅有 account 与可空 org，没有成员或权限；Workspace 完整方案另实施 organization_user 扩展。昵称可为空，显示层回落用户名；phone/last_login_at 可 null，时间为 Unix 秒。注册不自动登录，refresh 不撤销旧 refresh，logout/改密/找回撤销全账号令牌。基础会话仅采用 access；显式刷新结果须由唯一 owner 接受，不能自动重放写入。
+
 ## 完整用户信息
 
 完整用户信息由 Account、当前 Organization 与该账号在当前组织中的 OrganizationUser 组成。每个注册账号必须同时拥有一个自有组织及对应 owner 成员；加入他人组织只增加新的成员关系。模型、注册原子性和组织数据隔离以[组织知识](organization.md#账号组织与组织用户)为准。

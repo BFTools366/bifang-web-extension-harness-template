@@ -177,7 +177,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     const session = stored.session
     const { credential } = session
     const entry = accounts.get(credential.accountId)
-    if (!entry) throw new ServiceFailure("auth.account.not.found", 401)
+    if (!entry) throw new ServiceFailure("account.not.found", 404)
     if (session.version !== entry.version || !sessions.has(credential.sessionId))
       throw new ServiceFailure("auth.token.revoked", 401)
     if ((expected === "access" ? session.accessExpires : session.refreshExpires) <= time())
@@ -264,7 +264,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     /** 先验证后查重，正确码只在账号与默认组织原子建立时消费。 */
     register(body: Record<string, unknown>) {
       const username = required(body.username, 32)
-      if (!/^[A-Za-z0-9_-]{3,32}$/.test(username))
+      if (!/^[A-Za-z0-9_]{3,32}$/.test(username))
         throw new ServiceFailure("common.validate.error", 400)
       let email: string
       try {
@@ -292,11 +292,9 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       if (!target) throw new ServiceFailure("verification.target.missing", 400)
       verification.verify(target, type, "register", body.code)
       for (const entry of accounts.values()) {
-        if (entry.dto.username === username)
-          throw new ServiceFailure("account.username.exists", 409)
-        if (entry.dto.email === email) throw new ServiceFailure("account.email.exists", 409)
-        if (phone && entry.dto.phone === phone)
-          throw new ServiceFailure("account.phone.exists", 409)
+        if (entry.dto.username === username) throw new ServiceFailure("account.username.taken", 409)
+        if (entry.dto.email === email) throw new ServiceFailure("account.exists", 409)
+        if (phone && entry.dto.phone === phone) throw new ServiceFailure("account.phone.taken", 409)
       }
       verification.verify(target, type, "register", body.code, true)
       const id = String(2108046372081659904n + accountSequence++)
@@ -310,7 +308,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
         (item) => item.dto.username === name || item.dto.email === name.trim().toLowerCase()
       )
       if (!entry || entry.password !== password)
-        throw new ServiceFailure("auth.password.wrong", 401)
+        throw new ServiceFailure("auth.credentials.invalid", 401)
       enabled(entry)
       entry.dto.last_login_at = time()
       entry.dto.last_login_ip = ""
@@ -344,7 +342,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       const { entry } = access(token)
       const oldPassword = required(body.old_password, 64)
       const password = newPassword(body.new_password)
-      if (entry.password !== oldPassword) throw new ServiceFailure("auth.old.password.wrong", 400)
+      if (entry.password !== oldPassword) throw new ServiceFailure("account.password.mismatch", 422)
       entry.password = password
       entry.version++
       entry.dto.updated_time = time()
@@ -368,7 +366,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     context(credential: MockCredential): AuthContext {
       const current = this.validate(credential)
       const entry = accounts.get(current.accountId)
-      if (!entry) throw new ServiceFailure("auth.account.not.found", 401)
+      if (!entry) throw new ServiceFailure("account.not.found", 404)
       const memberships = entry.memberships.map((org) => ({
         ...org,
         organizationUser: { ...org.organizationUser }

@@ -280,6 +280,6 @@ test("validates nicknames before consuming verification codes", async () => {
   })
   service.reset()
   await expect(service.api.login("new_user", "Example123", signal)).rejects.toMatchObject({
-    serviceCode: "auth.password.wrong"
+    serviceCode: "auth.credentials.invalid"
   })
 })

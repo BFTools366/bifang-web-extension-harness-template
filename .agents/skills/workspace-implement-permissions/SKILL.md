@@ -9,6 +9,8 @@ description: 在 Workspace 按具体操作完成角色维护、服务端授权�
 
 已有服务：核对 BaseURL、endpoint/SDL、字段、认证、授权、错误及恢复语义，仅实现消费侧，不擅自扩张服务端写入。自建服务：调用 go-implement-service 与 go-implement-persistence，在 _server 实现该领域，再按 web-implement-change 接齐真实 typed adapter、Query、页面和错误恢复；不要求用户单独填写 Go 表单。
 
+当前固定 Go 上游尚无角色、权限实体或 endpoint，见 [Go 客户端合同](../../../docs/GO_CLIENT_CONTRACT.md)。不得从 JWT、owner_id 或本地 owner 成员推出权限码；先实现选中操作的服务合同，再接客户端。
+
 服务端在每个敏感读取和写入校验主体、组织、权限码、资源范围；前端路由、导航、页面、元素与提交前复用同一合同。缺失/未加载/撤销默认拒绝；403 保留有效身份。防止删除最后 owner/admin、权限提升与旧组织查询泄漏，撤权后取消私有请求并精确失效缓存。
 
 先锁定数据和 wire 合同：实体/ID/单位/租户 → REST 写与单对象 → GraphQL 集合 → 认证/权限/错误 → 幂等及恢复。只为本次操作补最小依赖，不从模块名自动启用全部功能；与其他领域共享的事实通过明确接口消费，避免双向依赖。前端状态归既有 Query/会话 owner，不复制到新的全局状态。

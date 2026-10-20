@@ -10,9 +10,13 @@ import {
 test("maps grid results and rejects inconsistent or unsafe pagination", () => {
   const value = {
     model: "grid.result",
-    page: { model: "page", current: 1, size: 20, total: 1, total_page: 1 },
-    result: { model: "data.set", datas: [{ id: "2108046372081659904" }], total: 1 },
-    request_id: "request-example"
+    page: { current: 1, size: 20, total: 1 },
+    result: {
+      model: "data.set",
+      datas: [{ id: "2108046372081659904" }],
+      total: 1,
+      request_id: "request-example"
+    }
   }
   const valid = (item: unknown): item is { id: string } =>
     typeof item === "object" && item !== null && "id" in item && typeof item.id === "string"
@@ -32,7 +36,10 @@ test("maps grid results and rejects inconsistent or unsafe pagination", () => {
     parseServiceGrid({ ...value, result: { ...value.result, total: 2 } }, valid)
   ).toThrow()
   expect(() =>
-    parseServiceGrid({ ...value, page: { ...value.page, total_page: 2 } }, valid)
+    parseServiceGrid(
+      { ...value, request_id: "obsolete", result: { ...value.result, request_id: undefined } },
+      valid
+    )
   ).toThrow()
   expect(() =>
     parseServiceGrid(
@@ -56,7 +63,7 @@ test("checks empty and errors envelopes without trusting translated messages", (
       model: "errors",
       errors: {
         model: "data.set",
-        datas: [{ model: "error", code: "auth.password.wrong", message: "任意语言" }],
+        datas: [{ model: "error", code: "auth.credentials.invalid", message: "任意语言" }],
         total: 1
       },
       request_id: "request-example"
@@ -64,7 +71,7 @@ test("checks empty and errors envelopes without trusting translated messages", (
     401
   )
   expect(error).toMatchObject({
-    code: "auth.password.wrong",
+    code: "auth.credentials.invalid",
     status: 401,
     requestId: "request-example"
   })

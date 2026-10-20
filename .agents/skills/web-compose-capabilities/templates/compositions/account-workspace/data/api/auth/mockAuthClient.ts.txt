@@ -30,8 +30,8 @@ export interface MockClientOptions extends Pick<MockServiceOptions, "getLanguage
   exchange?: (request: MockServiceRequest, signal: AbortSignal) => Promise<MockServiceExchange>
 }
 const uiKeys: Record<string, string> = {
-  "auth.password.wrong": "credentialsInvalid",
-  "auth.old.password.wrong": "oldPasswordWrong",
+  "auth.credentials.invalid": "credentialsInvalid",
+  "account.password.mismatch": "oldPasswordWrong",
   "auth.account.disabled": "accountDisabled",
   "verification.target.invalid": "emailInvalid",
   "verification.target.not.registered": "targetNotRegistered",
@@ -41,9 +41,9 @@ const uiKeys: Record<string, string> = {
   "verification.code.required": "codeRequired",
   "verification.code.expired": "codeExpired",
   "verification.code.invalid": "codeInvalid",
-  "account.username.exists": "accountExists",
-  "account.email.exists": "accountExists",
-  "account.phone.exists": "accountExists",
+  "account.username.taken": "accountExists",
+  "account.exists": "accountExists",
+  "account.phone.taken": "accountExists",
   "common.validate.error": "validationFailed",
   "mock.organization.unavailable": "organizationUnavailable"
 }
@@ -52,7 +52,7 @@ function uiFailure(error: unknown): never {
   if (!(error instanceof ServiceFailure)) throw error
   const invalid =
     error.code.startsWith("auth.token.") ||
-    error.code === "auth.account.not.found" ||
+    error.code === "account.not.found" ||
     error.code === "auth.account.disabled"
   throw new AuthError(
     uiKeys[error.code] ?? (invalid ? "sessionExpired" : "operationFailed"),
