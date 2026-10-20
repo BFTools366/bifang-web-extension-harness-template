@@ -44,7 +44,7 @@ const uiKeys: Record<string, string> = {
   "account.username.taken": "accountExists",
   "account.exists": "accountExists",
   "account.phone.taken": "accountExists",
-  "common.validate.error": "validationFailed",
+  "common.bad.request": "validationFailed",
   "mock.organization.unavailable": "organizationUnavailable"
 }
 /** 分支依赖稳定码，服务消息不直接展示。 */

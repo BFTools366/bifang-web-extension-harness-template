@@ -18,7 +18,7 @@ export function normalizeTarget(target: unknown, type: unknown): string {
     target.length > 128 ||
     (type !== "email" && type !== "phone")
   )
-    throw new ServiceFailure("common.validate.error", 400)
+    throw new ServiceFailure("common.bad.request", 400)
   if (type === "email") {
     const value = target.trim().toLowerCase()
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return value
@@ -87,7 +87,7 @@ export function createMockVerification(options: VerificationOptions) {
       if (code === undefined || code === "")
         throw new ServiceFailure("verification.code.required", 400)
       if (typeof code !== "string" || !/^[0-9]{1,16}$/.test(code))
-        throw new ServiceFailure("common.validate.error", 400)
+        throw new ServiceFailure("common.bad.request", 400)
       const key = `${type}:${scene}:${target}`
       const current = codes.get(key)
       if (!current) throw new ServiceFailure("verification.code.invalid", 400)

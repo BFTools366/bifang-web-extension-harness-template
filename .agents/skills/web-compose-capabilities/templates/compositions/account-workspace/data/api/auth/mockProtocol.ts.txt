@@ -24,7 +24,7 @@ export function serializeMockRequest(input: MockServiceRequest): MockServiceRequ
       ...(body === undefined ? {} : { body })
     }
   } catch {
-    throw new ServiceFailure("common.validate.error", 400)
+    throw new ServiceFailure("common.bad.request", 400)
   }
 }
 

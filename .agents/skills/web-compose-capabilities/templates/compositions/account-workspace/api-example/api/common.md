@@ -150,7 +150,7 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -160,18 +160,18 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 一条稳定错误对象                                | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码，HTTP 与触发条件见下表               | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，与 errors.datas 长度一致              | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 一条稳定错误对象                                | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码，HTTP 与触发条件见下表               | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，与 errors.datas 长度一致              | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
 ## 稳定错误码
 
@@ -180,7 +180,7 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
 | 错误码                              | HTTP | 触发条件                                               |
 | ----------------------------------- | ---- | ------------------------------------------------------ |
 | common.bad.request                  | 400  | 请求参数错误                                           |
-| common.validate.error               | 400  | 参数校验失败，`message` 里带具体字段与原因             |
+| common.bad.request                  | 400  | 参数校验失败，`message` 里带具体字段与原因             |
 | validate.json.syntax                | 400  | 请求体不是合法 JSON                                    |
 | validate.type.mismatch              | 400  | 字段类型不匹配                                         |
 | common.forbidden                    | 403  | 无访问权限                                             |
@@ -188,7 +188,7 @@ HTTP 200 JSON；没有 data，不能伪造 data:null、空对象或 204。
 | common.route.not.found              | 404  | 接口不存在                                             |
 | common.method.not.allowed           | 405  | 请求方法不被允许                                       |
 | common.conflict                     | 409  | 资源已存在                                             |
-| common.rate.limit                   | 429  | 触发限流                                               |
+| common.too.many.requests            | 429  | 触发限流                                               |
 | common.database.error               | 500  | 数据库操作异常                                         |
 | common.internal.error               | 500  | 服务内部异常                                           |
 | auth.token.missing                  | 401  | 缺少鉴权令牌（或用了不支持的携带方式）                 |

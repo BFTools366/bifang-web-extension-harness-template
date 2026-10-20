@@ -273,7 +273,7 @@ test("validates nicknames before consuming verification codes", async () => {
   }
   await expect(
     service.api.register({ ...input, nickname: "bad\nname" }, signal)
-  ).rejects.toMatchObject({ serviceCode: "common.validate.error" })
+  ).rejects.toMatchObject({ serviceCode: "common.bad.request" })
   expect(await service.api.register({ ...input, nickname: "正常昵称" }, signal)).toMatchObject({
     username: "new_user",
     nickname: "正常昵称"

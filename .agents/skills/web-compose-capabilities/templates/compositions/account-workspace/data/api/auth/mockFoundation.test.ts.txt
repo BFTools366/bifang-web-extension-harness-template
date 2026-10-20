@@ -79,7 +79,7 @@ test("echoes response headers and preserves route/method errors", async () => {
   )
   expect(
     code(await service.request({ method: "POST", path: "/api/v1/auth/login", body: [] }, signal))
-  ).toBe("common.validate.error")
+  ).toBe("common.bad.request")
   const publicLogin = await service.request(
     {
       method: "POST",
@@ -119,7 +119,7 @@ test("refreshes expired access without bearer and enforces token type and expiry
     signal
   )
   expect(wrong.status).toBe(401)
-  expect(code(wrong)).toBe("auth.token.wrong.type")
+  expect(code(wrong)).toBe("auth.token.invalid")
   now = 2000
   await expect(service.api.validateSession(credential, signal)).rejects.toMatchObject({
     serviceCode: "auth.token.expired"
@@ -139,7 +139,7 @@ test("refreshes expired access without bearer and enforces token type and expiry
     { method: "POST", path: "/api/v1/auth/refresh", body: { refresh_token: refresh } },
     signal
   )
-  expect(code(expired)).toBe("auth.token.expired")
+  expect(code(expired)).toBe("auth.token.invalid")
   const tampered = refresh + "tampered"
   expect(
     code(

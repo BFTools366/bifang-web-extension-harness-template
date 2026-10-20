@@ -304,7 +304,7 @@ X-Lang: en-US
 
 ### 2.5 限流
 
-全局 IP 限流中间件，默认 `50 rps` / 突发 `100`（`rate_limit.rps` / `burst`）。超出返回 429 `common.rate.limit`。
+全局 IP 限流中间件，默认 `50 rps` / 突发 `100`（`rate_limit.rps` / `burst`）。超出返回 429 `common.too.many.requests`。
 
 `dev` 环境默认关闭（`config-dev.yaml` 里 `rate_limit.enabled: false`）。
 
@@ -447,7 +447,7 @@ POST /api/v1/auth/verification-code
 
 | 状态码 | 错误码                               | 触发条件                                           |
 | ------ | ------------------------------------ | -------------------------------------------------- |
-| 400    | `common.validate.error`              | 缺必填字段 / 字段格式不合法                        |
+| 400    | `common.bad.request`                 | 缺必填字段 / 字段格式不合法                        |
 | 400    | `verification.target.invalid`        | 目标格式不正确（如邮箱缺域名后缀、手机号缺国家码） |
 | 400    | `verification.scene.unsupported`     | 场景不在注册表中                                   |
 | 404    | `verification.target.not.registered` | `reset_password` 场景下目标未绑定账号              |
@@ -541,7 +541,7 @@ POST /api/v1/auth/register
 
 | 状态码 | 错误码                                | 触发条件                                        |
 | ------ | ------------------------------------- | ----------------------------------------------- |
-| 400    | `common.validate.error`               | 字段格式不合法（用户名 / 密码 / 邮箱 / 手机号） |
+| 400    | `common.bad.request`                  | 字段格式不合法（用户名 / 密码 / 邮箱 / 手机号） |
 | 400    | `verification.code.required`          | 开启验证码但未提供 `code`                       |
 | 400    | `verification.code.invalid`           | 验证码不正确，或已被使用 / 被重发顶掉           |
 | 400    | `verification.code.expired`           | 验证码已过期                                    |
@@ -550,7 +550,6 @@ POST /api/v1/auth/register
 | 409    | `account.exists`                      | 邮箱已被注册                                    |
 | 409    | `account.phone.taken`                 | 手机号已被注册                                  |
 | 429    | `verification.code.attempts.exceeded` | 该验证码错误次数超限                            |
-| 503    | `verification.disabled`               | 验证码功能未启用（此时不该带 `code`）           |
 
 **注意事项**
 
@@ -613,7 +612,7 @@ POST /api/v1/auth/login
 
 | 状态码 | 错误码                     | 触发条件                                             |
 | ------ | -------------------------- | ---------------------------------------------------- |
-| 400    | `common.validate.error`    | 缺字段                                               |
+| 400    | `common.bad.request`       | 缺字段                                               |
 | 401    | `auth.credentials.invalid` | **账号不存在与密码错误返回同一个错误**，避免账号枚举 |
 | 403    | `auth.account.disabled`    | 账号已被禁用                                         |
 
@@ -683,7 +682,7 @@ POST /api/v1/auth/password/reset
 
 | 状态码 | 错误码                                | 触发条件                           |
 | ------ | ------------------------------------- | ---------------------------------- |
-| 400    | `common.validate.error`               | 字段格式不合法                     |
+| 400    | `common.bad.request`                  | 字段格式不合法                     |
 | 400    | `verification.code.required`          | 未提供 `code`                      |
 | 400    | `verification.code.invalid`           | 验证码不正确 / 已使用 / 被重发顶掉 |
 | 400    | `verification.code.expired`           | 验证码已过期                       |
@@ -807,7 +806,7 @@ PUT /api/v1/auth/password
 | 状态码 | 错误码                      | 触发条件             |
 | ------ | --------------------------- | -------------------- |
 | 422    | `account.password.mismatch` | 原密码错误           |
-| 400    | `common.validate.error`     | 新密码不符合强度要求 |
+| 400    | `common.bad.request`        | 新密码不符合强度要求 |
 | 401    | 同 4.6                      | 鉴权失败             |
 
 ---
@@ -1091,88 +1090,67 @@ GraphQL 类型是**独立投影**，不复用数据库实体，也不含 `passwo
 
 ## 8. 错误码总表
 
-格式为「域.子域.原因」，**错误码本身即 i18n key**，不随语言变化。
+下表逐项来自固定 Go 快照的 internal/apperr/apperr.go。定义存在不等于当前路由会发送：例如 refresh 的 Parse 失败统一 auth.token.invalid，而 auth.refresh.invalid/expired 当前没有调用方。具体返回以本文件操作表和 [Go 客户端合同](GO_CLIENT_CONTRACT.md) 为准；不得凭错误码推断客户、角色或成员接口已实现。
 
-### 8.1 通用
-
-| 错误码                      | HTTP | 说明                                       |
-| --------------------------- | ---- | ------------------------------------------ |
-| `common.bad.request`        | 400  | 请求参数错误                               |
-| `common.validate.error`     | 400  | 参数校验失败，`message` 里带具体字段与原因 |
-| `validate.json.syntax`      | 400  | 请求体不是合法 JSON                        |
-| `validate.type.mismatch`    | 400  | 字段类型不匹配                             |
-| `common.forbidden`          | 403  | 无访问权限                                 |
-| `common.not.found`          | 404  | 资源不存在                                 |
-| `common.route.not.found`    | 404  | 接口不存在                                 |
-| `common.method.not.allowed` | 405  | 请求方法不被允许                           |
-| `common.conflict`           | 409  | 资源已存在                                 |
-| `common.rate.limit`         | 429  | 触发限流                                   |
-| `common.database.error`     | 500  | 数据库操作异常                             |
-| `common.internal.error`     | 500  | 服务内部异常                               |
-
-### 8.2 鉴权
-
-| 错误码                      | HTTP | 说明                                     |
-| --------------------------- | ---- | ---------------------------------------- |
-| `auth.token.missing`        | 401  | 缺少鉴权令牌（或用了不支持的携带方式）   |
-| `auth.token.malformed`      | 401  | 令牌格式非法，期望 `Bearer <token>`      |
-| `auth.token.invalid`        | 401  | 令牌无效                                 |
-| `auth.token.expired`        | 401  | 令牌已过期                               |
-| `auth.token.revoked`        | 401  | 令牌已失效（登出 / 改密 / 重置密码后）   |
-| `auth.token.wrong.type`     | 401  | 令牌类型不正确（如用刷新令牌访问接口）   |
-| `account.not.found`         | 404  | 账号不存在或已注销                       |
-| `auth.credentials.invalid`  | 401  | 账号或密码错误（**不区分账号是否存在**） |
-| `account.password.mismatch` | 422  | 原密码错误                               |
-| `auth.account.disabled`     | 403  | 账号已被禁用                             |
-| `auth.token.sign.failed`    | 500  | 令牌签发失败                             |
-
-### 8.3 账号
-
-| 错误码                         | HTTP | 说明           |
-| ------------------------------ | ---- | -------------- |
-| `account.not.found`            | 404  | 账号不存在     |
-| `account.username.taken`       | 409  | 用户名已被占用 |
-| `account.exists`               | 409  | 邮箱已被注册   |
-| `account.phone.taken`          | 409  | 手机号已被注册 |
-| `account.create.failed`        | 500  | 创建账号失败   |
-| `account.update.failed`        | 500  | 更新账号失败   |
-| `account.password.hash.failed` | 500  | 密码加密失败   |
-
-### 8.4 验证码
-
-| 错误码                                | HTTP | 说明                                                   |
-| ------------------------------------- | ---- | ------------------------------------------------------ |
-| `verification.disabled`               | 503  | 验证码功能未启用                                       |
-| `verification.target.invalid`         | 400  | 接收目标格式不正确                                     |
-| `verification.target.missing`         | 400  | 缺少指定类型的接收目标                                 |
-| `verification.target.not.registered`  | 404  | 目标尚未注册（`reset_password` 场景）                  |
-| `verification.scene.unsupported`      | 400  | 不支持的验证码场景                                     |
-| `verification.code.required`          | 400  | 请先获取验证码                                         |
-| `verification.code.invalid`           | 400  | 验证码不正确（**也覆盖「没发过 / 已用过 / 被顶掉」**） |
-| `verification.code.expired`           | 400  | 验证码已过期                                           |
-| `verification.code.consumed`          | 400  | 验证码已被使用（并发抢同一个码时失败的一方）           |
-| `verification.code.attempts.exceeded` | 429  | 验证码错误次数过多                                     |
-| `verification.code.too.frequent`      | 429  | 发送过于频繁，`message` 带需等待秒数                   |
-| `verification.code.daily.limit`       | 429  | 当日发送次数已达上限                                   |
-| `verification.channel.unavailable`    | 503  | 发送通道未配置                                         |
-| `verification.send.failed`            | 500  | 验证码发送失败                                         |
-| `verification.code.generate.failed`   | 500  | 验证码生成失败                                         |
-| `verification.code.save.failed`       | 500  | 验证码保存失败                                         |
-
-> **「没发过 / 已被使用 / 被重发顶掉」归一为同一个 `verification.code.invalid`**，不做细分 —— 细分等于给攻击者一个探测「这个邮箱是否正在注册」的接口。对客户端来说处理动作完全一样：重新获取验证码。
-
-### 8.5 组织
-
-| 错误码              | HTTP | 说明                                     |
-| ------------------- | ---- | ---------------------------------------- |
-| `org.not.found`     | 404  | 组织不存在                               |
-| `org.create.failed` | 500  | 创建组织失败（注册时初始化默认组织失败） |
-
----
+| 错误码                                | HTTP | 定义语义                                                     |
+| ------------------------------------- | ---- | ------------------------------------------------------------ |
+| `common.bad.request`                  | 400  | 表示请求参数不合法。                                         |
+| `common.unauthorized`                 | 401  | 表示请求缺少有效身份凭据。                                   |
+| `common.forbidden`                    | 403  | 表示当前身份无权执行该操作。                                 |
+| `common.not.found`                    | 404  | 表示目标资源不存在。                                         |
+| `common.conflict`                     | 409  | 表示目标资源存在冲突。                                       |
+| `common.unprocessable`                | 422  | 表示请求语义无法被业务规则接受。                             |
+| `common.too.many.requests`            | 429  | 表示请求超过限流阈值。                                       |
+| `common.internal.error`               | 500  | 表示服务端内部错误，不向外部暴露细节。                       |
+| `common.route.not.found`              | 404  | 表示请求的路由不存在。                                       |
+| `common.method.not.allowed`           | 405  | 表示请求方法不被该路由支持。                                 |
+| `common.unsupported.media.type`       | 415  | 表示请求体类型不受支持。                                     |
+| `common.payload.too.large`            | 413  | 表示请求体超过允许大小。                                     |
+| `auth.token.missing`                  | 401  | 表示请求未携带访问令牌。                                     |
+| `auth.token.invalid`                  | 401  | 表示访问令牌格式或签名不合法。                               |
+| `auth.token.expired`                  | 401  | 表示访问令牌已过期。                                         |
+| `auth.token.revoked`                  | 401  | 表示访问令牌已被撤销。                                       |
+| `auth.token.malformed`                | 401  | 表示访问令牌的结构无法解析。                                 |
+| `auth.refresh.invalid`                | 401  | 表示刷新令牌不合法。                                         |
+| `auth.refresh.expired`                | 401  | 表示刷新令牌已过期。                                         |
+| `auth.credentials.invalid`            | 401  | 表示账号或凭据不匹配。                                       |
+| `auth.account.disabled`               | 403  | 表示账号已被禁用。                                           |
+| `auth.signing.key.missing`            | 500  | 表示签发密钥缺失。                                           |
+| `auth.issuer.mismatch`                | 401  | 表示令牌签发方与当前服务不一致。                             |
+| `auth.token.wrong.type`               | 401  | 表示令牌类型与当前用途不匹配，例如把刷新令牌当访问令牌使用。 |
+| `auth.token.sign.failed`              | 500  | 表示令牌签发过程失败。                                       |
+| `account.not.found`                   | 404  | 表示账号不存在。                                             |
+| `account.exists`                      | 409  | 表示账号已存在。                                             |
+| `account.password.weak`               | 422  | 表示口令强度不足。                                           |
+| `account.password.mismatch`           | 422  | 表示原口令校验失败。                                         |
+| `account.username.taken`              | 409  | 表示用户名已被占用。                                         |
+| `account.profile.locked`              | 409  | 表示账号资料当前不可修改。                                   |
+| `account.phone.taken`                 | 409  | 表示手机号已被占用。                                         |
+| `verification.disabled`               | 503  | 表示验证码功能已关闭，但接口仍被调用。                       |
+| `verification.target.invalid`         | 400  | 表示接收目标格式不正确。                                     |
+| `verification.target.missing`         | 400  | 表示按目标类型取不到对应的接收目标。                         |
+| `verification.target.not.registered`  | 404  | 表示接收目标未绑定任何账号。                                 |
+| `verification.scene.unsupported`      | 400  | 表示不支持的验证码场景。                                     |
+| `verification.code.required`          | 400  | 表示未提供验证码。                                           |
+| `verification.code.invalid`           | 400  | 表示验证码不正确。                                           |
+| `verification.code.expired`           | 400  | 表示验证码已过期。                                           |
+| `verification.code.consumed`          | 400  | 表示验证码已被使用。                                         |
+| `verification.code.attempts.exceeded` | 429  | 表示校验失败次数超限。                                       |
+| `verification.code.too.frequent`      | 429  | 表示发送过于频繁。                                           |
+| `verification.code.daily.limit`       | 429  | 表示当日发送次数超限。                                       |
+| `verification.channel.unavailable`    | 503  | 表示发送通道未接入。                                         |
+| `verification.send.failed`            | 500  | 表示验证码发送失败。                                         |
+| `verification.code.generate.failed`   | 500  | 表示验证码生成失败。                                         |
+| `verification.code.save.failed`       | 500  | 表示验证码保存失败。                                         |
+| `org.not.found`                       | 404  | 表示组织不存在。                                             |
+| `org.member.exists`                   | 409  | 表示成员已在组织中。                                         |
+| `validate.required`                   | 422  | 表示必填字段缺失。                                           |
+| `validate.format`                     | 422  | 表示字段格式不合法。                                         |
+| `validate.length`                     | 422  | 表示字段长度不合法。                                         |
 
 ## 9. 参数校验规则
 
-字段格式校验失败统一返回 `common.validate.error`，`message` 形如 `参数校验失败: password 需为 8-64 位且同时包含字母和数字`。
+字段格式校验失败统一返回 `common.bad.request`，`message` 形如 `参数校验失败: password 需为 8-64 位且同时包含字母和数字`。
 
 | 字段                        | 规则                                        | 提示                             |
 | --------------------------- | ------------------------------------------- | -------------------------------- |
@@ -1184,7 +1162,7 @@ GraphQL 类型是**独立投影**，不复用数据库实体，也不含 `passwo
 | `code`                      | 纯数字，≤ 16 位                             | -                                |
 | `nickname`                  | ≤ 64                                        | -                                |
 
-**手机号归一化**：服务端会去掉空格、短横线、括号、点，再做 E.164 校验。因此 `+86 138-0013-8000`、`+86 138.0013.8000` 都能通过；但**缺国家码的 `13800138000` 会被拒**（`verification.target.invalid`）。
+**手机号归一化**：验证码与找回的 target 会去掉分隔符再校验 E.164；缺国家码仍拒绝。注册 phone 会先经过 binding 的 e164 校验，必须提交规范值，例如 `+8613800138000`，带分隔符会返回 common.bad.request。
 
 **邮箱归一化**：统一转小写。注册时 `Demo@Example.com` 与 `demo@example.com` 视为同一账号。
 
@@ -1198,7 +1176,7 @@ GraphQL 类型是**独立投影**，不复用数据库实体，也不含 `passwo
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "参数校验失败: password 需为 8-64 位且同时包含字母和数字"
       }
     ],

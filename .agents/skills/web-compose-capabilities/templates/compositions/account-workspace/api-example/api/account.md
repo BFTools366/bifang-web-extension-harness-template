@@ -81,7 +81,7 @@
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -91,25 +91,25 @@
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
 | HTTP 状态 | 错误码                             | 触发条件                                               |
 | --------- | ---------------------------------- | ------------------------------------------------------ |
-| 400       | common.validate.error              | 缺字段、类型或格式不符合要求                           |
+| 400       | common.bad.request                 | 缺字段、类型或格式不符合要求                           |
 | 404       | common.route.not.found             | 相对路径不存在                                         |
 | 405       | common.method.not.allowed          | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit                  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests           | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error              | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 | 400       | verification.target.invalid        | 目标格式不合法                                         |
 | 400       | verification.scene.unsupported     | 未知场景                                               |
@@ -127,7 +127,7 @@
 
 ## 接口说明
 
-服务契约已定义，当前为产品 API 的服务协议 Mock，尚未接入真实 HTTP。以下仅为脱敏说明示例。 创建账号与独立默认组织，用户名/邮箱及非空手机号唯一；不返回令牌、不自动登录。当前客户端要求邮箱验证码。服务来源对验证码关闭时携带 code 的行为有冲突；当前 Mock 始终要求验证码且不模拟关闭分支；真实服务需确认，不能据此取消客户端邮箱验证。查重失败不消耗有效验证码。
+服务契约已定义，当前为产品 API 的服务协议 Mock，尚未接入真实 HTTP。以下仅为脱敏说明示例。 创建账号与独立默认组织，用户名/邮箱及非空手机号唯一；不返回令牌、不自动登录。当前客户端要求邮箱验证码。固定 Go 源码关闭验证码时忽略合法 code；当前历史 Mock 始终要求验证码且不模拟关闭分支。目标服务按明确需求启用真实投递。查重失败不消耗有效验证码。
 
 ## 请求头
 
@@ -216,7 +216,7 @@
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -226,35 +226,34 @@
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
-| HTTP 状态 | 错误码                              | 触发条件                                                         |
-| --------- | ----------------------------------- | ---------------------------------------------------------------- |
-| 400       | common.validate.error               | 缺字段、类型或格式不符合要求                                     |
-| 404       | common.route.not.found              | 相对路径不存在                                                   |
-| 405       | common.method.not.allowed           | 路径存在但方法不被允许                                           |
-| 429       | common.rate.limit                   | 参考服务全局 IP 限流；当前 Mock 未实现全局限流                   |
-| 500       | common.internal.error               | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障           |
-| 400       | verification.code.required          | 未提供验证码                                                     |
-| 400       | verification.code.invalid           | 验证码错误、未发送、已用或重发后失效                             |
-| 400       | verification.code.expired           | 验证码过期                                                       |
-| 429       | verification.code.attempts.exceeded | 验证码错误次数超限                                               |
-| 400       | verification.target.missing         | code_type=phone 且未提供 phone                                   |
-| 409       | account.username.taken              | 用户名占用                                                       |
-| 409       | account.exists                      | 邮箱占用                                                         |
-| 409       | account.phone.taken                 | 手机号占用                                                       |
-| 503       | verification.disabled               | 来源服务验证码关闭分支，当前 Mock 未模拟；携带 code 的语义待核实 |
+| HTTP 状态 | 错误码                              | 触发条件                                               |
+| --------- | ----------------------------------- | ------------------------------------------------------ |
+| 400       | common.bad.request                  | 缺字段、类型或格式不符合要求                           |
+| 404       | common.route.not.found              | 相对路径不存在                                         |
+| 405       | common.method.not.allowed           | 路径存在但方法不被允许                                 |
+| 429       | common.too.many.requests            | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 500       | common.internal.error               | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
+| 400       | verification.code.required          | 未提供验证码                                           |
+| 400       | verification.code.invalid           | 验证码错误、未发送、已用或重发后失效                   |
+| 400       | verification.code.expired           | 验证码过期                                             |
+| 429       | verification.code.attempts.exceeded | 验证码错误次数超限                                     |
+| 400       | verification.target.missing         | code_type=phone 且未提供 phone                         |
+| 409       | account.username.taken              | 用户名占用                                             |
+| 409       | account.exists                      | 邮箱占用                                               |
+| 409       | account.phone.taken                 | 手机号占用                                             |
 
 <a id="v1-login"></a>
 
@@ -357,7 +356,7 @@
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -367,25 +366,25 @@
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
 | HTTP 状态 | 错误码                    | 触发条件                                               |
 | --------- | ------------------------- | ------------------------------------------------------ |
-| 400       | common.validate.error     | 缺字段、类型或格式不符合要求                           |
+| 400       | common.bad.request        | 缺字段、类型或格式不符合要求                           |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 | 401       | auth.credentials.invalid  | 账号不存在或密码错误                                   |
 | 403       | auth.account.disabled     | 账号禁用                                               |
@@ -489,7 +488,7 @@
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -499,30 +498,28 @@
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
 | HTTP 状态 | 错误码                    | 触发条件                                               |
 | --------- | ------------------------- | ------------------------------------------------------ |
-| 400       | common.validate.error     | 缺字段、类型或格式不符合要求                           |
+| 400       | common.bad.request        | 缺字段、类型或格式不符合要求                           |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
-| 401       | auth.token.invalid        | 令牌无效                                               |
-| 401       | auth.token.expired        | 刷新令牌过期                                           |
+| 401       | auth.token.invalid        | 解析失败、过期或类型错误统一返回此码                   |
 | 401       | auth.token.revoked        | 账号全部令牌已吊销或引用失效                           |
-| 401       | auth.token.wrong.type     | 访问令牌被当作刷新令牌                                 |
 | 404       | account.not.found         | 账号不存在                                             |
 | 403       | auth.account.disabled     | 账号禁用                                               |
 
@@ -594,7 +591,7 @@
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -604,25 +601,25 @@
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
 | HTTP 状态 | 错误码                              | 触发条件                                               |
 | --------- | ----------------------------------- | ------------------------------------------------------ |
-| 400       | common.validate.error               | 缺字段、类型或格式不符合要求                           |
+| 400       | common.bad.request                  | 缺字段、类型或格式不符合要求                           |
 | 404       | common.route.not.found              | 相对路径不存在                                         |
 | 405       | common.method.not.allowed           | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit                   | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests            | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error               | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 | 400       | verification.code.required          | 未提供验证码                                           |
 | 400       | verification.code.invalid           | 验证码错误、未发送、已用或重发后失效                   |
@@ -722,7 +719,7 @@
 | 403       | auth.account.disabled     | 账号禁用                                               |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 
 <a id="v1-profile"></a>
@@ -855,7 +852,7 @@
 | 403       | auth.account.disabled     | 账号禁用                                               |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 
 <a id="v1-password-change"></a>
@@ -923,7 +920,7 @@
     "datas": [
       {
         "model": "error",
-        "code": "common.validate.error",
+        "code": "common.bad.request",
         "message": "示例错误说明"
       }
     ],
@@ -933,25 +930,25 @@
 }
 ```
 
-| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                             |
-| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                           |
-| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.validate.error","message":"示例错误说明"}],"total":1} |
-| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                         |
-| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.validate.error","message":"示例错误说明"}]                                        |
-| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.validate.error","message":"示例错误说明"}                                          |
-| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                            |
-| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.validate.error"                                                                                            |
-| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                     |
-| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                                  |
-| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                             |
+| 字段路径               | JSON 类型 | 必填/必有 | 可空 | 说明与约束                                      | 示例值                                                                                                          |
+| ---------------------- | --------- | --------- | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| model                  | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "errors"                                                                                                        |
+| errors                 | object    | 是        | 否   | 统一错误集合                                    | {"model":"data.set","datas":[{"model":"error","code":"common.bad.request","message":"示例错误说明"}],"total":1} |
+| errors.model           | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "data.set"                                                                                                      |
+| errors.datas           | array     | 是        | 否   | 数据元素数组                                    | [{"model":"error","code":"common.bad.request","message":"示例错误说明"}]                                        |
+| errors.datas[]         | object    | 是        | 否   | 单条错误对象                                    | {"model":"error","code":"common.bad.request","message":"示例错误说明"}                                          |
+| errors.datas[].model   | string    | 是        | 否   | 响应模型判别标识；按本响应示例取值              | "error"                                                                                                         |
+| errors.datas[].code    | string    | 是        | 否   | 稳定错误码；取值、HTTP 状态与触发条件见下表     | "common.bad.request"                                                                                            |
+| errors.datas[].message | string    | 是        | 否   | 本地化说明；不得解析消息文本判断业务分支        | "示例错误说明"                                                                                                  |
+| errors.total           | number    | 是        | 否   | 错误条数，等于 errors.datas 长度                | 1                                                                                                               |
+| request_id             | string    | 是        | 否   | 本次请求追踪标识，对应 X-Request-Id；不是幂等键 | "00000000-0000-4000-8000-000000000001"                                                                          |
 
 | HTTP 状态 | 错误码                    | 触发条件                                               |
 | --------- | ------------------------- | ------------------------------------------------------ |
-| 400       | common.validate.error     | 缺字段、类型或格式不符合要求                           |
+| 400       | common.bad.request        | 缺字段、类型或格式不符合要求                           |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.rate.limit         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 | 401       | auth.token.missing        | 未带 Authorization 或使用不支持的携带方式              |
 | 401       | auth.token.malformed      | Bearer 格式非法                                        |

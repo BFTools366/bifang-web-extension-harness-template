@@ -34,14 +34,14 @@ export interface MockBackendOptions extends Omit<VerificationOptions, "now"> {
 /** 服务字段缺失或类型错误统一返回参数校验错误。 */
 function required(value: unknown, max = 128): string {
   if (typeof value !== "string" || !value || value.length > max)
-    throw new ServiceFailure("common.validate.error", 400)
+    throw new ServiceFailure("common.bad.request", 400)
   return value
 }
 /** 新密码规则与登录密码规则分开，保留固定演示账号入口。 */
 function newPassword(value: unknown): string {
   const password = required(value, 64)
   if (!/^(?=.*[A-Za-z])(?=.*[0-9]).{8,64}$/.test(password))
-    throw new ServiceFailure("common.validate.error", 400)
+    throw new ServiceFailure("common.bad.request", 400)
   return password
 }
 
@@ -171,7 +171,11 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     const token = required(raw, 8192)
     const match = /^mock-(access|refresh)-(.+)$/.exec(token)
     if (!match) throw new ServiceFailure("auth.token.invalid", 401)
-    if (match[1] !== expected) throw new ServiceFailure("auth.token.wrong.type", 401)
+    if (match[1] !== expected)
+      throw new ServiceFailure(
+        expected === "refresh" ? "auth.token.invalid" : "auth.token.wrong.type",
+        401
+      )
     const stored = tokens.get(token)
     if (!stored || stored.type !== expected) throw new ServiceFailure("auth.token.invalid", 401)
     const session = stored.session
@@ -181,7 +185,10 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     if (session.version !== entry.version || !sessions.has(credential.sessionId))
       throw new ServiceFailure("auth.token.revoked", 401)
     if ((expected === "access" ? session.accessExpires : session.refreshExpires) <= time())
-      throw new ServiceFailure("auth.token.expired", 401)
+      throw new ServiceFailure(
+        expected === "refresh" ? "auth.token.invalid" : "auth.token.expired",
+        401
+      )
     if (entry.dto.status === 0) throw new ServiceFailure("auth.account.disabled", 403)
     return { entry, credential }
   }
@@ -253,7 +260,7 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
       const target = normalizeTarget(body.target, body.target_type)
       const scene = body.scene === "" || body.scene === undefined ? "register" : body.scene
       if (typeof scene !== "string" || scene.length > 32)
-        throw new ServiceFailure("common.validate.error", 400)
+        throw new ServiceFailure("common.bad.request", 400)
       if (scene !== "register" && scene !== "reset_password")
         throw new ServiceFailure("verification.scene.unsupported", 400)
       const type = body.target_type as VerificationType
@@ -265,12 +272,12 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
     register(body: Record<string, unknown>) {
       const username = required(body.username, 32)
       if (!/^[A-Za-z0-9_]{3,32}$/.test(username))
-        throw new ServiceFailure("common.validate.error", 400)
+        throw new ServiceFailure("common.bad.request", 400)
       let email: string
       try {
         email = normalizeTarget(body.email, "email")
       } catch {
-        throw new ServiceFailure("common.validate.error", 400)
+        throw new ServiceFailure("common.bad.request", 400)
       }
       const password = newPassword(body.password)
       let phone: string | null = null
@@ -278,15 +285,14 @@ export function createMockAuthBackend(options: MockBackendOptions = {}) {
         try {
           phone = normalizeTarget(body.phone, "phone")
         } catch {
-          throw new ServiceFailure("common.validate.error", 400)
+          throw new ServiceFailure("common.bad.request", 400)
         }
       }
       const nickname =
         body.nickname === undefined || body.nickname === "" ? username : required(body.nickname, 64)
-      if (!protocolText(nickname)) throw new ServiceFailure("common.validate.error", 400)
+      if (!protocolText(nickname)) throw new ServiceFailure("common.bad.request", 400)
       const type = body.code_type === "" || body.code_type === undefined ? "email" : body.code_type
-      if (type !== "email" && type !== "phone")
-        throw new ServiceFailure("common.validate.error", 400)
+      if (type !== "email" && type !== "phone") throw new ServiceFailure("common.bad.request", 400)
       if (type === "phone" && !phone) throw new ServiceFailure("verification.target.missing", 400)
       const target = type === "phone" ? phone : email
       if (!target) throw new ServiceFailure("verification.target.missing", 400)

@@ -147,7 +147,7 @@ export function createMockAuthService(backend: MockAuthBackend, options: MockSer
         !isRecord(input.body) &&
         !["profile", "logout"].includes(operation?.[0] ?? "")
       )
-        throw new ServiceFailure("common.validate.error", 400)
+        throw new ServiceFailure("common.bad.request", 400)
       const body = isRecord(input.body) ? input.body : {}
       if (path === "/graphql") {
         if ("variables" in body || "operationName" in body)
