@@ -99,6 +99,15 @@ describe("共享聊天创建表单", () => {
     expect(invalid.question?.split("当前问题：")[0]).toBe(first.question?.split("当前问题：")[0])
   })
 
+  /** 验证实际默认入口的尾分隔符不制造不同的表单修订。 */
+  test("源路径等价表示跨入口复用同一确认", async () => {
+    const { input } = await fixture()
+    const direct = await inspectCreationForm(repositoryRoot, input)
+    const cli = await inspectCreationForm(repositoryRoot + path.sep, input)
+    expect(cli.summary).toBe(direct.summary)
+    expect(cli.revision).toBe(direct.revision)
+  })
+
   /** 验证文件内容非法时在当前题修正，其他合法事实保留且不写目标。 */
   test.each(["missing.md", "empty.txt", "binary.txt", "brief.pdf"])(
     "真实需求文件校验：%s",

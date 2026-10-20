@@ -170,6 +170,7 @@ export async function inspectCreationForm(
   sourceRoot: string,
   raw: unknown
 ): Promise<CreationFormResult> {
+  const resolvedSourceRoot = path.resolve(sourceRoot)
   const input = parseCreationFormInput(raw)
   if (
     input.decision &&
@@ -194,7 +195,7 @@ export async function inspectCreationForm(
       },
       {
         mode: "agent",
-        validateTarget: (values) => validateInitializationTarget(sourceRoot, values)
+        validateTarget: (values) => validateInitializationTarget(resolvedSourceRoot, values)
       }
     )
   } catch (error) {
@@ -224,7 +225,7 @@ export async function inspectCreationForm(
   if (!path.isAbsolute(input.logoPath)) throw new Error("已选 Logo 必须是绝对路径")
   const logoBytes = await readFile(input.logoPath)
   await createLogo({
-    root: sourceRoot,
+    root: resolvedSourceRoot,
     name: identity.name,
     id: identity.id,
     color: identity.brandColor,
@@ -236,8 +237,8 @@ export async function inspectCreationForm(
     : undefined
   const target = path.join(identity.targetRoot, identity.id)
   const summaryInput: InstantiationSummary = {
-    rawSourceRoot: sourceRoot,
-    canonicalSourceRoot: await canonicalizeProspectiveTarget(sourceRoot),
+    rawSourceRoot: resolvedSourceRoot,
+    canonicalSourceRoot: await canonicalizeProspectiveTarget(resolvedSourceRoot),
     rawParentRoot: identity.targetRoot,
     rawTargetRoot: target,
     canonicalTargetRoot: await canonicalizeProspectiveTarget(target),
