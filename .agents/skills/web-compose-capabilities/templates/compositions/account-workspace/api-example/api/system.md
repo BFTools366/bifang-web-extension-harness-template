@@ -64,7 +64,7 @@
 | --------- | ------------------------- | ------------------------------------------------------ |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.too.many.requests         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 
 <a id="v1-system-health"></a>
@@ -158,7 +158,7 @@
 | --------- | ------------------------- | ------------------------------------------------------ |
 | 404       | common.route.not.found    | 相对路径不存在                                         |
 | 405       | common.method.not.allowed | 路径存在但方法不被允许                                 |
-| 429       | common.too.many.requests         | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
+| 429       | common.too.many.requests  | 参考服务全局 IP 限流；当前 Mock 未实现全局限流         |
 | 500       | common.internal.error     | 参考服务内部异常；当前 Mock 未模拟该服务端基础设施故障 |
 
 <a id="unversioned-graphql-health"></a>
