@@ -20,7 +20,7 @@ export function downstreamAgents(config: ProjectConfig): string {
       : "Extension 变更涉及浏览器 API、消息、存储、后台生命周期、权限、CSP 或资源时，调用 `$web-review-extension-compatibility`；修复、测试与候选门禁由实施流程负责。\n\n"
   return `# 项目 Agent 指令
 
-本仓库是已生成的 \`${config.projectType}\` 项目 **${config.name}**。保持平铺单包，不增加项目生成命令、多包工作区或第二种项目类型。
+本仓库是已生成的 \`${config.projectType}\` 项目 **${config.name}**。本成员保持单包和唯一前端宿主；存在父 Workspace 时 Git、策略与唯一 PRD 归父根，跨成员功能调用 $workspace-implement-feature，不创建嵌套仓库或工程派生入口。
 
 ## 最小必读
 
@@ -51,7 +51,7 @@ Node.js、pnpm 与独立 CLI 全局安装/升级；项目依赖按 manifest/锁�
 - \`package.json\` 与 \`pnpm-lock.yaml\`：命令与依赖版本。
 - 产品源码与测试：可执行行为。
 ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页纠正合同。
-- \`src/data/\`：API 及 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 访问；REST 负责单对象详情与主要交互，GraphQL 强制负责远端列表查询，并负责复杂查询与订阅，Dexie 仅用于 IndexedDB。本地能力无需 BaseURL，直接真实实现；只有未配置地址的远端 API 操作使用 Mock，详见 \`docs/DATA_ACCESS.md\` §3.1。
+- \`src/data/\`：API 及 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 访问；REST 负责单对象详情与主要交互，GraphQL 强制负责远端列表查询，并负责复杂查询与订阅，Dexie 仅用于 IndexedDB。本地能力无需 BaseURL，直接真实实现；产品远端 API 必须连接真实服务，未接通显示真实失败，测试替身不进入产品运行，详见 \`docs/DATA_ACCESS.md\` §3.1。
 - \`src/data/storage/\`：集中的浏览器存储适配，保持独立生命周期并明确处理失败。
 - \`src/data/api/client/\`：不含业务接口的 Ky HTTP、请求上下文、语言、凭据、错误和未授权处理基础。
 - \`docs/API.md\`：完整的可选基础 API 与数据模型参考，包含来源和适配边界；仅按真实需求采用和拆解。

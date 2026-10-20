@@ -1,6 +1,9 @@
 import path from "node:path"
 import { describe, expect, test } from "vitest"
-import { collectPromptedIdentity, confirmInstantiation } from "../.harness/tooling/prompts.ts"
+import {
+  collectPromptedIdentity as collectIdentity,
+  confirmInstantiation
+} from "../.harness/tooling/prompts.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { parseIdentityI18n } from "../.harness/tooling/identity.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
@@ -12,10 +15,15 @@ import {
   writeFile
 } from "./harness-tooling-support.ts"
 
+/** 不涉及服务选择的旧引导场景显式提供服务来源，避免新增问题改变其测试目标。 */
+const collectPromptedIdentity: typeof collectIdentity = (defaults, ask, interaction) =>
+  collectIdentity({ serverMode: "create", ...defaults }, ask, interaction)
+
 /** 提供合法基础身份，让测试聚焦逐项补问与默认值接受边界。 */
 const BASE_INPUT = {
   targetRoot: path.resolve("..", "guided-web"),
   projectType: "web",
+  serverMode: "create",
   name: "Guided Web",
   id: "guided-web",
   policyMode: "预设"
@@ -28,6 +36,7 @@ describe("初始化渐进式引导", () => {
     const answers = [
       "invalid",
       "1",
+      "create",
       "Guided Example",
       BASE_INPUT.targetRoot,
       "custom",
@@ -39,7 +48,7 @@ describe("初始化渐进式引导", () => {
       "2"
     ]
     const identity = await collectPromptedIdentity(
-      { ...{}, requirementsFile: "" },
+      { serverMode: undefined, requirementsFile: "" },
       async (question) => {
         questions.push(question)
         const answer = answers.shift()
@@ -51,6 +60,7 @@ describe("初始化渐进式引导", () => {
     expect(questions.map((question) => question.split("\n")[0])).toEqual([
       "问题名称：项目类型",
       "问题名称：项目类型",
+      "问题名称：已有服务端",
       "问题名称：项目显示名称",
       "问题名称：源 Harness 外的父目录",
       "问题名称：Agent 策略模式",
@@ -62,7 +72,7 @@ describe("初始化渐进式引导", () => {
       "问题名称：发布首次 E2E 建议"
     ])
     expect(questions[0]?.split("\n").slice(0, 4)).toEqual(questions[1]?.split("\n").slice(0, 4))
-    expect(questions[6]?.split("\n").slice(0, 4)).toEqual(questions[7]?.split("\n").slice(0, 4))
+    expect(questions[8]?.split("\n").slice(0, 4)).toEqual(questions[8]?.split("\n").slice(0, 4))
     for (const question of questions) {
       expect(question.match(/^问题名称：/gm)).toHaveLength(1)
       expect(question.match(/^字段：/gm)).toHaveLength(1)
@@ -140,6 +150,8 @@ describe("初始化渐进式引导", () => {
     const config = await runInstantiateCli(
       [
         parent,
+        "--server",
+        "create",
         "--type",
         number,
         "--name",
@@ -166,7 +178,7 @@ describe("初始化渐进式引导", () => {
   /** 验证缺译名、非法标识和非空最终目录都在任何创建写入前失败。 */
   test("生成标识和最终子目录的错误保持父目录内容", async () => {
     const parent = await temporaryDirectory("creation-conflict-")
-    const basics = [parent, "--type", "web", "--policy-mode", "预设"]
+    const basics = [parent, "--server", "create", "--type", "web", "--policy-mode", "预设"]
     const runtime = {
       sourceRoot: repositoryRoot,
       interactive: false,
@@ -197,6 +209,8 @@ describe("初始化渐进式引导", () => {
       runInstantiateCli(
         [
           parent,
+          "--server",
+          "create",
           "--type",
           "1",
           "--name",

@@ -1,5 +1,7 @@
 # 工程基础
 
+新创建以 [Workspace 合同](../WORKSPACE_TEMPLATE.md) 为准：根拥有 Git、锁与产品事实，成员内部单一宿主；已有服务必填开发 BaseURL，无服务创建 Go 成员。下文旧平铺单包限定只适用于既有独立前端；发布与验收必须显式选定一个成员、根 Git 与精确候选。
+
 ## 单宿主单包
 
 Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、入口、构建和渠道不同。源 Harness 因此提供终端单选：

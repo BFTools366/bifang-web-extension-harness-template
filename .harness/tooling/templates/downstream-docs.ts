@@ -85,7 +85,7 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 ## 项目边界
 
 - \`.harness/project.json\` 是项目名称、标识、描述、唯一 \`projectType\` 与品牌配置的事实源。
-- 项目保持平铺 pnpm 单包；\`pnpm-workspace.yaml\` 仅配置 \`allowBuilds\`，不得声明 \`packages\`、引入多包 workspace、\`apps/\`、第二宿主或项目类型切换入口。
+- 成员内部保持平铺 pnpm 单包；已登记 Workspace 由根拥有 packages、依赖锁、Git、PRD 与策略，成员继承根 pnpm 策略。旧独立项目的 \`pnpm-workspace.yaml\` 仅配置 \`allowBuilds\`，不自行声明 \`packages\`、引入嵌套 workspace、\`apps/\`、第二宿主或项目类型切换入口。
 - 固定技术栈：${stackName(config)}。
 - \`.harness/brand/logo-1024.png\` 是 Logo 母版；${brandAssets(config)}只能由受管品牌流程派生。
 - 保护用户和其他 Agent 的既有修改；未知文件默认归用户所有，不得用整文件覆盖绕过冲突。

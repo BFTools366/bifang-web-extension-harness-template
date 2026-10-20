@@ -76,13 +76,13 @@ export const colorSchemeManager = localStorageColorSchemeManager({
 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 的访问统一归入本目录，详细规则见项目根的 \`docs/DATA_ACCESS.md\` §1.1–1.3。
 
 - \`api/client/\`：Ky HTTP、认证与错误边界；Token/continuation 默认留在当前 client 的上下文内存；仅明确选择 Web 身份认证持久化方案时由 feature 按根规范的范围例外持久化会话凭据，continuation 不适用。
-- \`api/<domain>/\`：按真实业务域组织类型、REST 主交互、远端 API Mock 与响应校验。
+- \`api/<domain>/\`：按真实业务域组织类型、REST 主交互与真实响应校验。
 - \`api/graphql/\`：真实 Schema 出现后放列表及复杂查询、生成文档与 Subscription 协议 adapter；初始化不生成该目录或假端点。
 - \`storage/\`：浏览器存储访问与领域持久化；各机制保持独立生命周期。
 
 UI、分页和 i18n 保留呈现与状态职责，存储访问经本层完成。TanStack Query 统一管理 REST/GraphQL 有限读取的请求前缓存与服务器状态，Jotai 只管理客户端交互状态。feature Query options、QueryClient 复用与新鲜度见 \`docs/DATA_ACCESS.md\` §2.7；持久存储不自动保存 Query 结果副本。
 
-本地能力直接真实实现，不要求 BaseURL；纯业务逻辑留在 feature，真实存储访问经 \`storage/\`。未配置远端地址时只 Mock 对应远端 API；混合流程不把本地部分一并 Mock，详细分工见 \`docs/DATA_ACCESS.md\` §3.1。
+本地能力直接真实实现，不要求 BaseURL；纯业务逻辑留在 feature，真实存储访问经 \`storage/\`。未配置或不可达的服务明确失败，产品运行不生成业务 Mock，详细分工见 \`docs/DATA_ACCESS.md\` §3.1。
 `
     ],
     [
@@ -92,14 +92,14 @@ UI、分页和 i18n 保留呈现与状态职责，存储访问经本层完成。
 不含业务接口的 \`client/httpClient.ts\` 负责受管 Ky 传输、请求/响应/错误拦截、安全凭据写入、401/403、超时与取消。功能模块共享惰性 \`applicationHttp\`；Query 读取使用 \`requestHttpQuery\`，避免中间重试留下错误提示。局部/路由恢复与全局反馈使用相同的固定 i18next 分类；不得用页面内直接请求或可变全局请求头绕过基础边界。
 
 - \`client/\`：已批准基地址、动态认证、取消、超时与规范化 API 错误；不声明业务接口或登录地址。
-- \`<domain>/\`：类型化远端接口函数、请求与响应合同、运行时边界校验，以及只用于未配置 BaseURL 的远端 API 的 Mock。本地能力无需 BaseURL，直接真实实现；本地业务逻辑留在功能模块，真实持久化放在 \`../storage/\`。混合流程只模拟不可用的远端边界。
+- \`<domain>/\`：类型化远端接口函数、请求与响应合同、运行时边界校验，产品只消费真实服务。本地能力无需 BaseURL，直接真实实现；本地业务逻辑留在功能模块，真实持久化放在 \`../storage/\`。远端尚未实现时明确报告，不返回模拟成功。
 - API 协议分工遵循 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定)；域模块按可信契约映射输入输出，不另建第二套写入 API。
 - \`graphql/\` 只在有真实 Schema 与接口时加入。HTTP 查询复用受管 Ky 传输；订阅采用服务端的 \`graphql-ws\` 或 \`graphql-sse\` 协议，明确清理与认证生命周期。
 - 功能 hooks 在组件、路由加载器和命令式读取间共享 queryOptions 与当前上下文的 QueryClient。TanStack Query 负责 REST/GraphQL 缓存查询、在途读取去重、新鲜度、失效与事件投影；Ky 和协议适配只负责传输。缓存已解析校验的领域数据，不缓存会被消费的 Response 响应体。入口与 staleTime 语义见项目根 \`docs/DATA_ACCESS.md\` §2.7。
 - 写操作更新或失效精确查询键；订阅将已校验事件投影到同一 Query 缓存。不得把服务器状态镜像到 Jotai 或存储。Extension 各上下文具有独立 QueryClient 与生命周期，不因此获得跨上下文或持久缓存。
 - React 组件与路由文件不拼接任意 URL，也不依赖传输库错误类。
 
-Mock 迁移、协议适配与存储边界遵循项目根 \`docs/DATA_ACCESS.md\`。不增加占位请求、第二套客户端或 \`services/\` 层。
+真实服务接线、协议适配与存储边界遵循项目根 \`docs/DATA_ACCESS.md\`。不增加占位请求、第二套客户端或 \`services/\` 层。
 `
     ],
     [

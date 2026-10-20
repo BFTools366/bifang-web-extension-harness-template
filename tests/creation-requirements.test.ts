@@ -8,7 +8,11 @@ import {
 } from "../.harness/tooling/creation-requirements.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
-import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
+import { collectPromptedIdentity as collectIdentity } from "../.harness/tooling/prompts.ts"
+
+/** 本组测试聚焦原有字段；服务来源在 Workspace 表单用例独立覆盖。 */
+const collectPromptedIdentity: typeof collectIdentity = (defaults, ask, validateTarget) =>
+  collectIdentity({ serverMode: "create", ...defaults }, ask, validateTarget)
 import { runInstantiateCli } from "../scripts/instantiate.ts"
 import {
   options,
@@ -176,6 +180,8 @@ describe("创建需求输入", () => {
       runInstantiateCli(
         [
           parent,
+          "--server",
+          "create",
           "--type",
           "web",
           "--name",
@@ -216,6 +222,8 @@ describe("创建需求输入", () => {
     const config = await runInstantiateCli(
       [
         parent,
+        "--server",
+        "create",
         "--type",
         projectType,
         "--name",
@@ -300,7 +308,7 @@ describe("创建需求输入", () => {
   test("无需求参数保持既有工程调用", async () => {
     const parent = await temporaryDirectory("requirements-absent-")
     await runInstantiateCli(
-      [parent, "--type", "1", "--name", "Plain Web", "--policy-mode", "预设"],
+      [parent, "--server", "create", "--type", "1", "--name", "Plain Web", "--policy-mode", "预设"],
       {
         interactive: false,
         output: () => undefined,
@@ -320,6 +328,8 @@ describe("创建需求输入", () => {
     await runInstantiateCli(
       [
         ".",
+        "--server",
+        "create",
         "--type",
         "web",
         "--name",

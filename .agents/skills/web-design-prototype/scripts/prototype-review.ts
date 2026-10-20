@@ -1,6 +1,7 @@
 import { lstat, readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { randomUUID } from "node:crypto"
+import { resolveWorkspaceContextRoot } from "../../../../.harness/tooling/workspace-context.ts"
 import { loadProjectConfig } from "../../../../.harness/tooling/config.ts"
 import {
   isMainModule,
@@ -375,6 +376,7 @@ export async function runPrototypeReview(
   argv: string[],
   root = process.cwd()
 ): Promise<PrototypeReview> {
+  root = await resolveWorkspaceContextRoot(root)
   const [command, scope, ...args] = argv
   if (scope === undefined)
     throw new Error(

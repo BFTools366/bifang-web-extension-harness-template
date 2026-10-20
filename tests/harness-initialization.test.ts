@@ -1,5 +1,9 @@
 import { execFileSync, spawnSync } from "node:child_process"
-import { collectPromptedIdentity } from "../.harness/tooling/prompts.ts"
+import { collectPromptedIdentity as collectIdentity } from "../.harness/tooling/prompts.ts"
+
+/** 本组测试聚焦原有字段；服务来源在 Workspace 表单用例独立覆盖。 */
+const collectPromptedIdentity: typeof collectIdentity = (defaults, ask, validateTarget) =>
+  collectIdentity({ serverMode: "create", ...defaults }, ask, validateTarget)
 import { describe, test } from "vitest"
 import {
   TEST_BASE_URLS,
@@ -64,11 +68,7 @@ async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void>
     path.join(root, ".agents/skills/web-implement-change/SKILL.md"),
     "utf8"
   )
-  expect(dataAccess).toContain("#### 未配置远端地址时的能力分工")
-  expect(dataAccess).toContain("只有依赖该远端 API 的操作使用 Mock")
-  expect(dataAccess).toContain("混合流程：本地部分照常执行")
-  expect(dataAccess).not.toContain("所有需要该服务的数据均由")
-  expect(dataAccess).toContain("Mock API 不调用 HTTP client、不触发 Fetch")
+  expect(dataAccess).toContain("产品运行路径不装配业务 Mock")
   expect(dataAccess).toContain("禁止失败后自动回落 Mock")
   expect(runtimeRules).toContain("DATA_ACCESS.md")
   expect(runtimeRules).toContain("逐项补问本次操作依赖的环境与服务 BaseURL/target")
@@ -83,7 +83,7 @@ async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void>
   expect(engineeringRules).toContain("沉默、超时或预选项不算批准")
   expect(connectionSkill).toContain("真实请求失败不得回落 Mock")
   expect(connectionSkill).toContain("本地实现继续真实运行，不纳入 Mock 迁移")
-  expect(implementationSkill).toContain("Mock 是当前远端 API 契约的完整实现")
+  expect(implementationSkill).toContain("产品运行路径只用真实 typed API")
   for (const source of [
     dataAccess,
     runtimeRules,
@@ -107,6 +107,8 @@ describe("single-package Harness initialization", () => {
     const root = await seedTemplateRoot()
     const resolved = await resolveInitOptions(
       parseArgs([
+        "--server",
+        "create",
         "--type",
         "web",
         "--name",
@@ -143,6 +145,8 @@ describe("single-package Harness initialization", () => {
     await expect(
       resolveInitOptions(
         parseArgs([
+          "--server",
+          "create",
           "--type",
           "web",
           "--name",
@@ -219,6 +223,8 @@ describe("single-package Harness initialization", () => {
       const root = await seedTemplateRoot()
       const resolved = await resolveInitOptions(
         parseArgs([
+          "--server",
+          "create",
           "--type",
           projectType,
           "--name",

@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
+import { applicationFiles } from "./application-test-adapters.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
 /** 设置属于通用应用，不要求身份能力，不进入受权限约束的业务页面清单。 */

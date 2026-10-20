@@ -5,6 +5,8 @@ description: 分析详细需求、判断基础页面或工作区需求，并在�
 
 # Web Harness：定义前端产品
 
+Workspace 根存在 .harness/workspace.json 时，以它识别成员与服务归属，唯一 PRD 保存根 docs/product_spec；不再要求根 project.json 或单一前端。成员类型各自唯一，纯 Server 也可定义产品与接口范围；只为实际有 UI 的成员委托设计。下面的单包判定仅用于旧独立前端。
+
 把真实问题转化为经确认且可测试的产品范围，不把普通实现细节升级为产品决策。
 
 ## 模式与源门禁

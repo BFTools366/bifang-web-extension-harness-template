@@ -5,6 +5,8 @@ description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo C
 
 # Web Harness：升级前端工程基线
 
+当前原单包升级器只支持旧独立前端。Workspace 整体及其成员尚不支持该升级器；迁移须另行明确范围并实现逐路径合同，不自动移动产品、身份或业务数据。
+
 通过“冻结事实 → 渲染候选 → 三方计划 → 路径级批准 → 重规划 → 目标验证 → 记录基线”升级终端前端项目。生产所有权清单和 TypeScript helper 必须精确位于目标仓库内本 Skill 的 `references/ownership-manifest.json` 与 `scripts/harness-upgrade.ts`；另一个仓库的 helper 或清单不得替目标授权，不得用临时脚本或弱化清单代替。
 
 ## 预演委托与写入边界

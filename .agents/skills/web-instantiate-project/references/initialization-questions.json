@@ -3,19 +3,52 @@
     "projectType": {
       "title": "项目类型",
       "question": "请选择要创建的项目类型。",
-      "hint": "输入 1 或 2，也可输入 web 或 extension；无默认值。",
+      "hint": "输入 1.Web、2.Extension、3.Web + Extension 或 4.Server；无默认值。",
       "options": [
         {
           "value": "web",
           "label": "1.Web",
-          "description": "React 网页项目，创建独立单包网站"
+          "description": "在 Workspace 下创建 _web 成员"
         },
         {
           "value": "extension",
           "label": "2.Extension",
           "description": "浏览器扩展项目，同时支持 Chrome MV3 与 Firefox MV2"
+        },
+        {
+          "value": "both",
+          "label": "3.Web + Extension",
+          "description": "在同一 Workspace 创建两个独立前端成员"
+        },
+        {
+          "value": "server",
+          "label": "4.Server",
+          "description": "只创建 Go 服务端成员"
         }
       ]
+    },
+    "serverMode": {
+      "title": "已有服务端",
+      "question": "是否已有可接入的服务端？",
+      "hint": "有服务时必须提供开发 BaseURL；没有则创建 Go 服务。只创建 Server 时自动采用 create。",
+      "options": [
+        {
+          "value": "existing",
+          "label": "1.有",
+          "description": "接入已有服务，不创建 _server"
+        },
+        {
+          "value": "create",
+          "label": "2.没有",
+          "description": "在 Workspace 创建 _server 并连接前端"
+        }
+      ]
+    },
+    "apiContract": {
+      "title": "接口契约（可选）",
+      "question": "请提供已有服务的接口文档路径。",
+      "hint": "可稍后按所选能力补齐；BaseURL 不能推断接口。",
+      "options": []
     },
     "requirementsFile": {
       "title": "需求输入（可选）",

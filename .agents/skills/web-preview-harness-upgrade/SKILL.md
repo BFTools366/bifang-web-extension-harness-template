@@ -5,6 +5,8 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，只读�
 
 # Web Harness：预演工程基线升级
 
+当前原单包升级器只支持旧独立前端。Workspace 整体及其成员尚不支持该升级器；不得提示选择成员后继续。迁移须在单独明确范围下制定并实现逐路径合同，不自动移动产品、身份或数据。
+
 ## 适用与边界
 
 1. 仅用于已初始化且 `projectType=web|extension` 的终端下游。用户要求比较工程层、查看升级影响或原升级流程需要重新规划时使用；源 Harness 维护和实际产品改动不在本 Skill 中实施。

@@ -1,6 +1,6 @@
 import { expect, test } from "vitest"
-import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
-import type { ApplicationOptions } from "../.agents/skills/web-compose-capabilities/templates/application/contracts.ts"
+import { applicationFiles } from "./application-test-adapters.ts"
+import type { TestApplicationOptions as ApplicationOptions } from "./application-test-adapters.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
 /** 只读订单只生成读取实现，不带未选择的身份、购买或写入代码。 */

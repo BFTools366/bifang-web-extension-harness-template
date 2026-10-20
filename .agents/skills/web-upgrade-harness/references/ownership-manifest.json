@@ -3,6 +3,138 @@
   "defaultMode": "protected",
   "rules": [
     {
+      "pattern": ".agents/skills/go-test-service/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".harness/tooling/workspace-context.ts",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".harness/tooling/workspace-http.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/application-test-adapters.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/fixtures/application-api/**",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-audit/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-implement-external-command/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-implement-file-operations/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-wallet/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-feature/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-implement-persistence/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-users/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-organizations/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-orders/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-permissions/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-implement-graphql/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-implement-catalog/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-implement-service/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-build-local/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/go-implement-verification/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".harness/tooling/workspace-skills.ts",
+      "mode": "managed"
+    },
+    {
+      "pattern": "docs/WORKSPACE_TEMPLATE.md",
+      "mode": "managed"
+    },
+    {
+      "pattern": "docs/GO_SERVICE.md",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".harness/workspace.json",
+      "mode": "protected"
+    },
+    {
+      "pattern": ".harness/tooling/workspace.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".harness/tooling/workspace-selection.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".harness/tooling/workspace-documents.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".harness/tooling/workspace-server.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".harness/runtime/**",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/workspace.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/workspace-runtime.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/workspace-server.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/creation-api-contract.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": ".agents/skills/web-compose-capabilities/**",
       "mode": "managed"
     },

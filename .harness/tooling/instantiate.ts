@@ -57,6 +57,7 @@ async function bindPublishedCommitTemplate(stagingRoot: string, targetRoot: stri
 // 保存 TOP_LEVEL_SEED_NAMES 变量供当前逻辑使用。
 const TOP_LEVEL_SEED_NAMES = new Set([
   ".agents",
+  ".gitattributes",
   ".gitignore",
   ".harness",
   ".prettierignore",
@@ -132,6 +133,18 @@ export async function instantiateProject(
   options: InstantiateOptions,
   initialize: ProjectInitializer = initializeProject
 ): Promise<ProjectConfig> {
+  const contractBytes = options.init.apiContract
+    ? await readFile(options.init.apiContract)
+    : undefined
+  const apiContractSnapshot = contractBytes
+    ? {
+        content: new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(contractBytes),
+        sha256: sha256Hex(contractBytes)
+      }
+    : undefined
+  if (apiContractSnapshot) validateCreationRequirements(apiContractSnapshot)
+  if (options.approval && apiContractSnapshot?.sha256 !== options.approval.apiContractSha256)
+    throw new Error("已批准的接口契约内容发生变化；请重新确认")
   // 保存 requestedSourceRoot 变量，在 realpath 前拒绝符号链接源根。
   const requestedSourceRoot = path.resolve(options.sourceRoot)
   if (options.requirements !== undefined) validateCreationRequirements(options.requirements)
@@ -174,7 +187,10 @@ export async function instantiateProject(
   const targetParent = path.dirname(targetRoot)
   // 保存 targetParentPlan 变量，在 source 快照期间也约束既有父目录身份。
   const targetParentPlan = await captureTargetParentPlan(targetParent)
-  if (await pathExists(path.join(sourceRoot, ".harness/project.json"))) {
+  if (
+    (await pathExists(path.join(sourceRoot, ".harness/project.json"))) ||
+    (await pathExists(path.join(sourceRoot, ".harness/workspace.json")))
+  ) {
     throw new Error("Instantiation source is already initialized and is not a clean template")
   }
   // 保存 suspectEnvironmentFiles 变量供当前逻辑使用。
@@ -253,6 +269,7 @@ export async function instantiateProject(
       const config = await initialize(
         {
           ...options.init,
+          apiContractSnapshot,
           initialCreationAuthorization: options.approval?.initialCreationAuthorization,
           logoPath,
           root: stagingRoot

@@ -1,3 +1,5 @@
+> 当前数据合同：产品装配器只接受 `dataMode: "adapter"` 和所选领域的真实 adapters。下文历史 Mock/fixture 说明只供测试和来源追溯，不是产品创建路线。自建服务由 Workspace 领域 Skill 实现 Go、前端和真实联调；已有服务按可信合同接入。
+
 # 固定设计与代码接线合同
 
 实施入口在成功下游读取已确认 PRD 与有效原型登记，首次工程基线以当前已发布下游文件快照构成 base Map，调用 applicationFiles(base, options) 返回文件 Map，再在授权范围写入当前宿主。该 helper 不要求终端恢复已删除的初始化器，也不调用源 webFiles/extensionFiles。已有产品按现有路由和状态 owner 增量接入固定资产，不能重复全量装配。源 Harness 只维护这些可复用资产，不装配具体产品。
@@ -37,7 +39,7 @@ Web 工作区默认保留工作台和最下方设置，即使只有一个业务�
 
 - selection：明确宿主及 modules、operations、recipe 三者之一；空 modules 只选择基础布局，实际首页仍必填。
 - homePageSource：按需求实现、导出 HomePage 的真实组件；主内容 landmark 由固定主界面提供。
-- dataMode：明确 mock 或 adapter。Mock 提供测试账号及当前流程必要 fixture；真实模式为每个所选模块提供导出 api 的实现，不从 BaseURL 猜 endpoint。
+- dataMode：明确 adapter。Mock 提供测试账号及当前流程必要 fixture；真实模式为每个所选模块提供导出 api 的实现，不从 BaseURL 猜 endpoint。
 - 采用权限时，pagePermissions 与 actionPermissions 来自 PRD/可信服务，所有业务页面及写操作必须具有非空要求；/organization 和 organization.switch 是账号级成员关系恢复能力，不依赖组织业务权限，/organization/manage 不豁免；Mock 授权按 subjectId 与 organizationId 的上下文提供，默认空权限，不能从模块选择推导授权。
 - content 为可选内容适配：translations 只覆盖既有 zh/en 模板键；pageSources 只替换已选能力的固定组件，必须保留其 API、scope 和动作 props。来源与完整例子见 [提取合同](extraction.md)，不覆盖项目身份或既有产品实现。
 
@@ -98,3 +100,5 @@ const options = {
 ```
 
 这里只展示参数结构，测试账号仅用于明确 Mock。采用组织时，fixtures.organizations 是 `{id,name,ownerAccountId}[]`，fixtures.organizationUsers 是 `{id,accountId,organizationId,role}[]`；现有余额和订单等相关 fixture 按组织用户 actor 分区，权限 fixture 的 subjectId 也使用该成员 ID。前者属于待按领域归属迁移的 Mock 事实，后者作为成员授权主体继续有效。组织 API 返回 `{current,available:[{id,name,ownerAccountId,user:{id,accountId,organizationId,role}}]}`，在采纳前校验唯一性和成员归属。这些是当前模板输入合同，不能直接把旧 actor 键当成新的组织租户键；真实服务按可信契约映射，不能信任前端 actor 作为服务端授权。
+
+新增领域操作先由对应 workspace-implement-* Skill 实施。基础装配器仅接受自己已有页面/API/actions 的操作集；注册、资料等扩展操作不能只登记 resolved 而没有实现。organization.provision 与 audit.record 是后端内部依赖，不自行生成前端页面或会话 owner。

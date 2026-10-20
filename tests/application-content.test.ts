@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
+import { applicationFiles } from "./application-test-adapters.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
 /** 项目正文可替换，仍从注入的唯一 API 和 Query 读取当前作用域数据。 */

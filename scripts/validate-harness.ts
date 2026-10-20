@@ -1,3 +1,4 @@
+import { validateGoAssets } from "./harness-validation/go-assets.ts"
 import path from "node:path"
 import { readCapabilityCatalog } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { pathToFileURL } from "node:url"
@@ -51,6 +52,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   const markdownLinks = await validateMarkdownLinks(root, markdownFiles, errors)
   await validateToolingContract(root, errors)
   await validateUpgradeOwnership(root, errors)
+  await validateGoAssets(root, errors)
   await validateHarnessVersion(root, errors)
   await validateRepositoryLineLimits(root, files, errors)
   const commentReport = await inspectProjectChineseComments(root)

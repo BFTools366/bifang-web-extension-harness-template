@@ -1,10 +1,10 @@
+import { parseWorkspaceSelection, primaryFrontend, parseServerMode } from "./workspace-selection.ts"
 import { assertKnownOptions, parseArgs, readStringOption } from "./args.ts"
 import { parseIdentityI18n } from "./identity.ts"
 import { refreshBrand } from "./brand.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
   deriveProjectId,
-  parseProjectType,
   parsePolicyMode,
   type PromptDefaults,
   validateProjectId
@@ -18,6 +18,8 @@ import { isMainModule } from "./files.ts"
 /** 保存创建参数的唯一清单，源公开创建入口直接复用。 */
 export const INIT_OPTIONS = [
   "type",
+  "server",
+  "api-contract",
   "requirements-file",
   "requirements-text",
   "name",
@@ -44,7 +46,7 @@ function usage(): string {
   return `Bifang Web Harness
 
 创建项目（目标必须位于本 Harness 仓库之外）：
-  pnpm instantiate -- <parent-outside-harness> --type web|extension --name <name> \\
+  pnpm instantiate -- <parent-outside-harness> --type web|extension|web,extension|server --server existing|create --name <name> \\
     [--english-name <English translation>] [--id <id>] [--requirements-file <md-or-txt-path> | --requirements-text <text>] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
@@ -58,8 +60,8 @@ function usage(): string {
   pnpm harness brand refresh [--logo <path>] [--brand-color <#RRGGBB>]
   pnpm harness validate
 
-禁止原地初始化；创建项目必须且只能选择一种宿主类型。
-项目类型：1.Web；2.Extension，可输入编号；最终目录为 <parent-outside-harness>/<id>。
+禁止原地初始化；创建 Workspace，成员内部保持唯一宿主。
+项目类型：1.Web；2.Extension；3.Web + Extension；4.Server，可输入编号；最终目录为 <parent-outside-harness>/<id>。
 `
 }
 
@@ -154,6 +156,8 @@ export async function resolveInitOptions(
   const supplied = {
     targetRoot: runtime.targetRoot ?? (root === "" ? undefined : root),
     projectType: readStringOption(args, "type"),
+    serverMode: readStringOption(args, "server"),
+    apiContract: readStringOption(args, "api-contract"),
     requirementsFile: readStringOption(args, "requirements-file", true),
     requirementsText:
       requirementsText === undefined ? undefined : String(args.options.get("requirements-text")),
@@ -203,7 +207,17 @@ export async function resolveInitOptions(
   }
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
-  const projectType = parseProjectType(identity.projectType)
+  const workspaceMembers =
+    "workspaceMembers" in identity && identity.workspaceMembers
+      ? identity.workspaceMembers
+      : parseWorkspaceSelection(identity.projectType)
+  const projectType = primaryFrontend(workspaceMembers)
+  const serverMode =
+    workspaceMembers.length === 1 && workspaceMembers[0] === "server"
+      ? "create"
+      : parseServerMode(identity.serverMode)
+  if (serverMode === "existing" && !identity.developmentBaseUrl?.trim())
+    throw new Error("已有服务端必须提供 BaseURL（--development-base-url）")
   const id = identity.id ?? deriveProjectId(identity.name, identity.englishName)
   if (id === undefined) {
     throw new Error("无法从项目名称生成标识，请提供项目名称的英文翻译（--english-name）或显式 --id")
@@ -219,12 +233,15 @@ export async function resolveInitOptions(
     runtime.onParentInputResolved?.(identity.rawParentRoot)
   }
 
-  if (projectType === "extension" && !identity.description?.trim()) {
+  if (workspaceMembers.includes("extension") && !identity.description?.trim()) {
     throw new Error("Extension project description is required (--description)")
   }
   return {
     root: identity.targetRoot ?? root,
     projectType,
+    workspaceMembers,
+    serverMode,
+    apiContract: identity.apiContract || undefined,
     requirementsFile: identity.requirementsFile || undefined,
     requirementsText: identity.requirementsText || undefined,
     name: identity.name ?? "",

@@ -34,13 +34,13 @@
 - `LOG_LEVEL` 只接受 `debug`、`info`、`warn`、`error`；`release` 只接受 `warn` 或 `error`。
 - `REQUEST_TIMEOUT_MS` 必须是 `1000`–`120000` 的正整数；初始化默认写入 `10000`。
 
-BaseURL 只配置远端 API，不是本地能力的启用条件。本地计算和存储直接真实实现；地址留空时仅对应远端 API 使用 Mock，混合流程只隔离远端边界，详细分工见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1。
+BaseURL 只配置远端 API，不是本地能力的启用条件。本地计算和存储直接真实实现；已有服务必填 BaseURL，无服务则生成并连接本地 Go；未接通返回真实失败，测试替身不进入产品运行，详细分工见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1。
 
 项目名称、标识、说明、`projectType` 与品牌继续来自 `.harness/project.json`，软件版本继续来自相应版本事实源，不复制进环境文件。Extension 配置某个远端 BaseURL 不会自动授予 `host_permissions`；只有真实网络消费者出现时，才按 [`DATA_ACCESS.md`](DATA_ACCESS.md) 审批最小权限。
 
 ## 4. 初始化输入
 
-非交互创建要求绝对父目录、名称、唯一项目类型和 Agent 策略模式；标识由名称的英文翻译自动生成，非英文名称传入 `--english-name`，已有显式 `--id` 可复用，以及当前宿主的条件必填字段；唯一宿主与 Extension 说明规则见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2。三份 API BaseURL 均可省略，开发地址可主动提供或后续配置，测试/正式地址无需初始化时填写。Web 说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对父目录必须位于源 Harness 之外，最终目录为“父目录/项目标识”：
+非交互创建要求绝对父目录、名称、唯一项目类型和 Agent 策略模式；标识由名称的英文翻译自动生成，非英文名称传入 `--english-name`，已有显式 `--id` 可复用，以及当前宿主的条件必填字段；唯一宿主与 Extension 说明规则见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2。初始化必须明确是否已有服务：有则开发 BaseURL 必填，没有则创建 Go 服务并连接本地地址；测试/正式地址无需初始化时填写。Web 说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对父目录必须位于源 Harness 之外，最终目录为“父目录/项目标识”：
 
 ```bash
 pnpm instantiate -- /absolute/path --type web \

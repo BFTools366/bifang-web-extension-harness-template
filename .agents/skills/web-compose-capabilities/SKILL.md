@@ -43,7 +43,7 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 
 - 独立认证代码仅依赖注入的认证 API 与原子凭据存储，不要求组织、权限、业务 UI 或第三方运行库；这是低层资源独立性，不代表完整用户信息可以省略组织。存储适配器不能扩大当前宿主持久化授权。
 - 当前装配使用[固定应用模板](templates/application/files.ts)与[接线合同](templates/application/wiring.md)。当前已支持操作按其代码范围返回页面、路由导航、API/Query、状态与失败恢复接线；尚未覆盖的完整账号与组织目标逐项报告并补齐，不能仅凭模板存在声明已实现。基础真实 HomePage 必须由需求提供。
-- 主界面和认证源自既有客户端实现，商品源自其交互原型；按 [提取与定制合同](templates/application/extraction.md) 区分来源证据。文案使用 content.translations，已选能力正文通过 content.pageSources 适配，Mock 数据集中于 API fixtures；不复制来源品牌、产品正文、服务地址或评审结论。接口资产全部为 Mock，真实 adapter 由下游按已授权合同提供。
+- 主界面和认证源自既有客户端实现，商品源自其交互原型；按 [提取与定制合同](templates/application/extraction.md) 区分来源证据。文案使用 content.translations，已选能力正文通过 content.pageSources 适配，测试 fixtures 仅留测试目录；不复制来源品牌、产品正文、服务地址或评审结论。产品接口必须提供真实 adapter，下游按已授权合同实施。
 - 当前基础身份资源包含登录页面与路由、主界面用户信息、匿名守卫、安全返回、Token 自动携带及退出/当前 401 清理；完整用户方案还必须接齐账号、组织、成员及所需生命周期。权限码同时用于路由、页面、菜单、动作元素及提交前复核。`.harness/application-wiring.json` 仅记录机械接线，不替代 PRD 或验证。
 - [账户协议参考](templates/compositions/account-workspace/README.md) 仅保留协议、Mock 服务、精确存储及回归，不再提供第二套应用/会话/UI；首版装配统一使用下文 `applicationFiles`，注册、找回等操作按真实需求另行实施。
 - [来源商品设计参考](templates/compositions/purchase-checkout/source-reference/index.html) 保留中性费用中心、商品选购、订单/钱包结构；[购买最小演示](templates/compositions/purchase-checkout/commerce-reference.html) 用于专项交互参考。两者均为 Web 离线设计，无真实扣款，也不作为当前基础装配入口。
@@ -55,8 +55,12 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 
 ## 验证
 
-只读选择检查所选操作及其明确依赖都具有固定设计和代码接线，宿主适用、未选操作不产生入口。代码实施时由调用方验证未选操作不产生菜单、路由或请求、状态所有者唯一，以及匿名、拒绝、撤权、切换、并发迟到和未知写结果。模板中的 Mock 或离线演示不能证明真实服务、权限或资金流程通过。返回所选模块与操作、资源类型、依据和缺口，不声明业务已实现。
+只读选择检查所选操作及其明确依赖具有领域 Skill 和参考资源；基础模板未实现的扩展操作必须交给领域 Skill 增量实现，宿主适用、未选操作不产生入口。代码实施时由调用方验证未选操作不产生菜单、路由或请求、状态所有者唯一，以及匿名、拒绝、撤权、切换、并发迟到和未知写结果。模板中的 Mock 或离线演示不能证明真实服务、权限或资金流程通过。返回所选模块与操作、资源类型、依据和缺口，不声明业务已实现。
 
 ## 可执行模板索引
 
-完整创建在成功下游使用 `applicationFiles(base, options)`，只返回 Map，由实施入口写入。必需输入为真实首页源码、明确 Mock/adapter 模式、选择及可信权限要求，缺项失败。固定设计入口为各模块 `design.md`，实际接线资产与 helper 全部由 catalog 索引；旧 [账户能力实现地图](templates/compositions/account-workspace/README.md) 仅作丰富操作参考。
+完整创建在成功下游使用 `applicationFiles(base, options)`，只返回 Map，由实施入口写入。必需输入为真实首页源码、固定 dataMode=adapter、选择及可信权限要求，缺项失败。固定设计入口为各模块 `design.md`，实际接线资产与 helper 全部由 catalog 索引；旧 [账户能力实现地图](templates/compositions/account-workspace/README.md) 仅作丰富操作参考。
+
+## Workspace 全栈委托
+
+操作仍由本 Skill 解析最小依赖；所选模块的 implementationSkill 负责对应前端、Go 后端、契约与真实联调。根服务归属来自 .harness/workspace.json：已有服务核对 BaseURL 和可信接口，没有服务在 _server 实现并连接，不另开 Go 问卷。完整用户包含注册自有组织及 owner 成员；注册、资料、验证码、组织成员、角色等操作逐项选择。固定应用装配只接受 dataMode=adapter，禁止产品 Mock；历史 Mock 资源仅为测试参考。委托完成后返回当前编排者，不重启定义或设计问卷。

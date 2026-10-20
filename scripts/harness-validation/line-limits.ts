@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { lstat, readFile } from "node:fs/promises"
 import path from "node:path"
 import { TextDecoder } from "node:util"
@@ -79,6 +80,12 @@ const FRONTEND_CODE_SUFFIXES = new Set([
 /** 保存工具生成且禁止人工编辑的锁文件名。 */
 const GENERATED_LOCKFILE_NAMES = new Set(["package-lock.json", "pnpm-lock.yaml", "yarn.lock"])
 
+/** 固定上游 gqlgen 引导输出，字节改变即失去生成物豁免。 */
+const GO_BOOTSTRAP = {
+  path: ".agents/skills/go-implement-service/assets/go-service-graphql/generated/internal/graphql/generated.go",
+  sha256: "83a99da20a70204c7e3db0ae4a3ff92b25d77e99b1b2b051b3cd5bd17b45f280"
+}
+
 /** 计算文本物理行数且不把末尾换行视为额外空行。 */
 export function countPhysicalLines(source: string): number {
   if (source.length === 0) return 0
@@ -153,6 +160,12 @@ export async function inspectRepositoryLineLimits(
     }
     try {
       const bytes = await readFile(absolutePath)
+      if (relativePath === GO_BOOTSTRAP.path) {
+        if (createHash("sha256").update(bytes).digest("hex") !== GO_BOOTSTRAP.sha256)
+          throw new Error("固定 gqlgen 引导输出摘要不一致")
+        report.excludedGeneratedFiles.push(relativePath)
+        continue
+      }
       if (bytes.includes(0)) {
         report.skippedBinaryFiles += 1
         continue

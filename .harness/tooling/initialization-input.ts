@@ -1,4 +1,5 @@
 import path from "node:path"
+import { parseWorkspaceSelection, parseServerMode } from "./workspace-selection.ts"
 import initializationQuestions from "../../.agents/skills/web-instantiate-project/references/initialization-questions.json" with { type: "json" }
 import { assertExtensionIdentityText, parseIdentityI18n } from "./identity.ts"
 import { assertProjectType, normalizeColor } from "./config.ts"
@@ -45,6 +46,8 @@ export function parsePolicyMode(value: string): AgentPolicyMode {
 export interface PromptDefaults {
   targetRoot?: string
   projectType?: string
+  serverMode?: string
+  apiContract?: string
   /** 保存可选需求原文路径；空字符串表示用户选择继续逐项引导。 */
   requirementsFile?: string
   /** 保存直接输入或 Word 提取的完整正文，保留首尾空白与换行。 */
@@ -153,6 +156,7 @@ const BASIC_FIELDS = (Object.keys(INITIALIZATION_QUESTIONS.basic) as BasicField[
 
 /** 保存无需主动询问、但可提供或修正的可选字段。 */
 const OPTIONAL_BASIC_FIELDS: readonly BasicField[] = [
+  "apiContract",
   "requirementsText",
   "englishName",
   "description",
@@ -178,14 +182,24 @@ async function normalizeBasicField(
   allValues: PromptDefaults,
   cwd: string
 ): Promise<string> {
-  const isExtension = ["extension", "2"].includes(allValues.projectType?.trim().toLowerCase() ?? "")
+  const selected = allValues.projectType ? parseWorkspaceSelection(allValues.projectType) : []
+  const isExtension = selected.includes("extension")
   if (field === "targetRoot") {
     const targetRoot = requiredText(value, "目标目录")
     return path.resolve(cwd, targetRoot)
   }
   if (field === "projectType") {
-    return parseProjectType(requiredText(value, "项目类型"))
+    return parseWorkspaceSelection(requiredText(value, "项目类型")).join(",")
   }
+  if (field === "serverMode") {
+    if (selected.length === 1 && selected[0] === "server") {
+      if (value && parseServerMode(value) !== "create")
+        throw new Error("纯 Server 选择必须创建服务端")
+      return "create"
+    }
+    return parseServerMode(value)
+  }
+  if (field === "apiContract") return value?.trim() ? path.resolve(cwd, value.trim()) : ""
   if (field === "requirementsFile") {
     if (value?.trim() && allValues.requirementsText) {
       throw new Error("需求文件与直接文本只能提供一种")
@@ -261,7 +275,16 @@ async function normalizeBasicField(
     testBaseUrl: field === "testBaseUrl" ? (value ?? "") : "",
     releaseBaseUrl: field === "releaseBaseUrl" ? (value ?? "") : ""
   }
-  return validateBaseUrls(baseUrls)[field]
+  const normalizedUrl = validateBaseUrls(baseUrls)[field]
+  if (
+    field === "developmentBaseUrl" &&
+    allValues.serverMode &&
+    parseServerMode(allValues.serverMode) === "existing" &&
+    !normalizedUrl
+  ) {
+    throw new Error("已有服务端必须提供开发 BaseURL")
+  }
+  return normalizedUrl
 }
 
 /** 从已知身份推荐可接受的默认值，不猜项目类型、路径或服务地址。 */

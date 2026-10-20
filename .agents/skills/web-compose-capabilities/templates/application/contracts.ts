@@ -11,44 +11,12 @@ export interface ApplicationContent {
   >
 }
 
-/** 仅供显式 Mock 模式的领域 fixture，真实接入必须提供对应 adapter 源码。 */
-export interface ApplicationFixtures {
-  accounts?: { id: string; account: string; password: string; displayName: string }[]
-  products?: {
-    id: string
-    name: string
-    description: string
-    category?: string
-    price: { minor: number; currency: string }
-  }[]
-  grants?: { subjectId: string; organizationId?: string | null; codes: string[] }[]
-  orders?: Record<
-    string,
-    {
-      id: string
-      productId: string
-      total: { minor: number; currency: string }
-      status: "paid" | "unpaid"
-      requestId: string
-    }[]
-  >
-  balances?: Record<string, { minor: number; currency: string }>
-  organizations?: { id: string; name: string; ownerAccountId: string }[]
-  organizationUsers?: {
-    id: string
-    accountId: string
-    organizationId: string
-    role: "owner" | "member"
-  }[]
-  audit?: { id: string; action: string; actor: string; occurredAt: string }[]
-}
 /** 固定设计通过明确输入装配，不在源自动生成产品业务或猜测服务接口。 */
 export interface ApplicationOptions {
   selection: CapabilityRequest
   homePageSource: string
-  dataMode: "mock" | "adapter"
+  dataMode: "adapter"
   adapters?: Record<string, string>
-  fixtures?: ApplicationFixtures
   pagePermissions?: Record<string, string[]>
   actionPermissions?: Record<string, string[]>
   content?: ApplicationContent
@@ -81,5 +49,5 @@ export interface ApplicationWiring {
   requiredBy: Record<string, string[]>
   pages: ApplicationPage[]
   actions: string[]
-  dataMode: "mock" | "adapter"
+  dataMode: "adapter"
 }

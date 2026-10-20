@@ -136,7 +136,8 @@ export function parseCreationFormInput(input: unknown): CreationFormInput {
 function creationArguments(identity: PromptedIdentity, logoPath: string): string[] {
   const argv = [
     identity.targetRoot,
-    `--type=${identity.projectType}`,
+    `--type=${(identity.workspaceMembers ?? [identity.projectType]).join(",")}`,
+    `--server=${identity.serverMode}`,
     `--name=${identity.name}`,
     `--id=${identity.id}`,
     `--description=${identity.description}`,
@@ -146,6 +147,7 @@ function creationArguments(identity: PromptedIdentity, logoPath: string): string
     `--logo=${logoPath}`
   ]
   for (const key of [
+    "apiContract",
     "requirementsFile",
     "requirementsText",
     "englishName",
@@ -273,6 +275,11 @@ export async function inspectCreationForm(
   const approval: CreationApproval = {
     canonicalTargetRoot: summaryInput.canonicalTargetRoot,
     requirementsSha256: requirements?.sha256,
+    apiContractSha256: identity.apiContract
+      ? createHash("sha256")
+          .update(await readFile(identity.apiContract))
+          .digest("hex")
+      : undefined,
     logoSha256: createHash("sha256").update(logoBytes).digest("hex")
   }
   const revision = createHash("sha256")

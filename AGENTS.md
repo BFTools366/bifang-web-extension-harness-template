@@ -2,12 +2,12 @@
 
 ## 项目使命
 
-本文件是执行 Agent 的首读入口，按“启动门禁 → 任务路由 → 适用 Skill → 最小闭环”处理当前请求；项目概览与使用说明见 [README.md](README.md)。本仓库是纯 TypeScript Web Harness，只生成单包 React Web 或单包 Plasmo Chrome MV3 / Firefox MV2 Extension 之一。源模板只维护跨项目复用的规则、Skills、中性资产和交付工程，不实现具体产品。
+本文件是 Agent 首读入口，按“启动门禁 → 路由 → Skill → 闭环”执行；项目概览与使用说明见 [README.md](README.md)。本仓库是 Workspace Harness，按需生成 React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 与 Go 服务成员；拓扑与协作见 [Workspace 规范](docs/WORKSPACE_TEMPLATE.md)。源模板只维护跨项目复用的规则、Skills、中性资产和交付工程，不实现具体产品。
 
 ## 启动门禁
 
 1. **读取策略**：先读取本文件，再读取 `docs/AGENT_POLICY.md` 的 YAML 文件头元数据与字段语义；只有创建/执行左侧 Task、显式并行、构建或修改持久策略时，才继续读取对应章节。
-2. **识别工作区**：存在 `.harness/project.json` 时按其唯一 `projectType` 处理下游；没有该文件且仍有源专用实例化入口时执行源范围门禁：只接受 Harness 自身维护、固定初始化字段与可选创建需求输入。创建需求输入只作只读分析与事务交接；完整创建须在成功下游按确认范围完成首版页面、功能和开发走查；产品目的、业务功能、产品专属 UI/文案/数据不得写入模板源，正式产品定义、产品记录与业务实施只在成功下游进行。需求原文和已讨论建议直接沿用，不要求用户重提；远程地址、凭据、构建或发布另按专用门禁。身份无法确认时先查明，不猜测源/下游。
+2. **识别工作区**：存在 `.harness/workspace.json` 时先按成员与服务归属处理；存在 `.harness/project.json` 时按其唯一 `projectType` 处理前端成员；没有该文件且仍有源专用实例化入口时执行源范围门禁：只接受 Harness 自身维护、固定初始化字段与可选创建需求输入。创建需求输入只作只读分析与事务交接；完整创建须在成功下游按确认范围完成首版页面、功能和开发走查；产品目的、业务功能、产品专属 UI/文案/数据不得写入模板源，正式产品定义、产品记录与业务实施只在成功下游进行。需求原文和已讨论建议直接沿用，不要求用户重提；远程地址、凭据、构建或发布另按专用门禁。身份无法确认时先查明，不猜测源/下游。
 3. **保护现场**：写入前确认 Git 根、分支和工作区并保护已有修改；重叠无法安全处理时停止。不存在的命令、能力或验证结果不得虚构。
 4. **选择入口**：先判定任务类型，再只读取下表命中的事实来源与 Skill；冲突或缺失时才扩大读取，不一次加载全部文档、历史或 Skills。
 
@@ -49,7 +49,7 @@
 - 除非用户明确说当前 Task 内部步骤、plan 或 Subagent，Task 一律指 Codex 左侧 user-owned Task，标题使用 `Task {序号} | {当前进度} | {单一结果}`，进度只取 `已分配`、`运行中`、`检查中`、`已完成`；序号分配、转换更新与复读只按 `docs/AGENT_POLICY.md`。内部 plan、Subagent、Worktree 不使用该标题合同，也不得虚写 `已完成`。
 - `user_owned_tasks: disabled` 时不得自动创建或拆分左侧 Task，但仍响应用户明确创建请求；`enabled` 时结果边界变化前自动创建。拆分条件与写入型 active Task 约束见 `docs/AGENT_POLICY.md`。
 - 新下游只能经唯一公开实例化入口在源外空目录创建，工程事务成功只是内部阶段，不产生最终候选；完整创建继续在下游完成首版；创建规则只在创建任务中读取 `docs/TS_WEB_TEMPLATE.md` 与实例化 Skill。
-- 下游始终平铺单包且只有一个 `projectType`；不得叠加或切换宿主、建立 monorepo/共享 core，或保留创建另一项目的入口。Web 与 Extension 的框架、路由、状态、国际化、权限和宿主边界只在相关任务中读取 `docs/TS_WEB_TEMPLATE.md` 与专题事实源。
+- 下游根为 Workspace，统一 package.json、Git、策略与 PRD；按需创建 `<id>_web`、`<id>_extension`、`<id>_server`。前端成员各自单包、唯一宿主，成员间通过契约协作，不共享产品源码或保留工程派生入口；详见 `docs/WORKSPACE_TEMPLATE.md`，Go 见 `docs/GO_SERVICE.md`。
 - 安全、隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、公开兼容契约、最终候选和正式发布进入对应专用门禁；发布授权与 E2E 复用规则见 `docs/AGENT_POLICY.md` 与 `docs/RELEASE.md`。
 - 对“完成”“可用”或“已验证”的声明必须来自真实可观察证据；Mock、stub、源码片段、中性脚手架或开发预览不能替代最终候选验收，人工批准也不能把失败或未执行改判为通过。
 - Extension 的 Chrome MV3 / Firefox MV2 兼容由执行 Agent 负责，约束见 `docs/TS_WEB_TEMPLATE.md` 与 `docs/ENGINEERING_RULES.md`；产品文案使用既有 i18n。
@@ -74,7 +74,7 @@
 - Harness 升级：`$web-preview-harness-upgrade`、`$web-upgrade-harness`。已初始化下游，先只读预演再按已批准范围应用。
 - 候选与验收：`$web-prepare-release`、`$web-verify-delivery`、`$web-test-final-artifact-e2e`。显式候选、完整验收或真实硬要求。
 
-源 Harness 共保留 32 个 `web-*` Skills；两类终端均删除实例化与源记忆整理能力。Web 删除 Extension 兼容审查，Extension 删除 Web 列表 Skill，均保留 29 个维护 Skills（不含设计支持）。两宿主均分发 `$web-compose-capabilities` 的独立知识库与模板库，未选能力不生成。下游默认在项目内补装缺失的 `design-taste-frontend`，有效已有版本保留，规则优先级见 `docs/MANTINE_UI_GUIDELINES.md` §1.1。目录、文件头、发现元数据与实际文件必须一致。
+源保留 32 个 `web-*` 与 16 个 Workspace/Go Skills；领域实施入口为 `$workspace-implement-feature`，委托 users、organizations、permissions、catalog、orders、wallet、audit。两类终端均删除实例化与源记忆整理能力。Web 删除 Extension 兼容审查，Extension 删除 Web 列表 Skill，各前端成员保留 29 个原维护 Skills 及 16 个 Workspace/Go 协作 Skills（不含设计支持）。能力资源按需装配；前端项目内补装缺失的 `design-taste-frontend`，有效版本保留，优先级见 UI 规范 §1.1。发现元数据须与文件一致。
 
 ## 约束地图
 

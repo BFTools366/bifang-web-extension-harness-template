@@ -5,6 +5,8 @@ description: 对 Web Harness 源码候选或单一类型纯 TypeScript React Web
 
 # Web Harness：验证前端交付
 
+Workspace 须显式绑定一个前端成员候选及根 Git/锁/策略；先核对根拓扑，再核对该成员 projectType 与产物。下面 Git 顶层等于项目根的规则只适用旧独立前端；已登记成员要求 Git 顶层等于 Workspace 根。完整 Harness 验收还需覆盖所选成员组合及服务来源条件，不能只验证旧平铺布局。
+
 验收完整候选，而不是源码片段、开发服务器、一组通过的单元测试或推测产物路径。
 
 ## 准入门禁

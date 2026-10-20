@@ -8,16 +8,15 @@
 - **默认规则**保持一致性和可维护性。有真实、局部且可解释的理由时可以偏离，但不得削弱硬规则。
 - Harness 模板、生成器、生成资产、文档与下游代码均适用。工具生成且禁止手工编辑的文件应与人工维护代码明确隔离。
 
-## 2. 单包与单宿主边界
+## 2. Workspace 与成员宿主边界
 
 ### 2.1 硬规则
 
-- 一个生成仓库必须是一个平铺 pnpm 包，并且 `.harness/project.json.projectType` 恰好为 `web` 或 `extension`。
-- 不得创建多包 pnpm workspace、`apps/`、`packages/`、共享 core、跨宿主组件包或另一宿主入口。`pnpm-workspace.yaml` 仅用于 pnpm 12 的 `allowBuilds` 策略，不得声明 `packages`。两种模板可以采用相同技术族，但各自拥有代码、依赖、状态、测试和发布生命周期。
-- Web 与 Extension 之间不存在运行时依赖或源码导入。需要两种宿主时创建两个独立仓库；不要把 `projectType` 改成数组，也不要新增 target add/remove 流程。
-- `.harness/project.json` 是名称、标识、描述、唯一类型和品牌信息的权威配置。页面、manifest、标题和图标是派生结果，不得反向成为第二事实源。
-- `.harness/brand/logo-1024.png` 是唯一 Logo 母版。派生资产必须能追溯到该母版，并且只生成当前类型需要的文件。
-- 初始化参数、文件写入与品牌同步必须具备确定性：相同输入在相同模板版本上生成相同身份和品牌内容；重复执行不得制造重复入口或漂移配置。
+- 新创建下游以 Workspace 为唯一 Git、策略与 PRD 根，拓扑、服务归属和命名以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准；这取代旧的平铺单包互斥限制。
+- 根 package.json 包装成员，pnpm-workspace.yaml 精确声明选中前端成员及构建许可；Go 依赖归 _server 的 go.mod/go.sum。各前端成员仍是单包，拥有唯一 projectType；不跨成员导入源码或建立共享 core。
+- 根标识为 ASCII kebab-case；成员目录与身份使用 _web、_extension、_server 后缀。Workspace 元数据和成员身份共同校验，不从目录猜测已选成员。
+- 前端 .harness/project.json 与 Logo 母版仍是本成员身份与品牌的唯一来源；不在成员创建嵌套 Git、独立策略或第二份产品规格。
+- 初始化保持确定性、源外空目标、sibling staging、身份绑定、失败回收和一次原子发布；所有成员完成后才安装依赖并建立根 Git 基线。
 
 ### 2.2 Web 单包职责
 
@@ -51,7 +50,7 @@
 - 启用严格 TypeScript；不得用 `any`、非空断言或未校验类型转换掩盖未知输入。确需边界转换时先验证，再收窄为业务类型。
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`data/` 统一承载 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；`data/api/` 提供 client 与类型化服务边界，`data/storage/` 集中存储访问。页面或 route 文件不得直接拼任意 URL。
-- 两种宿主未配置对应 BaseURL 时，只有依赖该远端 API 的操作在 `src/data/api/<domain>/` 以完整 Mock API 提供；本地能力直接真实实现，不要求 BaseURL，纯业务逻辑留在 feature，存储访问经 `src/data/storage/`。混合流程只 Mock 缺少地址的远端边界；用户要求真实联网后收集缺失配置，再替换对应实现，流程以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 为准。组件、route、hook 和 Query 不内嵌业务 Mock，真实请求失败不回落 Mock；工程基础不包含业务数据。
+- 产品运行路径只用真实 typed API；已有服务要求 BaseURL 与可信契约，没有服务则在 Workspace 创建 Go 服务并连接。未接通显示真实失败，不提供业务 Mock；测试替身仅在测试中。本地能力直接真实实现，存储访问经 src/data/storage，细节见 DATA_ACCESS.md §3.1。
 - `data/api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。基础 client 不生成业务请求、refresh/replay、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
 - Query key、请求前缓存、新鲜度、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target、语言与非敏感 scope。REST/GraphQL 有限查询统一复用当前上下文的 QueryClient 与 feature Query options，缓存已解析校验的领域数据；Ky/client 不再建立结果缓存，不缓存可消耗的 Response。详细入口和新鲜度语义见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.7。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
@@ -203,3 +202,5 @@
 硬规则例外至少记录：被例外的规则、业务理由、影响范围、风险、验证、负责人和恢复/复核条件。例外不能把失败检查改写为通过，也不能授权第二宿主、凭据、发布或不可逆副作用。
 
 发现但不在当前任务范围的问题写入 [`TECH_DEBT.md`](TECH_DEBT.md)，不要顺手扩张范围。完成声明必须列出实际验证、未执行验证和剩余风险。
+
+Go 条件资产中的 gqlgen 首次引导输出仅精确路径 .agents/skills/go-implement-service/assets/go-service-graphql/generated/internal/graphql/generated.go 豁免人工文本行数；验证器锁定其上游字节 SHA-256，改变内容即失败。该文件是真实代码生成输出，不允许把人工维护代码放入同目录绕过门禁；目标按 SDL 重新生成。

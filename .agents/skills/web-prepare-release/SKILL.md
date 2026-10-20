@@ -5,6 +5,8 @@ description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web
 
 # Web Harness：准备前端发布
 
+Workspace 必须显式选择一个成员及产物；根保存 Git/依赖锁/策略，前端成员保存 projectType 与构建产物。Git 身份核对绑定 Workspace 根，成员目录必须精确登记，不能要求成员有独立 Git。根的 build 包装器进入选中前端既有候选链；服务端本机编译交 go-build-local，生产发布另按真实目的地合同。
+
 只评估当前仓库的唯一候选种类；Harness 源不伪造应用产物，下游只处理 `.harness/project.json.projectType` 对应格式。
 
 ## 准入

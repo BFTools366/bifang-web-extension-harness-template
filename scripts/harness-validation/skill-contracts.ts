@@ -1,7 +1,9 @@
+import { WORKSPACE_SKILL_CONTRACTS } from "../../.harness/tooling/workspace-skills.ts"
 import { SHARED_SKILL_BODY_REQUIREMENTS } from "../../.harness/tooling/skill-validation.ts"
 
 /** 保存源 Harness 唯一允许的 32 个 Web Skill canonical id。 */
 export const EXPECTED_SKILLS = [
+  ...(Object.keys(WORKSPACE_SKILL_CONTRACTS) as (keyof typeof WORKSPACE_SKILL_CONTRACTS)[]),
   "web-compose-capabilities",
   "web-implement-auth-session",
   "web-implement-access-control",
@@ -52,6 +54,7 @@ export interface SkillContract {
 
 /** 锁定 32 个源 Skill 的 frontmatter、H1 与 openai.yaml 唯一合法值。 */
 export const SKILL_CONTRACTS = {
+  ...WORKSPACE_SKILL_CONTRACTS,
   "web-implement-auth-session": {
     description:
       "在已初始化 React Web 或 Plasmo Extension 下游中，按已确认认证契约实施或修复登录提交、会话恢复、退出及失效处理，统一会话状态机、异步结果归属和私有缓存清理；不决定功能选择、登录页设计或凭据持久化授权。",

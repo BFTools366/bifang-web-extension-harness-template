@@ -119,7 +119,7 @@ export function rejectInPlaceInitialization(): never {
 }
 
 // 执行 assertDownstreamInitializationRoot 函数的处理逻辑。
-async function assertDownstreamInitializationRoot(root: string): Promise<void> {
+export async function assertDownstreamInitializationRoot(root: string): Promise<void> {
   const [sourceRoot, candidateRoot] = await Promise.all([
     realpath(SOURCE_HARNESS_ROOT),
     realpath(root)
@@ -177,7 +177,7 @@ function generatedRoots(projectType: ProjectConfig["projectType"]): string[] {
 }
 
 // 执行 formatInitializationFiles 函数，只整理初始化器本次创建或注释迁移的文本。
-async function formatInitializationFiles(
+export async function formatInitializationFiles(
   root: string,
   relativePaths: Iterable<string>
 ): Promise<void> {

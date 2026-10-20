@@ -1,4 +1,5 @@
 import path from "node:path"
+import { loadWorkspaceProjectConfig } from "./workspace-context.ts"
 import { assertExtensionIdentity, validateIdentityI18n } from "./identity.ts"
 import { readJson } from "./files.ts"
 import { PROJECT_TYPES, type InitOptions, type ProjectConfig, type ProjectType } from "./types.ts"
@@ -11,6 +12,18 @@ export const RETIRED_PRD_OUTLINE_PATH =
 
 // Source-only project-creation paths that every terminal project must keep absent.
 export const HARNESS_ONLY_PATHS = [
+  ".harness/tooling/workspace.ts",
+  ".harness/tooling/workspace-http.ts",
+  "tests/application-test-adapters.ts",
+  "tests/fixtures/application-api",
+  ".harness/tooling/workspace-selection.ts",
+  ".harness/tooling/workspace-documents.ts",
+  ".harness/tooling/workspace-server.ts",
+  ".harness/runtime",
+  "tests/workspace.test.ts",
+  "tests/workspace-runtime.test.ts",
+  "tests/workspace-server.test.ts",
+  "tests/creation-api-contract.test.ts",
   ".agents/skills/initialize-web-project",
   ".agents/skills/instantiate-project",
   ".agents/skills/web-instantiate-project",
@@ -148,7 +161,7 @@ export function createProjectConfig(
 ): ProjectConfig {
   assertProjectType(options.projectType)
   const id = requireText(options.id, "Project id")
-  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) {
+  if (!new RegExp(`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:_${options.projectType})?$`).test(id)) {
     throw new Error("Project id must be a lowercase kebab-case package id")
   }
   const config: ProjectConfig = {
@@ -205,6 +218,12 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
 
 // 执行 loadProjectConfig 函数的处理逻辑。
 export async function loadProjectConfig(root: string): Promise<ProjectConfig> {
-  const raw = await readJson<unknown>(path.join(root, PROJECT_CONFIG_PATH))
-  return validateProjectConfig(raw)
+  try {
+    const raw = await readJson<unknown>(path.join(root, PROJECT_CONFIG_PATH))
+    return validateProjectConfig(raw)
+  } catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
+      return loadWorkspaceProjectConfig(root, loadProjectConfig)
+    throw error
+  }
 }

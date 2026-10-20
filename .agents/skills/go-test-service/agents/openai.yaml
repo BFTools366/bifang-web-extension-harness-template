@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：验证 Go 服务行为"
+  short_description: "针对实际服务变化验证 HTTP、数据库、权限与恢复，返回可观察证据"
+  default_prompt: "使用 $go-test-service 验证当前 Go 服务变化的真实成功和风险失败路径，隔离数据库并返回实际证据。"

@@ -1,3 +1,4 @@
+import { WORKSPACE_SKILL_CONTRACTS } from "../.harness/tooling/workspace-skills.ts"
 import { describe, test } from "vitest"
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
@@ -181,10 +182,11 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(30)
+    expect(skills).toHaveLength(46)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [
+        ...Object.keys(WORKSPACE_SKILL_CONTRACTS),
         "design-taste-frontend",
         "web-review-api-contract",
         "web-review-module-boundaries",

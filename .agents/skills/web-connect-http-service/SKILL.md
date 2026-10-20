@@ -29,7 +29,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 1. 委托 `$web-review-api-contract` 只核对本次操作与最小依赖链，复用已有且未漂移的证据；缺口先补齐，不从参考或 Mock 生成服务端保证。按环境和服务确定本次迁移范围。配置只通过既有冻结 `APP_CONFIG` 加载；公开变量不承载秘密，不新增隐式环境覆盖。
 2. 保持 UI/Query 消费的领域契约，在 `src/data/api/<domain>/` 替换对应 Mock 或新增真实实现。复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误和认证边界；输入、外部响应和分页字段在 API 层校验、映射。
    按 DATA_ACCESS 的“已选服务的通用 HTTP 合同”装配真实请求 Header：X-Lang、逐请求 X-Request-Id 和受保护请求的 Authorization: Bearer 不写入业务 JSON/URL；公开请求隔离旧凭据与 401 副作用。现有默认 client 协议不同则先做显式服务适配，不仅替换 extractor。保留响应 Header、REST 合同已定义的 JSON request_id、TokenPair 与刷新请求体各自的方向，逐 endpoint 校验成功/错误 envelope、字符串 ID、秒时间和分页映射。
-3. 已迁移服务移除运行路径中的 Mock 分支和业务样例；未配置地址的远端 API 保持完整 API Mock 并报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。真实请求失败不得回落 Mock，测试样例 留在测试边界内。
+3. 已迁移服务移除运行路径中的 Mock 分支和业务样例；未配置地址的远端 API 明确显示未就绪并报告剩余范围，不生成产品 Mock。本地实现继续真实运行，不纳入 Mock 迁移。真实请求失败不得回落 Mock，测试样例 留在测试边界内。
 4. 按配置加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，防止样例数据或迟到响应覆盖真实结果。
 5. 复用既有认证及反馈所有者；真实登录入口存在时才装配批准的导航。会话转换或失效接线变化交回当前实施入口委托 `$web-implement-auth-session`；新增凭据刷新、Cookie、自动重放、跨上下文认证或权限变化先由调用方处理范围和专用门禁。
 6. 网络验证仅使用已授权环境、身份及操作，不扩张生产、付费、凭据或不可逆写入授权。Extension 的 BaseURL 不授予 host 权限；相关兼容审查调用 `$web-review-extension-compatibility`，真实双浏览器硬门禁交回调用方的既有候选验收链。
@@ -37,12 +37,12 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 
 ## 验证与交付
 
-按工程规则运行本次受影响的相关非空测试；环境或结构合同确实变化时再运行对应 `pnpm env:validate` 或 `pnpm harness validate`。覆盖适用的 Mock 路径零网络、真实成功、最高风险失败不回落 Mock、响应/分页校验及旧请求和缓存切换；不为未修改的 client 重建测试。将实际命令、范围和结果返回调用方，同一源码状态已完成的检查直接复用，后续修改使证据失效时才重跑。
+按工程规则运行本次受影响的相关非空测试；环境或结构合同确实变化时再运行对应 `pnpm env:validate` 或 `pnpm harness validate`。覆盖适用的真实成功、最高风险失败不回落 Mock、响应/分页校验及旧请求和缓存切换；不为未修改的 client 重建测试。将实际命令、范围和结果返回调用方，同一源码状态已完成的检查直接复用，后续修改使证据失效时才重跑。
 
 不自动追加构建、E2E 或完整验收。真实服务、CORS、登录导航、权限或浏览器场景未执行时标为 `Unverified`；候选或硬要求返回调用方处理。
 
-逐环境、逐远端服务报告当前 Mock/HTTP 模式、修改文件、域契约、检查和测试、实际联网证据、剩余远端 API Mock、未验证项及后续门禁。本地实现单独按真实行为报告，不计入待接入服务。配置成功、Mock 测试或 HTTP 替身测试不等于真实服务可达。
+逐环境、逐远端服务报告当前真实 HTTP 接入状态、修改文件、域契约、检查和测试、实际联网证据、剩余未接入接口、未验证项及后续门禁。本地实现单独按真实行为报告，不计入待接入服务。配置成功、Mock 测试或 HTTP 替身测试不等于真实服务可达。
 
-## 协议与Mock参考
+## 历史协议参考（仅测试）
 
-按需参考 [账户组合的API与Mock](../web-compose-capabilities/templates/compositions/account-workspace/README.md)：原始请求快照、Header、REST/GraphQL解析、领域投影和内存服务分层。模板协议仅属于已采用参考合同，真实接入仍逐操作核对。
+按需参考 [账户组合的API与Mock](../web-compose-capabilities/templates/compositions/account-workspace/README.md)：原始请求快照、Header、REST/GraphQL解析、领域投影和内存服务分层。该历史 Mock 仅可用于隔离测试，不进入产品装配；模板协议仅属于已采用参考合同，真实接入仍逐操作核对。

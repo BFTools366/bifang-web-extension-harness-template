@@ -1,3 +1,4 @@
+import type { TestApplicationOptions as ApplicationOptions } from "./application-test-adapters.ts"
 import { execFile } from "node:child_process"
 import { promisify } from "node:util"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
@@ -7,11 +8,8 @@ import { inspectChineseComments } from "../.harness/tooling/comment-policy.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { webFiles } from "../.harness/tooling/templates/web.ts"
 import { extensionFiles } from "../.harness/tooling/templates/extension.ts"
-import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
-import type {
-  ApplicationOptions,
-  ApplicationWiring
-} from "../.agents/skills/web-compose-capabilities/templates/application/contracts.ts"
+import { applicationFiles } from "./application-test-adapters.ts"
+import type { ApplicationWiring } from "../.agents/skills/web-compose-capabilities/templates/application/contracts.ts"
 
 /** 真实本地功能作为首版需求输入，固定模板不生成这个产品正文。 */
 export const HOME_SOURCE = `import { useState } from "react"

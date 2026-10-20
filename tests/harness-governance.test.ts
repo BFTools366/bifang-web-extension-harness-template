@@ -1,6 +1,13 @@
 import { describe, test } from "vitest"
 import { realpath } from "node:fs/promises"
-import { collectPromptedIdentity, confirmInstantiation } from "../.harness/tooling/prompts.ts"
+import {
+  collectPromptedIdentity as collectIdentity,
+  confirmInstantiation
+} from "../.harness/tooling/prompts.ts"
+
+/** 本组测试聚焦原有字段；服务来源在 Workspace 表单用例独立覆盖。 */
+const collectPromptedIdentity: typeof collectIdentity = (defaults, ask, validateTarget) =>
+  collectIdentity({ serverMode: "create", ...defaults }, ask, validateTarget)
 import { runInstantiateCli } from "../scripts/instantiate.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { validateInitializationTarget } from "../.harness/tooling/initialization-target.ts"
@@ -28,7 +35,7 @@ describe("single-package Harness validation and governance", () => {
     let confirmations = 0
     let writes = 0
     const invocation = runInstantiateCli(
-      [parent, "--type", "web", "--name", "Notes", "--policy-mode", "预设"],
+      [parent, "--server", "create", "--type", "web", "--name", "Notes", "--policy-mode", "预设"],
       {
         cwd: workspace,
         interactive: false,
@@ -66,16 +73,19 @@ describe("single-package Harness validation and governance", () => {
   /** 验证相对写法不会绕过源内目标保护，失败前不要求用户确认。 */
   test("相对源内父目录保持拒绝", async () => {
     await expect(
-      runInstantiateCli([".", "--type", "web", "--name", "Notes", "--policy-mode", "预设"], {
-        cwd: repositoryRoot,
-        interactive: false,
-        confirm: async () => {
-          throw new Error("非法位置不能进入确认")
-        },
-        instantiate: async () => {
-          throw new Error("非法位置不能进入事务")
+      runInstantiateCli(
+        [".", "--server", "create", "--type", "web", "--name", "Notes", "--policy-mode", "预设"],
+        {
+          cwd: repositoryRoot,
+          interactive: false,
+          confirm: async () => {
+            throw new Error("非法位置不能进入确认")
+          },
+          instantiate: async () => {
+            throw new Error("非法位置不能进入事务")
+          }
         }
-      })
+      )
     ).rejects.toThrow(/outside the Harness/)
   })
 
@@ -84,7 +94,17 @@ describe("single-package Harness validation and governance", () => {
     const workspace = await temporaryDirectory("corrected-parent-")
     await expect(
       runInstantiateCli(
-        [repositoryRoot, "--type", "web", "--name", "Notes", "--policy-mode", "预设"],
+        [
+          repositoryRoot,
+          "--server",
+          "create",
+          "--type",
+          "web",
+          "--name",
+          "Notes",
+          "--policy-mode",
+          "预设"
+        ],
         {
           cwd: workspace,
           interactive: true,
@@ -138,6 +158,8 @@ describe("single-package Harness validation and governance", () => {
       await expect(
         resolveInitOptions(
           parseArgs([
+            "--server",
+            "create",
             "--type",
             "web",
             "--name",
@@ -274,6 +296,8 @@ describe("single-package Harness validation and governance", () => {
     await expect(
       runInstantiateCli(
         [
+          "--server",
+          "create",
           "--type",
           "web",
           "--description",
@@ -331,6 +355,8 @@ describe("single-package Harness validation and governance", () => {
       const targetRoot = path.join(parent, "confirmed-web")
       const argv = [
         parent,
+        "--server",
+        "create",
         "--type",
         "web",
         "--name",
@@ -406,12 +432,23 @@ describe("single-package Harness validation and governance", () => {
     await expect(
       initializeProject({ ...options(root, "web"), projectType: "both" as "web" })
     ).rejects.toThrow(/exactly "web" or "extension"/)
-    expect(() => parseArgs(["--type", "web", "--type", "extension"])).toThrow(
-      /only be provided once/
-    )
+    expect(() =>
+      parseArgs([
+        "--server",
+        "create",
+        "--type",
+        "web",
+        "--server",
+        "create",
+        "--type",
+        "extension"
+      ])
+    ).toThrow(/only be provided once/)
     await expect(
       resolveInitOptions(
         parseArgs([
+          "--server",
+          "create",
           "--type",
           "web,extension",
           "--name",
@@ -433,6 +470,6 @@ describe("single-package Harness validation and governance", () => {
         ]),
         root
       )
-    ).rejects.toThrow(/exactly "web" or "extension"/)
+    ).resolves.toMatchObject({ workspaceMembers: ["web", "extension"], serverMode: "create" })
   })
 })

@@ -1,0 +1,65 @@
+# 中文错误词条。键名即 apperr 中的稳定错误码。
+common.bad.request: 请求参数不合法
+common.unauthorized: 请先登录
+common.forbidden: 没有权限执行该操作
+common.not.found: 目标资源不存在
+common.conflict: 目标资源存在冲突
+common.unprocessable: 请求无法被业务规则接受
+common.too.many.requests: 请求过于频繁，请稍后再试
+common.internal.error: 服务内部错误
+common.route.not.found: 请求的接口不存在
+common.method.not.allowed: 请求方法不被支持
+common.unsupported.media.type: 请求内容类型不受支持
+common.payload.too.large: 请求内容过大
+
+auth.token.missing: 缺少访问令牌
+auth.token.invalid: 访问令牌不合法
+auth.token.expired: 访问令牌已过期
+auth.token.revoked: 访问令牌已被撤销
+auth.token.malformed: 访问令牌格式无法解析
+auth.token.wrong.type: 访问令牌类型不正确
+auth.token.sign.failed: 访问令牌签发失败
+auth.refresh.invalid: 刷新令牌不合法
+auth.refresh.expired: 刷新令牌已过期
+auth.credentials.invalid: 账号或凭据不正确
+auth.account.disabled: 账号已被禁用
+auth.signing.key.missing: 服务端签发密钥缺失
+auth.issuer.mismatch: 令牌签发方与当前服务不一致
+
+account.not.found: 账号不存在
+account.exists: 账号已存在
+account.password.weak: 口令强度不足
+account.password.mismatch: 原口令校验失败
+account.username.taken: 用户名已被占用
+account.profile.locked: 账号资料当前不可修改
+account.phone.taken: 手机号已被占用
+
+org.not.found: 组织不存在
+org.member.exists: 成员已在组织中
+
+verification.disabled: 验证码功能未启用
+verification.target.invalid: 验证码接收目标格式不正确
+verification.target.missing: 缺少对应的验证码接收目标
+verification.target.not.registered: 该接收目标尚未注册
+verification.scene.unsupported: 不支持的验证码场景
+verification.code.required: 请先获取验证码
+verification.code.invalid: 验证码不正确
+verification.code.expired: 验证码已过期，请重新获取
+verification.code.consumed: 验证码已被使用，请重新获取
+verification.code.attempts.exceeded: 验证码错误次数过多，请重新获取
+verification.code.too.frequent: 验证码发送过于频繁，请稍后重试
+verification.code.daily.limit: 今日验证码发送次数已达上限
+verification.channel.unavailable: 验证码发送通道未配置，请联系管理员
+verification.send.failed: 验证码发送失败
+verification.code.generate.failed: 验证码生成失败
+verification.code.save.failed: 验证码保存失败
+
+validate.required: 该字段为必填项
+validate.username: 用户名格式不合法
+validate.password: 口令格式不合法
+validate.email: 邮箱格式不合法
+validate.length: 字段长度不合法
+validate.format: 字段格式不合法
+validate.number: 字段必须为数字
+validate.url: 字段必须为合法链接
+validate.oneof: 字段取值不在允许范围内

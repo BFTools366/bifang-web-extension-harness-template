@@ -67,11 +67,6 @@
           "hosts": ["web", "extension"]
         },
         {
-          "path": "templates/application/files/identity/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
-        },
-        {
           "path": "templates/application/files/identity/runtime.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
@@ -81,9 +76,30 @@
         {
           "id": "identity.session",
           "requires": []
+        },
+        {
+          "id": "identity.register",
+          "requires": ["identity.session", "organization.provision"]
+        },
+        {
+          "id": "identity.profile",
+          "requires": ["identity.session"]
+        },
+        {
+          "id": "identity.password.change",
+          "requires": ["identity.session"]
+        },
+        {
+          "id": "identity.verification",
+          "requires": []
+        },
+        {
+          "id": "identity.password.reset",
+          "requires": ["identity.verification"]
         }
       ],
-      "defaultOperations": ["identity.session"]
+      "defaultOperations": ["identity.session"],
+      "implementationSkill": "workspace-implement-users"
     },
     {
       "id": "organization",
@@ -126,11 +142,6 @@
           "hosts": ["web", "extension"]
         },
         {
-          "path": "templates/application/files/organization/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
-        },
-        {
           "path": "templates/application/files/organization/context.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
@@ -154,9 +165,32 @@
         {
           "id": "organization.manage",
           "requires": ["identity.session", "permissions.enforce"]
+        },
+        {
+          "id": "organization.provision",
+          "requires": [],
+          "internal": true,
+          "serverOnly": true
+        },
+        {
+          "id": "organization.members",
+          "requires": ["organization.switch", "permissions.enforce"]
+        },
+        {
+          "id": "organization.invite",
+          "requires": ["organization.members"]
+        },
+        {
+          "id": "organization.accept",
+          "requires": ["identity.session"]
+        },
+        {
+          "id": "organization.leave",
+          "requires": ["organization.switch"]
         }
       ],
-      "defaultOperations": ["organization.switch"]
+      "defaultOperations": ["organization.switch"],
+      "implementationSkill": "workspace-implement-organizations"
     },
     {
       "id": "permissions",
@@ -199,11 +233,6 @@
           "hosts": ["web", "extension"]
         },
         {
-          "path": "templates/application/files/permissions/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
-        },
-        {
           "path": "templates/application/files/permissions/runtime.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
@@ -213,9 +242,18 @@
         {
           "id": "permissions.enforce",
           "requires": ["identity.session"]
+        },
+        {
+          "id": "permissions.roles",
+          "requires": ["permissions.enforce", "organization.switch"]
+        },
+        {
+          "id": "permissions.grant",
+          "requires": ["permissions.roles"]
         }
       ],
-      "defaultOperations": ["permissions.enforce"]
+      "defaultOperations": ["permissions.enforce"],
+      "implementationSkill": "workspace-implement-permissions"
     },
     {
       "id": "catalog",
@@ -241,20 +279,20 @@
           "path": "templates/application/files/catalog/contracts.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
-        },
-        {
-          "path": "templates/application/files/catalog/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
         }
       ],
       "operations": [
         {
           "id": "catalog.browse",
           "requires": []
+        },
+        {
+          "id": "catalog.manage",
+          "requires": ["catalog.browse", "permissions.enforce"]
         }
       ],
-      "defaultOperations": ["catalog.browse"]
+      "defaultOperations": ["catalog.browse"],
+      "implementationSkill": "workspace-implement-catalog"
     },
     {
       "id": "orders",
@@ -287,16 +325,6 @@
           "hosts": ["web", "extension"]
         },
         {
-          "path": "templates/application/files/orders/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
-        },
-        {
-          "path": "templates/application/files/orders/readMock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
-        },
-        {
           "path": "templates/application/files/orders/purchase.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
@@ -315,9 +343,14 @@
         {
           "id": "orders.purchase",
           "requires": ["orders.create", "wallet-payments.pay"]
+        },
+        {
+          "id": "orders.cancel",
+          "requires": ["orders.read", "identity.session"]
         }
       ],
-      "defaultOperations": ["orders.read"]
+      "defaultOperations": ["orders.read"],
+      "implementationSkill": "workspace-implement-orders"
     },
     {
       "id": "wallet-payments",
@@ -343,16 +376,6 @@
           "path": "templates/application/files/wallet-payments/contracts.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
-        },
-        {
-          "path": "templates/application/files/wallet-payments/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
-        },
-        {
-          "path": "templates/application/files/wallet-payments/readMock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
         }
       ],
       "operations": [
@@ -366,7 +389,8 @@
           "internal": true
         }
       ],
-      "defaultOperations": ["wallet-payments.read"]
+      "defaultOperations": ["wallet-payments.read"],
+      "implementationSkill": "workspace-implement-wallet"
     },
     {
       "id": "audit",
@@ -392,20 +416,22 @@
           "path": "templates/application/files/audit/contracts.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
-        },
-        {
-          "path": "templates/application/files/audit/mock.ts.txt",
-          "kind": "code",
-          "hosts": ["web", "extension"]
         }
       ],
       "operations": [
         {
           "id": "audit.read",
           "requires": ["identity.session"]
+        },
+        {
+          "id": "audit.record",
+          "requires": [],
+          "internal": true,
+          "serverOnly": true
         }
       ],
-      "defaultOperations": ["audit.read"]
+      "defaultOperations": ["audit.read"],
+      "implementationSkill": "workspace-implement-audit"
     }
   ],
   "recipes": [

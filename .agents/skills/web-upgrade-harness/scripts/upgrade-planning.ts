@@ -200,6 +200,15 @@ export async function createUpgradePlan(
     throw new Error("Source, rendered candidate, and target roots must be distinct and non-nested")
   }
   const ownership = await loadOwnershipManifest(options.ownershipPath, targetRoot)
+  const workspaceFile = await lstat(path.join(targetRoot, ".harness/workspace.json")).catch(
+    (error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
+        return undefined
+      throw error
+    }
+  )
+  if (workspaceFile)
+    throw new Error("Workspace 整体及成员尚不支持原单包升级器；迁移需要单独的逐路径合同")
   const projectFile = await readBoundFileStable(targetRoot, PROJECT_CONFIG_RELATIVE_PATH)
   if (projectFile.bytes === undefined || projectFile.snapshot === undefined) {
     throw new Error("Target project identity is missing")

@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
 import { INIT_OPTIONS, resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
+import { initializeWorkspace, createWorkspaceConfig } from "../.harness/tooling/workspace.ts"
 import { readRequirementsInput } from "../.harness/tooling/creation-requirements.ts"
 import { readFile } from "node:fs/promises"
 import { inspectCreationForm } from "../.harness/tooling/initialization-form.ts"
@@ -46,7 +47,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension （1.Web / 2.Extension） --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
+  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension|web,extension|server --server existing|create --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
 }
 
 /** 标记每个初始化字段来自命令行、交互表单、默认值或预设。 */
@@ -65,6 +66,8 @@ function inputSources(
     sourceRoot: "脚本固定 Harness 源入口",
     targetRoot: "命令行父目录位置参数",
     projectType: source("type"),
+    serverMode: source("server"),
+    apiContract: optionNames.has("api-contract") ? "命令行接口契约" : "所选操作接线前补齐",
     requirementsFile: optionNames.has("requirements-file")
       ? "命令行参数"
       : "未提供，按原有题目继续",
@@ -160,6 +163,7 @@ export async function runInstantiateCli(
   validateProjectId(init.id)
   const rawTargetRoot = path.join(parentRoot, init.id)
   const targetRoot = path.normalize(rawTargetRoot)
+  if (init.apiContract) init.apiContract = path.resolve(cwd, init.apiContract)
   if (init.logoPath !== undefined) init.logoPath = path.resolve(cwd, init.logoPath)
   if (init.requirementsFile) init.requirementsFile = path.resolve(cwd, init.requirementsFile)
   const requirements = await readRequirementsInput(init)
@@ -212,7 +216,10 @@ export async function runInstantiateCli(
     }
   }
 
-  const instantiate = runtime.instantiate ?? instantiateProject
+  createWorkspaceConfig(init)
+  const instantiate =
+    runtime.instantiate ??
+    ((options: InstantiateOptions) => instantiateProject(options, initializeWorkspace))
   const config = await instantiate({
     sourceRoot,
     targetRoot,
@@ -220,6 +227,9 @@ export async function runInstantiateCli(
     approval: runtime.approval,
     init: {
       projectType: init.projectType,
+      workspaceMembers: init.workspaceMembers,
+      serverMode: init.serverMode,
+      apiContract: init.apiContract,
       name: init.name,
       id: init.id,
       description: init.description,
@@ -233,19 +243,23 @@ export async function runInstantiateCli(
     }
   })
   const output = runtime.output ?? console.log
-  output(`工程事务完成（ENGINEERING_READY），已创建 ${config.projectType} 项目：${targetRoot}`)
+  output(`工程事务完成（ENGINEERING_READY），已创建 Workspace：${targetRoot}`)
   output(
     requirements === undefined
       ? "工程事务完成（ENGINEERING_READY）。下一步：在新项目澄清或复用真实首版范围，再继续 PRD → 固定设计原型 → 页面功能接线 → 开发走查；工程成功不是完整创建完成。"
       : `需求原文：${path.join(targetRoot, "docs/requirements/source.txt")}；下一步由 Agent 澄清或复用真实完整创建授权，在下游继续 PRD → 固定原型 → 页面功能 → 开发走查。CLI 不执行语义分析或装配业务功能。`
   )
-  output(`Logo 母版：${path.join(targetRoot, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`)
+  const workspace = createWorkspaceConfig(init)
+  for (const member of workspace.members) {
+    output(`成员：${path.join(targetRoot, member.directory)}`)
+    if (member.type !== "server")
+      output(
+        `Logo 母版：${path.join(targetRoot, member.directory, ".harness/brand/logo-1024.png")} (1024×1024 PNG)`
+      )
+  }
   output(
-    config.projectType === "web"
-      ? "品牌资产：public/logo.png (512×512), public/favicon.png (64×64)"
-      : "品牌资产：assets/icon.png (1024×1024); Plasmo 在构建时派生 manifest 所需的图标尺寸"
+    "未构建正式产物。前端需要时运行 `pnpm build -- --member web|extension（复用本次 E2E 选择）`；服务本地编译运行 `pnpm build:server`。"
   )
-  output("未构建正式产物。需要时在项目中运行 `pnpm build`。")
   return config
 }
 

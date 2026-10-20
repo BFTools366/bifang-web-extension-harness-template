@@ -1,0 +1,175 @@
+import { createHttpClient, ApiError, type HttpClientOptions } from "../client/httpClient"
+import { requestGoTransport } from "../client/goTransport"
+import { requestHttpQuery } from "../client/httpRuntime"
+import { IdentityError } from "../../../features/identity/session"
+import type { LoginApi } from "./contracts"
+
+/** 仅对应自建 Go 用户合同，已有服务须按实际合同另外映射。 */
+export interface RegisterInput {
+  username: string
+  email: string
+  password: string
+  nickname?: string
+}
+/** 完整资料中的成员必须来自服务端，不从组织 owner 字段推导。 */
+export interface UserProfile {
+  account: { id: string; username: string; nickname: string; email: string }
+  organization: { id: string; name: string; ownerAccountId: string }
+  organizationUser: { id: string; organizationId: string; accountId: string; role: "owner" }
+}
+/** 不把服务原文或凭据存进错误信息。 */
+function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new IdentityError("invalidIdentity")
+  return value as Record<string, unknown>
+}
+/** Snowflake ID 必须保持十进制字符串，不能转为 JavaScript number。 */
+function id(value: unknown): string {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/u.test(value))
+    throw new IdentityError("invalidIdentity")
+  return value
+}
+/** 要求真实字符串字段；空昵称由页面选择 username 显示。 */
+function text(value: unknown): string {
+  if (typeof value !== "string") throw new IdentityError("invalidIdentity")
+  return value
+}
+/** 解析单对象 REST 信封；GraphQL 与分页不使用此解析器。 */
+async function data(response: Response, model: string) {
+  const envelope = object(await response.json())
+  if (envelope.model !== model || typeof envelope.request_id !== "string" || !envelope.request_id)
+    throw new IdentityError("invalidIdentity")
+  return object(envelope.data)
+}
+
+/** 解析并验证完整资料，公开资料读取和会话校验共用同一事实。 */
+function profileData(result: Record<string, unknown>): UserProfile {
+  const account = object(result.account),
+    org = object(result.org),
+    member = object(result.organization_user)
+  const accountId = id(account.id),
+    orgId = id(org.id)
+  if (
+    id(org.owner_id) !== accountId ||
+    id(member.account_id) !== accountId ||
+    id(member.organization_id) !== orgId ||
+    member.role !== "owner"
+  )
+    throw new IdentityError("invalidIdentity")
+  return {
+    account: {
+      id: accountId,
+      username: text(account.username),
+      nickname: text(account.nickname),
+      email: text(account.email)
+    },
+    organization: { id: orgId, name: text(org.name), ownerAccountId: accountId },
+    organizationUser: { id: id(member.id), organizationId: orgId, accountId, role: "owner" }
+  }
+}
+
+/** 公开登录与指定凭据验证使用短生命周期 client，不修改已接受的应用会话。 */
+export function createGoIdentityAdapter(config?: HttpClientOptions["config"]) {
+  /** 复用受管 Ky/超时/取消/错误边界；401 只返回该次验证，失效归 session owner。 */
+  async function request(
+    endpoint: string,
+    method: string,
+    body?: unknown,
+    credential?: string,
+    signal?: AbortSignal
+  ) {
+    const client = createHttpClient({
+      config,
+      fetch: requestGoTransport,
+      unauthorizedHandler: { handleUnauthorized() {} },
+      extractAuthToken: () => undefined
+    })
+    if (credential) client.setAuthToken(credential)
+    try {
+      return await client.request("api/v1/auth/" + endpoint, {
+        method,
+        signal,
+        feedback: "owner",
+        ...(body === undefined
+          ? {}
+          : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      })
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401 && credential)
+        throw new IdentityError("expired")
+      throw error
+    }
+  }
+  /** 注册不自动登录；账号、自有组织和 owner 成员由同一后端事务创建。 */
+  async function register(input: RegisterInput, signal?: AbortSignal): Promise<string> {
+    const account = await data(
+      await request("register", "POST", input, undefined, signal),
+      "account"
+    )
+    return id(account.id)
+  }
+  /** 权威读取完整关系，错误成员不能被会话或组织 owner 接受。 */
+  async function readProfile(credential: string, signal?: AbortSignal): Promise<UserProfile> {
+    const result = await data(
+      await request("profile", "GET", undefined, credential, signal),
+      "account"
+    )
+    return profileData(result)
+  }
+
+  const api: LoginApi = {
+    async login(input, signal) {
+      const result = await data(
+        await request("login", "POST", input, undefined, signal),
+        "auth.token"
+      )
+      const pair = object(result.token)
+      if (
+        typeof pair.access_token !== "string" ||
+        !pair.access_token ||
+        typeof pair.refresh_token !== "string" ||
+        !pair.refresh_token ||
+        pair.token_type !== "Bearer" ||
+        typeof pair.expires_in !== "number" ||
+        !Number.isSafeInteger(pair.expires_in) ||
+        pair.expires_in <= 0
+      )
+        throw new IdentityError("invalidIdentity")
+      // 当前状态机只接受 access token；refresh 持久化与轮换由明确需求另行实现。
+      return pair.access_token
+    },
+    async validate(credential, signal) {
+      try {
+        const profile = await readProfile(credential, signal)
+        return {
+          id: profile.account.id,
+          displayName: profile.account.nickname || profile.account.username
+        }
+      } catch (error) {
+        if (error instanceof ApiError && ["network", "timeout", "aborted"].includes(error.kind))
+          throw error
+        if (error instanceof IdentityError) throw error
+        throw new IdentityError("invalidIdentity")
+      }
+    },
+    async logout(credential) {
+      const envelope = object(await (await request("logout", "POST", undefined, credential)).json())
+      if (
+        envelope.model !== "empty" ||
+        typeof envelope.request_id !== "string" ||
+        !envelope.request_id
+      )
+        throw new IdentityError("invalidIdentity")
+    }
+  }
+  return { api, register, readProfile }
+}
+const adapter = createGoIdentityAdapter()
+export const api = adapter.api
+export const registerAccount = adapter.register
+/** 资料页面复用已接受会话的 HTTP owner，不读取或暴露凭据存储。 */
+export async function readUserProfile(signal?: AbortSignal): Promise<UserProfile> {
+  return profileData(
+    await data(await requestHttpQuery("api/v1/auth/profile", { signal }), "account")
+  )
+}

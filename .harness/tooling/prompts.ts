@@ -1,3 +1,4 @@
+import { parseWorkspaceSelection, primaryFrontend } from "./workspace-selection.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
@@ -32,6 +33,9 @@ export interface PromptedIdentity {
   policyMode: AgentPolicyMode
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
+  workspaceMembers?: readonly (ProjectType | "server")[]
+  serverMode?: "existing" | "create"
+  apiContract?: string
   requirementsFile?: string
   requirementsText?: string
   name: string
@@ -60,6 +64,9 @@ export interface InstantiationSummary {
   requirements?: { sourcePath: string; sha256: string; byteLength: number }
   init: Pick<
     InitOptions,
+    | "workspaceMembers"
+    | "serverMode"
+    | "apiContract"
     | "projectType"
     | "name"
     | "englishName"
@@ -138,7 +145,8 @@ export async function collectPromptedIdentity(
 ): Promise<PromptedIdentity> {
   const collected = await collectBasicFields(defaults, ask, interaction)
   const basic = collected.values
-  const projectType = requiredText(basic.projectType, "项目类型") as ProjectType
+  const workspaceMembers = parseWorkspaceSelection(requiredText(basic.projectType, "项目类型"))
+  const projectType = primaryFrontend(workspaceMembers)
   const policyMode = parsePolicyMode(requiredText(basic.policyMode, "Agent 策略模式"))
   const confirmedBy = requiredText(basic.confirmedBy, "Agent policy confirmation source")
   let agentPolicy: AgentPolicySelection
@@ -177,6 +185,9 @@ export async function collectPromptedIdentity(
     policyMode,
     inputSources: { ...collected.inputSources, ...policySources },
     projectType,
+    workspaceMembers,
+    serverMode: basic.serverMode as "existing" | "create",
+    apiContract: basic.apiContract || undefined,
     requirementsFile: basic.requirementsFile || undefined,
     requirementsText: basic.requirementsText || undefined,
     name: requiredText(basic.name, "项目名称"),
@@ -217,6 +228,9 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
     .map(([field, source]) => `  - ${field}: ${source}`)
     .join("\n")
   return `初始化完整汇总
+- Workspace 成员：${(summary.init.workspaceMembers ?? [summary.init.projectType]).map((item) => `${summary.init.id}_${item}`).join(", ")}
+- 服务端：${summary.init.serverMode ?? "未选择"}${summary.init.serverMode === "create" ? `；创建 ${summary.init.id}_server，本地 http://127.0.0.1:8080` : ""}
+- 接口契约：${summary.init.apiContract ?? "待所选能力接线时核对"}
 - 源路径（原始）：${summary.rawSourceRoot}
 - 源路径（规范）：${summary.canonicalSourceRoot}
 - 父目录（原始）：${summary.rawParentRoot ?? "未单独提供"}

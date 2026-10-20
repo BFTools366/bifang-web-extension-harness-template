@@ -5,6 +5,8 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，同步�
 
 # Web Harness：同步导出 API 与业务文档
 
+Workspace 以根 .harness/workspace.json 识别所选成员，接口与业务文档统一写根 docs/api。核对 Go handler、service、SDL、真实前端 adapter/消费者及测试；只服务端的操作也可导出。下文的前端项目限制仅用于旧独立前端。
+
 生成可独立交接的 Markdown 文档包。API 描述协议，业务描述客户端已经实现的目标、调用流程和设计思路；两者通过稳定操作标识关联。默认输出根为 `docs/api/`，内部为 `README.md`、`api/` 与 `business/`，格式见 [导出合同](references/export-contract.md)。
 
 ## 适用边界与资料

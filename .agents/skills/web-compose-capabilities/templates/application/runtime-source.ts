@@ -3,7 +3,7 @@ import { permissionFreePaths, serviceName, type ApplicationOptions } from "./con
 /** 将已解析操作装配为同一会话、权限和服务实例，不创建第二套请求客户端。 */
 export function runtimeSource(options: ApplicationOptions, operations: readonly string[]): string {
   const modules = new Set(operations.map((id) => id.slice(0, id.indexOf("."))))
-  const identity = modules.has("identity")
+  const identity = operations.includes("identity.session")
   const permissions = modules.has("permissions")
   const organization = modules.has("organization")
   const management = operations.includes("organization.manage")
@@ -26,17 +26,11 @@ export function runtimeSource(options: ApplicationOptions, operations: readonly 
     "  dropPrivateQueries()",
     "}"
   ]
-  const fixtures = options.fixtures ?? {}
-  /** 实际服务必须显式提供 adapter；Mock 只生成所选能力的 API 边界。 */
-  function api(module: string, mockImport: string, construction: string) {
-    if (options.dataMode === "adapter")
-      imports.push(
-        `import { api as ${module}Api } from "../../data/api/${module === "wallet" ? "wallet-payments" : module === "permission" ? "permissions" : module}/adapter"`
-      )
-    else {
-      imports.push(mockImport)
-      lines.push(construction)
-    }
+  /** 每个服务只从真实 adapter 导入，运行装配不再接受 fixtures 或 Mock 构造。 */
+  function api(module: string) {
+    imports.push(
+      `import { api as ${module}Api } from "../../data/api/${module === "wallet" ? "wallet-payments" : module === "permission" ? "permissions" : module}/adapter"`
+    )
   }
   if (identity) {
     imports.push(
@@ -45,16 +39,12 @@ export function runtimeSource(options: ApplicationOptions, operations: readonly 
       'import { createIdentityCredentials } from "../../data/storage/identityCredentials"',
       'import { createIdentityRuntime } from "../identity/runtime"'
     )
-    api(
-      "identity",
-      'import { createIdentityMock } from "../../data/api/identity/mock"',
-      `const identityApi = createIdentityMock(${JSON.stringify(fixtures.accounts ?? [])})`
-    )
+    api("identity")
     lines.push(`export const identitySession = createIdentityRuntime({
   api: identityApi,
   storage: createIdentityCredentials(),
   transport: {
-    /** 没有远端地址时不构造 HTTP；配置真实服务后仍复用唯一 Token owner。 */
+    /** 复用已配置真实服务与唯一 Token owner。 */
     setAuthToken(token) { if (APP_CONFIG.apiBaseUrl !== "") applicationHttp.setAuthToken(token) },
     clearSession: () => applicationHttp.clearSession()
   },
@@ -79,52 +69,12 @@ export const identityActor = () => identitySession.getSnapshot().identity?.id ??
     )
   }
   lines.push(
-    `/** Mock 服务态按实际身份${organization ? "与组织" : ""}隔离；真实 adapter 继续由服务端校验。 */\nexport const actor = () => ${identity ? (organization ? "organizationUser?.accountId === identityActor() ? organizationUser.id : null" : "identityActor()") : "null"}`
+    `/** 查询作用域按实际身份${organization ? "与组织" : ""}隔离；服务端独立校验授权。 */\nexport const actor = () => ${identity ? (organization ? "organizationUser?.accountId === identityActor() ? organizationUser.id : null" : "identityActor()") : "null"}`
   )
-  if (modules.has("catalog"))
-    api(
-      "catalog",
-      'import { createCatalogMock } from "../../data/api/catalog/mock"',
-      `export const catalogApi = createCatalogMock(${JSON.stringify(fixtures.products ?? [])})`
-    )
-  if (modules.has("orders") && operations.includes("orders.create"))
-    api(
-      "orders",
-      'import { createOrdersMock } from "../../data/api/orders/mock"',
-      `const ordersMock = createOrdersMock(actor, ${JSON.stringify(fixtures.products ?? [])})\nexport const ordersApi = ordersMock.api`
-    )
-  else if (modules.has("orders"))
-    api(
-      "orders",
-      'import { createOrdersReadMock } from "../../data/api/orders/readMock"',
-      `export const ordersApi = createOrdersReadMock(actor, ${JSON.stringify(fixtures.orders ?? {})})`
-    )
-  if (modules.has("wallet-payments")) {
-    if (operations.includes("wallet-payments.pay"))
-      api(
-        "wallet",
-        'import { createWalletMock } from "../../data/api/wallet-payments/mock"',
-        `export const walletApi = createWalletMock(actor, ${JSON.stringify(fixtures.balances ?? {})}, ordersMock.settle)`
-      )
-    else
-      api(
-        "wallet",
-        'import { createWalletReadMock } from "../../data/api/wallet-payments/readMock"',
-        `export const walletApi = createWalletReadMock(actor, ${JSON.stringify(fixtures.balances ?? {})})`
-      )
-  }
-  if (modules.has("audit"))
-    api(
-      "audit",
-      'import { createAuditMock } from "../../data/api/audit/mock"',
-      `export const auditApi = createAuditMock(actor, ${JSON.stringify(fixtures.audit ?? [])})`
-    )
+  for (const module of ["catalog", "orders", "audit"]) if (modules.has(module)) api(module)
+  if (modules.has("wallet-payments")) api("wallet")
   if (organization) {
-    api(
-      "organization",
-      'import { createOrganizationMock } from "../../data/api/organization/mock"',
-      `const organizationApi = createOrganizationMock(identityActor, ${JSON.stringify(fixtures.organizations ?? [])}, ${JSON.stringify(fixtures.organizationUsers ?? [])}, (user) => user.id === actor() && canManageOrganization())`
-    )
+    api("organization")
     lines.push(`/** 账号与组织用户在同一 API 边界验证，损坏关系不会进入权限 owner。 */
 async function readOrganizationContext(signal?: AbortSignal) {
   const accountId = identityActor()
@@ -207,11 +157,7 @@ export const organizationService = {
 
   if (permissions) {
     imports.push('import { createPermissionRuntime } from "../permissions/runtime"')
-    api(
-      "permission",
-      'import { createPermissionMock } from "../../data/api/permissions/mock"',
-      `export const permissionMock = createPermissionMock(${JSON.stringify(fixtures.grants ?? [])})\nconst permissionApi = permissionMock.api`
-    )
+    api("permission")
     lines.push(`export const permissionSession = createPermissionRuntime(permissionApi, () => {
   const id = ${organization ? "actor()" : "identityActor()"}
   return id === null ? null : { id, organizationId: ${organization ? "organizationId" : "null"}, scope: currentScope() }
@@ -233,10 +179,8 @@ export const canAct = (action: string) => permissionSession.allow(actionPermissi
 /** 真实写操作在执行前再次核验当前授权。 */
 export function assertAction(action: string) { permissionSession.assert(actionPermissions[action] ?? []) }`)
   }
-  if (options.dataMode === "adapter") {
-    for (const module of modules)
-      if (module !== "permissions") lines.push(`export { ${serviceName(module)}Api }`)
-  }
+  for (const module of modules)
+    if (module !== "permissions") lines.push(`export { ${serviceName(module)}Api }`)
   if (operations.includes("orders.purchase")) {
     imports.push('import { createPurchaseRegistry } from "../orders/purchase"')
     lines.push(`/** 购买最少要求已确认身份；启用权限时同时校验实际购买权限码。 */

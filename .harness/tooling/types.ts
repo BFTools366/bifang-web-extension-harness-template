@@ -85,6 +85,14 @@ export interface EnvironmentBaseUrls {
 
 // 定义 InitOptions 接口的结构契约。
 export interface InitOptions extends EnvironmentBaseUrls {
+  /** 保存工作区按需选择，叶子生成器仍只处理一个前端宿主。 */
+  workspaceMembers?: readonly (ProjectType | "server")[]
+  /** 已有服务只接入，无服务时生成同一工作区内的 Go 服务。 */
+  serverMode?: "existing" | "create"
+  /** 绑定用户提供的接口文档路径；地址不等同接口契约。 */
+  apiContract?: string
+  /** 冻结已核对的契约字节，只由事务内部传入。 */
+  apiContractSnapshot?: CreationRequirements
   // 描述 root 接口成员的结构契约。
   root: string
   // 描述 projectType 接口成员的结构契约。
@@ -135,6 +143,7 @@ export interface InstantiateOptions {
 export interface CreationApproval {
   canonicalTargetRoot: string
   requirementsSha256?: string
+  apiContractSha256?: string
   logoSha256: string
   initialCreationAuthorization?: InitialCreationAuthorization
 }

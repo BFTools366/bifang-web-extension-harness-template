@@ -41,6 +41,7 @@ async function fixture(): Promise<{ root: string; file: string; input: CreationF
     input: {
       values: {
         projectType: "web",
+        serverMode: "create",
         requirementsFile: "",
         name: "Notes",
         targetRoot: path.join(root, "new-parent"),

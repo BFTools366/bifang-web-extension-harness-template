@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：实施 Go 子进程"
+  short_description: "在统一工作区内实施 Go 子进程，复用真实服务契约并完成相关实现与验证"
+  default_prompt: "使用 $go-implement-external-command 完成当前已确认范围，复用 Workspace 真实成员、契约与相关验证，完成后返回调用方。"

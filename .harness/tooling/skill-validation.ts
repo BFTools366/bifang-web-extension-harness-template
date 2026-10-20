@@ -1,3 +1,4 @@
+import { WORKSPACE_SKILL_CONTRACTS } from "./workspace-skills.ts"
 import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { pathExists } from "./files.ts"
@@ -6,6 +7,7 @@ import { DESIGN_SKILL_NAME, validateDesignSkill } from "./design-skill.ts"
 
 /** 保存两类终端项目必须精确保留的通用 Web Harness 前端维护 Skill。 */
 const EXPECTED_COMMON_TERMINAL_SKILLS = [
+  ...Object.keys(WORKSPACE_SKILL_CONTRACTS),
   "web-compose-capabilities",
   "web-implement-auth-session",
   "web-implement-access-control",
@@ -154,7 +156,7 @@ export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly str
     "展示后等待用户反馈，不得先改产品代码",
     "pnpm prototype:check <scope> <设计请求来源>",
     "普通开发授权、需求批准或旧原型登记不能代替本轮设计反馈",
-    "只将依赖该远端 API 的操作",
+    "产品运行路径只用真实 typed API",
     "本地能力直接真实实现，不要求 BaseURL",
     "只有实际创建新下游时调用一次 `$web-check-development-environment`",
     "最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测",

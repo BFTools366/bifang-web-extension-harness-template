@@ -13,8 +13,8 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 1. 先判断本轮需求与设计影响，再实现当前授权范围。多步骤、多模块、中等风险或 Agent 偏好本身不创建 Work Plan、全仓检查、构建、冒烟或 E2E；安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、对外兼容契约和正式发布分别进入解决该风险所需的专用门禁。
    结果超出当前固定 Task 边界时，先由 Task 管理完成必要创建/绑定；同一结果的测试、review 与同范围修复留在原 Task，不为多步骤拆分。
-2. 先识别仓库：存在 `.harness/project.json` 时是唯一类型下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
-3. 确认 Git 顶层目录等于项目根，先检查 diff 并保留用户修改；重叠无法安全处理时停止。实际左侧 Task 在首次写入前由 `$web-manage-user-tasks` 核对精确身份、项目、非 pinned、cwd、环境与基线；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入，绑定异常先修复原 Task，不代做。
+2. 先识别仓库：存在 `.harness/workspace.json` 时读取根成员和服务归属，跨成员业务委托 `$workspace-implement-feature`；存在 `.harness/project.json` 时是前端成员或旧单包下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
+3. 确认 Git 顶层目录等于旧独立项目根；已登记 Workspace 成员则核对 Git 顶层等于 Workspace 根、当前 cwd 为被选成员并遵守写入范围，先检查 diff 并保留用户修改；重叠无法安全处理时停止。实际左侧 Task 在首次写入前由 `$web-manage-user-tasks` 核对精确身份、项目、非 pinned、cwd、环境与基线；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入，绑定异常先修复原 Task，不代做。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
 6. 下游新产品、新页面、需求变更影响页面或用户流程，以及用户明确要求改变设计、视觉、布局、风格、主题或交互时，必须先调用 `$web-design-prototype`；不能按改动行数或“范围清楚”降为小修复。产品范围、业务规则或验收变化先委托 `$web-define-product` 更新唯一 PRD；纯视觉变更直接复用有效 PRD，设计 Skill 拥有原型修订。生成一个桌面端可交互 HTML 原型，自查并展示可打开预览与最短试用路径；展示后等待用户反馈，不得先改产品代码。普通开发授权、需求批准或旧原型登记不能代替本轮设计反馈；只有用户明确跳过本次预览，或符合设计 Skill 的一次性首版授权合同，才按对应分支继续。实施前读取当前 `docs/prototypes/<scope>/review.json`，运行 `pnpm prototype:check <scope> <设计请求来源>`；只对已批准且覆盖本轮设计的记录放行。无设计变化且既有批准仍覆盖当前范围时可复用；新增设计要求必须重新登记，不能先拿旧 check 通过当许可。纯逻辑修复、文案纠错及恢复既有已确认设计的缺陷可直接实施；Harness 自身维护不生成产品原型。
@@ -24,7 +24,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 ## 实现边界
 
-1. 下游只修改 `.harness/project.json` 声明的唯一类型，不增加另一类型入口、项目派生入口、workspace package 或跨项目共享层；源 Harness 模板契约遵守根 `AGENTS.md` 的唯一源外创建入口与两个互斥生成结果硬约束。
+1. 前端成员只修改自身 `.harness/project.json` 声明的唯一宿主；根 Workspace 按显式需求组合成员并拥有唯一策略、Git 与 PRD，拓扑遵守 `docs/WORKSPACE_TEMPLATE.md`；不跨成员导入产品源码或恢复工程派生入口。
 2. 按功能内聚组织 TypeScript：
    - 文件结构与模块边界遵循 `docs/ENGINEERING_RULES.md` 的“文件结构与模块依赖”（源 §3.2）：按功能或工具职责拆解，保持单一职责、单向无环依赖和明确公共契约；不以行数达标代替结构判断。
    - React 组件拥有展示、表单输入和局部交互；可复用 feature hook/service 拥有该功能的请求、缓存、持久化和协调。
@@ -38,7 +38,7 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 7. 环境或 endpoint 变化读取 `RUNTIME_CONFIGURATION.md`：业务代码只读 `APP_CONFIG`，保持 development/test/release 三份配置、宿主前缀和构建前全量校验；禁止隐式环境覆盖，浏览器公开变量不承载秘密。已初始化下游授权包含有限 REST/GraphQL HTTP 接入或 Mock 迁移时，域 API 部分委托 `$web-connect-http-service`；源 Harness 不接收产品地址或接口。
 8. 日志或错误处理变化读取 `LOGGING.md`：产品代码通过统一 logger，新增稳定作用域、事件名和最小上下文；覆盖 Release 级别、允许字段清单、脱敏与产物扫描，不新增散落 `console.*`。
 9. 集合分页与 HTTP client 基础维护读取 `DATA_ACCESS.md`，复用 `src/pagination/` 与 `src/data/api/client/`。Query 使用 `requestHttpQuery` 并只反馈最终失败；通用集合使用 session 状态机，Web 路由列表按 `$web-implement-list-view` 由 Router 拥有运行时状态，sessionStorage 只在原始 URL 无 owned key 时启动恢复。业务行与 `total` 归 Query/feature；真实接入的响应/分页映射由 `$web-connect-http-service` 在域 API 边界完成。
-10. 未配置对应 BaseURL 时，按 `DATA_ACCESS.md` §3.1 只将依赖该远端 API 的操作放在 `src/data/api/<domain>/` 的类型化异步 Mock API；UI、route、hook 和 Query 只消费这些 API 函数。本地能力直接真实实现，不要求 BaseURL，纯业务逻辑留在 feature，真实存储访问经 `src/data/storage/`；混合流程仅隔离未配置的远端边界，不把本地部分一并 Mock。Mock 是当前远端 API 契约的完整实现，不是 stub 或占位；已接入真实 HTTP 的服务移除运行路径中的 Mock，失败不回落 Mock。不得留下 stub、占位分支、假产物路径或只在源码中存在但真实入口不可达的能力，也不得把 Mock 结果声明为真实联网通过。
+10. 产品运行路径只用真实 typed API；已有服务必须提供 BaseURL 与可信 endpoint/SDL，没有服务则通过 Workspace 领域 Skill 实现 Go 端和前端并连接。本地能力直接真实实现，不要求 BaseURL 或虚构 endpoint；服务未就绪显示真实失败，不生成业务 Mock 或 fixtures。测试替身仅保留在测试中，不能证明服务联通。
 11. 下游公开 API 契约/传输或已实现业务的调用条件、顺序、分支、结果与恢复变化时，委托 `$web-document-api` 同步**受影响接口、业务描述与关联**并核对已有文档和代码差异，明确传入范围。纯内部重构且契约与业务流程均未变时不强制重写；格式与验证以该 Skill 为准，参考契约不能作为实现证据。
 
 ## 按事件委托独立能力
@@ -81,4 +81,4 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 完整创建授权包含成功下游首版实施，工程事务不是完成边界。复用已确认 PRD、固定设计和有效原型登记，通过 `$web-compose-capabilities` 的 `templates/application/files.ts` 装配当前宿主基线与实际 HomePage，按 wiring.md 接入所选能力。identity.session 包含登录页/路由、用户区、匿名守卫、Token 和退出/401；permissions.enforce 将同一权限码用于页面/导航/路由/元素和执行前；orders.purchase 当前自动依赖基础身份资源及商品/订单/钱包。完整用户方案仍须按[账号与组织基线](../web-compose-capabilities/knowledge/identity.md#完整用户信息)及接线差异表补齐，不能用当前闭包省略组织或已确认流程。未决购买由当前作用域持续持有，关闭弹窗或切换路由不能丢弃后重新下单。
 
-运行首版相关类型检查、非空行为测试和开发浏览器核心流程走查；Extension 覆盖 Chrome/Firefox。此触发源于完整创建合同，不扩大普通修复的默认检查。Mock 明示且可交互，真实接入需求必须有可信 adapter，缺项不能宣告首版完成。只在要求最终 dist/zip 时转最终候选门禁。
+运行首版相关类型检查、非空行为测试和开发浏览器核心流程走查；Extension 覆盖 Chrome/Firefox。此触发源于完整创建合同，不扩大普通修复的默认检查。首版必须连接真实 adapter；自建服务需真实 HTTP、持久化和最高风险失败验证，缺项不能宣告完成。只在要求最终 dist/zip 时转最终候选门禁。

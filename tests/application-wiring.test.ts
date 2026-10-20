@@ -1,6 +1,6 @@
 import { test, expect } from "vitest"
-import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
-import type { ApplicationOptions } from "../.agents/skills/web-compose-capabilities/templates/application/contracts.ts"
+import { applicationFiles } from "./application-test-adapters.ts"
+import type { TestApplicationOptions as ApplicationOptions } from "./application-test-adapters.ts"
 import { resolveCapabilitySelection } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
@@ -32,9 +32,9 @@ test("resolves only explicit operation dependencies", () => {
   expect(
     resolveCapabilitySelection({ host: "web", modules: ["organization"] }).resolved
   ).not.toContain("organization.manage")
-  expect(() =>
-    resolveCapabilitySelection({ host: "web", operations: ["identity.register"] })
-  ).toThrow(/未知/)
+  expect(
+    resolveCapabilitySelection({ host: "web", operations: ["identity.register"] }).resolved
+  ).toContain("organization.provision")
 })
 
 /** 没有真实首页、接口实现或可信权限码时，在写入前拒绝伪完成。 */
@@ -273,7 +273,7 @@ test.each(["web", "extension"] as const)("protects generated %s capability owner
     "src/features/identity/session.test.ts",
     "src/features/orders/purchase.ts",
     "src/features/orders/PurchasePanel.tsx",
-    "src/data/api/identity/mock.ts",
+    "src/data/api/identity/adapter.ts",
     "src/data/api/commerce/price.ts"
   ]) {
     const existing = new Map([[target, "user-owned"]])

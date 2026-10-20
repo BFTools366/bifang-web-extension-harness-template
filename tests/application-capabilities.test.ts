@@ -1,3 +1,4 @@
+import { applicationFiles as productionFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
 import { expect, test } from "vitest"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
@@ -177,3 +178,22 @@ test("identity restore single flight is scoped", async () => {
   },
   90_000
 )
+
+/** 扩展操作没有实际页面时不能被模板的 resolved 清单伪装成已实现。 */
+test("rejects production Mock and delegates unsupported operations to domain implementation", () => {
+  expect(() =>
+    productionFiles(new Map(), {
+      selection: { host: "web", operations: ["identity.register"] },
+      homePageSource: HOME_SOURCE,
+      dataMode: "adapter",
+      adapters: { identity: "export const api = {}" }
+    })
+  ).toThrow("领域 Skill")
+  expect(() =>
+    productionFiles(new Map(), {
+      selection: { host: "web", modules: [] },
+      homePageSource: HOME_SOURCE,
+      dataMode: "mock" as "adapter"
+    })
+  ).toThrow("禁止业务 Mock")
+})

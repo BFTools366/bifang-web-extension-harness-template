@@ -1,6 +1,6 @@
 # TypeScript Web / Chrome Extension 单包模板
 
-本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：一次初始化只选择 `web` 或 `extension`，生成一个独立、平铺的 pnpm 单包。
+本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，按需选择 Web、Extension 与 Go 服务；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
 
 ## 工程基础与功能组合
 
@@ -14,7 +14,7 @@
 - 生成项目的 `.harness/project.json.projectType` 恰好是 `web` 或 `extension`，不是数组。
 - 不支持 `both`，不提供默认类型，也不提供下游 target add/remove。
 - Web 与 Extension 是两个独立模板；它们不在同一仓库共存，不共享源码、状态、测试、品牌派生或构建产物。
-- 输出是单个 pnpm package，不存在 `apps/`、`packages/` 或 workspace 内部依赖。根 `pnpm-workspace.yaml` 只配置 `allowBuilds`，不得声明 `packages` 或引入第二个包。
+- 根 Workspace 包装成员；每个前端成员保持单包与独立宿主，不跨成员导入源码。pnpm 根精确声明所选前端 packages；成员内部配置只管理 allowBuilds。
 - 已生成项目不原地切换类型。需要另一宿主时，在另一个目录初始化新的独立仓库。
 - 初始化同时建立 development、test、release 三个逻辑环境；逻辑 `release` 固定映射到 `.env.production`，不生成 `.env.release`。
 
@@ -149,7 +149,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 - 工程事务不生成业务列表、列表 route、假 endpoint、选择或列偏好 UI，也不因保留 Skill 预装图标、DnD 或其他可选依赖。
 - 列表页仍复用 `src/pagination/` 的 1-based page/pageSize 契约；Router search 的封闭启动恢复、Query 对 rows/`total` 的唯一所有权和稳定排序详见 [`DATA_ACCESS.md`](DATA_ACCESS.md)，Table/卡片/搜索形态与条件 DnD 详见 [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md)。
 
-两宿主均分发 API 契约核对、模块边界审查、访问控制、写入恢复、浏览器存储、持续事件流及用户可见 Task 的独立 Skill；只按事件调用，叶子返回当前流程，不反向重启编排。源 32 个、Web 29 个、Extension 29 个维护 Skills，设计支持另计；职责地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。
+两宿主均分发 API 契约核对、模块边界审查、访问控制、写入恢复、浏览器存储、持续事件流及用户可见 Task 的独立 Skill；只按事件调用，叶子返回当前流程，不反向重启编排。源 32 个既有前端 Skills，加 16 个 Workspace/Go Skills；Web/Extension 各保留 29 个既有维护 Skills与 16 个协作 Skills，设计支持另计；职责地图见 [Skill 职责与组合](harness_engineering/skill_composition.md)。
 
 ### 3.9 项目级设计支持基线
 

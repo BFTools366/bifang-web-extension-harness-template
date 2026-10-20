@@ -232,6 +232,7 @@ export interface ParsedArgs {
 `
 
 const TERMINAL_CONFIG = `import path from "node:path"
+import { loadWorkspaceProjectConfig } from "./workspace-context.ts"
 import { assertExtensionIdentity, validateIdentityI18n } from "./identity.ts"
 import { readJson } from "./files.ts"
 import type { ProjectConfig, ProjectType } from "./types.ts"
@@ -276,7 +277,7 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
   if (config.brand.masterLogo !== MASTER_LOGO_PATH) throw new Error(\`Brand masterLogo must be \${MASTER_LOGO_PATH}\`)
   if (config.brand.logoSource !== "generated" && config.brand.logoSource !== "uploaded") throw new Error("Invalid logoSource")
   const id = text(config.id, "id")
-  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(id)) throw new Error("Invalid project id")
+  if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*(?:_(?:web|extension))?$/.test(id)) throw new Error("Invalid project id")
   const parsed: ProjectConfig = {
     schemaVersion: 1,
     projectType: config.projectType,
@@ -297,7 +298,11 @@ export function validateProjectConfig(value: unknown): ProjectConfig {
 
 /** 说明 loadProjectConfig 的稳定结构与职责边界。 */
 export async function loadProjectConfig(root: string): Promise<ProjectConfig> {
-  return validateProjectConfig(await readJson<unknown>(path.join(root, PROJECT_CONFIG_PATH)))
+  try { return validateProjectConfig(await readJson<unknown>(path.join(root, PROJECT_CONFIG_PATH))) }
+  catch (error) {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return loadWorkspaceProjectConfig(root, loadProjectConfig)
+    throw error
+  }
 }
 `
 

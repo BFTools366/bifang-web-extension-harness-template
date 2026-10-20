@@ -13,11 +13,13 @@ export interface CapabilityOperation {
   id: string
   requires: string[]
   internal?: boolean
+  serverOnly?: boolean
 }
 /** 描述独立能力及默认基础操作。 */
 export interface CapabilityModule {
   id: string
   title: string
+  implementationSkill?: string
   knowledge: string
   templates: CapabilityTemplate[]
   defaultOperations: string[]
@@ -174,6 +176,12 @@ function loadCatalog(requestedRoot: string): {
     validateTemplates(item.templates, root)
   for (const module of catalog.modules) {
     resource(module.knowledge, root)
+    if (
+      module.implementationSkill &&
+      (!/^workspace-implement-[a-z-]+$/.test(module.implementationSkill) ||
+        !statSync(path.join(root, "..", module.implementationSkill, "SKILL.md")).isFile())
+    )
+      throw new Error("模块实施 Skill 不存在")
     for (const host of ["web", "extension"]) {
       for (const kind of ["design", "code"]) {
         if (!module.templates.some((item) => item.kind === kind && item.hosts.includes(host)))
@@ -238,7 +246,7 @@ export function resolveCapabilitySelection(
     throw new Error("模块或操作不能为空或重复")
   for (const id of requested)
     if (graph.get(id)?.internal)
-      throw new Error(`内部接线操作不能独立选择：${id}，请选择 orders.purchase`)
+      throw new Error(`内部接线操作不能独立选择：${id}，请选择拥有该操作的领域流程`)
   const resolved: string[] = []
   const requiredBy: Record<string, string[]> = Object.create(null)
   /** 按依赖先于使用者的稳定顺序装配，同一依赖只返回一次。 */

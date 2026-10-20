@@ -7,3 +7,6 @@ pnpm-lock.yaml
 src/routeTree.gen.ts
 .harness/vendor/design-taste-frontend/SKILL.md
 .agents/skills/design-taste-frontend/SKILL.md
+
+# Preserve the pinned upstream reference byte hashes.
+.agents/skills/go-implement-service/assets/

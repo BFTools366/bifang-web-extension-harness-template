@@ -1,5 +1,7 @@
 # 版本与发布
 
+新创建以 [Workspace 合同](WORKSPACE_TEMPLATE.md) 为准：根拥有 Git、锁与产品事实，成员内部单一宿主；已有服务必填开发 BaseURL，无服务创建 Go 成员。下文旧平铺单包限定只适用于既有独立前端；发布与验收必须显式选定一个成员、根 Git 与精确候选。
+
 本文件定义 Harness 模板和两类独立下游的版本、候选与发布门禁。它不保存当前 Harness 版本；当前值只见根 [`Version.md`](../Version.md)。
 
 ## 1. 版本事实
@@ -33,12 +35,12 @@ Harness 候选至少满足：
 - 中英文 License 存在、适用项目名称一致，且实质法律条款的任何变更都有明确批准与复核证据；
 - 根 `package.json` 与首次 `pnpm install --no-frozen-lockfile --prefer-offline` 产出的锁文件可解析；后续以 frozen lockfile 复现成功，根级 `lint`、`typecheck`、非空 `test`、`format:check` 与 `validate:harness` 通过，其中 `lint` 包含 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §3.1 的中文声明注释门禁；Harness 根没有应用 `build` 门禁；
 - 源 Harness 只公开 `pnpm instantiate -- <parent-outside-harness> ...` 作为项目创建入口，不存在 `pnpm harness:init` script；`pnpm harness init` 在解析项目输入或写入前稳定拒绝并指向唯一入口；
-- 在源 Harness 之外的两个全新隔离目标分别以精简必填参数执行 `--type web` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型，只询问缺失的基础信息及宿主条件字段；另覆盖功能组合资源分发、默认演示页面已移除及下游 PRD 选择边界，遵循 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2，三地址留空时仍可创建；正式构建前补齐 HTTPS 正式地址；初始化命令不接受 E2E 选择、不运行 Release 构建且不产生 `dist/`、`build/` 或 zip，两种输出均为单 package 且只包含一个 `projectType`；
+- 在源 Harness 之外的两个全新隔离目标分别以精简必填参数执行 `--type web` 和 `--type extension` 非交互实例化，并验证交互式选择没有默认类型，只询问缺失的基础信息及宿主条件字段；另覆盖功能组合资源分发、默认演示页面已移除及下游 PRD 选择边界，遵循 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2，三地址留空时仍可创建；正式构建前补齐 HTTPS 正式地址；初始化命令不接受 E2E 选择、不运行 Release 构建且不产生 `dist/`、`build/` 或 zip，根为 Workspace，所选前端成员内部各为单 package 且只包含一个 `projectType`；
 - 成功下游不再包含 `instantiate`、`harness:init`、源专用创建 Skill、内部 init/instantiate tooling 或其他项目派生入口，不能继续从自身生成项目；
-- `both`、类型缺失、类型列表、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标、源 Harness 根/子路径和路径越界等预检失败保持目标零写入；`instantiate` 只在目标同级 sibling staging 中调用内部 initializer，并在生成、定向格式化、静态结构/三环境/终端化校验、一次安装和 Git 初始化成功后原子发布，任何失败都保持目标不存在或为空；
+- 类型缺失、非法成员组合、非法或非 HTTPS Release BaseURL、非法 Logo、非法颜色、受管环境冲突、非空目标、源 Harness 根/子路径和路径越界等预检失败保持目标零写入；`instantiate` 只在目标同级 sibling staging 中调用内部 initializer，并在生成、定向格式化、静态结构/三环境/终端化校验、一次安装和 Git 初始化成功后原子发布，任何失败都保持目标不存在或为空；
 - Web 结果的 `public/logo.png`、`public/favicon.png`、根 `index.html` 与项目身份一致；
 - Extension 结果的 `assets/icon.png`、manifest 身份、Popup 与 Options 一致，Plasmo 能从来源图标生成构建所需尺寸；`targets.default` 明确使用 browser context 与 `includeNodeModules: true`；
-- 两种生成项目都包含允许初始化地址留空的 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
+- 前端成员包含按已有/自建服务条件配置的 development/test/release 三份配置、类型化 `APP_CONFIG`、统一 logger 与非空测试；Web 只使用 `VITE_`，Extension 只使用 `PLASMO_PUBLIC_`，且不因配置 BaseURL 自动新增权限；
 - 两种生成项目各自只运行唯一 `pnpm build` 形成候选；同一发布流程复用已明确的 E2E `enabled|disabled` 选择并显式传参，它固定委托 `build:release`，完整门禁清单见 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2，development/test profile 不提供产物入口；
 - 两种 Release 构建均自动执行 `pnpm release:inspect`（构建前均先执行 `pnpm harness validate`，`pnpm package` 同样门禁），扫描规则、检查对象与失败即禁止发布的约束以 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) §6.2 为唯一权威来源；
 - 未实际执行的操作系统、Chrome/Firefox 版本和分发渠道明确标记 `Unverified`；

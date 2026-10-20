@@ -28,3 +28,7 @@
 ## 固定设计与操作依赖
 
 当前可执行资源以 catalog schemaVersion 2 为准。使用选择器计算 requested/resolved/requiredBy，依赖先于使用者；购买 orders.purchase 自动补入基础身份、目录、订单创建与钱包支付，内部写节点不单独暴露选择。权限与组织仍按现有操作加入、依赖基础身份，选择器尚不自动生成完整账号生命周期。完整用户方案需要的组织上下文、账号资料、注册或邀请若不在当前图内，单列为待补齐接线并交还调用方，不能编造 catalog 操作或以最小闭包代替完整需求。完整闭包及补齐范围一次确认，已有批准直接沿用；下游按各能力 design.md 与 application/wiring.md 实施，不能用旧离线 demo 或操作表单宣告接线完成。
+
+## Workspace 服务归属与领域交接
+
+从根 .harness/workspace.json 读取已有服务或自建 Go；已有服务必需 BaseURL，选中操作还要可信 endpoint/Schema；无服务则委托对应 implementationSkill 同时完成 Go、前端 typed adapter 和真实联调。交接操作、成员、服务归属、契约、写入范围、最小依赖与验收；叶子返回当前调用方，不要求 Go 初始化问卷，不生成产品 Mock 或演示账号。

@@ -182,28 +182,22 @@ React 项目使用已声明的 `@tanstack/react-query`。REST 读取与 GraphQL 
 
 两种宿主都生成 `src/data/api/client/` 的类型化 Ky HTTP client、错误分类、本地化界面和非空测试。`applicationHttp` 是当前执行上下文的惰性会话 owner；静态页面可在 BaseURL 留空时启动，首次真实操作才校验配置。真实 feature 与 Router loader 复用该实例；测试或受控 adapter 才按需使用 factory。当前基线只接受 `APP_CONFIG.apiBaseUrl` 边界内的相对路径，并拒绝绝对 URL、越界路径和 redirect；它使用 `APP_CONFIG.requestTimeoutMs`、调用方 `AbortSignal`、统一请求上下文和 `ApiError`，但不声明任何真实路径、Schema、登录地址、Cookie 策略或业务 service。未来确有多 target 时，由真实域 adapter 和初始化即校验的只读 registry 扩展，不能让页面绕过边界。React route/组件不能直接调用任意 URL，也不能依赖传输实现细节。
 
-#### 未配置远端地址时的能力分工
+#### 真实服务与本地能力分工
 
-未配置远端地址时，只有依赖该远端 API 的操作使用 Mock；本地能力直接真实实现，不要求 BaseURL。先按操作识别真实依赖，不能把整个功能或所有数据一律归为远端服务：
-
-- 远端 API：当前环境的对应服务 BaseURL 未配置时，由 `src/data/api/<domain>/` 中的类型化异步 API 函数提供 Mock。Mock 数据、读取、写入及必要的筛选、排序和分页语义集中在 API 层；React 组件、route、feature hook 和 Query 只消费这些函数，不内嵌业务样例数据或各自建立 Mock 分支。Query 继续拥有远端异步服务结果与缓存，Jotai、Storage 和 UI 不成为第二份服务数据源。
-- 本地能力：计算、转换、浏览器存储与本地数据操作按真实需求直接实现。纯业务逻辑留在对应 feature，存储访问通过 `src/data/storage/`，真实读取、写入、校验与失败处理不能替换为 Mock；不为本地操作包装假 HTTP 请求、等待远端配置或创建占位 endpoint。
-- 混合流程：本地部分照常执行，仅隔离缺少地址的远端 API 边界。一个远端服务未配置，不影响独立的本地能力或已配置的其他服务；Mock 结果不能冒充真实远端响应或本地已保存数据。
-
-Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定成功、空函数或不可达占位代替实现；按当前需求提供确定性数据和必要的状态变更，不预建通用 Mock 框架。Mock API 不调用 HTTP client、不触发 Fetch、不猜测地址，也不把模拟凭据、continuation 或调用结果当成真实会话及网络成功证据。工程基础不附带业务 Mock；账户协议参考含标注的认证域 Mock，固定账户、组织与权限仅用于隔离协议回归，不提供第二套应用装配。没有产品功能时不制造业务 Mock 或假 endpoint。真实 HTTP client 保持空地址时在 Fetch 前拒绝的边界，Release 的非空 HTTPS 地址门禁继续遵循运行配置规则。
-
-当前功能已采用可信服务协议，且依赖 Header、原始封装、错误码或 DTO 映射时，产品 Mock 也经过对应的请求序列化、内存 exchange、原始响应边界校验与领域投影，复用 API 模块的解析器；不能直接返回领域对象后声称协议适配已覆盖。测试在可注入的 exchange 边界观察请求与响应，证明公开操作隔离、适用报文及最高风险错误分支，同时断言零网络调用。只模拟本次采用的操作和协议支持面，不复制完整服务器或自建通用解析框架；来源 Schema、协议合同与当前 Mock 的实际支持范围分别说明。
-
-有状态 Mock 明确服务实例、客户端适配器与状态重置/跨刷新生命周期；多个客户端或协议模拟同一服务时显式共享一个服务状态，独立测试默认使用隔离实例。时效、重发、限流和并发提交用注入时钟及可控制的异步边界验证，不以真实等待或两份独立服务态证明共享行为。认证协议确需模拟 TokenPair 时，仅在内存模拟服务中签发可识别的演示值；不注入真实 HTTP client、不联网或记录到日志，也不持久化原始 TokenPair。
+- 新工作区已有服务必须提供开发 BaseURL，并按具体操作核对可信 endpoint/SDL；BaseURL 不授权猜测接口。没有服务则创建 _server，领域 Skill 完成 Go 实现、前端 typed adapter 与真实联调。
+- 产品运行路径不装配业务 Mock、演示账号或 fixtures。配置缺失、未实现或不可达显示真实失败，不回落内存业务数据。
+- 本地能力直接真实实现，不要求 BaseURL；计算和存储不要求虚构 endpoint；网络状态、契约解析与业务失败分别处理。
+- 测试中的 fixtures、mock transport 和临时数据库只证明隔离边界；真实服务联通、持久化和候选验收另由对应证据证明。
+- 自建 Go 协议适配见 [GO_SERVICE.md](GO_SERVICE.md)；Workspace 服务归属与配置见 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md)。
 
 #### 用户要求真实联网后的迁移
 
 已初始化下游通过 `$web-connect-http-service` 执行本节工作流；实施与列表 Skill 按真实接入事件委托，数据契约仍以本文件为唯一来源。
 
-1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 逐项补问本次操作依赖的环境与服务 BaseURL；不要求一次补齐全部环境或服务。初始化、本地能力开发或普通 Mock 开发不提前询问这些地址。具体产品地址只在已初始化下游收集。
-2. 确认当前功能需要的 endpoint 路径、方法、输入/响应与认证契约；缺失时询问，不从 BaseURL 猜测接口。校验配置后，把对应 API 函数的 Mock 实现替换为真实 HTTP 请求，复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误与认证边界。UI 和 Query 保持相同的领域契约，外部响应与分页字段在 API 层校验、映射。
-3. 按环境和远端服务逐项完成迁移；尚未配置的远端 API 继续通过其 API Mock 提供数据，明确报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。
-4. 配置变更按冻结 `APP_CONFIG` 的加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，避免样例数据残留或迟到响应覆盖真实结果。测试至少证明 Mock 路径零网络调用、真实请求成功及最高风险失败不回落 Mock；真实服务、CORS、权限或浏览器未验证时如实报告，不把 Mock 测试写成联网通过。
+1. 用户明确提出真实联网时，先复用有效配置，再按 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) 逐项补问本次操作依赖的环境与服务 BaseURL；不要求一次补齐全部环境或服务。本地能力开发不提前索取无关地址；Workspace 已有服务的开发 BaseURL 在初始化收齐。具体产品地址只在已初始化下游收集。
+2. 确认当前功能需要的 endpoint 路径、方法、输入/响应与认证契约；缺失时询问，不从 BaseURL 猜测接口。校验配置后，把对应 API 函数接到真实 HTTP 请求，既有下游如有 Mock 则移除其运行分支，复用 `applicationHttp` / `requestHttpQuery`、受控 target、取消、错误与认证边界。UI 和 Query 保持相同的领域契约，外部响应与分页字段在 API 层校验、映射。
+3. 按环境和远端服务逐项完成迁移；尚未配置的远端 API 明确显示未就绪，不提供业务模拟数据，报告剩余范围。本地实现继续真实运行，不纳入 Mock 迁移。已接入服务移除运行路径中的 Mock 分支和业务 fixture；网络、超时、401/403、协议或服务端错误正常进入统一失败反馈，禁止失败后自动回落 Mock。测试专用 fixture 继续隔离在测试中。
+4. 配置变更按冻结 `APP_CONFIG` 的加载方式重新启动；切换时取消相关旧请求并清理对应 Mock Query 缓存，避免样例数据残留或迟到响应覆盖真实结果。测试至少证明真实请求成功及最高风险失败不回落 Mock；真实服务、CORS、权限或浏览器未验证时如实报告，不把 Mock 测试写成联网通过。
 
 取消与超时覆盖 Fetch、异步 credential extractor 及 401 handler 等待阶段。即使 adapter 不响应 AbortSignal 或 extractor 挂起，外层 request 也必须及时以首次终止原因拒绝，清理计时器与监听器；迟到的成功或失败均不更新 Token/continuation。它不能强制停止任意自定义提取器内部副作用，提取器仍应只负责读取并返回结果。
 
@@ -215,7 +209,7 @@ Mock 应覆盖当前远端 API 契约的完整可观察行为，不能用恒定�
 - 请求上下文与会话：语言、continuation、Token、单调 dispatch sequence 和 Token revision；不依赖 React route。
 - `UnauthorizedHandler`：运行时默认呈现认证失效；真实登录存在后，组合层通过 `configureUnauthorizedHandler` 注入受控导航。client 不导入 Router、`window.location` 或 Chrome 导航 API。
 - UI 组合层：`httpErrors` 只输出固定本地化键、分类和恢复能力，`HttpErrorView` 处理局部/路由失败，根 Provider 的 `HttpFeedback` 处理直接请求和最终 Query/mutation 失败。
-- API 领域模块：拥有类型化远端数据函数、未配置对应 BaseURL 时的远端 API Mock，以及接入后的路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。本地业务逻辑与真实存储访问按前述分工实现，不伪装成未接入的远端 API。
+- API 领域模块：拥有类型化真实远端数据函数及路径、方法、输入/输出校验、外部分页映射和业务语义；feature 只消费该边界。本地业务逻辑与真实存储访问按前述分工实现，不伪装成未接入的远端 API。
 
 ### 3.2 现有基础 client 的三个请求头与语言
 

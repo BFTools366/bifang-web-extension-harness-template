@@ -12,7 +12,14 @@ import {
   validateIdentityI18n,
   validateIdentityLocales
 } from "../.harness/tooling/identity.ts"
-import { collectPromptedIdentity, formatInstantiationSummary } from "../.harness/tooling/prompts.ts"
+import {
+  collectPromptedIdentity as collectIdentity,
+  formatInstantiationSummary
+} from "../.harness/tooling/prompts.ts"
+
+/** 本组测试聚焦原有字段；服务来源在 Workspace 表单用例独立覆盖。 */
+const collectPromptedIdentity: typeof collectIdentity = (defaults, ask, validateTarget) =>
+  collectIdentity({ serverMode: "create", ...defaults }, ask, validateTarget)
 import { inspectReleaseArtifact } from "../.harness/tooling/release.ts"
 import { createLogoCandidates, deriveLogoAssets } from "../.harness/tooling/logo.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
@@ -239,6 +246,8 @@ describe("localized identity and visible brand initialization", () => {
   /** 验证 CLI 在创建前拒绝缺失扩展说明，并保留 Web 默认行为。 */
   test("requires extension descriptions before any instantiation write", async () => {
     const args = [
+      "--server",
+      "create",
       "--type",
       "extension",
       "--name",

@@ -1,7 +1,7 @@
 import type { ProjectType } from "../types.ts"
 
 /** 在真实宿主 Providers、Router 和 QueryClient 上验证缓存所有权与安全错误反馈。 */
-export function httpUiTest(projectType: ProjectType): string {
+export function httpUiTest(projectType: ProjectType, bearerAuth = false): string {
   const imports =
     projectType === "web"
       ? `import { AppProviders as Providers } from "../../../app/AppProviders"
@@ -11,6 +11,10 @@ import { routeStateDefaults } from "../../../features/route-state/RouteState"`
       : `import { Providers, queryClient as configuredQueryClient } from "../../../providers"
 import { createExtensionRouter } from "../../../extension-router"`
   const routerTests = projectType === "web" ? WEB_ROUTER_TEST : EXTENSION_ROUTER_TEST
+  const authAssertions = bearerAuth
+    ? `expect((dispatched as Request).headers.get(HTTP_HEADERS.authToken)).toBeNull()
+  expect((dispatched as Request).headers.get("Authorization")).toBe("Bearer new-token")`
+    : `expect((dispatched as Request).headers.get(HTTP_HEADERS.authToken)).toBe("new-token")`
   return `// @vitest-environment jsdom
 import "../../../i18n"
 import i18n from "../../../i18n"
@@ -248,7 +252,7 @@ test("does not restore an old authentication alert after a new login", async () 
   await applicationHttp.request("items")
   const dispatched = vi.mocked(globalThis.fetch).mock.calls[1]?.[0]
   expect(dispatched).toBeInstanceOf(Request)
-  expect((dispatched as Request).headers.get(HTTP_HEADERS.authToken)).toBe("new-token")
+  ${authAssertions}
 })
 
 /** 只有已经声明的真实测试登录 route 才注入 adapter，401 导航由实际 Router 执行。 */

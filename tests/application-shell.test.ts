@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { applicationFiles } from "../.agents/skills/web-compose-capabilities/templates/application/files.ts"
+import { applicationFiles } from "./application-test-adapters.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
 /** 未选能力没有模板、菜单或查询；账号设置槽位不会暗中装配资料页。 */

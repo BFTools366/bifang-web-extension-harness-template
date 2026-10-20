@@ -40,6 +40,8 @@ describe("minimal public instantiation inputs", () => {
       const config = await runInstantiateCli(
         [
           parent,
+          "--server",
+          "create",
           "--type",
           projectType,
           "--name",

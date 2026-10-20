@@ -30,6 +30,8 @@ describe("目录段级路径包含关系", () => {
       runInstantiateCli(
         [
           path.join(sourceRoot, "..ordinary-directory"),
+          "--server",
+          "create",
           "--type",
           "web",
           "--name",

@@ -136,8 +136,7 @@ function validateOptions(
     !/export\s+(?:function|const)\s+HomePage\b/u.test(options.homePageSource)
   )
     throw new Error("必须提供按实际需求实现并导出的 HomePage，不能用空工程代替")
-  if (!["mock", "adapter"].includes(options.dataMode))
-    throw new Error("必须明确 Mock 或真实 adapter 数据模式")
+  if (options.dataMode !== "adapter") throw new Error("产品装配必须使用真实 adapter，禁止业务 Mock")
   for (const [locale, values] of Object.entries(options.content?.translations ?? {})) {
     if (!["en", "zh"].includes(locale) || !values || typeof values !== "object")
       throw new Error(`不支持的模板文案语言：${locale}`)
@@ -149,12 +148,6 @@ function validateOptions(
     for (const module of modules)
       if (!options.adapters?.[module]?.trim()) throw new Error(`缺少真实能力 adapter：${module}`)
   }
-  if (
-    options.dataMode === "mock" &&
-    modules.includes("identity") &&
-    !options.fixtures?.accounts?.length
-  )
-    throw new Error("Mock 用户系统必须提供明确测试账号")
   if (modules.includes("permissions")) {
     for (const [kind, ids, mapping] of [
       [
@@ -185,7 +178,32 @@ export function applicationFiles(
   options: ApplicationOptions
 ): Map<string, string> {
   const selected = resolveCapabilitySelection(options.selection)
-  const modules = selected.modules.map((item) => item.id)
+  const serverOnly = new Set(
+    selected.modules.flatMap((module) =>
+      module.operations.filter((op) => op.serverOnly).map((op) => op.id)
+    )
+  )
+  const frontendOperations = selected.resolved.filter((id) => !serverOnly.has(id))
+  const supported = new Set([
+    "identity.session",
+    "organization.switch",
+    "organization.manage",
+    "permissions.enforce",
+    "catalog.browse",
+    "orders.read",
+    "orders.create",
+    "orders.purchase",
+    "wallet-payments.read",
+    "wallet-payments.pay",
+    "audit.read"
+  ])
+  const incremental = frontendOperations.filter((id) => !supported.has(id))
+  if (incremental.length)
+    throw new Error(
+      "这些操作须由领域 Skill 完成页面、接口与动作的增量实施，基础模板不能宣称已接线：" +
+        incremental.join(",")
+    )
+  const modules = [...new Set(frontendOperations.map((id) => id.slice(0, id.indexOf("."))))]
   const pages: ApplicationPage[] = [
     { path: "/", file: "index", component: "HomePage", title: "applicationHome" },
     ...MODULE_PAGES.filter((page) => page.module !== undefined && modules.includes(page.module)),
@@ -245,26 +263,17 @@ export function applicationFiles(
     files.set("src/features/identity/session.test.ts", asset("../../identity/session.test.ts.txt"))
   }
   for (const module of modules) {
-    if (options.dataMode === "adapter")
-      files.set(`src/data/api/${module}/adapter.ts`, options.adapters?.[module] ?? "")
-    else {
-      // 只读订单与钱包使用 readMock，runtime-source 按同一写操作选择导入。
-      const readonly =
-        (module === "wallet-payments" && !selected.resolved.includes("wallet-payments.pay")) ||
-        (module === "orders" && !selected.resolved.includes("orders.create"))
-      const name = readonly ? "readMock" : "mock"
-      files.set(`src/data/api/${module}/${name}.ts`, asset(`${module}/${name}.ts.txt`))
-    }
+    files.set(`src/data/api/${module}/adapter.ts`, options.adapters?.[module] ?? "")
   }
   files.set("src/features/home/HomePage.tsx", options.homePageSource)
-  files.set("src/features/application/runtime.ts", runtimeSource(options, selected.resolved))
+  files.set("src/features/application/runtime.ts", runtimeSource(options, frontendOperations))
   files.set(
     "src/features/application/Application.tsx",
-    applicationPageSource(options, selected.resolved, pages)
+    applicationPageSource(options, frontendOperations, pages)
   )
   files.set(
     "src/features/application/routeAccess.ts",
-    accessSource(selected.resolved, organizationPaths)
+    accessSource(frontendOperations, organizationPaths)
   )
   files.set(
     "src/features/application/settingsNavigation.ts",
@@ -283,7 +292,7 @@ export function applicationFiles(
       )
       .join("\n")}\n`
   )
-  for (const [target, source] of applicationRoutes(options, selected.resolved, pages))
+  for (const [target, source] of applicationRoutes(options, frontendOperations, pages))
     files.set(target, source)
   if (options.selection.host === "extension") {
     const layout = files.get("src/features/application/ApplicationLayout.tsx")
