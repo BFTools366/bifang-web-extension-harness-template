@@ -1,4 +1,4 @@
-import { Alert, Button, PasswordInput, Stack, Text, TextInput } from "@mantine/core"
+import { Alert, Button, PasswordInput, Stack, TextInput } from "@mantine/core"
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { AuthLayout } from "./AuthLayout"
@@ -8,12 +8,11 @@ import type { IdentityRuntime } from "./runtime"
 /** 固定登录页只消费基础会话，成功目的地由宿主路由接线提供。 */
 export interface LoginPageProps {
   session: IdentityRuntime
-  mock: boolean
   registrationLink?: ReactNode
   onSuccess(): Promise<void>
 }
 /** 登录页固定设计为品牌标题、凭据表单与稳定错误反馈。 */
-export function LoginPage({ session, mock, onSuccess, registrationLink }: LoginPageProps) {
+export function LoginPage({ session, onSuccess, registrationLink }: LoginPageProps) {
   const { t } = useTranslation()
   const [account, setAccount] = useState("")
   const [password, setPassword] = useState("")
@@ -52,12 +51,6 @@ export function LoginPage({ session, mock, onSuccess, registrationLink }: LoginP
   }
   return (
     <AuthLayout title={t("identityLogin")}>
-      {mock && (
-        <details>
-          <summary>{t("identityMockTitle")}</summary>
-          <Text size="sm">{t("identityMock")}</Text>
-        </details>
-      )}
       {error && (
         <Alert color="red" role="alert">
           {t("identityLoginError")}

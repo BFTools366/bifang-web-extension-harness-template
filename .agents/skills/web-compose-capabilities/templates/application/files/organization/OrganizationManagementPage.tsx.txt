@@ -96,6 +96,7 @@ export function OrganizationManagementPage({
           <Stack>
             <TextInput
               label={t("organizationName")}
+              placeholder={t("organizationNamePlaceholder")}
               value={name}
               maxLength={60}
               required

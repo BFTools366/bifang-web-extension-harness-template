@@ -13,7 +13,7 @@ description: 在已确认验证或找回需求中实施验证码生命周期与�
 
 - 默认未选验证时 enabled=false、mock=false，页面、发码路由和验证码表均不生成。
 - 明确选择验证时安装目标锁、预留状态、验证码模型和真实发码路由，配置 enabled=true。SMTP overlay 使用标准库、STARTTLS/隐式 TLS、超时和可取消连接；服务端配置 provider=smtp、smtp.host/port/from、tls_mode、timeout，账号密码必须同时有或同时无。秘密只在服务端，配置不完整明确报错。
-- 用户明确要求先 Mock 时，仅在 dev 配置 enabled=true、mock=true；随机数字码在注册回执可见，UI 标明“开发模拟 · 未发送邮件”并支持填入。它只模拟邮件投递，账号、仓储、用途校验及消费仍由真实服务完成。mock 默认关闭，test/staging/prod 拒绝启动，找回发码拒绝 Mock。切回真实邮件必须显式 mock=false，不能只补 SMTP 配置。
+- 用户明确要求先 Mock 时，仅在 dev 配置 enabled=true、mock=true；随机数字码只在注册回执可见，开发者从授权的本机调试回执获取并手动输入，产品页面不展示开发说明、验证码明文或一键填入工具。在交付说明明确“开发模拟 · 未发送邮件”，不把回执成功宣称为真实投递。它只模拟邮件投递，账号、仓储、用途校验及消费仍由真实服务完成。mock 默认关闭，test/staging/prod 拒绝启动，找回发码拒绝 Mock。切回真实邮件必须显式 mock=false，不能只补 SMTP 配置。
 - 未配置真实 provider 且没有明确 Mock 授权时报告缺口并仅询问当前依赖的投递信息；不得暗中启用 Mock、固定码或未配置 Sender。实际短信需求另按授权实现，不沿用邮箱返回假成功。
 
 ## 生命周期与响应

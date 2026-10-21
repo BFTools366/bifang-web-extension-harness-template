@@ -38,7 +38,7 @@ CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；E
 
 上游 logout 自增账号 token_version，会撤销该账号所有会话；refresh 没有单 refresh token 的轮换撤销语义。实施者需按需求明确该行为，不能在前端假设只退出当前设备或宣称 refresh 单次轮换。非开发环境必须拒绝公开默认 JWT 密钥，实际秘密由服务端环境注入。
 
-验证码未要求时 `verification.enabled=false`、`mock=false`，不展示发码/找回入口。原始快照的 smtp/http 仍为 Unconfigured；本地 verification overlay 已实现 SMTP TLS 发送器及配置校验，选择时由 `$go-implement-verification` 接线。禁止照搬原始开发回显；只有用户明确要求时允许 dev 注册 Mock，随机码直接显示但真实生命周期不绕过，找回及非 dev 禁止。验证码生成、哈希、场景、时效、配额、重发与单次事务消费须保持完整；投递未知不能自动重复发送。
+验证码未要求时 `verification.enabled=false`、`mock=false`，不展示发码/找回入口。原始快照的 smtp/http 仍为 Unconfigured；本地 verification overlay 已实现 SMTP TLS 发送器及配置校验，选择时由 `$go-implement-verification` 接线。禁止照搬原始开发回显；只有用户明确要求时允许 dev 注册 Mock，随机码仅随开发回执返回，开发者从本机调试回执获取后手动输入；开发模拟边界写入交付说明，产品页不展示开发警告或填码工具。真实生命周期不绕过，找回及非 dev 禁止。验证码生成、哈希、场景、时效、配额、重发与单次事务消费须保持完整；投递未知不能自动重复发送。
 
 ## 验证与协作
 

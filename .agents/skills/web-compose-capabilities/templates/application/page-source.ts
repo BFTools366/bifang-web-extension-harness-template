@@ -97,7 +97,7 @@ export function MainLayout() {
     lines.push(`/** 登录完成后仅返回已声明的应用内部路径。 */
 export function Login() {
   const router = useRouter()
-  return <LoginPage session={identitySession} mock={false} ${registration ? 'registrationLink={<Anchor renderRoot={(props) => <Link {...props} to="/register" search={{ returnTo: safeReturnTo(new URLSearchParams(router.state.location.searchStr).get("returnTo")) }} />}>{t("registrationTitle")}</Anchor>}' : ""} onSuccess={async () => {
+  return <LoginPage session={identitySession} ${registration ? 'registrationLink={<Anchor renderRoot={(props) => <Link {...props} to="/register" search={{ returnTo: safeReturnTo(new URLSearchParams(router.state.location.searchStr).get("returnTo")) }} />}>{t("registrationTitle")}</Anchor>}' : ""} onSuccess={async () => {
     const target = new URLSearchParams(router.state.location.searchStr).get("returnTo")
     await router.navigate({ to: safeReturnTo(target), replace: true })
   }} />
@@ -169,7 +169,7 @@ export function ${name}() {
   const scope = useScope()
   const [selection, setSelection] = useState<{ product: Product; purchase: ReturnType<typeof purchaseRegistry.get>; scope: number } | null>(null)
   ${permissions ? "useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)" : ""}
-  return <>${wrapped}{selection?.scope === scope.revision${permissions ? ' && canVisit("/catalog") && canAct("orders.purchase")' : ""} && <PurchasePanel product={selection.product} purchase={selection.purchase} mock={false} close={() => setSelection(null)} />}</>
+  return <>${wrapped}{selection?.scope === scope.revision${permissions ? ' && canVisit("/catalog") && canAct("orders.purchase")' : ""} && <PurchasePanel product={selection.product} purchase={selection.purchase} close={() => setSelection(null)} />}</>
 }`)
     } else
       lines.push(`/** 接入已选 ${module} 页面的领域 API 与当前查询作用域。 */

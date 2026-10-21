@@ -69,6 +69,8 @@ ${host === "web" ? 'test("public settings and auth return", async () => {' : 'te
   expect(screen.queryByRole("combobox")).not.toBeInTheDocument()
   expect(screen.getByLabelText(/Account/)).toHaveAttribute("placeholder", "Enter your account")
   expect(screen.getByLabelText(/Password/)).toHaveAttribute("placeholder", "Enter your password")
+  expect(screen.queryByText("Demo account mode")).not.toBeInTheDocument()
+  expect(screen.queryByText(/Mock API mode/)).not.toBeInTheDocument()
   await act(async () => { await router.navigate({ to: "/login", search: { returnTo: "/" } }) })
   await user.type(screen.getByLabelText(/Account/), "demo")
   await user.type(screen.getByLabelText(/Password/), "draft-password")

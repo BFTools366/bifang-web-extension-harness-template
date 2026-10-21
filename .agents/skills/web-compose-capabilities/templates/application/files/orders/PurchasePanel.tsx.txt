@@ -10,12 +10,10 @@ import type { createPurchase } from "./purchase"
 export function PurchasePanel({
   product,
   purchase,
-  mock,
   close
 }: {
   product: Product
   purchase: ReturnType<typeof createPurchase>
-  mock: boolean
   close(): void
 }) {
   const { t, i18n } = useTranslation()
@@ -45,7 +43,6 @@ export function PurchasePanel({
         <Stack>
           <Text fw={600}>{product.name}</Text>
           <Text c="dimmed">{product.description}</Text>
-          {mock && <Text size="sm">{t("commerceMock")}</Text>}
         </Stack>
         <Paper withBorder p="md">
           <Stack>

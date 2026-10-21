@@ -31,13 +31,22 @@ test("SaaS 基础设计按宿主传播", async () => {
     })
     const document = documents.get("docs/MANTINE_UI_GUIDELINES.md")
     const engineering = documents.get("docs/ENGINEERING_RULES.md")
+    for (const text of [
+      "所有表单中支持占位提示的可编辑字段都必须提供 placeholder",
+      "占位文案进入既有 i18next",
+      "页面只呈现完成当前业务任务所需的内容",
+      "Mock/演示模式宣告",
+      "保留直接影响当前操作的字段要求、实际错误及恢复动作"
+    ])
+      expect(document).toContain(text)
+    expect(document).not.toContain("Mock 边界用可展开说明")
     for (const text of [styleMarker, "不得把多个语句", "可省略字段用可选属性表达", "双重断言"])
       expect(engineering).toContain(text)
     if (projectType === "web") {
       for (const text of [
         marker,
         "未登录默认进入登录页",
-        "Mock 边界用可展开说明与必要凭据",
+        "开发说明留在交付材料",
         "无需登录的 `/settings`",
         "认证页底部只保留低强调文字设置链接",
         "离开认证页清空输入",

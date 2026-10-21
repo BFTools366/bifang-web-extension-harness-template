@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Paper, PasswordInput, Stack, Text, TextInput } from "@mantine/core"
+import { Alert, Button, Group, PasswordInput, Stack, Text, TextInput } from "@mantine/core"
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "../../data/api/client/httpClient"
@@ -185,30 +185,6 @@ export function RegistrationPage({
                       : "registrationSendFailed"
                   )}
                 </Alert>
-              )}
-              {verification.receipt?.mocked && !verification.expired && (
-                <Paper withBorder p="sm" role="status">
-                  <Text size="sm" fw={600}>
-                    {t("registrationMock")}
-                  </Text>
-                  <Group justify="space-between">
-                    <Text fz="xl" style={{ letterSpacing: "0.2em" }}>
-                      {verification.receipt.code}
-                    </Text>
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="subtle"
-                      onClick={() => {
-                        if (verification.receipt?.mocked)
-                          verification.setCode(verification.receipt.code)
-                        passwordRef.current?.focus()
-                      }}
-                    >
-                      {t("registrationFillCode")}
-                    </Button>
-                  </Group>
-                </Paper>
               )}
             </>
           )}
