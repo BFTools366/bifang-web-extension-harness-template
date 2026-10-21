@@ -1,0 +1,138 @@
+package notify
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"mime"
+	"mime/quotedprintable"
+	"net"
+	"net/mail"
+	"net/smtp"
+	"strconv"
+	"strings"
+	"time"
+)
+
+// SMTPOptions 仅由服务端配置注入，TLS 不提供跳过证书验证开关。
+type SMTPOptions struct {
+	Host     string
+	Port     int
+	From     string
+	Username string
+	Password string
+	TLSMode  string
+	Timeout  time.Duration
+	RootCAs  *x509.CertPool
+}
+
+// SMTPSender 通过经过证书验证的 SMTP TLS 会话投递纯文本重置邮件。
+type SMTPSender struct{ options SMTPOptions }
+
+// NewSMTP 保留配置快照，网络连接由每次有界投递独立拥有。
+func NewSMTP(options SMTPOptions) *SMTPSender { return &SMTPSender{options: options} }
+
+// Send 只执行一次发送，取消或未知结果不自动重试。
+func (s *SMTPSender) Send(ctx context.Context, target Target, code string, ttl time.Duration) error {
+	o := s.options
+	if target.Type != TargetTypeEmail || o.Host == "" || o.Port < 1 || o.Port > 65535 || o.From == "" {
+		return ErrChannelUnavailable
+	}
+	from, err := mail.ParseAddress(o.From)
+	if err != nil {
+		return ErrChannelUnavailable
+	}
+	to, err := mail.ParseAddress(target.Value)
+	if err != nil || strings.ContainsAny(target.Value, "\r\n") {
+		return ErrChannelUnavailable
+	}
+	for _, r := range code {
+		if r < '0' || r > '9' {
+			return ErrChannelUnavailable
+		}
+	}
+	if len(code) < 4 || len(code) > 10 {
+		return ErrChannelUnavailable
+	}
+	if o.Timeout <= 0 {
+		o.Timeout = 10 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, o.Timeout)
+	defer cancel()
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", net.JoinHostPort(o.Host, strconv.Itoa(o.Port)))
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(deadline); err != nil {
+			return err
+		}
+	}
+	rawConn := conn
+	stop := context.AfterFunc(ctx, func() { _ = rawConn.Close() })
+	defer stop()
+	tlsConfig := &tls.Config{ServerName: o.Host, MinVersion: tls.VersionTLS12, RootCAs: o.RootCAs}
+	if o.TLSMode == "tls" {
+		secured := tls.Client(conn, tlsConfig)
+		if err := secured.HandshakeContext(ctx); err != nil {
+			return err
+		}
+		conn = secured
+	} else if o.TLSMode != "starttls" {
+		return ErrChannelUnavailable
+	}
+	client, err := smtp.NewClient(conn, o.Host)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	if o.TLSMode == "starttls" {
+		if ok, _ := client.Extension("STARTTLS"); !ok {
+			return ErrChannelUnavailable
+		}
+		if err := client.StartTLS(tlsConfig); err != nil {
+			return err
+		}
+	}
+	if o.Username != "" {
+		if o.Password == "" {
+			return ErrChannelUnavailable
+		}
+		if err := client.Auth(smtp.PlainAuth("", o.Username, o.Password, o.Host)); err != nil {
+			return err
+		}
+	}
+	if err := client.Mail(from.Address); err != nil {
+		return err
+	}
+	if err := client.Rcpt(to.Address); err != nil {
+		return err
+	}
+	writer, err := client.Data()
+	if err != nil {
+		return err
+	}
+	headers := "From: " + from.String() + "\r\nTo: " + to.String() + "\r\nSubject: " + mime.QEncoding.Encode("utf-8", "邮箱验证码") + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n"
+	if _, err := fmt.Fprint(writer, headers); err != nil {
+		_ = writer.Close()
+		return err
+	}
+	encoded := quotedprintable.NewWriter(writer)
+	_, writeErr := fmt.Fprintf(encoded, "你的邮箱验证码为：%s\r\n\r\n有效期 %d 分钟，仅可使用一次。如非本人操作，请忽略此邮件。\r\n", code, int(ttl.Minutes()))
+	closeErr := encoded.Close()
+	dataErr := writer.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if dataErr != nil {
+		return dataErr
+	}
+	// DATA 已获得服务端确认，QUIT 失败不能诱发重复发送。
+	_ = client.Quit()
+	return nil
+}

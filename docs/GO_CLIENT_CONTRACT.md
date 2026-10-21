@@ -4,14 +4,14 @@
 
 ## 支持与缺口
 
-| 能力        | Go 现有实现                                        | 客户端资源与边界                                                                   |
-| ----------- | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| 用户/账号   | 注册、用户名或邮箱登录、本人资料、刷新、退出、改密 | 登录/会话有基础应用；注册/资料等由 users Skill 增量接线，真实 adapter 提供这些请求 |
-| 客户管理    | 无 Customer、联系人、客户归属及管理端账号 CRUD     | 不把 Account 或 Org 冒充 CRM；须先实施真实模型和合同                               |
-| 组织        | 注册事务创建默认 Org、读取本人默认 Org             | switch/manage 有通用模板，但上游没有切换、改名、成员/邀请接口                      |
-| 权限        | Bearer 身份、账号状态、token_version               | 前端提供访问控制；上游没有角色、权限码、RBAC 或权限读取接口，未知默认拒绝          |
-| 验证码/找回 | 条件资产有接口和生命周期                           | 默认装配不挂载，SMTP/HTTP 发送器未配置；选中后需真实投递，不启用开发回显           |
-| GraphQL     | health、me                                         | 无客户、组织成员、角色等集合查询；按操作补 SDL/resolver，不能从基础 me 推断        |
+| 能力        | Go 现有实现                                        | 客户端资源与边界                                                                          |
+| ----------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 用户/账号   | 注册、用户名或邮箱登录、本人资料、刷新、退出、改密 | 登录/会话及可选邮箱注册有应用模板；资料按 users Skill 增量接线，真实 adapter 提供对应请求 |
+| 客户管理    | 无 Customer、联系人、客户归属及管理端账号 CRUD     | 不把 Account 或 Org 冒充 CRM；须先实施真实模型和合同                                      |
+| 组织        | 注册事务创建默认 Org、读取本人默认 Org             | switch/manage 有通用模板，但上游没有切换、改名、成员/邀请接口                             |
+| 权限        | Bearer 身份、账号状态、token_version               | 前端提供访问控制；上游没有角色、权限码、RBAC 或权限读取接口，未知默认拒绝                 |
+| 验证码/找回 | 条件资产有接口和生命周期                           | 默认不挂载；本地 overlay 可接 SMTP TLS，或显式授权的 dev 注册 Mock，找回仍要求真实投递    |
+| GraphQL     | health、me                                         | 无客户、组织成员、角色等集合查询；按操作补 SDL/resolver，不能从基础 me 推断               |
 
 组织私有完整方案仍须满足本地既定的 Account + Organization + OrganizationUser 基线。当前 install-users 装配器在上游之上增加 owner 成员事务和 profile.organization_user；这是明确的 Workspace 扩展，原始 Go Harness 没有该实体。profile 返回的是自有默认组织，不是加入其他组织后的任意当前组织；当前组织权限必须另从真实成员及权限合同读取。
 
@@ -35,16 +35,16 @@ GraphQL 另有 camelCase DTO：Account 无 phone，lastLoginTime 对应 REST las
 
 下表路径均以 /api/v1/auth 为前缀。public 不携带旧访问令牌；authed 使用 Authorization: Bearer。注册和登录是独立操作。
 
-| 操作         | 方法与相对路径          | 请求 JSON                                                   | 成功 data/model                             |
-| ------------ | ----------------------- | ----------------------------------------------------------- | ------------------------------------------- |
-| 注册         | POST /register          | username,email,password；可选 phone,nickname,code,code_type | Account / account，不签发 Token             |
-| 登录         | POST /login             | account,password                                            | {token,account} / auth.token                |
-| 本人资料     | GET /profile（authed）  | 无                                                          | {account,org} / account；Workspace 追加成员 |
-| 刷新         | POST /refresh（public） | refresh_token                                               | {token,account} / auth.token                |
-| 退出         | POST /logout（authed）  | 无                                                          | empty，HTTP 200                             |
-| 改密         | PUT /password（authed） | old_password,new_password                                   | empty，HTTP 200                             |
-| 发码（条件） | POST /verification-code | target,target_type,scene                                    | verification.code                           |
-| 找回（条件） | POST /password/reset    | target,target_type,code,new_password                        | empty，HTTP 200                             |
+| 操作         | 方法与相对路径          | 请求 JSON                                                                            | 成功 data/model                             |
+| ------------ | ----------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------- |
+| 注册         | POST /register          | 邮箱注册 email,password；已选验证需 code；兼容可选 username,phone,nickname,code_type | Account / account，不签发 Token             |
+| 登录         | POST /login             | account,password                                                                     | {token,account} / auth.token                |
+| 本人资料     | GET /profile（authed）  | 无                                                                                   | {account,org} / account；Workspace 追加成员 |
+| 刷新         | POST /refresh（public） | refresh_token                                                                        | {token,account} / auth.token                |
+| 退出         | POST /logout（authed）  | 无                                                                                   | empty，HTTP 200                             |
+| 改密         | PUT /password（authed） | old_password,new_password                                                            | empty，HTTP 200                             |
+| 发码（条件） | POST /verification-code | target,target_type,scene                                                             | verification.code                           |
+| 找回（条件） | POST /password/reset    | target,target_type,code,new_password                                                 | empty，HTTP 200                             |
 
 REST 对象 {model,data,request_id}；empty 没有 data；失败 {model:"errors",errors:{model:"data.set",datas:[{model:"error",code,message}],total},request_id}。分页实际为 {model,page:{current,size,total},result:{model:"data.set",datas,total,request_id}}，没有 page.model、page.total_page 或顶层 request_id。集合读取仍使用 GraphQL，分页参考不授权生成 REST 列表。
 
@@ -56,6 +56,7 @@ REST 对象 {model,data,request_id}；empty 没有 data；失败 {model:"errors"
 - refresh 重新签发令牌对，但不更新 token_version、不保存 jti，也不撤销旧 refresh；同秒可能签发相同 Token。前端显式 refresh 方法返回结果，不自动采用、持久化或重放。
 - logout 自增账号 token_version，撤销该账号全部设备的 access/refresh。不能实现“只退出本设备”或当作未采用签发的窄化回收。
 - 改密、找回更新密码并递增版本，旧访问/刷新令牌全部失效；成功后由唯一会话 owner 清理，失败或未知结果不自动重放。
+- 本地账号 overlay 的改密提交同时比对读取的密码哈希与 token_version；并发改密或读取后的退出导致冲突时返回现有 account.password.mismatch，不能覆盖新密码或跨过撤销。
 - Authenticate 区分 auth.token.expired/malformed/wrong.type/invalid/revoked。Refresh 的解析失败统一 auth.token.invalid；账号缺失为 account.not.found（404），禁用为 auth.account.disabled（403），版本不匹配为 auth.token.revoked（401）。
 
 真实 adapter 保持默认 workspace 模式，要求成员扩展。连接未扩展的 Go Harness 时显式调用 createGoIdentityAdapter(config, "upstream")；readServiceProfile 返回原始资料，readProfile 仅用于 Workspace 完整资料。基础会话 login 只采用 access；refresh 令牌存储、轮换协调及 UI 仍需按明确需求接入唯一 owner。
@@ -63,3 +64,13 @@ REST 对象 {model,data,request_id}；empty 没有 data；失败 {model:"errors"
 ## 回归边界
 
 源测试 `tests/go-identity-contract.test.ts` 编译生成服务和前端 adapter，使用隔离 SQLite 与真实 HTTP 验证注册、重复注册、错误密码、完整资料、刷新复用、改密/退出撤销及重启持久化；协议回归另覆盖 nullable org 与成员扩展隔离、空昵称、秒时间、Bearer/追踪及 continuation 边界。历史 Mock 只作测试参考，其固定身份和权限不属于 Go 服务合同。
+
+## 本地邮箱注册与验证扩展
+
+原始 Go 快照不修改；[注册适配器](../.agents/skills/go-implement-verification/scripts/registration.ts) 在首次 install-users 的冻结 Map 上校准 DTO、名称生成、旧用户名登录和可选验证。verification 明确选中才增加验证码表、目标预留锁和发码路由；基础默认不启用、不回显。SMTP 通过服务端 APP_VERIFICATION_* 配置，开发 Mock 需用户明确授权并设置 APP_VERIFICATION_ENABLED=true、APP_VERIFICATION_MOCK=true；切真实邮件须显式设 MOCK=false。
+
+注册发码响应为 verification.code，含 target、target_type=email、scene=register、expires_in（秒）、expires_at（Unix 秒）、code_length、resend_after（秒）、mock；仅 dev Mock 含 code。真实回执省略 code。前端映射绝对毫秒期限并校验环境。本次注册发码入口仅允许 register；其他用途（包括大小写/空格变体）明确拒绝。独立接线找回时使用防枚举 empty 响应，拒绝 Mock；找回页面/路由不是注册装配的隐式依赖。
+
+新密码遵循 Go password 校验：8–64 个 UTF-8 字节，同时含 ASCII 字母与数字；Go adapter 导出 registrationPasswordPolicy 供注册表单校验并显示本地化提示。既有账号登录保留旧口令兼容性，不套用新注册规则。
+
+发码先按规范化目标与用途事务预留配额，再单次发送，再确认最新预留并激活；失败/未知不自动重复发送，迟到激活不能替换新码。消费时同时复核状态、到期及尝试次数，和 Account、Org、owner 成员在同一事务提交；失败回滚后原验证码仍可用。生成工程回归覆盖缺码、错码、过期、用途、尝试耗尽、重发、并发额度、并发单次消费和 owner 失败回滚。

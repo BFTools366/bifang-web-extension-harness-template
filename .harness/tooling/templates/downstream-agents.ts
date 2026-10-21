@@ -51,7 +51,7 @@ Node.js、pnpm 与独立 CLI 全局安装/升级；项目依赖按 manifest/锁�
 - \`package.json\` 与 \`pnpm-lock.yaml\`：命令与依赖版本。
 - 产品源码与测试：可执行行为。
 ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页纠正合同。
-- \`src/data/\`：API 及 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 访问；REST 负责单对象详情与主要交互，GraphQL 强制负责远端列表查询，并负责复杂查询与订阅，Dexie 仅用于 IndexedDB。本地能力无需 BaseURL，直接真实实现；产品远端 API 必须连接真实服务，未接通显示真实失败，测试替身不进入产品运行，详见 \`docs/DATA_ACCESS.md\` §3.1。
+- \`src/data/\`：API 及 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 访问；REST 负责无查询条件的单对象读取与主要交互，GraphQL 强制负责远端列表查询及所有带查询条件的读取，并负责复杂查询与订阅，Dexie 仅用于 IndexedDB。本地能力无需 BaseURL，直接真实实现；产品远端 API 必须连接真实服务，未接通显示真实失败，测试替身不进入产品运行，详见 \`docs/DATA_ACCESS.md\` §1.2 与 §3.1。
 - \`src/data/storage/\`：集中的浏览器存储适配，保持独立生命周期并明确处理失败。
 - \`src/data/api/client/\`：不含业务接口的 Ky HTTP、请求上下文、语言、凭据、错误和未授权处理基础。
 - \`docs/API.md\`：完整的可选基础 API 与数据模型参考，包含来源和适配边界；仅按真实需求采用和拆解。

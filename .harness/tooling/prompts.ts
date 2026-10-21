@@ -223,12 +223,16 @@ export async function promptForIdentity(
 /** 渲染写入前必须由用户完整确认的初始化事实。 */
 export function formatInstantiationSummary(summary: InstantiationSummary): string {
   const policy = summary.init.agentPolicy
+  const members = [...(summary.init.workspaceMembers ?? [summary.init.projectType])]
+  if (summary.init.serverMode === "create" && !members.includes("server")) members.push("server")
+  const developmentBaseUrl =
+    summary.init.serverMode === "create" ? "http://127.0.0.1:8080" : summary.init.developmentBaseUrl
   const sourceLines = Object.entries(summary.inputSources)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([field, source]) => `  - ${field}: ${source}`)
     .join("\n")
   return `初始化完整汇总
-- Workspace 成员：${(summary.init.workspaceMembers ?? [summary.init.projectType]).map((item) => `${summary.init.id}_${item}`).join(", ")}
+- Workspace 成员：${members.map((item) => `${summary.init.id}_${item}`).join(", ")}
 - 服务端：${summary.init.serverMode ?? "未选择"}${summary.init.serverMode === "create" ? `；创建 ${summary.init.id}_server，本地 http://127.0.0.1:8080` : ""}
 - 接口契约：${summary.init.apiContract ?? "待所选能力接线时核对"}
 - 源路径（原始）：${summary.rawSourceRoot}
@@ -250,7 +254,7 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 母版：.harness/brand/logo-1024.png（1024×1024 PNG）
 - 派生资产：${derivedLogoPaths({ projectType: summary.init.projectType }).join(", ")}
 - 身份本地化：${JSON.stringify(summary.init.identityI18n ?? { defaultLocale: "en", translations: {} })}
-- 开发 API 地址：${summary.init.developmentBaseUrl || "未配置，可后续补齐"}
+- 开发 API 地址：${developmentBaseUrl || "未配置，可后续补齐"}
 - 测试 API 地址：${summary.init.testBaseUrl || "未配置，可后续补齐"}
 - 正式 API 地址：${summary.init.releaseBaseUrl || "未配置，正式发布前必须补齐 HTTPS 地址"}
 - Agent Policy：user_owned_tasks=${policy.userOwnedTasks}, superpowers=${policy.superpowers}, parallel_worktree_subagents=${policy.parallelWorktreeSubagents}, acceptance_smoke=${policy.acceptanceSmoke}, e2e_hint=${policy.e2eHint}

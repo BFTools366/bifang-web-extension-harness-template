@@ -1,0 +1,260 @@
+import { Alert, Button, Group, Paper, PasswordInput, Stack, Text, TextInput } from "@mantine/core"
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { ApiError } from "../../data/api/client/httpClient"
+import { normalizeEmail, type RegistrationApi } from "../../data/api/identity/registration"
+import { AuthLayout } from "./AuthLayout"
+import type { IdentityRuntime } from "./runtime"
+import { useEmailVerification } from "./useEmailVerification"
+
+/** 注册 API 不签发会话；成功后显式交给当前唯一 session 登录并完成安全返回。 */
+export function RegistrationPage({
+  api,
+  session,
+  onSuccess,
+  loginLink
+}: {
+  api: RegistrationApi
+  session: IdentityRuntime
+  onSuccess(): Promise<void>
+  loginLink: ReactNode
+}) {
+  const { t } = useTranslation()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [confirmation, setConfirmation] = useState("")
+  const [stage, setStage] = useState<"new" | "registered" | "unknown">("new")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const [passwordInvalid, setPasswordInvalid] = useState(false)
+  const submitting = useRef(false)
+  const controller = useRef(new AbortController())
+  const passwordRef = useRef<HTMLInputElement>(null)
+  const emailRef = useRef<HTMLInputElement>(null)
+  const codeRef = useRef<HTMLInputElement>(null)
+  const verification = useEmailVerification(email, stage === "new" && !!api.sendCode, api.sendCode)
+  const codeError =
+    verification.fieldError === "verification.code.expired"
+      ? "registrationCodeExpired"
+      : ["verification.code.consumed", "verification.code.attempts.exceeded"].includes(
+            verification.fieldError
+          )
+        ? "registrationCodeRequestAgain"
+        : verification.fieldError
+          ? "registrationCodeInvalid"
+          : verification.expired
+            ? "registrationCodeExpired"
+            : ""
+  useEffect(() => {
+    const owned = new AbortController()
+    controller.current = owned
+    return () => owned.abort()
+  }, [])
+  useEffect(() => {
+    if (verification.receipt) codeRef.current?.focus()
+  }, [verification.receipt])
+  /** 已成功的注册不重放；无响应时阻断重复创建，登录失败只重试登录。 */
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (submitting.current || stage === "unknown" || (stage === "new" && password !== confirmation))
+      return
+    if (stage === "new" && api.passwordPolicy && !api.passwordPolicy.validate(password)) {
+      setPasswordInvalid(true)
+      passwordRef.current?.focus()
+      return
+    }
+    submitting.current = true
+    setBusy(true)
+    setError("")
+    const signal = controller.current.signal
+    let registered = stage === "registered"
+    try {
+      if (!registered) {
+        await api.register(
+          {
+            email: normalizeEmail(email),
+            password,
+            ...(api.sendCode ? { code: verification.code } : {})
+          },
+          signal
+        )
+        if (signal.aborted) return
+        registered = true
+        setStage("registered")
+        setConfirmation("")
+        verification.setCode("")
+      }
+      await session.login({ account: normalizeEmail(email), password }, signal)
+      if (signal.aborted) return
+      setPassword("")
+      await onSuccess()
+    } catch (failure) {
+      if (signal.aborted) return
+      if (registered) {
+        setError("registrationLoginPending")
+        setPassword("")
+        passwordRef.current?.focus()
+      } else if (
+        !(failure instanceof ApiError) ||
+        ["network", "timeout", "invalid-response"].includes(failure.kind)
+      ) {
+        setStage("unknown")
+        setPassword("")
+        setConfirmation("")
+        verification.setCode("")
+        setError("registrationUnknown")
+      } else if (failure.code.startsWith("verification.code.")) {
+        verification.rejectCode(failure.code)
+        codeRef.current?.focus()
+      } else setError("registrationFailed")
+    } finally {
+      submitting.current = false
+      if (!signal.aborted) setBusy(false)
+    }
+  }
+  return (
+    <AuthLayout title={t("registrationTitle")}>
+      <Text c="dimmed" size="sm">
+        {t("registrationDescription")}
+      </Text>
+      {error && (
+        <Alert color="red" role="alert">
+          {t(error)}
+        </Alert>
+      )}
+      <form onSubmit={submit}>
+        <Stack>
+          <TextInput
+            ref={emailRef}
+            label={t("registrationEmail")}
+            description={t("registrationEmailHint")}
+            placeholder={t("registrationEmailPlaceholder")}
+            type="email"
+            autoComplete="email"
+            maxLength={128}
+            required
+            value={email}
+            readOnly={busy || stage !== "new"}
+            onChange={(event) => {
+              verification.changeTarget(event.currentTarget.value)
+              setEmail(event.currentTarget.value)
+            }}
+          />
+          {api.sendCode && stage === "new" && (
+            <>
+              <Group align="flex-start" wrap="nowrap" gap="xs">
+                <TextInput
+                  ref={codeRef}
+                  style={{ flex: 1 }}
+                  label={t("registrationCode")}
+                  placeholder={t("registrationCodePlaceholder")}
+                  inputWrapperOrder={["label", "input", "description", "error"]}
+                  description={t("registrationCodeHint")}
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  required
+                  pattern={
+                    verification.codeLength ? `[0-9]{${verification.codeLength}}` : "[0-9]{4,10}"
+                  }
+                  maxLength={verification.codeLength ?? 10}
+                  value={verification.code}
+                  readOnly={busy}
+                  onChange={(event) => verification.setCode(event.currentTarget.value)}
+                  error={codeError ? t(codeError) : undefined}
+                />
+                <Button
+                  mt={24}
+                  type="button"
+                  variant="default"
+                  loading={verification.sending}
+                  disabled={busy || !email.trim() || verification.seconds > 0}
+                  onClick={() => {
+                    if (emailRef.current?.reportValidity()) void verification.send()
+                  }}
+                >
+                  {verification.seconds > 0
+                    ? t("registrationResend", { count: verification.seconds })
+                    : t("registrationSend")}
+                </Button>
+              </Group>
+              {verification.error && (
+                <Alert role="status" color="red">
+                  {t(
+                    verification.error === "verificationSendUnknown"
+                      ? "verificationSendUnknown"
+                      : "registrationSendFailed"
+                  )}
+                </Alert>
+              )}
+              {verification.receipt?.mocked && !verification.expired && (
+                <Paper withBorder p="sm" role="status">
+                  <Text size="sm" fw={600}>
+                    {t("registrationMock")}
+                  </Text>
+                  <Group justify="space-between">
+                    <Text fz="xl" style={{ letterSpacing: "0.2em" }}>
+                      {verification.receipt.code}
+                    </Text>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="subtle"
+                      onClick={() => {
+                        if (verification.receipt?.mocked)
+                          verification.setCode(verification.receipt.code)
+                        passwordRef.current?.focus()
+                      }}
+                    >
+                      {t("registrationFillCode")}
+                    </Button>
+                  </Group>
+                </Paper>
+              )}
+            </>
+          )}
+          <PasswordInput
+            ref={passwordRef}
+            label={t("identityPassword")}
+            placeholder={t("identityPasswordPlaceholder")}
+            description={stage === "new" && api.passwordPolicy ? t(api.passwordPolicy.messageKey) : undefined}
+            error={passwordInvalid && api.passwordPolicy ? t(api.passwordPolicy.messageKey) : undefined}
+            autoComplete={stage === "new" ? "new-password" : "current-password"}
+            required
+            minLength={stage === "new" ? (api.passwordPolicy ? undefined : 8) : 1}
+            maxLength={stage === "new" && api.passwordPolicy ? undefined : 64}
+            value={password}
+            onChange={(event) => {
+              setPasswordInvalid(false)
+              setPassword(event.currentTarget.value)
+            }}
+          />
+          {stage === "new" && (
+            <PasswordInput
+              label={t("registrationConfirm")}
+              placeholder={t("registrationConfirmPlaceholder")}
+              autoComplete="new-password"
+              required
+              minLength={api.passwordPolicy ? undefined : 8}
+              maxLength={api.passwordPolicy ? undefined : 64}
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.currentTarget.value)}
+              error={
+                confirmation && password !== confirmation
+                  ? t("registrationPasswordMismatch")
+                  : undefined
+              }
+            />
+          )}
+          <Button
+            type="submit"
+            loading={busy}
+            disabled={stage === "unknown" || (stage === "new" && password !== confirmation)}
+          >
+            {t(stage === "registered" ? "registrationContinueLogin" : "registrationSubmit")}
+          </Button>
+        </Stack>
+      </form>
+      {loginLink}
+    </AuthLayout>
+  )
+}

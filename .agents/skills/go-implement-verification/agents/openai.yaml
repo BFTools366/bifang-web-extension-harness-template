@@ -1,4 +1,4 @@
 interface:
-  display_name: "Web Harness：实施真实验证码投递"
-  short_description: "在统一工作区内实施真实验证码投递，复用真实服务契约并完成相关实现与验证"
+  display_name: "Web Harness：实施验证码与投递"
+  short_description: "实施验证码生命周期、真实投递及显式授权的开发注册模拟，保留真实校验"
   default_prompt: "使用 $go-implement-verification 完成当前已确认范围，复用 Workspace 真实成员、契约与相关验证，完成后返回调用方。"

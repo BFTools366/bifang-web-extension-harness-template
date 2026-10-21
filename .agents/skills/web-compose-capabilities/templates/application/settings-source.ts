@@ -1,5 +1,9 @@
 /** 设置来源与公开回退依据实际启用的认证路由生成，不扩张登录后的业务返回合同。 */
-export function settingsNavigationSource(identity: boolean, paths: readonly string[] = []): string {
+export function settingsNavigationSource(
+  identity: boolean,
+  paths: readonly string[] = [],
+  registration = false
+): string {
   return `import { navigation } from "./navigation"
 ${identity ? 'import { safeReturnTo } from "./routeAccess"' : ""}
 
@@ -20,10 +24,10 @@ export function settingsReturnTo(input: unknown): string {
   const pathname = url.pathname.replace(/\\/$/u, "") || "/"
   ${
     identity
-      ? `if (pathname.toLowerCase() === "/login") {
+      ? `if (${JSON.stringify(["/login", ...(registration ? ["/register"] : [])])}.includes(pathname.toLowerCase())) {
     const query = new URLSearchParams()
     if (url.searchParams.has("returnTo")) query.set("returnTo", safeReturnTo(url.searchParams.get("returnTo")))
-    return "/login" + (query.size ? "?" + query.toString() : "")
+    return pathname.toLowerCase() + (query.size ? "?" + query.toString() : "")
   }`
       : ""
   }

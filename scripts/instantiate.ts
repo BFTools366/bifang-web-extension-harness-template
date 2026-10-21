@@ -47,7 +47,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension|web,extension|server --server existing|create --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；最终目录为父目录/项目标识"
+  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension --server existing|create --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；没有已有服务端时创建所选前端和一个 Go 服务端，最终目录为父目录/项目标识"
 }
 
 /** 标记每个初始化字段来自命令行、交互表单、默认值或预设。 */

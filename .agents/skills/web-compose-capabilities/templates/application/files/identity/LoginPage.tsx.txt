@@ -1,20 +1,7 @@
-import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  Image,
-  Paper,
-  PasswordInput,
-  Stack,
-  Text,
-  TextInput,
-  Title
-} from "@mantine/core"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { Alert, Button, PasswordInput, Stack, Text, TextInput } from "@mantine/core"
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
-import { BRAND } from "../../brand"
-import { SettingsLink } from "../application/SettingsLink"
+import { AuthLayout } from "./AuthLayout"
 import classes from "../application/application.module.css"
 import type { IdentityRuntime } from "./runtime"
 
@@ -22,10 +9,11 @@ import type { IdentityRuntime } from "./runtime"
 export interface LoginPageProps {
   session: IdentityRuntime
   mock: boolean
+  registrationLink?: ReactNode
   onSuccess(): Promise<void>
 }
 /** 登录页固定设计为品牌标题、凭据表单与稳定错误反馈。 */
-export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
+export function LoginPage({ session, mock, onSuccess, registrationLink }: LoginPageProps) {
   const { t } = useTranslation()
   const [account, setAccount] = useState("")
   const [password, setPassword] = useState("")
@@ -33,10 +21,14 @@ export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
   const [error, setError] = useState(false)
   const submitting = useRef(false)
   const alive = useRef(true)
+  const controller = useRef(new AbortController())
   useEffect(() => {
+    const owned = new AbortController()
+    controller.current = owned
     alive.current = true
     return () => {
       alive.current = false
+      owned.abort()
     }
   }, [])
   /** 同步阻止重复提交，只在接受本次登录后执行安全导航。 */
@@ -47,7 +39,7 @@ export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
     setBusy(true)
     setError(false)
     try {
-      await session.login({ account, password })
+      await session.login({ account, password }, controller.current.signal)
       if (!alive.current) return
       setPassword("")
       await onSuccess()
@@ -59,67 +51,46 @@ export function LoginPage({ session, mock, onSuccess }: LoginPageProps) {
     }
   }
   return (
-    <main className={classes.authPage}>
-      <Container size="lg" w="100%">
-        <Paper withBorder className={classes.authLayout}>
-          <Stack className={classes.authAside} gap="lg">
-            <Group>
-              <Image src={BRAND.logoPath} alt="" w={48} h={48} />
-              <Text fw={700} size="xl">
-                {t("projectName")}
-              </Text>
-            </Group>
-            <Text size="xl" fw={700}>
-              {t("identityIntroTitle")}
-            </Text>
-            <Text c="dimmed">{t("identityIntroDescription")}</Text>
-          </Stack>
-          <Stack className={classes.authCard}>
-            <Title order={1} className={classes.authHeading}>
-              {t("identityLogin")}
-            </Title>
-            {mock && (
-              <details>
-                <summary>{t("identityMockTitle")}</summary>
-                <Text size="sm">{t("identityMock")}</Text>
-              </details>
-            )}
-            {error && (
-              <Alert color="red" role="alert">
-                {t("identityLoginError")}
-              </Alert>
-            )}
-            <form onSubmit={submit}>
-              <Stack>
-                <TextInput
-                  label={t("identityAccount")}
-                  placeholder={t("identityAccountPlaceholder")}
-                  classNames={{ input: classes.authPlaceholder }}
-                  name="account"
-                  autoComplete="username"
-                  value={account}
-                  onChange={(event) => setAccount(event.currentTarget.value)}
-                  required
-                />
-                <PasswordInput
-                  label={t("identityPassword")}
-                  placeholder={t("identityPasswordPlaceholder")}
-                  classNames={{ innerInput: classes.authPlaceholder }}
-                  name="password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.currentTarget.value)}
-                  required
-                />
-                <Button type="submit" loading={busy} disabled={busy}>
-                  {t("identityLogin")}
-                </Button>
-              </Stack>
-            </form>
-            <SettingsLink />
-          </Stack>
-        </Paper>
-      </Container>
-    </main>
+    <AuthLayout title={t("identityLogin")}>
+      {mock && (
+        <details>
+          <summary>{t("identityMockTitle")}</summary>
+          <Text size="sm">{t("identityMock")}</Text>
+        </details>
+      )}
+      {error && (
+        <Alert color="red" role="alert">
+          {t("identityLoginError")}
+        </Alert>
+      )}
+      <form onSubmit={submit}>
+        <Stack>
+          <TextInput
+            label={t("identityAccount")}
+            placeholder={t("identityAccountPlaceholder")}
+            classNames={{ input: classes.authPlaceholder }}
+            name="account"
+            autoComplete="username"
+            value={account}
+            onChange={(event) => setAccount(event.currentTarget.value)}
+            required
+          />
+          <PasswordInput
+            label={t("identityPassword")}
+            placeholder={t("identityPasswordPlaceholder")}
+            classNames={{ innerInput: classes.authPlaceholder }}
+            name="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => setPassword(event.currentTarget.value)}
+            required
+          />
+          <Button type="submit" loading={busy} disabled={busy}>
+            {t("identityLogin")}
+          </Button>
+        </Stack>
+      </form>
+      {registrationLink}
+    </AuthLayout>
   )
 }

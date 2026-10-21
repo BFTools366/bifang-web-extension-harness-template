@@ -16,11 +16,17 @@ import { parseArgs } from "../.harness/tooling/args.ts"
 import { recommendedAgentPolicy } from "../.harness/tooling/agent-policy.ts"
 import type { InitOptions } from "../.harness/tooling/types.ts"
 
-/** 在临时目录验证公开新拓扑，不安装依赖或写入用户项目。 */
+/** 在临时目录验证创建结果及内部拓扑，不安装依赖或写入用户项目。 */
 describe("workspace creation", () => {
   /** 所有选中组合都在同一事务形成精确成员，并接真实服务配置。 */
   test.each([
     { selected: ["web"] as const, mode: "create" as const, expected: ["web", "server"] },
+    {
+      selected: ["extension"] as const,
+      mode: "create" as const,
+      expected: ["extension", "server"]
+    },
+    { selected: ["web"] as const, mode: "existing" as const, expected: ["web"] },
     { selected: ["extension"] as const, mode: "existing" as const, expected: ["extension"] },
     {
       selected: ["web", "extension"] as const,
@@ -122,6 +128,26 @@ describe("workspace creation", () => {
             await expect(prepareUsers(target)).rejects.toThrow("保留已有产品文件")
             expect(await readFile(file, "utf8")).toBe("existing product file")
             await rm(file)
+            const verificationConfig = path.join(target, "example_server/configs/config.yaml")
+            const originalConfig = await readFile(verificationConfig, "utf8")
+            await writeFile(verificationConfig, originalConfig.replaceAll("\n", "\r\n"))
+            const verifiedPlan = await prepareUsers(target, [
+              "register",
+              "login",
+              "profile",
+              "logout",
+              "verification"
+            ])
+            expect(verifiedPlan.files.get("configs/config.yaml")).toContain("enabled: true")
+            expect(verifiedPlan.files.get("configs/config.yaml")).toContain("mock: false")
+            expect(verifiedPlan.files.get("internal/model/models.go")).toContain(
+              "VerificationDeliveryState"
+            )
+            expect(verifiedPlan.files.get("internal/service/auth.go")).toContain(
+              "apperr.ErrVerificationDisabled"
+            )
+            expect(await readFile(verificationConfig, "utf8")).toContain("\r\n")
+            await writeFile(verificationConfig, originalConfig)
             await installUsers(target)
             await expect(installUsers(target)).rejects.toThrow("保留已有产品文件")
             const routes = await readFile(

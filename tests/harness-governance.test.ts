@@ -470,6 +470,6 @@ describe("single-package Harness validation and governance", () => {
         ]),
         root
       )
-    ).resolves.toMatchObject({ workspaceMembers: ["web", "extension"], serverMode: "create" })
+    ).rejects.toThrow(/只能选择.*Web.*Extension/)
   })
 })

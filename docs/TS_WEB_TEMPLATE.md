@@ -1,6 +1,6 @@
 # TypeScript Web / Chrome Extension 单包模板
 
-本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，按需选择 Web、Extension 与 Go 服务；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
+本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，先选择唯一 Web 或 Extension 前端，再询问是否已有服务端；没有则默认同时创建一个 Go 服务端；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
 
 ## 工程基础与功能组合
 
@@ -23,27 +23,28 @@
 从源 Harness 根创建独立 Web 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path --type web \
+pnpm instantiate -- /absolute/path --type web --server create \
   --name "示例 Web" --english-name "Example Web" --policy-mode 预设
 ```
 
 从同一个源 Harness 根创建独立 Extension 目录：
 
 ```bash
-pnpm instantiate -- /absolute/path --type extension \
+pnpm instantiate -- /absolute/path --type extension --server create \
   --name "示例扩展" --english-name "Example Extension" --description "示例浏览器扩展。" --policy-mode 预设
 ```
 
 位置参数是源 Harness 之外的相对或绝对父目录；相对路径按调用 cwd 解析（聊天表单按源 Harness 根），只读核对可访问性后展示绝对保存位置，询问是否保存到该位置，用户同意后继续，无需重输绝对路径。无交互终端的相对参数须通过已确认表单执行；最终项目目录自动拼接为“父目录/项目标识”，该子目录必须不存在或为空。上述示例分别创建 `/absolute/path/example-web` 和 `/absolute/path/example-extension`。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
 - 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`，无默认值。
+- 类型选好后立即询问是否已有服务端：有则使用 `--server existing` 并提供开发 BaseURL；没有则使用 `--server create`，默认创建所选前端和一个 Go 服务端，无需再选服务端类型。
 - `--name` 是用户可见名称。
-- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互在类型之后询问，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
+- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互在类型与服务来源之后询问，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
 - 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
 - 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
 - `--identity-i18n` 接受 §3.1 的 JSON 字符串；默认语言与名称/说明翻译保存在 `.harness/project.json`，UI 和 manifest 都消费同一事实。
-- `--development-base-url` 可选，可后续配置。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS；正式发布前及活动 Release 校验必须补齐正式地址。
+- `--development-base-url` 在已有服务时必填；自建服务由创建器使用 `http://127.0.0.1:8080`。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS；正式发布前及活动 Release 校验必须补齐正式地址。
 - 确认来源不作为表单字段；`confirmed_by` 自动记录“当前用户”，可选 `--confirmed-by` 只用于复用已明确来源。`confirmed_at` 记录最终收齐时间。
 - `--logo` 可选，指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 可选，使用 `#RRGGBB`；缺省为 `#4C6EF5`。例如追加 `--logo /absolute/path/logo.png --brand-color "#3B82F6"`。

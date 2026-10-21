@@ -1,0 +1,144 @@
+package notify
+
+import (
+	"bufio"
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
+	"net"
+	"net/http/httptest"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+)
+
+// TestSMTPTLSDelivery 经真实 TCP/TLS SMTP 协议验证两种加密投递方式，不连接外部邮箱。
+func TestSMTPTLSDelivery(t *testing.T) {
+	for _, mode := range []string{"tls", "starttls"} {
+		t.Run(mode, func(t *testing.T) {
+			certificateServer := httptest.NewTLSServer(nil)
+			certificate := certificateServer.TLS.Certificates[0]
+			roots := x509.NewCertPool()
+			roots.AddCert(certificateServer.Certificate())
+			certificateServer.Close()
+			listener, err := net.Listen("tcp", "127.0.0.1:0")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			received := make(chan string, 1)
+			done := make(chan error, 1)
+			go func() {
+				conn, err := listener.Accept()
+				if err != nil {
+					done <- err
+					return
+				}
+				defer conn.Close()
+				_ = conn.SetDeadline(time.Now().Add(4 * time.Second))
+				if mode == "tls" {
+					secured := tls.Server(conn, &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12})
+					if err := secured.Handshake(); err != nil {
+						done <- err
+						return
+					}
+					conn = secured
+				}
+				reader := bufio.NewReader(conn)
+				write := func(v string) error { _, err := fmt.Fprint(conn, v); return err }
+				_ = write("220 local-test ESMTP\r\n")
+				for {
+					line, err := reader.ReadString('\n')
+					if err != nil {
+						done <- err
+						return
+					}
+					switch {
+					case strings.HasPrefix(line, "EHLO"):
+						_ = write("250-local-test\r\n250 STARTTLS\r\n")
+					case strings.HasPrefix(line, "STARTTLS"):
+						_ = write("220 begin TLS\r\n")
+						secured := tls.Server(conn, &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS12})
+						if err := secured.Handshake(); err != nil {
+							done <- err
+							return
+						}
+						conn = secured
+						reader = bufio.NewReader(conn)
+					case strings.HasPrefix(line, "MAIL FROM:"), strings.HasPrefix(line, "RCPT TO:"):
+						_ = write("250 accepted\r\n")
+					case strings.HasPrefix(line, "DATA"):
+						_ = write("354 send data\r\n")
+						var body strings.Builder
+						for {
+							entry, err := reader.ReadString('\n')
+							if err != nil {
+								done <- err
+								return
+							}
+							if entry == ".\r\n" {
+								break
+							}
+							body.WriteString(entry)
+						}
+						received <- body.String()
+						_ = write("250 queued\r\n")
+					case strings.HasPrefix(line, "QUIT"):
+						_ = write("221 bye\r\n")
+						done <- nil
+						return
+					default:
+						done <- fmt.Errorf("unexpected SMTP command")
+						return
+					}
+				}
+			}()
+			address := listener.Addr().(*net.TCPAddr)
+			sender := NewSMTP(SMTPOptions{Host: "127.0.0.1", Port: address.Port, From: "test@example.test", TLSMode: mode, Timeout: 3 * time.Second, RootCAs: roots})
+			if err := sender.Send(context.Background(), Target{Type: TargetTypeEmail, Value: "recipient@example.test"}, "123456", 5*time.Minute); err != nil {
+				t.Fatal(err)
+			}
+			if err := <-done; err != nil {
+				t.Fatal(err)
+			}
+			body := <-received
+			if !strings.Contains(body, "123456") || !strings.Contains(body, "Content-Transfer-Encoding: quoted-printable") {
+				t.Fatal("mail body/encoding missing")
+			}
+		})
+	}
+}
+
+// TestSMTPCancelClosesConnection 验证未给出问候的服务仍受取消约束。
+func TestSMTPCancelClosesConnection(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	done := make(chan struct{})
+	go func() {
+		conn, err := listener.Accept()
+		if err == nil {
+			defer conn.Close()
+			buffer := make([]byte, 1)
+			_, _ = conn.Read(buffer)
+		}
+		close(done)
+	}()
+	_, port, _ := net.SplitHostPort(listener.Addr().String())
+	number, _ := strconv.Atoi(port)
+	sender := NewSMTP(SMTPOptions{Host: "127.0.0.1", Port: number, From: "test@example.test", TLSMode: "starttls", Timeout: 2 * time.Second})
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	if err := sender.Send(ctx, Target{Type: TargetTypeEmail, Value: "to@example.test"}, "123456", time.Minute); err == nil {
+		t.Fatal("expected cancellation")
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("cancellation did not bound SMTP")
+	}
+	<-done
+}

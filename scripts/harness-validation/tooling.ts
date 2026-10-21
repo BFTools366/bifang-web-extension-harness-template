@@ -92,6 +92,12 @@ export function inspectInitializationCatalog(raw: unknown): string[] {
         values.add(option.value)
       }
       if (
+        group === "basic" &&
+        field === "projectType" &&
+        JSON.stringify([...values]) !== JSON.stringify(["web", "extension"])
+      )
+        errors.push("初始化项目类型只能包含 Web 与 Extension 两个选项")
+      if (
         (group === "confirmation" || group === "agentConfirmation") &&
         JSON.stringify([...values]) !== JSON.stringify(["yes", "cancel"])
       )

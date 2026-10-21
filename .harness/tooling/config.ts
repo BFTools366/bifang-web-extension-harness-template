@@ -69,6 +69,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/application-organization.test.ts",
   "tests/application-management.test.ts",
   "tests/application-readonly.test.ts",
+  "tests/application-registration.test.ts",
   "tests/capability-source-reference.test.ts",
   "tests/identity-localization.test.ts",
   "tests/http-foundation.test.ts",

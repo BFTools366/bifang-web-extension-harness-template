@@ -5,6 +5,7 @@ import {
   confirmInstantiation
 } from "../.harness/tooling/prompts.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
+import { createWorkspaceConfig } from "../.harness/tooling/workspace.ts"
 import { parseIdentityI18n } from "../.harness/tooling/identity.ts"
 import { runInstantiateCli } from "../scripts/instantiate.ts"
 import {
@@ -167,6 +168,11 @@ describe("初始化渐进式引导", () => {
         instantiate: async (supplied) => {
           expect(supplied.targetRoot).toBe(path.join(parent, "my-notes"))
           expect(supplied.init.projectType).toBe(projectType)
+          expect(
+            createWorkspaceConfig({ ...supplied.init, root: supplied.targetRoot }).members.map(
+              ({ type }) => type
+            )
+          ).toEqual([projectType, "server"])
           return createProjectConfig(supplied.init)
         }
       }
@@ -174,6 +180,37 @@ describe("初始化渐进式引导", () => {
     expect(config.id).toBe("my-notes")
     expect(await readdir(parent)).toEqual(["existing.txt"])
   })
+
+  /** 验证旧类型编号、组合与纯服务入口在目标写入前失败。 */
+  test.each(["3", "4", "both", "server", "web,extension", "web,server", "extension,server"])(
+    "公开创建拒绝类型 %s",
+    async (projectType) => {
+      const parent = await temporaryDirectory("creation-type-")
+      await expect(
+        runInstantiateCli(
+          [
+            parent,
+            "--type",
+            projectType,
+            "--server",
+            "create",
+            "--name",
+            "Notes",
+            "--policy-mode",
+            "recommended"
+          ],
+          {
+            sourceRoot: repositoryRoot,
+            interactive: false,
+            instantiate: async () => {
+              throw new Error("非法类型不能开始创建")
+            }
+          }
+        )
+      ).rejects.toThrow(/只能选择.*Web.*Extension/)
+      expect(await readdir(parent)).toEqual([])
+    }
+  )
 
   /** 验证缺译名、非法标识和非空最终目录都在任何创建写入前失败。 */
   test("生成标识和最终子目录的错误保持父目录内容", async () => {

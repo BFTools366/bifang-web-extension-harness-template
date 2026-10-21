@@ -78,6 +78,15 @@ describe("共享聊天创建表单", () => {
     fact(broken.basic.projectType.options[0]).description = ""
     broken.agentConfirmation.options.pop()
     expect(inspectInitializationCatalog(broken).length).toBeGreaterThan(0)
+    const expanded = structuredClone(INITIALIZATION_QUESTIONS)
+    expanded.basic.projectType.options.push({
+      value: "server",
+      label: "4.Server",
+      description: "仅服务"
+    })
+    expect(inspectInitializationCatalog(expanded)).toContain(
+      "初始化项目类型只能包含 Web 与 Extension 两个选项"
+    )
   })
 
   /** 验证下一题来自同一收集器，显示完整选项/hint，恢复不受模型影响。 */
@@ -95,6 +104,21 @@ describe("共享聊天创建表单", () => {
       })
     })
     expect(raw).toEqual({ values: { name: "Notes" } })
+    expect(INITIALIZATION_QUESTIONS.basic.projectType.options.map(({ value }) => value)).toEqual([
+      "web",
+      "extension"
+    ])
+    expect(first.question).not.toMatch(/3\.|4\.|建议\/默认|Web \+ Extension/)
+    for (const projectType of ["1", "2"]) {
+      const next = await inspectCreationForm(repositoryRoot, { values: { projectType } })
+      expect(next.field).toBe("serverMode")
+      expect(next.question).toContain("是否已有可接入的服务端？")
+      expect(next.question).toContain("没有则默认创建所选 Web 或 Extension 和一个 Go 服务端")
+      expect(
+        (await inspectCreationForm(repositoryRoot, { values: { projectType, serverMode: "没有" } }))
+          .field
+      ).toBe("requirementsFile")
+    }
     const invalid = await inspectCreationForm(repositoryRoot, {
       values: { ...raw.values, projectType: "desktop" }
     })
@@ -293,6 +317,8 @@ describe("共享聊天创建表单", () => {
   test("公开入口复核修订后才执行同一参数", async () => {
     const { file, input } = await fixture()
     const current = await inspectCreationForm(repositoryRoot, input)
+    expect(current.summary).toContain("Workspace 成员：notes_web, notes_server")
+    expect(current.summary).toContain("开发 API 地址：http://127.0.0.1:8080")
     input.decision = {
       revision: fact(current.revision),
       answer: "确认",

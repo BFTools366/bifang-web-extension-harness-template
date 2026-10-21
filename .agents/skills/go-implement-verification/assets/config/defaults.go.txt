@@ -1,0 +1,7 @@
+	instance.SetDefault("verification.smtp.host", "")
+	instance.SetDefault("verification.smtp.port", 587)
+	instance.SetDefault("verification.smtp.from", "")
+	instance.SetDefault("verification.smtp.username", "")
+	instance.SetDefault("verification.smtp.password", "")
+	instance.SetDefault("verification.smtp.tls_mode", "starttls")
+	instance.SetDefault("verification.smtp.timeout", 10*time.Second)

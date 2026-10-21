@@ -63,4 +63,4 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 
 ## Workspace 全栈委托
 
-操作仍由本 Skill 解析最小依赖；所选模块的 implementationSkill 负责对应前端、Go 后端、契约与真实联调。根服务归属来自 .harness/workspace.json：已有服务核对 BaseURL 和可信接口，没有服务在 _server 实现并连接，不另开 Go 问卷。完整用户包含注册自有组织及 owner 成员；注册、资料、验证码、组织成员、角色等操作逐项选择。固定应用装配只接受 dataMode=adapter，禁止产品 Mock；历史 Mock 资源仅为测试参考。委托完成后返回当前编排者，不重启定义或设计问卷。
+操作仍由本 Skill 解析最小依赖；所选模块的 implementationSkill 负责对应前端、Go 后端、契约与真实联调。根服务归属来自 .harness/workspace.json：已有服务核对 BaseURL 和可信接口，没有服务在 _server 实现并连接，不另开 Go 问卷。完整用户包含注册自有组织及 owner 成员；注册、资料、验证码、组织成员、角色等操作逐项选择。邮箱注册和条件验证码已有 application 模板；验证码不因基础登录或注册自动启用，开发模拟投递遵循 go-implement-verification 的显式授权分支。固定应用装配只接受 dataMode=adapter，禁止产品 Mock；历史 Mock 资源仅为测试参考。委托完成后返回当前编排者，不重启定义或设计问卷。

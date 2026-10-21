@@ -46,7 +46,7 @@ function usage(): string {
   return `Bifang Web Harness
 
 创建项目（目标必须位于本 Harness 仓库之外）：
-  pnpm instantiate -- <parent-outside-harness> --type web|extension|web,extension|server --server existing|create --name <name> \\
+  pnpm instantiate -- <parent-outside-harness> --type web|extension --server existing|create --name <name> \\
     [--english-name <English translation>] [--id <id>] [--requirements-file <md-or-txt-path> | --requirements-text <text>] \\
     --policy-mode 预设|自定义 [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
@@ -61,7 +61,7 @@ function usage(): string {
   pnpm harness validate
 
 禁止原地初始化；创建 Workspace，成员内部保持唯一宿主。
-项目类型：1.Web；2.Extension；3.Web + Extension；4.Server，可输入编号；最终目录为 <parent-outside-harness>/<id>。
+项目类型：1.Web；2.Extension，可输入编号；随后选择是否已有服务端，没有则创建所选前端和一个 Go 服务端。最终目录为 <parent-outside-harness>/<id>。
 `
 }
 
@@ -207,15 +207,13 @@ export async function resolveInitOptions(
   }
 
   if (identity.projectType === undefined) throw new Error("Project type is required")
-  const workspaceMembers =
+  const workspaceMembers = parseWorkspaceSelection(
     "workspaceMembers" in identity && identity.workspaceMembers
-      ? identity.workspaceMembers
-      : parseWorkspaceSelection(identity.projectType)
+      ? identity.workspaceMembers.join(",")
+      : identity.projectType
+  )
   const projectType = primaryFrontend(workspaceMembers)
-  const serverMode =
-    workspaceMembers.length === 1 && workspaceMembers[0] === "server"
-      ? "create"
-      : parseServerMode(identity.serverMode)
+  const serverMode = parseServerMode(identity.serverMode)
   if (serverMode === "existing" && !identity.developmentBaseUrl?.trim())
     throw new Error("已有服务端必须提供 BaseURL（--development-base-url）")
   const id = identity.id ?? deriveProjectId(identity.name, identity.englishName)

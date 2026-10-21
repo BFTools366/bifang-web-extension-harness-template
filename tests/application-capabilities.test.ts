@@ -66,14 +66,16 @@ test.each(["web", "extension"] as const)(
         }
       },
       `import { test, expect, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { RouterProvider${host === "web" ? ", createRouter, createMemoryHistory" : ""} } from "@tanstack/react-router"
 import "./i18n"
 import "./i18n/application"
 import i18n from "./i18n"
 ${host === "web" ? 'import { routeTree } from "./routeTree.gen"\nimport { AppProviders as Providers } from "./app/AppProviders"' : 'import { createExtensionRouter } from "./extension-router"\nimport { Providers } from "./providers"'}
-import { identitySession, permissionSession, permissionMock, walletApi, ordersApi, actor } from "./features/application/runtime"
+import { identitySession, permissionSession, permissionMock, walletApi, ordersApi, actor, ensureOrganization, organizationService, currentScope, assertPurchase } from "./features/application/runtime"
+${host === "web" ? 'import { queryClient } from "./app/queryClient"' : 'import { queryClient } from "./providers"'}
+import { createPermissionRuntime } from "./features/permissions/runtime"
 import { createPurchaseRegistry } from "./features/orders/purchase"
 import { createIdentitySession } from "./features/identity/session"
 import { createIdentityRuntime } from "./features/identity/runtime"
@@ -148,6 +150,57 @@ test("pending purchase survives reopening without replay", async () => {
   scope += 1
   expect(registry.get("product")).not.toBe(first)
 })
+/** 同组织撤权会取消私有读取；恢复权限也不能让旧建单继续付款。 */
+test("permission reduction invalidates private work permanently", async () => {
+  cleanup()
+  await identitySession.login({ account: "demo", password: "demo" })
+  await ensureOrganization()
+  await organizationService.switch("a")
+  permissionMock.set({ subjectId: "member-a", organizationId: "a" }, ${JSON.stringify(codes)})
+  await permissionSession.refresh()
+  expect(permissionSession.allow(["buy"])).toBe(true)
+  const initial = currentScope()
+  queryClient.setQueryData(["public-fixture"], "public")
+  queryClient.setQueryDefaults(["private-fixture"], { meta: { private: true } })
+  queryClient.setQueryData(["private-fixture"], "private")
+  let querySignal: AbortSignal | undefined
+  let finishQuery: ((value: string) => void) | undefined
+  const pendingRead = queryClient.fetchQuery({ queryKey: ["private-pending"], meta: { private: true }, queryFn: ({ signal }) => { querySignal = signal; return new Promise<string>((resolve) => { finishQuery = resolve }) } }).catch(() => undefined)
+  let finishOrder: ((value: Order) => void) | undefined
+  const pay = vi.fn(async (): Promise<Order> => { throw new Error("must not pay") })
+  const registry = createPurchaseRegistry({ create: () => new Promise<Order>((resolve) => { finishOrder = resolve }), find: async () => null, list: async () => [] }, { pay, read: async () => ({ minor: 0, currency: "USD" }) }, currentScope, assertPurchase)
+  const oldPurchase = registry.get("product")
+  const pendingPurchase = oldPurchase.submit("product")
+  permissionMock.set({ subjectId: "member-a", organizationId: "a" }, ${JSON.stringify(codes.filter((code) => code !== "buy"))})
+  await permissionSession.refresh()
+  expect(currentScope()).toBeGreaterThan(initial)
+  expect(permissionSession.allow(["home"])).toBe(true)
+  expect(querySignal?.aborted).toBe(true)
+  expect(queryClient.getQueryData(["private-fixture"])).toBeUndefined()
+  expect(queryClient.getQueryData(["public-fixture"])).toBe("public")
+  const revoked = currentScope()
+  permissionMock.set({ subjectId: "member-a", organizationId: "a" }, ${JSON.stringify([...codes].reverse())})
+  await permissionSession.refresh()
+  expect(currentScope()).toBe(revoked)
+  finishOrder?.({ id: "late", productId: "product", total: { minor: 1250, currency: "USD" }, status: "unpaid", requestId: "original" })
+  finishQuery?.("late")
+  await pendingPurchase; await pendingRead
+  expect(pay).not.toHaveBeenCalled()
+  expect(oldPurchase.getSnapshot().phase).toBe("superseded")
+  expect(queryClient.getQueryData(["private-pending"])).toBeUndefined()
+  expect(registry.get("product")).not.toBe(oldPurchase)
+  let failure = false, invalidated = 0
+  const permission = createPermissionRuntime({ read: async () => { if (failure) throw new Error("offline"); return ["buy"] } }, () => ({ id: "member", organizationId: "a", scope: 1 }), () => () => {}, () => { invalidated++ })
+  await permission.refresh()
+  failure = true
+  await expect(permission.refresh()).rejects.toThrow("offline")
+  expect(invalidated).toBe(1)
+  failure = false
+  await permission.refresh()
+  expect(permission.allow(["buy"])).toBe(true)
+  expect(invalidated).toBe(1)
+  permission.dispose()
+})
 /** Token 接线失败不提交本次凭据，失败签发仍能窄化吊销。 */
 test("transport rejection leaves no restorable credential", async () => {
   const storage = createIdentityCredentials()
@@ -174,7 +227,7 @@ test("identity restore single flight is scoped", async () => {
 })
 `
     )
-    expect(result).toMatch(/Tests\s+4 passed/)
+    expect(result).toMatch(/Tests\s+5 passed/)
   },
   90_000
 )
@@ -183,7 +236,7 @@ test("identity restore single flight is scoped", async () => {
 test("rejects production Mock and delegates unsupported operations to domain implementation", () => {
   expect(() =>
     productionFiles(new Map(), {
-      selection: { host: "web", operations: ["identity.register"] },
+      selection: { host: "web", operations: ["identity.profile"] },
       homePageSource: HOME_SOURCE,
       dataMode: "adapter",
       adapters: { identity: "export const api = {}" }

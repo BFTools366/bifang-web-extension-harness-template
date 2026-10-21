@@ -30,6 +30,7 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
     "src/data/api/identity/contracts.ts": "identity/contracts.ts.txt",
     "src/data/storage/identityCredentials.ts": "identity/identityCredentials.ts.txt",
     "src/features/identity/runtime.ts": "identity/runtime.ts.txt",
+    "src/features/identity/AuthLayout.tsx": "identity/AuthLayout.tsx.txt",
     "src/features/identity/LoginPage.tsx": "identity/LoginPage.tsx.txt",
     "src/features/identity/IdentityMenu.tsx": "identity/IdentityMenu.tsx.txt",
     "src/features/identity/identity.module.css": "identity/identity.module.css.txt",
@@ -69,6 +70,11 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
 }
 /** 只随具体操作装配的固定资产，不因模块启用而附带写入能力。 */
 const OPERATION_ASSETS: Record<string, Record<string, string>> = {
+  "identity.register": {
+    "src/data/api/identity/registration.ts": "identity/registration.ts.txt",
+    "src/features/identity/RegistrationPage.tsx": "identity/RegistrationPage.tsx.txt",
+    "src/features/identity/useEmailVerification.ts": "identity/useEmailVerification.ts.txt"
+  },
   "organization.manage": {
     "src/features/organization/OrganizationManagementPage.tsx":
       "organization/OrganizationManagementPage.tsx.txt"
@@ -186,6 +192,8 @@ export function applicationFiles(
   const frontendOperations = selected.resolved.filter((id) => !serverOnly.has(id))
   const supported = new Set([
     "identity.session",
+    "identity.register",
+    "identity.verification",
     "organization.switch",
     "organization.manage",
     "permissions.enforce",
@@ -197,6 +205,11 @@ export function applicationFiles(
     "wallet-payments.pay",
     "audit.read"
   ])
+  if (
+    frontendOperations.includes("identity.verification") &&
+    !frontendOperations.includes("identity.register")
+  )
+    throw new Error("独立验证或找回须由领域 Skill 按真实流程实施；当前装配发码仅与注册组合")
   const incremental = frontendOperations.filter((id) => !supported.has(id))
   if (incremental.length)
     throw new Error(
@@ -277,7 +290,11 @@ export function applicationFiles(
   )
   files.set(
     "src/features/application/settingsNavigation.ts",
-    settingsNavigationSource(modules.includes("identity"), organizationPaths)
+    settingsNavigationSource(
+      modules.includes("identity"),
+      organizationPaths,
+      selected.resolved.includes("identity.register")
+    )
   )
   files.set(
     "src/features/application/navigation.ts",
@@ -303,11 +320,11 @@ export function applicationFiles(
           layout
             .replace('import { BUILD_VERSION } from "../../buildVersion"\n', "")
             .replace(/\s*<footer>[\s\S]*?<\/footer>/u, "")
-            .replace("const useSidebar = navigation.length > 1", "const useSidebar = false")
+            .replace("const useSidebar = true", "const useSidebar = false")
         )
       )
-    const login = files.get("src/features/identity/LoginPage.tsx")
-    if (login) files.set("src/features/identity/LoginPage.tsx", stripBrandImage(login))
+    const auth = files.get("src/features/identity/AuthLayout.tsx")
+    if (auth) files.set("src/features/identity/AuthLayout.tsx", stripBrandImage(auth))
   }
   const wiring: ApplicationWiring = {
     schemaVersion: 1,

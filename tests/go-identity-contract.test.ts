@@ -19,7 +19,11 @@ test("Go identity adapter uses authoritative wire contracts and durable account 
   const root = await mkdtemp(path.join(cache, "go-identity-"))
   const server = path.join(root, "contract_server")
   const run = promisify(execFile)
-  const options = { cwd: server, env: { ...process.env, GOTOOLCHAIN: "local" }, timeout: 120_000 }
+  const options = {
+    cwd: server,
+    env: { ...process.env, GOTOOLCHAIN: "local", APP_ENV: "dev", APP_VERIFICATION_MOCK: "true" },
+    timeout: 120_000
+  }
   let stop: (() => Promise<void>) | undefined
   try {
     const assets = ".agents/skills/go-implement-service/assets/go-service"
@@ -41,13 +45,30 @@ test("Go identity adapter uses authoritative wire contracts and durable account 
       "profile",
       "logout",
       "refresh",
-      "password.change"
+      "password.change",
+      "verification"
     ])
+    expect(await readFile(path.join(server, "internal/pkg/notify/smtp.go"), "utf8")).not.toMatch(
+      /排行榜|毕方/u
+    )
+    expect(await readFile(path.join(server, "internal/service/auth.go"), "utf8")).not.toContain(
+      "Leaderboard"
+    )
     await run("go", ["mod", "tidy"], options)
     await run("go", ["test", "./..."], options)
+    await run(
+      "go",
+      ["test", "-race", "./internal/service", "./internal/config", "./internal/pkg/notify"],
+      options
+    )
     const binary = path.join(server, process.platform === "win32" ? "fixture.exe" : "fixture")
     await run("go", ["build", "-o", binary, "./cmd/server"], options)
-    const running = await startGoFixture(server, binary)
+    const developmentDelivery = {
+      APP_VERIFICATION_ENABLED: "true",
+      APP_VERIFICATION_MOCK: "true",
+      APP_VERIFICATION_RESEND_INTERVAL: "0s"
+    }
+    const running = await startGoFixture(server, binary, developmentDelivery)
     stop = running.stop
     const base = webFiles(
       createProjectConfig({
@@ -75,6 +96,10 @@ test("Go identity adapter uses authoritative wire contracts and durable account 
     const copies = {
       "src/data/api/identity/adapter.ts":
         ".agents/skills/workspace-implement-users/assets/go-identity-adapter.ts.txt",
+      "src/data/api/identity/verification.ts":
+        ".agents/skills/workspace-implement-users/assets/registration-verification.ts.txt",
+      "src/data/api/identity/verification.test.ts":
+        ".agents/skills/workspace-implement-users/assets/registration-verification.test.ts.txt",
       "src/data/api/identity/goContract.ts": recipe + "auth/serviceContract.ts.txt",
       "src/data/api/foundationProtocol.ts": recipe + "foundationProtocol.ts.txt",
       "src/features/identity/session.ts":
@@ -92,7 +117,7 @@ test("Go identity adapter uses authoritative wire contracts and durable account 
     )
     files.set(
       "src/config/environment.ts",
-      `export const APP_CONFIG = { environment: "test", apiBaseUrl: ${JSON.stringify(running.url)}, requestTimeoutMs: 3000, logLevel: "error" } as const`
+      `export const APP_CONFIG = { environment: "development", apiBaseUrl: ${JSON.stringify(running.url)}, requestTimeoutMs: 3000, logLevel: "error" } as const`
     )
     for (const [name, source] of files) {
       await mkdir(path.dirname(path.join(root, name)), { recursive: true })
@@ -135,18 +160,18 @@ test("Go identity adapter uses authoritative wire contracts and durable account 
     }
     await stop()
     stop = undefined
-    const restarted = await startGoFixture(server, binary)
+    const restarted = await startGoFixture(server, binary, developmentDelivery)
     stop = restarted.stop
     const response = await fetch(restarted.url + "/api/v1/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ account: "contract_user", password: "Changed123" })
+      body: JSON.stringify({ account: "contract@example.invalid", password: "Changed123" })
     })
     expect(response.status).toBe(200)
     const result = await response.json()
     expect(result.data.account).toMatchObject({
-      username: "contract_user",
-      nickname: "contract_user",
+      username: expect.stringMatching(/^user_/u),
+      nickname: expect.stringMatching(/^用户 /u),
       phone: null
     })
   } catch (error) {

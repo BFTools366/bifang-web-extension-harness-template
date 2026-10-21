@@ -1,0 +1,107 @@
+package service
+
+import (
+	"context"
+	"errors"
+
+	"project_id/internal/apperr"
+	"project_id/internal/dto"
+	"project_id/internal/model"
+	"project_id/internal/pkg/notify"
+	"project_id/internal/pkg/verifycode"
+	"project_id/internal/repository"
+)
+
+// Send 先原子预留额度，再仅投递一次；注册开发 Mock 同样经过激活和单次消费。
+func (s *VerificationService) Send(ctx context.Context, req *dto.SendVerificationCodeRequest, ip string) (*dto.SendVerificationCodeResponse, error) {
+	if !s.cfg.Enabled {
+		return nil, apperr.ErrVerificationDisabled
+	}
+	scene, err := ResolveScene(req.Scene)
+	if err != nil {
+		return nil, err
+	}
+	// 开发模拟仅用于明确获准的注册场景，找回密码继续要求真实发送通道。
+	if s.cfg.Mock && scene.Key != model.VerificationSceneRegister {
+		return nil, apperr.ErrVerificationChannelUnavailable
+	}
+	target, err := s.NormalizeTarget(req.TargetType, req.Target)
+	if err != nil {
+		return nil, err
+	}
+	if target.Type != notify.TargetTypeEmail {
+		return nil, apperr.ErrVerificationTargetInvalid
+	}
+	if scene.RequireAccount {
+		account, err := s.accounts.FindByTarget(ctx, target.Type, target.Value)
+		if err != nil {
+			return nil, apperr.ErrInternal
+		}
+		if account == nil || !account.IsEnabled() {
+			return nil, apperr.ErrVerificationTargetNotRegistered
+		}
+	}
+	code, err := verifycode.Generate(s.cfg.CodeLength)
+	if err != nil {
+		return nil, apperr.ErrVerificationGenerateFailed
+	}
+	record := &model.VerificationCode{Target: target.Value, TargetType: target.Type, Scene: scene.Key, CodeHash: verifycode.Hash(code, target.Value), Status: model.VerificationCodeStatusDelivering, SendIP: ip}
+	err = s.codes.Transaction(ctx, func(tx *repository.Repository[model.VerificationCode]) error {
+		txCodes := s.codes.WithDB(tx.DB())
+		state, err := txCodes.LockTarget(ctx, target.Type, target.Value, scene.Key)
+		if err != nil {
+			return apperr.ErrInternal
+		}
+		now := model.Now()
+		copyService := *s
+		copyService.codes = txCodes
+		if err := copyService.checkSendQuota(ctx, target, scene.Key, now, state.LatestCodeID); err != nil {
+			return err
+		}
+		record.ExpiredAt = now.Add(s.cfg.TTL)
+		if err := txCodes.Create(ctx, record); err != nil {
+			return apperr.ErrVerificationSaveFailed
+		}
+		return txCodes.SetLatest(ctx, state.ScopeKey, record.ID)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if !s.cfg.Mock {
+		if err := s.sender.Send(ctx, target, code, s.cfg.TTL); err != nil {
+			// 保留额度及失败事实，投递未知不自动重发，也不公布尚未激活的验证码。
+			_ = s.codes.Revoke(context.WithoutCancel(ctx), record.ID)
+			if errors.Is(err, notify.ErrChannelUnavailable) {
+				return nil, apperr.ErrVerificationChannelUnavailable
+			}
+			return nil, apperr.ErrVerificationSendFailed
+		}
+	}
+	err = s.codes.Transaction(ctx, func(tx *repository.Repository[model.VerificationCode]) error {
+		txCodes := s.codes.WithDB(tx.DB())
+		state, err := txCodes.LockTarget(ctx, target.Type, target.Value, scene.Key)
+		if err != nil {
+			return err
+		}
+		if state.LatestCodeID != record.ID {
+			return apperr.ErrVerificationSaveFailed
+		}
+		if err := txCodes.RevokePending(ctx, target.Type, target.Value, scene.Key); err != nil {
+			return err
+		}
+		return txCodes.Activate(ctx, record.ID, model.Now())
+	})
+	if err != nil {
+		return nil, apperr.ErrVerificationSaveFailed
+	}
+	remaining := record.ExpiredAt.Sub(model.Now())
+	resend := s.cfg.ResendInterval - model.Now().Sub(record.CreatedTime)
+	if resend < 0 {
+		resend = 0
+	}
+	result := &dto.SendVerificationCodeResponse{Target: target.Display(), TargetType: target.Type, Scene: scene.Key, ExpiresIn: int(remaining.Seconds()), ExpiresAt: int64(record.ExpiredAt), CodeLength: s.cfg.CodeLength, ResendAfter: int(resend.Seconds()), Mock: s.cfg.Mock}
+	if s.cfg.Mock {
+		result.Code = code
+	}
+	return result, nil
+}

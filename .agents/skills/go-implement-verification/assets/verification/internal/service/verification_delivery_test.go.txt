@@ -1,0 +1,124 @@
+package service
+
+import (
+	"context"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"project_id/internal/config"
+	"project_id/internal/dto"
+	"project_id/internal/model"
+	"project_id/internal/pkg/notify"
+	"project_id/internal/repository"
+)
+
+// reversedDelivery 是仅用于乱序投递回归的通道控制器，不进入运行时装配。
+type reversedDelivery struct {
+	calls   atomic.Int32
+	first   chan struct{}
+	release chan struct{}
+}
+
+// Send 让第一封等待第二封完成，模拟合法 SMTP 网络乱序。
+func (s *reversedDelivery) Send(ctx context.Context, target notify.Target, code string, ttl time.Duration) error {
+	if s.calls.Add(1) == 1 {
+		close(s.first)
+		select {
+		case <-s.release:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
+
+// TestLateMailCannotRevokeNewCode 确保旧投递晚完成时不覆盖新的 Pending 验证码。
+func TestLateMailCannotRevokeNewCode(t *testing.T) {
+	f := newVerificationFixture(t)
+	account := registerFixtureAccount(t, f, "mail-sequence")
+	sender := &reversedDelivery{first: make(chan struct{}), release: make(chan struct{})}
+	codes := repository.NewVerificationCodeRepository(f.db)
+	service := NewVerificationService(codes, repository.NewAccountRepository(f.db), config.Verification{Enabled: true, CodeLength: 6, TTL: time.Minute, ResendInterval: 0, MaxAttempts: 5, DailyLimit: 10}, sender)
+	req := &dto.SendVerificationCodeRequest{Target: account.Email, TargetType: "email", Scene: "reset_password"}
+	first := make(chan error, 1)
+	go func() { _, err := service.Send(context.Background(), req, ""); first <- err }()
+	<-sender.first
+	receipt, err := service.Send(context.Background(), req, "")
+	if err != nil { t.Fatal(err) }
+	if receipt.Mock || receipt.Code != "" { t.Fatal("real delivery exposed code") }
+	pending, err := codes.LatestPending(context.Background(), "email", account.Email, "reset_password")
+	if err != nil || pending == nil {
+		t.Fatal("missing latest pending code", err)
+	}
+	id := pending.ID
+	close(sender.release)
+	if err := <-first; err == nil {
+		t.Fatal("old completion should be superseded")
+	}
+	pending, err = codes.LatestPending(context.Background(), "email", account.Email, "reset_password")
+	if err != nil || pending == nil || pending.ID != id || pending.Status != model.VerificationCodeStatusPending {
+		t.Fatal("late mail revoked the newer code", err)
+	}
+}
+
+// capturedDelivery 只在生命周期测试中捕获一次性邮件内容。
+type capturedDelivery struct{ code chan string }
+
+// Send 不替代 SMTP 协议测试，只让重置事务测试获得其待消费码。
+func (s capturedDelivery) Send(_ context.Context, _ notify.Target, code string, _ time.Duration) error {
+	s.code <- code
+	return nil
+}
+
+// TestResetCodeIsConsumedOnce 两个并发重置只能一方成功，并原子撤销原有令牌。
+func TestResetCodeIsConsumedOnce(t *testing.T) {
+	f := newVerificationFixture(t)
+	ctx := context.Background()
+	account := registerFixtureAccount(t, f, "reset-once")
+	old, err := f.auth.Login(ctx, &dto.LoginRequest{Account: account.Username, Password: "TestPassword123!"}, dto.ClientMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sender := capturedDelivery{code: make(chan string, 1)}
+	codes := repository.NewVerificationCodeRepository(f.db)
+	verification := NewVerificationService(codes, repository.NewAccountRepository(f.db), config.Verification{Enabled: true, CodeLength: 6, TTL: time.Minute, MaxAttempts: 5, DailyLimit: 10}, sender)
+	f.auth.verification = verification
+	response, err := verification.Send(ctx, &dto.SendVerificationCodeRequest{Target: account.Email, TargetType: "email", Scene: "reset_password"}, "")
+	if err != nil || response.Mock || response.Code != "" {
+		t.Fatal("delivery must not echo code", err)
+	}
+	code := <-sender.code
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for _, password := range []string{"NewPassword123!", "OtherPassword456!"} {
+		go func(password string) {
+			<-start
+			results <- f.auth.ResetPassword(ctx, &dto.ResetPasswordRequest{Target: account.Email, TargetType: "email", Code: code, NewPassword: password})
+		}(password)
+	}
+	close(start)
+	success := 0
+	for range 2 {
+		if err := <-results; err == nil {
+			success++
+		}
+	}
+	if success != 1 {
+		t.Fatalf("successful resets=%d", success)
+	}
+	var updated model.Account
+	if err := f.db.First(&updated, "id = ?", account.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if updated.TokenVersion != account.TokenVersion+1 {
+		t.Fatal("token revocation was not atomic")
+	}
+	if _, _, err := f.auth.Authenticate(ctx, old.Token.AccessToken); err == nil {
+		t.Fatal("old JWT survived reset")
+	}
+	if _, err := verification.Verify(ctx, "reset_password", "email", account.Email, code); err == nil {
+		t.Fatal("used code accepted again")
+	}
+}

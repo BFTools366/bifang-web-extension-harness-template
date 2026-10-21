@@ -3,7 +3,7 @@
     "projectType": {
       "title": "项目类型",
       "question": "请选择要创建的项目类型。",
-      "hint": "输入 1.Web、2.Extension、3.Web + Extension 或 4.Server；无默认值。",
+      "hint": "输入 1.Web 或 2.Extension；无默认值。选好后询问是否已有服务端。",
       "options": [
         {
           "value": "web",
@@ -14,23 +14,13 @@
           "value": "extension",
           "label": "2.Extension",
           "description": "浏览器扩展项目，同时支持 Chrome MV3 与 Firefox MV2"
-        },
-        {
-          "value": "both",
-          "label": "3.Web + Extension",
-          "description": "在同一 Workspace 创建两个独立前端成员"
-        },
-        {
-          "value": "server",
-          "label": "4.Server",
-          "description": "只创建 Go 服务端成员"
         }
       ]
     },
     "serverMode": {
       "title": "已有服务端",
       "question": "是否已有可接入的服务端？",
-      "hint": "有服务时必须提供开发 BaseURL；没有则创建 Go 服务。只创建 Server 时自动采用 create。",
+      "hint": "有服务时必须提供开发 BaseURL；没有则默认创建所选 Web 或 Extension 和一个 Go 服务端，并连接本地服务，无需再选择服务端类型。",
       "options": [
         {
           "value": "existing",

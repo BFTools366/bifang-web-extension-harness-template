@@ -9,7 +9,7 @@
 1. 旧模板把单包互斥与空地址 Mock 写入生成器、终端文档和校验器；新的根负责成员选择，前端叶子仍只有一个 projectType。
 2. 已有服务必须提供合法开发 BaseURL，具体接口仍需要可信 API 文档/SDL。用户可以在初始化提供契约文件；缺失时只在命中的操作接线前补齐，不猜 endpoint。
 3. 没有服务则同事务创建真实 Go HTTP 服务，前端开发地址连接该服务。测试和生产地址不推断，本地连通不代表部署完成。
-4. 上游验证码 smtp/http 尚未实现发送；开发回显不迁入运行配置。需要验证/找回时由专用 Skill 接真实通道，不需要时不启用。
+4. 原始 Go 验证码 smtp/http 未实现发送，本地专用 overlay 已补 SMTP TLS。需要验证时按独立操作接线，开发 Mock 只在用户明确要求时用于注册；默认及非开发不回显，找回仍要求真实通道。
 5. 上游账号只有默认组织，没有 owner 成员；完整用户方案必须补齐 Account、Organization、OrganizationUser 的原子创建与授权。
 6. 前端 Ky 的 Token/continuation 头与 Go Bearer/request_id 不是同一协议，使用显式 adapter。GraphQL 基础只有 health/me，业务集合必须实现对应 SDL/resolver。
 7. Go 自己的初始化问卷、独立 Git、Task、版本和发布状态不迁入；根拥有同一产品事实、策略与结果边界。
@@ -28,19 +28,18 @@
   docs/
   <id>_web/          # 选择 Web 时
   <id>_extension/    # 选择 Extension 时
-  <id>_server/       # 没有已有服务或只创建 Server 时
+  <id>_server/       # 没有已有服务时，与所选前端一起创建
 ```
 
 根标识仍为小写 ASCII kebab-case；成员目录、前端 package name/成员身份和 Go module 使用对应标准后缀。`.harness/workspace.json` 保存精确成员目录和服务归属；前端 `.harness/project.json` 只保存本成员身份和唯一宿主，不改成多值类型。成员间不导入对方源码，不引入共享 core；前后端通过真实 HTTP/GraphQL 契约协作。
 
-类型选择：1.Web、2.Extension、3.Web + Extension、4.Server。已有服务时不生成 `_server`；没有服务时创建 `_server`。纯服务选择固定创建服务。未选成员不生成。纯本地功能可以真实实现，不需要为它创建虚构业务 endpoint；当前创建流程仍按用户明确的服务来源决定是否有服务成员。
+先只选择唯一前端类型：1.Web 或 2.Extension；选好后立即询问是否已有服务端。已有服务时只创建所选前端，不生成 `_server`；没有服务时默认创建所选前端和一个 `_server`，并连接本地 Go 服务，不再询问成员组合或服务端类型。未选前端不生成。纯本地功能可以真实实现，不需要为它创建虚构业务 endpoint；当前创建流程仍按用户明确的服务来源决定是否有服务成员。
 
 公开入口仍是源 `pnpm instantiate`，例如：
 
 ```sh
 pnpm instantiate -- /absolute/parent --type web --server create --name "Example" --policy-mode recommended
-pnpm instantiate -- /absolute/parent --type web,extension --server existing --development-base-url https://api.example.test --api-contract /absolute/api.md --description "Example application" --name "Example" --policy-mode recommended
-pnpm instantiate -- /absolute/parent --type server --name "Example" --policy-mode recommended
+pnpm instantiate -- /absolute/parent --type extension --server existing --development-base-url https://api.example.test --api-contract /absolute/api.md --description "Example application" --name "Example" --policy-mode recommended
 ```
 
 Agent 与 CLI 共享题库、条件、汇总和确认。每轮只问一个缺项；Go 技术、用户 API、GraphQL、数据库等不另开初始化问卷，由已确认需求和领域 Skill 按实际操作实施。地址、服务来源、成员或契约变化必须使旧确认失效。

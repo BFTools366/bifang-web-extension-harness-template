@@ -161,3 +161,44 @@ export function authServiceHeaders(
   }
   return headers
 }
+
+/** 验证码的非 Mock 响应不能出现明文 code。 */
+export interface ServiceRegistrationVerification {
+  target: string
+  target_type: "email"
+  scene: "register"
+  expires_in: number
+  expires_at: number
+  code_length: number
+  resend_after: number
+  mock: boolean
+  code?: string
+}
+
+/** 同时校验用途、目标类型、持续时间及明文验证码的模式边界。 */
+export function isServiceRegistrationVerification(
+  value: unknown
+): value is ServiceRegistrationVerification {
+  if (
+    !isRecord(value) ||
+    !protocolText(value.target) ||
+    value.target_type !== "email" ||
+    value.scene !== "register" ||
+    !seconds(value.expires_at) ||
+    value.expires_at === 0 ||
+    value.expires_at > Number.MAX_SAFE_INTEGER / 1000 ||
+    !seconds(value.code_length) ||
+    value.code_length < 4 ||
+    value.code_length > 10 ||
+    !seconds(value.expires_in) ||
+    value.expires_in === 0 ||
+    !seconds(value.resend_after) ||
+    typeof value.mock !== "boolean"
+  )
+    return false
+  return value.mock
+    ? typeof value.code === "string" &&
+        /^[0-9]{4,10}$/.test(value.code) &&
+        value.code.length === value.code_length
+    : !("code" in value)
+}

@@ -3,6 +3,12 @@ import { requestGoTransport } from "../client/goTransport"
 import { requestHttpQuery } from "../client/httpRuntime"
 import { IdentityError } from "../../../features/identity/session"
 import type { LoginApi } from "./contracts"
+import { APP_CONFIG } from "../../../config/environment"
+import {
+  normalizeEmail,
+  registrationCodeReceipt,
+  type RegistrationCodeReceipt
+} from "./verification"
 import {
   isServiceAccount,
   isServiceAuthResult,
@@ -20,13 +26,9 @@ import {
 
 /** 仅对应自建 Go 用户合同，已有服务须按实际合同另外映射。 */
 export interface RegisterInput {
-  username: string
   email: string
   password: string
-  nickname?: string
-  phone?: string
   code?: string
-  code_type?: "email" | "phone"
 }
 /** 完整资料中的成员必须来自服务端，不从组织 owner 字段推导。 */
 export interface UserProfile {
@@ -117,7 +119,9 @@ export function createGoIdentityAdapter(
         }
         return response
       },
-      unauthorizedHandler: { handleUnauthorized() {} },
+      unauthorizedHandler: {
+        /** 执行 handleUnauthorized 类成员的处理逻辑。 */ handleUnauthorized() {}
+      },
       extractAuthToken: () => undefined
     })
     if (credential) client.setAuthToken(credential)
@@ -148,11 +152,51 @@ export function createGoIdentityAdapter(
   /** 注册不自动登录；Workspace 装配器另在同一事务中创建 owner 成员。 */
   async function register(input: RegisterInput, signal?: AbortSignal): Promise<string> {
     const account = await data(
-      await request("register", "POST", input, undefined, signal),
+      await request(
+        "register",
+        "POST",
+        {
+          email: normalizeEmail(input.email),
+          password: input.password,
+          code: input.code,
+          code_type: "email"
+        },
+        undefined,
+        signal
+      ),
       "account",
       isServiceAccount
     )
     return id(account.id)
+  }
+  /** 注册发码与登录共用匿名传输，不携带已接受的应用凭据。 */
+  async function sendRegistrationCode(
+    email: string,
+    signal?: AbortSignal
+  ): Promise<RegistrationCodeReceipt> {
+    const response = await request(
+      "verification-code",
+      "POST",
+      { target: normalizeEmail(email), target_type: "email", scene: "register" },
+      undefined,
+      signal
+    )
+    try {
+      const result = parseServiceObject(
+        await response.json(),
+        "verification.code",
+        (value): value is Record<string, unknown> =>
+          !!value && typeof value === "object" && !Array.isArray(value)
+      )
+      return registrationCodeReceipt(result.data, APP_CONFIG.environment === "development")
+    } catch {
+      throw new ApiError({
+        kind: "invalid-response",
+        code: "invalidVerificationResponse",
+        message: "invalidVerificationResponse",
+        retryable: false
+      })
+    }
   }
   /** 原样读取 Go Harness 的本人资料；空默认组织不是成员授权。 */
   async function readServiceProfile(
@@ -208,12 +252,14 @@ export function createGoIdentityAdapter(
   }
 
   const api: LoginApi = {
+    /** 执行 login 类成员的处理逻辑。 */
     async login(input, signal) {
       const result = await tokenResult(await request("login", "POST", input, undefined, signal))
       const pair = result.token
       // 当前状态机只接受 access token；refresh 持久化与轮换由明确需求另行实现。
       return pair.access_token
     },
+    /** 执行 validate 类成员的处理逻辑。 */
     async validate(credential, signal) {
       try {
         const profile = await readServiceProfile(credential, signal)
@@ -230,15 +276,34 @@ export function createGoIdentityAdapter(
         throw new IdentityError("invalidIdentity")
       }
     },
+    /** 执行 logout 类成员的处理逻辑。 */
     async logout(credential) {
       parseServiceEmpty(await (await request("logout", "POST", undefined, credential)).json())
     }
   }
-  return { api, register, readProfile, readServiceProfile, refresh, changePassword }
+  return {
+    api,
+    register,
+    sendRegistrationCode,
+    readProfile,
+    readServiceProfile,
+    refresh,
+    changePassword
+  }
 }
 const adapter = createGoIdentityAdapter()
 export const api = adapter.api
 export const registerAccount = adapter.register
+export const sendRegistrationCode = adapter.sendRegistrationCode
+/** 与 Go password 校验标签一致，只用于新账号密码，不限制旧账号登录。 */
+export const registrationPasswordPolicy = {
+  messageKey: "registrationPasswordGoRule",
+  /** Go len(string) 按 UTF-8 字节计数，不能用 JS 的 UTF-16 长度替代。 */
+  validate(password: string): boolean {
+    const length = new TextEncoder().encode(password).length
+    return length >= 8 && length <= 64 && /[A-Za-z]/u.test(password) && /[0-9]/u.test(password)
+  }
+}
 /** 资料页面复用已接受会话的 HTTP owner，不读取或暴露凭据存储。 */
 export async function readUserProfile(signal?: AbortSignal): Promise<UserProfile> {
   return profileData(

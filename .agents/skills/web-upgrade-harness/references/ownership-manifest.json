@@ -934,6 +934,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/application-registration.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/application-readonly.test.ts",
       "mode": "tombstone"
     },

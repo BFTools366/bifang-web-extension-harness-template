@@ -29,7 +29,7 @@ export const WORKSPACE_SKILL_CONTRACTS = {
   },
   "go-implement-graphql": {
     description:
-      "为真实远端集合与复杂读取实现 Go GraphQL SDL、resolver 和前端 typed Query，复用领域 service，不以 JSON 列表冒充 GraphQL。",
+      "为带查询条件的远端读取、集合与复杂读取实现 Go GraphQL SDL、resolver 和前端 typed Query，复用领域 service，不以 JSON 列表冒充 GraphQL。",
     title: "# Web Harness：实施 Go 查询契约",
     displayName: "Web Harness：实施 Go 查询契约",
     shortDescription: "在统一工作区内实施 Go 查询契约，复用真实服务契约并完成相关实现与验证",
@@ -38,10 +38,10 @@ export const WORKSPACE_SKILL_CONTRACTS = {
   },
   "go-implement-verification": {
     description:
-      "在需求明确要求邮箱或短信验证、找回密码时实现验证码生命周期与真实投递，不使用上游开发验证码回显或未配置发送器。",
-    title: "# Web Harness：实施真实验证码投递",
-    displayName: "Web Harness：实施真实验证码投递",
-    shortDescription: "在统一工作区内实施真实验证码投递，复用真实服务契约并完成相关实现与验证",
+      "在已确认验证或找回需求中实施验证码生命周期与投递；真实 SMTP 为默认，仅用户明确授权时采用 dev 注册模拟，保留真实校验与单次消费。",
+    title: "# Web Harness：实施验证码与投递",
+    displayName: "Web Harness：实施验证码与投递",
+    shortDescription: "实施验证码生命周期、真实投递及显式授权的开发注册模拟，保留真实校验",
     defaultPrompt:
       "使用 $go-implement-verification 完成当前已确认范围，复用 Workspace 真实成员、契约与相关验证，完成后返回调用方。"
   },

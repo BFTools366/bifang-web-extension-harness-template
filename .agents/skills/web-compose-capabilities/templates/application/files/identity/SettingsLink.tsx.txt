@@ -1,7 +1,6 @@
-import { Button } from "@mantine/core"
+import { Anchor } from "@mantine/core"
 import { Link, useLocation } from "@tanstack/react-router"
 import { useTranslation } from "react-i18next"
-import { ApplicationIcon } from "./ApplicationIcon"
 import classes from "./application.module.css"
 
 /** 认证页底部只保留设置入口，敏感表单值不进入导航或持久存储。 */
@@ -10,11 +9,14 @@ export function SettingsLink() {
   const { href } = useLocation()
   return (
     <footer className={classes.authFooter}>
-      <Button variant="subtle" color="gray" size="sm"
-        leftSection={<ApplicationIcon name="settings" />}
-        renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}>
+      <Anchor
+        c="dimmed"
+        size="xs"
+        underline="hover"
+        renderRoot={(props) => <Link {...props} to="/settings" state={{ settingsOrigin: href }} />}
+      >
         {t("applicationSettings")}
-      </Button>
+      </Anchor>
     </footer>
   )
 }

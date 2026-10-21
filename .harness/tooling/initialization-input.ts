@@ -192,11 +192,6 @@ async function normalizeBasicField(
     return parseWorkspaceSelection(requiredText(value, "项目类型")).join(",")
   }
   if (field === "serverMode") {
-    if (selected.length === 1 && selected[0] === "server") {
-      if (value && parseServerMode(value) !== "create")
-        throw new Error("纯 Server 选择必须创建服务端")
-      return "create"
-    }
     return parseServerMode(value)
   }
   if (field === "apiContract") return value?.trim() ? path.resolve(cwd, value.trim()) : ""

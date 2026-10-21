@@ -27,8 +27,18 @@ export function OrganizationMenu({
     ...organizationQueryOptions(api, scope, i18n.language),
     enabled: !blocked
   })
+  const current = query.data?.available.find((row) => row.id === query.data.current)
   return (
     <>
+      <Menu.Label>{t("organizationCurrent")}</Menu.Label>
+      <Menu.Label>
+        {blocked ? t("organizationSwitching") : (current?.name ?? t("organizationUnavailable"))}
+      </Menu.Label>
+      {current && !blocked && (
+        <Menu.Label>
+          {t(current.user.role === "owner" ? "organizationOwner" : "organizationMember")}
+        </Menu.Label>
+      )}
       {canSwitch && !blocked && (query.data?.available.length ?? 0) > 1 && (
         <Menu.Item leftSection={<ApplicationIcon name="organization" />} onClick={open}>
           {t("organizationSwitch")}

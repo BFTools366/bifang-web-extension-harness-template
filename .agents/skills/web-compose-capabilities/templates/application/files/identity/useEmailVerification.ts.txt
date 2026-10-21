@@ -1,0 +1,135 @@
+import { useEffect, useRef, useState } from "react"
+import { ApiError } from "../../data/api/client/httpClient"
+import { normalizeEmail, type RegistrationCodeReceipt } from "../../data/api/identity/registration"
+
+/** 注册发码的邮箱、请求代次与时间归属；验证码只保留于当前表单内存。 */
+export function useEmailVerification(
+  email: string,
+  enabled: boolean,
+  sendCode?: (email: string, signal: AbortSignal) => Promise<RegistrationCodeReceipt>
+) {
+  const target = normalizeEmail(email)
+  const current = useRef({ target, enabled })
+  current.current = { target, enabled }
+  const generation = useRef(0)
+  const pending = useRef<AbortController | null>(null)
+  const mounted = useRef(true)
+  const deadlines = useRef(new Map<string, number>())
+  const [code, setCode] = useState("")
+  const [receipt, setReceipt] = useState<RegistrationCodeReceipt | null>(null)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState("")
+  const [fieldError, setFieldError] = useState("")
+  const [now, setNow] = useState(Date.now)
+
+  /** 目标变化立即撤销旧请求，避免 A→B→A 时接纳迟到的 A 回执。 */
+  function invalidate() {
+    generation.current++
+    pending.current?.abort()
+    pending.current = null
+    setCode("")
+    setReceipt(null)
+    setError("")
+    setFieldError("")
+    setSending(false)
+    setNow(Date.now())
+  }
+  /** 输入处理先失效旧代次，再由页面更新邮箱；纯大小写或空格不改变实际目标。 */
+  function changeTarget(next: string) {
+    if (normalizeEmail(next) !== current.current.target) invalidate()
+  }
+  useEffect(() => {
+    invalidate()
+  }, [target, enabled])
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      generation.current++
+      pending.current?.abort()
+    }
+  }, [])
+  const resendAt = deadlines.current.get(target) ?? 0
+  useEffect(() => {
+    if (!enabled || (resendAt <= Date.now() && (!receipt || receipt.expiresAt <= Date.now())))
+      return
+    const interval = setInterval(() => setNow(Date.now()), 250)
+    return () => clearInterval(interval)
+  }, [enabled, resendAt, receipt])
+
+  /** 发码仅执行一次，所有完成分支均确认当前邮箱、代次与组件归属。 */
+  async function send() {
+    if (
+      !enabled ||
+      !sendCode ||
+      pending.current ||
+      (deadlines.current.get(target) ?? 0) > Date.now()
+    )
+      return
+    const owned = ++generation.current
+    const controller = new AbortController()
+    pending.current = controller
+    setSending(true)
+    setReceipt(null)
+    setCode("")
+    setError("")
+    setFieldError("")
+    const belongs = () =>
+      mounted.current &&
+      !controller.signal.aborted &&
+      generation.current === owned &&
+      current.current.enabled &&
+      current.current.target === target
+    try {
+      const result = await sendCode(target, controller.signal)
+      if (!belongs()) return
+      deadlines.current.set(target, Date.now() + result.resendAfter * 1000)
+      setNow(Date.now())
+      setReceipt(result)
+    } catch (failure) {
+      if (!belongs()) return
+      const unknown =
+        !(failure instanceof ApiError) ||
+        ["network", "timeout", "invalid-response"].includes(failure.kind)
+      // 未知结果不自动重发，短暂保留发送间隔再允许用户明确重试。
+      if (unknown) deadlines.current.set(target, Date.now() + 60000)
+      setNow(Date.now())
+      setError(unknown ? "verificationSendUnknown" : failure.code)
+    } finally {
+      if (belongs()) {
+        pending.current = null
+        setSending(false)
+      }
+    }
+  }
+  /** 服务端验证码拒绝定位到字段，不猜测剩余尝试次数。 */
+  function rejectCode(value: string) {
+    setFieldError(value)
+    if (
+      [
+        "verification.code.expired",
+        "verification.code.consumed",
+        "verification.code.attempts.exceeded"
+      ].includes(value)
+    )
+      setReceipt(null)
+  }
+  return {
+    code,
+    /** 编辑验证码时清除属于旧输入的字段错误。 */
+    setCode(value: string) {
+      setCode(value)
+      setFieldError("")
+    },
+    receipt,
+    sending,
+    send,
+    error,
+    fieldError,
+    rejectCode,
+    changeTarget,
+    seconds: Math.max(0, Math.ceil((resendAt - now) / 1000)),
+    expired: !!receipt && receipt.expiresAt <= now,
+    codeLength: receipt?.codeLength
+  }
+}

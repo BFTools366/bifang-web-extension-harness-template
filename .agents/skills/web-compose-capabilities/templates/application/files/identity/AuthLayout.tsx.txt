@@ -1,0 +1,38 @@
+import { Container, Group, Image, Paper, Stack, Text, Title } from "@mantine/core"
+import type { ReactNode } from "react"
+import { useTranslation } from "react-i18next"
+import { BRAND } from "../../brand"
+import { SettingsLink } from "../application/SettingsLink"
+import classes from "../application/application.module.css"
+
+/** 公开认证页共享品牌、表单容器和低强调设置入口，叶页面独立拥有输入状态。 */
+export function AuthLayout({ title, children }: { title: string; children: ReactNode }) {
+  const { t } = useTranslation()
+  return (
+    <main className={classes.authPage}>
+      <Container size="lg" w="100%">
+        <Paper withBorder className={classes.authLayout}>
+          <Stack className={classes.authAside} gap="lg">
+            <Group>
+              <Image src={BRAND.logoPath} alt="" w={48} h={48} />
+              <Text fw={700} size="xl">
+                {t("projectName")}
+              </Text>
+            </Group>
+            <Text size="xl" fw={700}>
+              {t("identityIntroTitle")}
+            </Text>
+            <Text c="dimmed">{t("identityIntroDescription")}</Text>
+          </Stack>
+          <Stack className={classes.authCard}>
+            <Title order={1} className={classes.authHeading}>
+              {title}
+            </Title>
+            {children}
+            <SettingsLink />
+          </Stack>
+        </Paper>
+      </Container>
+    </main>
+  )
+}

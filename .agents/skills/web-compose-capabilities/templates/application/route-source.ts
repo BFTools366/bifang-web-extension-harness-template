@@ -67,6 +67,7 @@ export function applicationRoutes(
 ): Map<string, string> {
   const files = new Map<string, string>()
   const identity = operations.includes("identity.session")
+  const registration = operations.includes("identity.register")
   const permissions = operations.includes("permissions.enforce")
   if (options.selection.host === "web") {
     files.set(
@@ -111,6 +112,15 @@ import { authSearch, publicLogin } from "../features/application/routeAccess"
 /** 登录页公开挂载，已恢复身份只返回已声明的安全目标。 */
 export const Route = createFileRoute("/login")({ component: Login, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n`
       )
+    if (registration)
+      files.set(
+        "src/routes/register.tsx",
+        `import { createFileRoute } from "@tanstack/react-router"
+import { Register } from "../features/application/Application"
+import { authSearch, publicLogin } from "../features/application/routeAccess"
+/** 注册页只在已选注册能力时生成，保留公开路由与安全返回。 */
+export const Route = createFileRoute("/register")({ component: Register, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n`
+      )
     if (permissions)
       files.set(
         "src/routes/_application/forbidden.tsx",
@@ -124,7 +134,7 @@ export const Route = createFileRoute("/_application/forbidden")({ component: For
     files.set(
       "src/extension-router.tsx",
       `import { createRootRoute, createRoute, createRouter, createMemoryHistory, createHashHistory } from "@tanstack/react-router"
-import { ${["MainLayout", ...(identity ? ["Login"] : []), ...(permissions ? ["ForbiddenPage"] : []), ...pages.map((page) => routeComponent(page))].join(", ")} } from "./features/application/Application"
+import { ${["MainLayout", ...(identity ? ["Login"] : []), ...(registration ? ["Register"] : []), ...(permissions ? ["ForbiddenPage"] : []), ...pages.map((page) => routeComponent(page))].join(", ")} } from "./features/application/Application"
 import { SettingsPage } from "./features/application/SettingsPage"
 ${identity ? 'import { protectPage, authSearch, publicLogin } from "./features/application/routeAccess"\n' : ""}import { ExtensionShell } from "./ExtensionShell"
 import { ExtensionNotFoundPage } from "./ExtensionNotFoundPage"
@@ -139,7 +149,7 @@ export function createExtensionRouter(surface: "popup" | "options") {
   const pages = [
 ${pages.map((page) => `    createRoute({ getParentRoute: () => application, path: ${JSON.stringify(page.path)}, component: ${routeComponent(page)}${identity ? `, beforeLoad: ({ abortController }) => protectPage(${JSON.stringify(page.path)}, abortController.signal)` : ""} })`).join(",\n")}${permissions ? ',\n    createRoute({ getParentRoute: () => application, path: "/forbidden", component: ForbiddenPage, beforeLoad: ({ abortController }) => protectPage("/forbidden", abortController.signal) })' : ""}
   ]
-${identity ? '  const login = createRoute({ getParentRoute: () => root, path: "/login", component: Login, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}  return createRouter({ routeTree: root.addChildren([application.addChildren(pages), settings${identity ? ", login" : ""}]), history: surface === "popup" ? createMemoryHistory({ initialEntries: ["/"] }) : createHashHistory(), defaultErrorComponent: ExtensionRouteErrorPage, defaultOnCatch: (error) => logger.error("route_failed", { surface, error }) })
+${identity ? '  const login = createRoute({ getParentRoute: () => root, path: "/login", component: Login, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}${registration ? '  const register = createRoute({ getParentRoute: () => root, path: "/register", component: Register, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}  return createRouter({ routeTree: root.addChildren([application.addChildren(pages), settings${identity ? ", login" : ""}${registration ? ", register" : ""}]), history: surface === "popup" ? createMemoryHistory({ initialEntries: ["/"] }) : createHashHistory(), defaultErrorComponent: ExtensionRouteErrorPage, defaultOnCatch: (error) => logger.error("route_failed", { surface, error }) })
 }
 declare module "@tanstack/react-router" {
   /** 当前宿主只注册实际生成的扩展路由树。 */

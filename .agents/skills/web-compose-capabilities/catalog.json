@@ -70,6 +70,26 @@
           "path": "templates/application/files/identity/runtime.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/AuthLayout.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/RegistrationPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/registration.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/useEmailVerification.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
       ],
       "operations": [

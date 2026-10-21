@@ -3,6 +3,8 @@ import { lstat, mkdir, readFile, readdir, realpath, writeFile } from "node:fs/pr
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { completeUserProfile } from "./user-profile.ts"
+import { completePasswordChange } from "./password-change.ts"
+import { completeEmailRegistration } from "../../go-implement-verification/scripts/registration.ts"
 
 /** 要求唯一中性锚点，已有产品实现不得按模板覆盖。 */
 function replaceOnce(source: string, before: string, after: string, file: string): string {
@@ -19,12 +21,20 @@ export async function prepareUsers(
     !operations.length ||
     operations.some(
       (operation) =>
-        !["register", "login", "profile", "logout", "refresh", "password.change"].includes(
-          operation
-        )
+        ![
+          "register",
+          "login",
+          "profile",
+          "logout",
+          "refresh",
+          "password.change",
+          "verification"
+        ].includes(operation)
     )
   )
-    throw new Error("账号操作不支持；验证码与找回由独立 Skill 接线")
+    throw new Error("账号操作不支持；找回由独立 Skill 接线")
+  if (operations.includes("verification") && !operations.includes("register"))
+    throw new Error("当前验证码装配必须与邮箱注册显式组合")
   const workspace = await realpath(workspaceRoot)
   const config = JSON.parse(
     await readFile(path.join(workspace, ".harness/workspace.json"), "utf8")
@@ -93,6 +103,18 @@ export async function prepareUsers(
       'if (c.JWT.Secret == "" || c.JWT.Secret == "change-me-in-production-please") && !c.App.IsDev() {'
     ]
   }
+  if (operations.includes("verification")) {
+    const source = (await readFile(path.join(root, "configs/config.yaml"), "utf8")).replaceAll(
+      "\r\n",
+      "\n"
+    )
+    const selected = source.replace(
+      /(verification:\s*\n(?:\s*#[^\n]*\n)*\s*enabled:) false/u,
+      "$1 true"
+    )
+    if (source === selected) throw new Error("验证码配置锚点已变化")
+    changes["configs/config.yaml"] = [source, selected]
+  }
   for (const [file, [before, after]] of Object.entries(changes)) {
     if (!(await lstat(path.join(root, file))).isFile())
       throw new Error(`修改目标不是普通文件：${file}`)
@@ -106,21 +128,7 @@ export async function prepareUsers(
       )
     )
   }
-  const registration = "internal/service/auth.go"
-  const before =
-    "if err := s.orgs.WithDB(tx.DB()).Create(ctx, org); err != nil {\n\t\t\treturn apperr.ErrInternal\n\t\t}"
-  const auth = files.get(registration)
-  if (!auth) throw new Error("账号模板缺失")
-  files.set(
-    registration,
-    replaceOnce(
-      auth,
-      before,
-      before +
-        "\n\t\tif err := s.orgs.CreateOwnerMembership(ctx, tx, org, account); err != nil {\n\t\t\treturn apperr.ErrInternal\n\t\t}",
-      registration
-    )
-  )
+  completeEmailRegistration(files, moduleId, operations.includes("verification"))
   files.set(
     "internal/model/organization_user.go",
     `package model
@@ -146,6 +154,7 @@ func (r *OrgRepository) CreateOwnerMembership(ctx context.Context, tx *Repositor
 `
   )
   completeUserProfile(files)
+  completePasswordChange(files)
   const account = files.get("internal/api/v1/account.go")
   if (!account) throw new Error("账号路由模板缺失")
   files.set(
@@ -153,7 +162,9 @@ func (r *OrgRepository) CreateOwnerMembership(ctx context.Context, tx *Repositor
     account
       .replace(
         'auth.POST("/verification-code", m.sendVerificationCode)',
-        "// 验证码仅随真实投递能力挂载。"
+        operations.includes("verification")
+          ? 'auth.POST("/verification-code", m.sendVerificationCode)'
+          : "// 本次未选择验证码，不挂载发码路由。"
       )
       .replace(
         'auth.POST("/password/reset", m.resetPassword)',

@@ -13,6 +13,7 @@ export function applicationPageSource(
   pages: readonly ApplicationPage[]
 ): string {
   const identity = operations.includes("identity.session")
+  const registration = operations.includes("identity.register")
   const permissions = operations.includes("permissions.enforce")
   const purchase = operations.includes("orders.purchase")
   const organization = operations.some((operation) => operation.startsWith("organization."))
@@ -25,12 +26,14 @@ export function applicationPageSource(
       ' } from "react"',
     ...(identity
       ? [
-          `import { Outlet, useRouter${organization && permissions ? ", Link" : ""} } from "@tanstack/react-router"`
+          `import { Outlet, useRouter${registration || (organization && permissions) ? ", Link" : ""} } from "@tanstack/react-router"`
         ]
       : ['import { Outlet } from "@tanstack/react-router"']),
     "import { Text" +
       (organization ? ", Modal" : "") +
-      (operations.includes("organization.switch") && permissions ? ", Anchor" : "") +
+      (registration || (operations.includes("organization.switch") && permissions)
+        ? ", Anchor"
+        : "") +
       (management ? ", Menu" : "") +
       ' } from "@mantine/core"',
     'import { useTranslation } from "react-i18next"',
@@ -63,6 +66,12 @@ export function applicationPageSource(
         (management ? ", canManageOrganization" : "") +
         ' } from "./runtime"'
     )
+  if (registration)
+    imports.push(
+      'import { RegistrationPage } from "../identity/RegistrationPage"',
+      'import * as registrationAdapter from "../../data/api/identity/adapter"',
+      'import { registrationPasswordPolicy } from "../../data/api/identity/registration"'
+    )
   if (permissions)
     imports.push(
       'import type { ReactNode } from "react"',
@@ -78,7 +87,7 @@ export function MainLayout() {
   ${permissions ? "useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)" : ""}
   const layout = <ApplicationLayout
     ${identity ? "account={<AccountMenu session={identitySession} scope={scope.revision}" + (organization ? " triggerRef={accountTrigger} organization={<OrganizationMenu key={scope.revision} api={organizationService} scope={scope.revision} blocked={scope.blocked} canSwitch={" + operations.includes("organization.switch") + "}" + (management ? ' management={canVisit("/organization/manage") && <Menu.Item renderRoot={(props) => <Link {...props} to="/organization/manage" preload={false} />}>{t("organizationManage")}</Menu.Item>}' : "") + " open={() => setSwitchState({ opened: true, scope: scope.revision })} />}" : "") + " />}" : ""}
-    ${organization ? "context={(compact) => <OrganizationContext api={organizationService} scope={scope.revision} blocked={scope.blocked} compact={compact} canOpen={" + (permissions ? 'canVisit("/organization")' : "true") + "} />}" : ""}
+    ${organization ? "context={() => <OrganizationContext api={organizationService} scope={scope.revision} blocked={scope.blocked} compact={false} canOpen={false} />}" : ""}
     ${permissions ? "allow={canVisit}" : ""}
     content={scope.blocked ? <Text role="status">{t("applicationLoading")}</Text> : <Outlet />}
   />
@@ -88,11 +97,26 @@ export function MainLayout() {
     lines.push(`/** 登录完成后仅返回已声明的应用内部路径。 */
 export function Login() {
   const router = useRouter()
-  return <LoginPage session={identitySession} mock={false} onSuccess={async () => {
+  return <LoginPage session={identitySession} mock={false} ${registration ? 'registrationLink={<Anchor renderRoot={(props) => <Link {...props} to="/register" search={{ returnTo: safeReturnTo(new URLSearchParams(router.state.location.searchStr).get("returnTo")) }} />}>{t("registrationTitle")}</Anchor>}' : ""} onSuccess={async () => {
     const target = new URLSearchParams(router.state.location.searchStr).get("returnTo")
     await router.navigate({ to: safeReturnTo(target), replace: true })
   }} />
 }`)
+  if (registration) {
+    const loginIndex = lines.length - 1
+    lines[loginIndex] =
+      lines[loginIndex]?.replace(
+        "  const router = useRouter()\n  return <LoginPage",
+        "  const router = useRouter()\n  const { t } = useTranslation()\n  return <LoginPage"
+      ) ?? ""
+    lines.push(`/** 注册只收集邮箱与凭据，成功后显式登录；公开页保留安全返回目标。 */
+export function Register() {
+  const router = useRouter()
+  const { t } = useTranslation()
+  const target = safeReturnTo(new URLSearchParams(router.state.location.searchStr).get("returnTo"))
+  return <RegistrationPage session={identitySession} api={{ register: registrationAdapter.registerAccount${operations.includes("identity.verification") ? ", sendCode: registrationAdapter.sendRegistrationCode" : ""}, passwordPolicy: registrationPasswordPolicy("registrationPasswordPolicy" in registrationAdapter ? registrationAdapter.registrationPasswordPolicy : undefined) }} onSuccess={async () => { await router.navigate({ to: target, replace: true }) }} loginLink={<Anchor renderRoot={(props) => <Link {...props} to="/login" search={{ returnTo: target }} />}>{t("registrationBackLogin")}</Anchor>} />
+}`)
+  }
   if (permissions)
     lines.push(`/** 撤权发生时立即撤下页面；不依赖被拒绝的业务权限。 */
 export function PageAccess({ path, children }: { path: string; children: ReactNode }) {

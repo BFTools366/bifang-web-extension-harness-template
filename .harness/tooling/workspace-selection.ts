@@ -6,25 +6,18 @@ export type WorkspaceMemberType = ProjectType | "server"
 /** 明确服务归属，避免用缺少地址推断 Mock 模式。 */
 export type ServerMode = "existing" | "create"
 
-/** 解析显式项目选择，保持前端成员的唯一宿主类型。 */
-export function parseWorkspaceSelection(value: string): WorkspaceMemberType[] {
+/** 公开创建只选择一个前端宿主，服务成员随后由服务来源决定。 */
+export function parseWorkspaceSelection(value: string): ProjectType[] {
   const normalized = value.trim().toLowerCase()
   const aliases: Record<string, string> = {
     "1": "web",
-    "2": "extension",
-    "3": "web,extension",
-    "4": "server",
-    both: "web,extension"
+    "2": "extension"
   }
-  const selected = (aliases[normalized] ?? normalized).split(",").map((item) => item.trim())
-  if (
-    selected.length === 0 ||
-    selected.some((item) => !["web", "extension", "server"].includes(item)) ||
-    new Set(selected).size !== selected.length
-  ) {
-    throw new Error("项目类型必须选择 web、extension、web,extension 或 server")
+  const selected = aliases[normalized] ?? normalized
+  if (selected !== "web" && selected !== "extension") {
+    throw new Error("项目类型只能选择 1.Web（web）或 2.Extension（extension）")
   }
-  return (["web", "extension", "server"] as const).filter((item) => selected.includes(item))
+  return [selected]
 }
 
 /** 将服务选择统一为两个确定状态，不设置默认答案。 */
@@ -35,7 +28,11 @@ export function parseServerMode(value: string | undefined): ServerMode {
   throw new Error("请明确是否已有服务端：existing（有）或 create（没有，创建 Go 服务）")
 }
 
-/** 返回创建期兼容前端生成器的主宿主；纯服务工作区不会生成此前端。 */
+/** 返回已确认的唯一前端宿主，不隐式回退到 Web。 */
 export function primaryFrontend(members: readonly WorkspaceMemberType[]): ProjectType {
-  return members.includes("web") ? "web" : members.includes("extension") ? "extension" : "web"
+  const frontend = members[0]
+  if (members.length !== 1 || (frontend !== "web" && frontend !== "extension")) {
+    throw new Error("创建时必须选择唯一 Web 或 Extension 前端")
+  }
+  return frontend
 }

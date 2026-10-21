@@ -16,7 +16,8 @@ export interface PermissionSnapshot {
 export function createPermissionRuntime(
   api: PermissionApi,
   owner: () => PermissionOwner | null,
-  subscribeIdentity: (listener: () => void) => () => void
+  subscribeIdentity: (listener: () => void) => () => void,
+  onRevoked: () => void = () => {}
 ) {
   const empty: PermissionSnapshot = Object.freeze({ phase: "idle", codes: [], owner: null })
   let state = empty
@@ -57,6 +58,14 @@ export function createPermissionRuntime(
       publish(empty)
       throw new Error("permission_identity_required")
     }
+    const previous = same(state.owner, current) && state.phase === "ready" ? state.codes : []
+    let revoked = false
+    /** 撤权和读取失败永久失效旧业务代次，复权不能重新授权旧的异步写入。 */
+    function revoke() {
+      if (revoked || previous.length === 0) return
+      revoked = true
+      onRevoked()
+    }
     publish({ phase: "loading", codes: [], owner: current })
     try {
       const codes = await api.read(
@@ -69,9 +78,15 @@ export function createPermissionRuntime(
         codes.some((code) => typeof code !== "string" || code.trim() === "")
       )
         throw new Error("permission_invalid")
+      if (previous.some((code) => !codes.includes(code))) revoke()
+      if (owned !== revision || !same(current, owner())) throw new Error("permission_superseded")
       publish({ phase: "ready", codes: Object.freeze([...new Set(codes)]), owner: current })
     } catch (error) {
-      if (owned === revision) publish({ phase: "error", codes: [], owner: current })
+      if (owned === revision && same(current, owner())) {
+        revoke()
+        if (owned === revision && same(current, owner()))
+          publish({ phase: "error", codes: [], owner: current })
+      }
       throw error
     }
   }

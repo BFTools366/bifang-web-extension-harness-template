@@ -76,6 +76,16 @@ function routeTreeFixture(wiring: ApplicationWiring): string {
         ]
       : [])
   ]
+  if (wiring.resolved.includes("identity.register"))
+    routes.push({
+      name: "Register",
+      file: "register",
+      id: "/register",
+      path: "/register",
+      fullPath: "/register",
+      parent: "rootRoute",
+      localId: "/register"
+    })
   let source = 'import { Route as rootRoute } from "./routes/__root"\n'
   for (const route of routes)
     source += `import { Route as ${route.name}RouteImport } from "./routes/${route.file}"\n`
@@ -87,7 +97,7 @@ function routeTreeFixture(wiring: ApplicationWiring): string {
   const children = routes
     .filter((route) => route.parent === "ApplicationRoute")
     .map((route) => route.name + "Route")
-  source += `} }\nexport const routeTree = rootRoute.addChildren([ApplicationRoute.addChildren([${children.join(",")}]),SettingsRoute${wiring.resolved.includes("identity.session") ? ",LoginRoute" : ""}])\n`
+  source += `} }\nexport const routeTree = rootRoute.addChildren([ApplicationRoute.addChildren([${children.join(",")}]),SettingsRoute${wiring.resolved.includes("identity.session") ? ",LoginRoute" : ""}${wiring.resolved.includes("identity.register") ? ",RegisterRoute" : ""}])\n`
   return source
 }
 /** 对实际生成资产执行编译与行为测试，临时工程仅存在于受忽略 cache。 */

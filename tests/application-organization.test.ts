@@ -163,6 +163,8 @@ test("aborts a shared permission read when the scope owner changes", async () =>
   const pending = permissionSession.refresh()
   const rejected = expect(pending).rejects.toThrow("permission_superseded")
   const owned = applicationScope.begin()
+  applicationScope.revoke()
+  expect(applicationScope.getSnapshot()).toMatchObject({ revision: owned, blocked: true })
   await rejected
   expect(captured?.aborted).toBe(true)
   expect(permissionSession.allow(["home"])).toBe(false)

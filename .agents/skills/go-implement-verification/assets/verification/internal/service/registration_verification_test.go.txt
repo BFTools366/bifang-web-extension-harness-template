@@ -1,0 +1,200 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"project_id/internal/apperr"
+	"project_id/internal/dto"
+	"project_id/internal/model"
+)
+
+// TestEmailRegistrationUsesRealVerification 开发只模拟投递，真实建号必须通过邮箱与注册用途校验。
+func TestEmailRegistrationUsesRealVerification(t *testing.T) {
+	f := newVerificationFixture(t)
+	ctx := context.Background()
+	email := "new-email@example.test"
+	req := &dto.RegisterRequest{Email: email, Password: "TestPassword123!"}
+	if _, err := f.auth.Register(ctx, req); !errors.Is(err, apperr.ErrVerificationCodeRequired) {
+		t.Fatal("missing code accepted", err)
+	}
+	code := registrationFixtureCode(t, f, email)
+	req.Code = strings.Repeat("9", 6)
+	if req.Code == code {
+		req.Code = "888888"
+	}
+	if _, err := f.auth.Register(ctx, req); !errors.Is(err, apperr.ErrVerificationCodeInvalid) {
+		t.Fatal("wrong code accepted", err)
+	}
+	req.Code = code
+	req.Email = " NEW-EMAIL@EXAMPLE.TEST "
+	account, err := f.auth.Register(ctx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if account.Email != email || account.Username == "" || strings.Contains(account.Username, "new-email") || strings.Contains(account.Nickname, "@") {
+		t.Fatal("default name or normalization incorrect")
+	}
+	if _, err := f.auth.Login(ctx, &dto.LoginRequest{Account: "NEW-EMAIL@EXAMPLE.TEST", Password: req.Password}, dto.ClientMeta{}); err != nil {
+		t.Fatal("email login failed", err)
+	}
+	if _, err := f.auth.Login(ctx, &dto.LoginRequest{Account: account.Username, Password: req.Password}, dto.ClientMeta{}); err != nil {
+		t.Fatal("compatible username login failed", err)
+	}
+	if _, err := f.auth.Register(ctx, req); err == nil {
+		t.Fatal("used registration code accepted")
+	}
+	var total int64
+	f.db.Model(&model.Account{}).Count(&total)
+	if total != 1 {
+		t.Fatal("duplicate account", total)
+	}
+}
+
+// TestRegistrationRejectsExpiredWrongSceneAndAttempts 覆盖过期、用途隔离和尝试耗尽，均不能建立半成品账号。
+func TestRegistrationRejectsExpiredWrongSceneAndAttempts(t *testing.T) {
+	for _, kind := range []string{"expired", "scene", "attempts", "disabled"} {
+		t.Run(kind, func(t *testing.T) {
+			f := newVerificationFixture(t)
+			ctx := context.Background()
+			email := kind + "@example.test"
+			code := registrationFixtureCode(t, f, email)
+			switch kind {
+			case "expired":
+				f.db.Model(&model.VerificationCode{}).Where("target = ?", email).Update("expired_at", model.Now().Add(-time.Second))
+			case "scene":
+				f.db.Model(&model.VerificationCode{}).Where("target = ?", email).Update("scene", model.VerificationSceneResetPassword)
+			case "attempts":
+				f.db.Model(&model.VerificationCode{}).Where("target = ?", email).Update("attempts", 5)
+			case "disabled":
+				f.auth.verification.cfg.Enabled = false
+			}
+			if _, err := f.auth.Register(ctx, &dto.RegisterRequest{Email: email, Code: code, Password: "TestPassword123!"}); err == nil {
+				t.Fatal("invalid lifecycle accepted")
+			}
+			var count int64
+			f.db.Model(&model.Account{}).Count(&count)
+			if count != 0 {
+				t.Fatal("account created on failed verification")
+			}
+		})
+	}
+}
+
+// TestRegistrationCodeConcurrentConsumption 真实 SQLite 条件更新保证同一注册码最多建立一个完整账户。
+func TestRegistrationCodeConcurrentConsumption(t *testing.T) {
+	f := newVerificationFixture(t)
+	ctx := context.Background()
+	email := "concurrent-register@example.test"
+	code := registrationFixtureCode(t, f, email)
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			_, err := f.auth.Register(ctx, &dto.RegisterRequest{Email: email, Code: code, Password: "TestPassword123!"})
+			results <- err
+		}()
+	}
+	close(start)
+	success := 0
+	for range 2 {
+		if <-results == nil {
+			success++
+		}
+	}
+	if success != 1 {
+		t.Fatal("single use violated", success)
+	}
+	for _, entity := range []any{&model.Account{}, &model.Org{}, &model.OrganizationUser{}} {
+		var n int64
+		if err := f.db.Model(entity).Count(&n).Error; err != nil || n != 1 {
+			t.Fatalf("incomplete concurrent registration %T count=%d err=%v", entity, n, err)
+		}
+	}
+}
+
+// TestNewMailboxConcurrentQuota 目标尚无账号时也在数据库中串行预留，开发 Mock 不绕过重发限制。
+func TestNewMailboxConcurrentQuota(t *testing.T) {
+	f := newVerificationFixture(t)
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	results := make(chan error, 2)
+	for range 2 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			_, err := f.auth.verification.Send(context.Background(), &dto.SendVerificationCodeRequest{Target: "quota-new@example.test", TargetType: "email", Scene: "register"}, "")
+			results <- err
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+	success, limited := 0, 0
+	for err := range results {
+		if err == nil {
+			success++
+		} else if errors.Is(err, apperr.ErrVerificationTooFrequent) {
+			limited++
+		} else {
+			t.Fatal(err)
+		}
+	}
+	if success != 1 || limited != 1 {
+		t.Fatal("quota reservation raced", success, limited)
+	}
+	var count int64
+	f.db.Model(&model.VerificationCode{}).Count(&count)
+	if count != 1 {
+		t.Fatal("unexpected reservations", count)
+	}
+}
+
+// TestRegistrationResendRevokesPreviousCode 最新成功预留作废旧码，配额仍按投递历史计算。
+func TestRegistrationResendRevokesPreviousCode(t *testing.T) {
+	f := newVerificationFixture(t)
+	f.auth.verification.cfg.ResendInterval = 0
+	ctx := context.Background()
+	email := "resend-register@example.test"
+	old := registrationFixtureCode(t, f, email)
+	next := registrationFixtureCode(t, f, email)
+	if next == old {
+		next = registrationFixtureCode(t, f, email)
+	}
+	if next == old {
+		t.Fatal("unexpected repeated random code")
+	}
+	if _, err := f.auth.verification.Verify(ctx, "register", "email", email, old); err == nil {
+		t.Fatal("old code survived resend")
+	}
+	if _, err := f.auth.verification.Verify(ctx, "register", "email", email, next); err != nil {
+		t.Fatal("new code unavailable", err)
+	}
+	f.auth.verification.cfg.DailyLimit = 2
+	if _, err := f.auth.verification.Send(ctx, &dto.SendVerificationCodeRequest{Target: email, TargetType: "email", Scene: "register"}, ""); !errors.Is(err, apperr.ErrVerificationDailyLimit) {
+		t.Fatal("daily limit bypassed", err)
+	}
+}
+
+// TestLegacyEmailShapedUsernameWins 精确旧用户名先于归一化邮箱，避免改变原账号的登录归属。
+func TestLegacyEmailShapedUsernameWins(t *testing.T) {
+	f := newVerificationFixture(t)
+	ctx := context.Background()
+	registerFixtureAccount(t, f, "victim")
+	email := "other@example.test"
+	code := registrationFixtureCode(t, f, email)
+	old, err := f.auth.Register(ctx, &dto.RegisterRequest{Username: "VICTIM@EXAMPLE.TEST", Email: email, Code: code, Password: "OtherPassword456!"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logged, err := f.auth.Login(ctx, &dto.LoginRequest{Account: old.Username, Password: "OtherPassword456!"}, dto.ClientMeta{})
+	if err != nil || logged.Account.ID != old.ID {
+		t.Fatal("normalized email overrode exact old username", err)
+	}
+}

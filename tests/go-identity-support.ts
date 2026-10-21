@@ -4,7 +4,11 @@ import { createServer } from "node:net"
 import { setTimeout } from "node:timers/promises"
 
 /** 为真实进程分配隔离端口，服务与数据库仅归当前测试所有。 */
-export async function startGoFixture(directory: string, binary: string) {
+export async function startGoFixture(
+  directory: string,
+  binary: string,
+  environment: Record<string, string> = {}
+) {
   const socket = createServer()
   socket.listen(0, "127.0.0.1")
   await once(socket, "listening")
@@ -15,7 +19,13 @@ export async function startGoFixture(directory: string, binary: string) {
   await once(socket, "close")
   const child = spawn(binary, [], {
     cwd: directory,
-    env: { ...process.env, GOTOOLCHAIN: "local", APP_ENV: "dev", APP_SERVER_PORT: String(port) },
+    env: {
+      ...process.env,
+      ...environment,
+      GOTOOLCHAIN: "local",
+      APP_ENV: "dev",
+      APP_SERVER_PORT: String(port)
+    },
     stdio: "ignore"
   })
   const exited = once(child, "exit")

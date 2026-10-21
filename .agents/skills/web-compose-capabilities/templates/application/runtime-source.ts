@@ -160,11 +160,15 @@ export const organizationService = {
     api("permission")
     lines.push(`export const permissionSession = createPermissionRuntime(permissionApi, () => {
   const id = ${organization ? "actor()" : "identityActor()"}
-  return id === null ? null : { id, organizationId: ${organization ? "organizationId" : "null"}, scope: currentScope() }
+  return id === null ? null : { id, organizationId: ${organization ? "organizationId" : "null"}, scope: applicationScope.getSnapshot().ownerRevision }
 }, (listener) => {
   const unsubscribeIdentity = identitySession.subscribe(listener)
   const unsubscribeScope = applicationScope.subscribe(listener)
   return () => { unsubscribeIdentity(); unsubscribeScope() }
+}, () => {
+  // 权限主体代次保持稳定，业务代次失效；避免刷新权限时自清循环。
+  applicationScope.revoke()
+  dropPrivateQueries()
 })
 export const pagePermissions: Record<string, readonly string[]> = ${JSON.stringify(options.pagePermissions ?? {})}
 export const actionPermissions: Record<string, readonly string[]> = ${JSON.stringify(options.actionPermissions ?? {})}

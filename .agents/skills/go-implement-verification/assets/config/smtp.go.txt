@@ -1,0 +1,11 @@
+// SMTP 统一接入 STARTTLS 或隐式 TLS 邮件服务，秘密只由环境变量注入。
+type SMTP struct {
+	Host     string        `mapstructure:"host"`
+	Port     int           `mapstructure:"port"`
+	From     string        `mapstructure:"from"`
+	Username string        `mapstructure:"username"`
+	Password string        `mapstructure:"password"`
+	TLSMode  string        `mapstructure:"tls_mode"`
+	Timeout  time.Duration `mapstructure:"timeout"`
+}
+

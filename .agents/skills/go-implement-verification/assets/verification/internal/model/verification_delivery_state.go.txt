@@ -1,0 +1,10 @@
+package model
+
+// VerificationDeliveryState 串行化同一邮箱与用途的预留，并记录数据库中的最新投递顺序。
+type VerificationDeliveryState struct {
+	ScopeKey     string `gorm:"primaryKey;size:64"`
+	LatestCodeID ID     `gorm:"not null;default:0"`
+}
+
+// TableName 保持投递顺序状态的独立表名。
+func (VerificationDeliveryState) TableName() string { return "verification_delivery_states" }

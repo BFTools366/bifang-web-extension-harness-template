@@ -1,0 +1,38 @@
+/** 注册输入只收集邮箱和凭据；用户名与组织名由服务生成。 */
+export interface RegistrationInput {
+  email: string
+  password: string
+  code?: string
+}
+/** 服务回执明确绝对毫秒期限、重发秒数和码长，明文只用于已授权开发模拟。 */
+export type RegistrationCodeReceipt = {
+  expiresAt: number
+  resendAfter: number
+  codeLength: number
+} & ({ mocked: false; code?: never } | { mocked: true; code: string })
+/** 新密码规则来自真实注册服务，不扩大到旧账号登录。 */
+export interface RegistrationPasswordPolicy {
+  validate(password: string): boolean
+  messageKey: string
+}
+/** 注册和可选发码由真实域 adapter 实现，不创建第二会话。 */
+export interface RegistrationApi {
+  register(input: RegistrationInput, signal: AbortSignal): Promise<string>
+  sendCode?(email: string, signal: AbortSignal): Promise<RegistrationCodeReceipt>
+  passwordPolicy?: RegistrationPasswordPolicy
+}
+/** 只接受 adapter 明确导出的规则；存在但结构错误时阻断而不是静默降级。 */
+export function registrationPasswordPolicy(value: unknown): RegistrationPasswordPolicy | undefined {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== "object" || !("validate" in value) || !("messageKey" in value))
+    throw new Error("registration_password_policy_invalid")
+  const validate = value.validate
+  const messageKey = value.messageKey
+  if (typeof validate !== "function" || typeof messageKey !== "string" || !messageKey.trim())
+    throw new Error("registration_password_policy_invalid")
+  return { validate: (password) => validate(password) === true, messageKey }
+}
+/** 与邮箱服务合同一致地归一化，不去除别名或改写地址内容。 */
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase()
+}

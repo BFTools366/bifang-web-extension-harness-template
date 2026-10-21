@@ -1,0 +1,36 @@
+import { ApiError } from "../client/httpClient"
+import { isServiceRegistrationVerification as isServiceVerification } from "./goContract"
+
+/** 注册回执只在明确的开发模拟投递中包含一次性明文。 */
+export type RegistrationCodeReceipt = {
+  expiresAt: number
+  resendAfter: number
+  codeLength: number
+} & ({ mocked: false; code?: never } | { mocked: true; code: string })
+
+/** 邮箱大小写和外围空格共用服务端语义，不改写邮箱别名。 */
+export function normalizeEmail(value: string) {
+  return value.trim().toLowerCase()
+}
+
+/** 验证用途、时间单位及模拟边界，不把异常结构或正式回执中的明文当作成功。 */
+export function registrationCodeReceipt(
+  value: unknown,
+  allowMock: boolean
+): RegistrationCodeReceipt {
+  if (!isServiceVerification(value) || (value.mock && !allowMock))
+    throw new ApiError({
+      kind: "invalid-response",
+      code: "invalidVerificationResponse",
+      message: "invalidVerificationResponse",
+      retryable: false
+    })
+  const receipt = {
+    expiresAt: value.expires_at * 1000,
+    resendAfter: value.resend_after,
+    codeLength: value.code_length
+  }
+  return value.mock
+    ? { ...receipt, mocked: true, code: value.code ?? "" }
+    : { ...receipt, mocked: false }
+}

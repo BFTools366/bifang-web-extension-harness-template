@@ -1,32 +1,67 @@
 import { expect, test, vi } from "vitest"
-import { createGoIdentityAdapter } from "./adapter"
+import { createGoIdentityAdapter, registrationPasswordPolicy } from "./adapter"
 import { isServiceAccount, isServiceProfile } from "./goContract"
 import { APP_CONFIG } from "../../../config/environment"
 import { requestGoTransport } from "../client/goTransport"
 
+/** 新密码规则采用服务端的 UTF-8 字节长度和字母数字要求。 */
+test("registration password policy matches Go validation", () => {
+  for (const value of ["abcdefgh", "12345678", "Short1", "a1" + "中".repeat(21)])
+    expect(registrationPasswordPolicy.validate(value)).toBe(false)
+  for (const value of ["Example123", "密码A1", "a1" + "中".repeat(20)])
+    expect(registrationPasswordPolicy.validate(value)).toBe(true)
+})
+
 /** 真实 SQLite/HTTP 验证公开隔离、完整资料、刷新复用、改密及全账号退出。 */
 test("real Go endpoints match the frontend adapter and token lifecycle", async () => {
   const adapter = createGoIdentityAdapter()
+  await expect(adapter.register({ email: "contract@example.invalid", password: "Example123" })).rejects.toMatchObject({ status: 400, code: "verification.code.required" })
+  const receipt = await adapter.sendRegistrationCode("contract@example.invalid")
+  if (!receipt.mocked) throw new Error("fixture delivery not mocked")
+  expect(receipt.codeLength).toBe(6)
+  expect(receipt.expiresAt).toBeGreaterThan(Date.now())
+  await expect(adapter.register({ email: "contract@example.invalid", password: "Example123", code: receipt.code === "999999" ? "888888" : "999999" })).rejects.toMatchObject({ status: 400, code: "verification.code.invalid" })
   const id = await adapter.register({
-    username: "contract_user",
+    code: receipt.code,
     email: "contract@example.invalid",
     password: "Example123"
   })
   expect(id).toMatch(/^[1-9][0-9]*$/u)
+  await expect(adapter.register({ email: "contract@example.invalid", password: "Example123", code: receipt.code })).rejects.toMatchObject({ status: 400 })
+  for (const scene of ["reset_password", "RESET_PASSWORD", " reset_password "]) {
+    const reset = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/verification-code", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ target: "contract@example.invalid", target_type: "email", scene })
+    })
+    expect(reset.status).toBe(400)
+  }
+  const repeated = await adapter.sendRegistrationCode("contract@example.invalid")
+  if (!repeated.mocked) throw new Error("fixture delivery not mocked")
   await expect(
     adapter.register({
-      username: "contract_user",
-      email: "other@example.invalid",
+      code: repeated.code,
+      email: "contract@example.invalid",
       password: "Example123"
     })
-  ).rejects.toMatchObject({ status: 409, code: "account.username.taken" })
+  ).rejects.toMatchObject({ status: 409, code: "account.exists" })
   await expect(
-    adapter.api.login({ account: "contract_user", password: "wrong" })
+    adapter.api.login({ account: "contract@example.invalid", password: "wrong" })
   ).rejects.toMatchObject({ status: 401, code: "auth.credentials.invalid" })
-  const access = await adapter.api.login({ account: "contract_user", password: "Example123" })
-  expect(await adapter.api.validate(access)).toMatchObject({ id, displayName: "contract_user" })
+  const access = await adapter.api.login({
+    account: "contract@example.invalid",
+    password: "Example123"
+  })
+  expect(await adapter.api.validate(access)).toMatchObject({
+    id,
+    displayName: expect.stringMatching(/^用户 /u)
+  })
   const profile = await adapter.readProfile(access)
-  expect(profile.account).toMatchObject({ id, nickname: "contract_user", phone: null, status: 1 })
+  expect(profile.account).toMatchObject({
+    id,
+    nickname: expect.stringMatching(/^用户 /u),
+    phone: null,
+    status: 1
+  })
   expect(Number.isSafeInteger(profile.account.created_time)).toBe(true)
   expect(profile.organizationUser).toMatchObject({
     accountId: id,
@@ -36,7 +71,7 @@ test("real Go endpoints match the frontend adapter and token lifecycle", async (
   const response = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account: "contract_user", password: "Example123" })
+    body: JSON.stringify({ account: "contract@example.invalid", password: "Example123" })
   })
   const result = await response.json()
   const refreshToken = result.data.token.refresh_token
@@ -51,11 +86,14 @@ test("real Go endpoints match the frontend adapter and token lifecycle", async (
   await adapter.changePassword(access, "Example123", "Changed123")
   await expect(adapter.api.validate(access)).rejects.toMatchObject({ code: "expired" })
   await expect(adapter.refresh(refreshToken)).rejects.toMatchObject({ status: 401 })
-  const next = await adapter.api.login({ account: "contract_user", password: "Changed123" })
+  const next = await adapter.api.login({
+    account: "contract@example.invalid",
+    password: "Changed123"
+  })
   const secondResponse = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ account: "contract_user", password: "Changed123" })
+    body: JSON.stringify({ account: "contract@example.invalid", password: "Changed123" })
   })
   const second = await secondResponse.json()
   await adapter.api.logout(next)

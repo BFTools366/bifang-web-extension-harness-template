@@ -101,7 +101,8 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 - React 组件负责渲染与局部交互；TanStack Query 管理远端或异步服务状态；Jotai 只管理确需跨组件共享的纯客户端状态，不镜像 Query 数据。
 - \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/data/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
 - 未配置对应 BaseURL 时，仅依赖该远端 API 的操作由 API 层 Mock 提供；本地能力直接真实实现，不要求 BaseURL。混合流程只隔离远端边界，真实联网迁移及失败不回落 Mock 的规则以 \`docs/DATA_ACCESS.md\` §3.1 为准。
-- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。REST 负责单对象详情、主要交互与写入，GraphQL 强制负责远端列表查询，并负责复杂查询与 Subscription；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
+- **带查询条件的网络请求必须使用 GraphQL Query**。查询条件包括字段查找、搜索、筛选、范围、排序与分页；返回单对象、集合、数量或布尔值均适用，不因条件放在 URL query、路径或请求体中，或采用 GET/POST 而改走 REST。条件必须按可信 Schema 通过类型化 variables 传递；缺少 GraphQL 契约时不得以 REST 绕过。无条件远端列表仍须使用 GraphQL；详细协议边界见 \`docs/DATA_ACCESS.md\` §1.2。
+- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。REST 负责无查询条件的单对象读取、主要交互与写入，GraphQL 强制负责远端列表查询及所有带查询条件的读取，并负责复杂查询与 Subscription；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
 - Ky 为默认 HTTP 传输；OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
 - Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。

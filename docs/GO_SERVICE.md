@@ -24,7 +24,7 @@ Go 命令始终在服务成员执行：`go test ./...`、`go vet ./...`、`go bu
 
 REST 单对象：`{model,data,request_id}`；空结果为 HTTP 200 `{model:"empty",request_id}`；失败是 `{model:"errors",errors:{model:"data.set",datas:[{model:"error",code,message}],total},request_id}`。错误码稳定，UI 不把服务 message 直接当本地化键。
 
-分页实际形状：`{model,page:{current,size,total},result:{model:"data.set",datas,total,request_id}}`。上游文档的 `page.total_page` 和顶层 request_id 并未由当前代码输出；消费者按真实形状解析，不编造字段。远端集合按前端约定使用 GraphQL；REST 分页能力不代表可以绕过该约定。
+分页实际形状：`{model,page:{current,size,total},result:{model:"data.set",datas,total,request_id}}`。上游文档的 `page.total_page` 和顶层 request_id 并未由当前代码输出；消费者按真实形状解析，不编造字段。带查询条件的远端读取与远端集合必须按 [工程规则](ENGINEERING_RULES.md) 和 [数据访问协议](DATA_ACCESS.md#12-rest-与-graphql-分工) 使用 GraphQL；REST 单对象或分页能力不代表可以绕过该约定。
 
 ID 一律字符串，时间单位显式为 Unix 秒，前端不得当毫秒或 Number ID。GraphQL 使用标准 `{data,errors}`，不套 REST 信封。业务查询的 SDL、resolver 和授权随操作实施；基础 health/me 不能冒充商品、成员、订单等列表。
 
@@ -38,7 +38,7 @@ CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；E
 
 上游 logout 自增账号 token_version，会撤销该账号所有会话；refresh 没有单 refresh token 的轮换撤销语义。实施者需按需求明确该行为，不能在前端假设只退出当前设备或宣称 refresh 单次轮换。非开发环境必须拒绝公开默认 JWT 密钥，实际秘密由服务端环境注入。
 
-验证码未要求时 `verification.enabled=false`、`mock=false`，不展示发码/找回入口。上游 notify 的 smtp/http 目前返回 Unconfigured；要求验证时由 `$go-implement-verification` 接真实通道。禁止复制上游开发回显配置。验证码生成、哈希、场景、时效、配额、重发与单次事务消费须保持完整；投递未知不能自动重复发送。
+验证码未要求时 `verification.enabled=false`、`mock=false`，不展示发码/找回入口。原始快照的 smtp/http 仍为 Unconfigured；本地 verification overlay 已实现 SMTP TLS 发送器及配置校验，选择时由 `$go-implement-verification` 接线。禁止照搬原始开发回显；只有用户明确要求时允许 dev 注册 Mock，随机码直接显示但真实生命周期不绕过，找回及非 dev 禁止。验证码生成、哈希、场景、时效、配额、重发与单次事务消费须保持完整；投递未知不能自动重复发送。
 
 ## 验证与协作
 
@@ -63,7 +63,7 @@ GraphQL 原始 generated.go 引导快照单独保存于资产 generated/（真�
 
 外部 HTTP 适配器持有可复用且有总超时的 http.Client，用 NewRequestWithContext；非 2xx、超限响应、非法结构与网络失败区分处理。限制响应体大小并关闭 Body；重试只用于已确认可重试的操作，不重放未知写入。秘密只从服务端配置注入，不返回浏览器配置或日志。
 
-配置按默认值、配置文件与显式环境覆盖加载，并在进程资源启动前验证；开发与生产不得共享弱密钥或模拟投递。日志只包含稳定事件、请求关联和安全字段，错误响应使用已定义的错误码与服务端 i18n，支持 zh-CN/en-US；新增错误同步资源，禁止把内部错误、SQL 或秘密原文返回前端。
+配置按默认值、配置文件与显式环境覆盖加载，并在进程资源启动前验证；开发与生产不得共享弱密钥；模拟投递只允许显式授权的 dev 注册，非 dev 启动校验拒绝。日志只包含稳定事件、请求关联和安全字段，错误响应使用已定义的错误码与服务端 i18n，支持 zh-CN/en-US；新增错误同步资源，禁止把内部错误、SQL 或秘密原文返回前端。
 
 并发工作必须有 context 取消、明确拥有者与退出等待；不在锁内阻塞 I/O，不持有请求 Context 启动失去归属的后台 goroutine。共享写状态与事务竞态需要相关 go test -race 证据，资源关闭遵守唯一归属。纯计算与领域不变量可独立于 HTTP/ORM 测试，不为单次调用预建通用框架。
 

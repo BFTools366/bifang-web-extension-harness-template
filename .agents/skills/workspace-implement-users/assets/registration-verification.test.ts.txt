@@ -1,0 +1,49 @@
+import { expect, it } from "vitest"
+import { normalizeEmail, registrationCodeReceipt } from "./verification"
+
+/** 回执样例只用于协议测试，不进入运行数据。 */
+function wire() {
+  return {
+    target: "t***@example.test",
+    target_type: "email",
+    scene: "register",
+    expires_in: 300,
+    expires_at: 1792566000,
+    resend_after: 60,
+    code_length: 6,
+    mock: true,
+    code: "012345"
+  }
+}
+
+it("注册模拟回执保留前导零，并将 Unix 秒转换为毫秒", () => {
+  expect(normalizeEmail(" A+B@EXAMPLE.TEST ")).toBe("a+b@example.test")
+  expect(registrationCodeReceipt(wire(), true)).toEqual({
+    expiresAt: 1792566000000,
+    resendAfter: 60,
+    codeLength: 6,
+    mocked: true,
+    code: "012345"
+  })
+  expect(() => registrationCodeReceipt(wire(), false)).toThrow("invalidVerificationResponse")
+})
+it("错误用途、类型、长度、时间和正式回执明文全部拒绝", () => {
+  for (const change of [
+    { scene: "reset_password" },
+    { target_type: "phone" },
+    { code: "12345" },
+    { expires_at: Number.MAX_SAFE_INTEGER },
+    { resend_after: -1 },
+    { mock: false }
+  ])
+    expect(() => registrationCodeReceipt({ ...wire(), ...change }, true)).toThrow()
+  const real: Record<string, unknown> = { ...wire(), mock: false }
+  delete real.code
+  expect(registrationCodeReceipt(real, false)).toEqual({
+    expiresAt: 1792566000000,
+    resendAfter: 60,
+    codeLength: 6,
+    mocked: false
+  })
+  expect(() => registrationCodeReceipt({ ...real, code: "" }, false)).toThrow()
+})

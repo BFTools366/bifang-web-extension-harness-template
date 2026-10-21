@@ -1,0 +1,28 @@
+package config
+
+import (
+	"testing"
+	"time"
+)
+
+// TestVerificationMockIsDevelopmentOnly 阻止开发模拟进入其他服务环境，并保留期限及额度校验。
+func TestVerificationMockIsDevelopmentOnly(t *testing.T) {
+	cfg := Config{App: App{Env: "dev"}, Verification: Verification{Enabled: true, Mock: true, CodeLength: 6, TTL: 5 * time.Minute, ResendInterval: time.Minute, MaxAttempts: 5, DailyLimit: 10}}
+	if err := cfg.validateVerification(); err != nil {
+		t.Fatal(err)
+	}
+	for _, env := range []string{"prod", "test", "staging"} {
+		cfg.App.Env = env
+		if err := cfg.validateVerification(); err == nil {
+			t.Fatal("mock accepted outside development", env)
+		}
+		cfg.Verification.Enabled = false
+		if err := cfg.validateVerification(); err == nil { t.Fatal("disabled mock accepted outside development", env) }
+		cfg.Verification.Enabled = true
+	}
+	cfg.App.Env = "dev"
+	cfg.Verification.TTL = 0
+	if err := cfg.validateVerification(); err == nil {
+		t.Fatal("mock bypassed code lifecycle validation")
+	}
+}

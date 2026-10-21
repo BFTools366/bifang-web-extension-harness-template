@@ -1,0 +1,92 @@
+package service
+
+import (
+	"context"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"gorm.io/gorm"
+	"project_id/internal/config"
+	"project_id/internal/database"
+	"project_id/internal/dto"
+	"project_id/internal/model"
+	"project_id/internal/pkg/notify"
+	"project_id/internal/pkg/snowflake"
+	"project_id/internal/pkg/token"
+	"project_id/internal/repository"
+)
+
+// verificationFixture 使用独立磁盘 SQLite，避免把内存替身当作持久化证据。
+type verificationFixture struct {
+	db   *gorm.DB
+	auth *AuthService
+}
+
+// newVerificationFixture 装配真实仓储与验证码事务，模拟投递不绕过注册校验。
+func newVerificationFixture(t *testing.T) *verificationFixture {
+	t.Helper()
+	if err := snowflake.Setup(1); err != nil {
+		t.Fatal(err)
+	}
+	db, err := database.Open(config.Database{Driver: "sqlite", DSN: filepath.Join(t.TempDir(), "app.db"), LogLevel: "silent", MaxOpenConns: 4})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { database.Close(db) })
+	if err := database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+	accounts := repository.NewAccountRepository(db)
+	orgs := repository.NewOrgRepository(db)
+	verification := NewVerificationService(repository.NewVerificationCodeRepository(db), accounts, config.Verification{Enabled: true, Mock: true, CodeLength: 6, TTL: 5 * time.Minute, ResendInterval: time.Minute, MaxAttempts: 5, DailyLimit: 10}, notify.Unconfigured{})
+	auth := NewAuthService(accounts, orgs, verification, token.NewManager("test-only-signing-secret-at-least-32-bytes", "test", time.Hour, 24*time.Hour))
+	return &verificationFixture{db: db, auth: auth}
+}
+
+// registerFixtureAccount 经真实注册服务建立所有账号资源。
+func registerFixtureAccount(t *testing.T, f *verificationFixture, name string) *model.Account {
+	t.Helper()
+	email := name + "@example.test"
+	code := registrationFixtureCode(t, f, email)
+	account, err := f.auth.Register(context.Background(), &dto.RegisterRequest{Username: name, Email: email, Code: code, Password: "TestPassword123!"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return account
+}
+
+// registrationFixtureCode 经真实预留、配额与激活取得仅测试环境可见的注册码。
+func registrationFixtureCode(t *testing.T, f *verificationFixture, email string) string {
+	t.Helper()
+	result, err := f.auth.verification.Send(context.Background(), &dto.SendVerificationCodeRequest{Target: email, TargetType: "email", Scene: "register"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result.Code
+}
+
+// TestRegistrationRollsBackAllResources 证明所有者成员写入失败时账户、组织和成员都不残留。
+func TestRegistrationRollsBackAllResources(t *testing.T) {
+	f := newVerificationFixture(t)
+	code := registrationFixtureCode(t, f, "rollback@example.test")
+	if err := f.db.Exec("CREATE TRIGGER deny_default_member BEFORE INSERT ON organization_users BEGIN SELECT RAISE(ABORT,'test transaction failure'); END").Error; err != nil {
+		t.Fatal(err)
+	}
+	req := &dto.RegisterRequest{Username: "rollback", Email: "rollback@example.test", Code: code, Password: "TestPassword123!"}
+	if _, err := f.auth.Register(context.Background(), req); err == nil {
+		t.Fatal("expected rollback")
+	}
+	for _, entity := range []any{&model.Account{}, &model.Org{}, &model.OrganizationUser{}} {
+		var n int64
+		if err := f.db.Model(entity).Count(&n).Error; err != nil || n != 0 {
+			t.Fatalf("partial registration %T count=%d err=%v", entity, n, err)
+		}
+	}
+	if err := f.db.Exec("DROP TRIGGER deny_default_member").Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.auth.Register(context.Background(), req); err != nil {
+		t.Fatal("rollback consumed registration code", err)
+	}
+}

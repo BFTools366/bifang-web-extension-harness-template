@@ -1,0 +1,50 @@
+func (c *Config) validateVerification() error {
+	v := c.Verification
+	if v.Mock && !c.App.IsDev() {
+		return errors.New("config: verification.mock 仅允许用于 dev 注册模拟投递")
+	}
+	if !v.Enabled {
+		return nil
+	}
+	if !v.Mock {
+		if _, ok := verificationProviders[strings.ToLower(strings.TrimSpace(v.Provider))]; !ok {
+			return fmt.Errorf("config: verification.provider 不支持 %q（当前只支持 smtp）", v.Provider)
+		}
+		if v.Provider != "smtp" || strings.TrimSpace(v.SMTP.Host) == "" || strings.ContainsAny(v.SMTP.Host, "\r\n") || v.SMTP.Port < 1 || v.SMTP.Port > 65535 || strings.TrimSpace(v.SMTP.From) == "" || strings.ContainsAny(v.SMTP.From, "\r\n") {
+			return errors.New("config: 真实邮件投递需要完整 SMTP 配置")
+		}
+		if _, err := mail.ParseAddress(v.SMTP.From); err != nil {
+			return errors.New("config: SMTP 发件地址格式无效")
+		}
+		if (v.SMTP.Username == "") != (v.SMTP.Password == "") {
+			return errors.New("config: SMTP 用户名和密码必须同时配置或同时留空")
+		}
+		if v.SMTP.TLSMode != "starttls" && v.SMTP.TLSMode != "tls" {
+			return errors.New("config: SMTP 必须使用 starttls 或 tls")
+		}
+		if v.SMTP.Timeout <= 0 || v.SMTP.Timeout > 30*time.Second {
+			return errors.New("config: SMTP 超时必须在 0 到 30 秒之间")
+		}
+
+	}
+
+	if v.CodeLength < 4 || v.CodeLength > 10 {
+		return fmt.Errorf("config: verification.code_length 需在 4 到 10 之间，当前：%d", v.CodeLength)
+	}
+	if v.TTL <= 0 {
+		return errors.New("config: verification.ttl 必须大于 0")
+	}
+	if v.ResendInterval < 0 {
+		return errors.New("config: verification.resend_interval 不能为负")
+	}
+	if v.ResendInterval >= v.TTL {
+		return fmt.Errorf("config: verification.resend_interval (%s) 必须小于 ttl (%s)", v.ResendInterval, v.TTL)
+	}
+	if v.MaxAttempts <= 0 {
+		return errors.New("config: verification.max_attempts 必须大于 0")
+	}
+	if v.DailyLimit <= 0 {
+		return errors.New("config: verification.daily_limit 必须大于 0")
+	}
+	return nil
+}

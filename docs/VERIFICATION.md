@@ -6,7 +6,7 @@
 
 - 只报告真实执行的命令、候选、环境、结果和未覆盖范围；未运行写“未执行”，未验证写 `Unverified`。
 - 日常开发只运行本次变化需要的相关非空测试或最小替代检查，不自动追加格式、lint、类型、全仓检查或构建；行为保持的结构重构运行全量测试。
-- 源 Harness 完整验收验证 验证器、维护辅助脚本、所选成员组合、纯 Server 与服务来源条件的源外实例化结果和当前发布规则，不把模板源码、Mock、开发预览或内部函数调用当作最终产物证据。
+- 源 Harness 完整验收验证 验证器、维护辅助脚本、Web 或 Extension 与已有/自建服务条件的源外实例化结果和当前发布规则，不把模板源码、Mock、开发预览或内部函数调用当作最终产物证据。
 - Web 最终候选必须是当前源码经唯一 `pnpm build -- --e2e=enabled|disabled` 生成的 Vite `dist`；Extension 还需由同一正式环境配置 生成当前 Chrome MV3 和 Firefox MV2 两个 zip。
 - 同一发布流程复用已明确的 E2E 选择；重建或打包后重新验收新字节；持久 `e2e_hint` 只提供建议默认值。完整候选验收还独立解析 `acceptance_smoke`：硬要求优先，否则 `enabled` 运行有边界的真实浏览器冒烟检查（Web 使用 Chrome，Extension 逐个使用 Chrome/Firefox），`disabled`/源 `pending` 不主动运行；E2E 与 smoke 任一为 `required` 时都只针对精确候选执行。
 - 有用户要求的活动 Work Plan 时，相关 Todo 必须全部完成；没有 Work Plan 不阻断用户明确要求的完整验收。

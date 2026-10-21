@@ -26,7 +26,7 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
   const { ref, height } = useElementSize<HTMLDivElement>()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpened, setMobileOpened] = useState(false)
-  const useSidebar = navigation.length > 1
+  const useSidebar = true
   const compact = desktop && collapsed
   const current = navigation.find((page) => page.path === pathname)
   useEffect(() => setMobileOpened(false), [pathname])
@@ -77,6 +77,7 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
                     onClick={() => setMobileOpened((value) => !value)}
                   />
                 )}
+                {context && <div className={classes.context}>{context(false)}</div>}
                 <Text fw={600} visibleFrom="sm">
                   {t(current?.title ?? "projectName")}
                 </Text>
@@ -128,7 +129,7 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
           <nav className={classes.nav} aria-label={t("applicationNavigation")}>
             {links}
           </nav>
-          {context && <div className={classes.context}>{context(compact)}</div>}
+
           <Group className={classes.sidebarBottom} justify={compact ? "center" : "space-between"}>
             <Anchor
               renderRoot={(props) => (
