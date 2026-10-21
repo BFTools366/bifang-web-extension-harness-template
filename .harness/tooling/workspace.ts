@@ -15,7 +15,7 @@ import type { InitOptions, ProjectConfig } from "./types.ts"
 import { parseServerMode, type WorkspaceMemberType } from "./workspace-selection.ts"
 import { generateGoServer } from "./workspace-server.ts"
 import { GO_TRANSPORT_SOURCE, GO_HEALTH_SOURCE } from "./workspace-http.ts"
-import { workspaceDocuments } from "./workspace-documents.ts"
+import { workspaceDocuments, workspacePackage } from "./workspace-documents.ts"
 import { validateBaseUrls } from "./environment.ts"
 import { httpUiTest } from "./templates/http-ui-test.ts"
 
@@ -233,30 +233,7 @@ export async function initializeWorkspace(
       initializedAt: workspace.initializedAt,
       authorization: options.initialCreationAuthorization
     })
-  const scripts: Record<string, string> = {}
-  if (workspace.members.some((member) => member.type !== "server"))
-    scripts["prototype:check"] =
-      "tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts check"
-  for (const action of ["dev", "test", "typecheck", "lint", "build", "validate"])
-    scripts[action] = `node .harness/runtime/workspace.mjs ${action}`
-  for (const member of workspace.members) {
-    for (const action of ["dev", "test", "build"])
-      scripts[`${action}:${member.type}`] =
-        `node .harness/runtime/workspace.mjs ${action} --member ${member.type}`
-  }
-  await writeJsonNew(path.join(root, "package.json"), {
-    name: options.id,
-    version: "0.1.0",
-    private: true,
-    type: "module",
-    packageManager: existing.packageManager,
-    engines: existing.engines,
-    scripts,
-    devDependencies: {
-      tsx: (existing.devDependencies as Record<string, string>).tsx,
-      sharp: (existing.devDependencies as Record<string, string>).sharp
-    }
-  })
+  await writeJsonNew(path.join(root, "package.json"), workspacePackage(workspace, existing))
   const jsMembers = workspace.members
     .filter((item) => item.type !== "server")
     .map((item) => `  - ${JSON.stringify(item.directory)}`)

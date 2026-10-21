@@ -8,6 +8,8 @@
 
 固定目标 `.harness/project.json.projectType`；Web 的宿主专用 Skills 只有 `$web-implement-list-view`，Extension 只包含 `$web-review-extension-compatibility`。两类宿主均分发功能组合知识与模板，资源存在不代表功能启用。错宿主 Skill、required 缺失/陈旧、所有权漂移、符号链接、特殊文件/权限或越界会阻断。候选必须由真实渲染流程提供；本 CLI 没有 render 子命令，本 Skill 不创建或修正候选。
 
+Workspace 按 [根升级合同](../../web-upgrade-harness/references/workspace-upgrade.md) 解析原有拓扑，使用根所有权与唯一根 lock；绑定 workspace.json 和全部前端身份，按成员前缀核对宿主、工程路径和必需传播。Go 服务及产品目录在读取目标内容前剪枝；候选仍完整扫描并拒绝保护内容。源专用 `upgrade-candidate.ts` 提供纯工程投影，不分发到目标，不替代目标 planner。
+
 ## 冻结与命令
 
 源工程、候选和目标必须是互不嵌套、无符号链接的真实绝对目录。源工程和目标分别等于自己的 Git 顶层；源工作区必须干净，且精确匹配已冻结的源提交。记录源验证结果与 `Version.md` 的 12 位版本；目标可存在未提交修改，计划绑定其真实状态。

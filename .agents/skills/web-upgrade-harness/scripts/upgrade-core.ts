@@ -116,7 +116,8 @@ export async function applyUpgradePath(options: ApplyUpgradeOptions): Promise<Up
       (candidate) =>
         candidate.ownership === "managed" &&
         candidate.classification === "add" &&
-        candidate.path.startsWith(".agents/skills/")
+        (candidate.path.startsWith(".agents/skills/") ||
+          candidate.path.includes("/.agents/skills/"))
     )
     if (missingSkills.length > 0) {
       throw new Error(
@@ -132,7 +133,7 @@ export async function applyUpgradePath(options: ApplyUpgradeOptions): Promise<Up
       throw new Error("managed-self updates must run after all ordinary managed updates")
     }
     // 保存稳定自更新队列，并强制 CLI runner 最后替换。
-    const runner = ".agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts"
+    const runner = "/web-upgrade-harness/scripts/harness-upgrade.ts"
     const selfUpdates = plan.entries
       .filter(
         (candidate) =>
@@ -140,7 +141,7 @@ export async function applyUpgradePath(options: ApplyUpgradeOptions): Promise<Up
       )
       .map((candidate) => candidate.path)
       .sort((left, right) => {
-        const runnerOrder = Number(left === runner) - Number(right === runner)
+        const runnerOrder = Number(left.endsWith(runner)) - Number(right.endsWith(runner))
         return runnerOrder === 0 ? left.localeCompare(right) : runnerOrder
       })
     if (selfUpdates[0] !== relativePath) {
@@ -250,6 +251,7 @@ export async function recordUpgradeBaseline(options: RecordUpgradeOptions): Prom
   }
   const lock: UpstreamLock = {
     schemaVersion: 1,
+    ...(plan.workspace ? { workspace: plan.workspace } : {}),
     sourceVersion: plan.sourceVersion,
     sourceCommit: plan.sourceCommit,
     files: Object.fromEntries(

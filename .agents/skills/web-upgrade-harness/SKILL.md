@@ -1,11 +1,11 @@
 ---
 name: web-upgrade-harness
-description: 在已实例化的单一类型纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。
+description: 在已实例化的 Workspace 或旧独立 React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。
 ---
 
 # Web Harness：升级前端工程基线
 
-当前原单包升级器只支持旧独立前端。Workspace 整体及其成员尚不支持该升级器；迁移须另行明确范围并实现逐路径合同，不自动移动产品、身份或业务数据。
+支持旧独立前端及已登记 Workspace 的原地工程升级。Workspace 必须从唯一 Git 根执行，统一根所有权与基线，按原成员路径投影前端工程层；Go 服务、产品、身份、配置、品牌和数据保持保护。先读取 [Workspace 升级合同](references/workspace-upgrade.md)，不增加成员或迁移目录。
 
 通过“冻结事实 → 渲染候选 → 三方计划 → 路径级批准 → 重规划 → 目标验证 → 记录基线”升级终端前端项目。生产所有权清单和 TypeScript helper 必须精确位于目标仓库内本 Skill 的 `references/ownership-manifest.json` 与 `scripts/harness-upgrade.ts`；另一个仓库的 helper 或清单不得替目标授权，不得用临时脚本或弱化清单代替。
 

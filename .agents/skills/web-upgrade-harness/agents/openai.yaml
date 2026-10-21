@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：升级前端工程基线"
-  short_description: "将较新 Web Harness 工程层安全同步到单一 React 或 Plasmo MV3 前端下游"
-  default_prompt: "使用 $web-upgrade-harness 先执行只读预演，再将较新 Web Harness 前端工程层安全同步到单一 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游。"
+  short_description: "将较新 Harness 工程层按根所有权安全同步到 Workspace 或旧独立前端"
+  default_prompt: "使用 $web-upgrade-harness 从目标 Git 根执行只读预演，再按目标本地所有权与精确批准同步 Workspace 或旧独立前端工程层，保护 Go 服务和产品内容。"

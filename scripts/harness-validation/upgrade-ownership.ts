@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import path from "node:path"
 import { validateOwnershipManifest } from "../../.agents/skills/web-upgrade-harness/scripts/upgrade-core.ts"
 import { ownershipPatternsOverlap } from "../../.agents/skills/web-upgrade-harness/scripts/upgrade-glob.ts"
+import { validateWorkspaceOwnership } from "../../.agents/skills/web-upgrade-harness/scripts/upgrade-workspace.ts"
 import type {
   OwnershipManifest,
   OwnershipMode
@@ -9,6 +10,9 @@ import type {
 
 /** 独立锚定升级所有权下限，避免运行时规则与清单同时弱化时绕过源门禁。 */
 export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
+  "docs/README.md": "merge-sections",
+  ".harness/tooling/upgrade-candidate.ts": "tombstone",
+  "tests/workspace-upgrade.test.ts": "tombstone",
   ".agents/skills/go-test-service/**": "managed",
   ".harness/tooling/workspace-context.ts": "managed",
   ".harness/tooling/workspace-http.ts": "tombstone",
@@ -291,7 +295,9 @@ export async function validateUpgradeOwnership(root: string, errors: string[]): 
   )
   try {
     const value: unknown = JSON.parse(await readFile(manifestPath, "utf8"))
-    validateIndependentOwnershipBoundary(validateOwnershipManifest(value))
+    const manifest = validateOwnershipManifest(value)
+    validateIndependentOwnershipBoundary(manifest)
+    validateWorkspaceOwnership(manifest)
   } catch (error) {
     errors.push(
       `upgrade ownership contract is invalid: ${error instanceof Error ? error.message : String(error)}`

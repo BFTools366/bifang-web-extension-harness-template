@@ -35,6 +35,8 @@ export interface OwnershipManifest {
   defaultMode: "protected"
   /** 保存按优先顺序匹配的规则。 */
   rules: OwnershipRule[]
+  /** 只在 Workspace 根生效的精确规则；不得用它改写成员或产品所有权。 */
+  workspaceRules?: OwnershipRule[]
 }
 
 /** 描述单个普通文件的不可变快照。 */
@@ -79,6 +81,8 @@ export interface UpgradePlanEntry {
 export interface HarnessUpgradePlan {
   /** 锁定计划 schema。 */
   schemaVersion: 2
+  /** 冻结 Workspace 成员绑定；旧单包没有该字段。 */
+  workspace?: { id: string; members: { type: string; directory: string }[] }
   /** 保存规范化源 Harness 根。 */
   sourceRoot: string
   /** 保存声明源版本。 */
@@ -127,6 +131,8 @@ export interface UpstreamLockEntry {
 export interface UpstreamLock {
   /** 锁定 lock schema。 */
   schemaVersion: 1
+  /** 保持根基线与原有 Workspace 拓扑绑定，不能复用旧单包 lock。 */
+  workspace?: { id: string; members: { type: string; directory: string }[] }
   /** 保存已验证源版本。 */
   sourceVersion: string
   /** 保存已验证源提交。 */

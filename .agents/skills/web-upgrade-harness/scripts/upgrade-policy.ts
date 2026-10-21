@@ -48,6 +48,9 @@ function skillRule(name: string, mode: OwnershipMode): Record<string, OwnershipM
 
 /** 保存所有权清单不可弱化的关键规则。 */
 export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = {
+  "docs/README.md": "merge-sections",
+  ".harness/tooling/upgrade-candidate.ts": "tombstone",
+  "tests/workspace-upgrade.test.ts": "tombstone",
   ".agents/skills/go-test-service/**": "managed",
   ".harness/tooling/workspace-context.ts": "managed",
   ".harness/tooling/workspace-http.ts": "tombstone",

@@ -246,7 +246,11 @@ export async function loadOwnershipManifest(
 }
 
 /** 枚举目录树的普通文件摘要，并保留特殊路径用于相关阻断。 */
-export async function inventoryTree(root: string, targetTree: boolean): Promise<TreeInventory> {
+export async function inventoryTree(
+  root: string,
+  targetTree: boolean,
+  skip?: (relativePath: string, directory: boolean) => boolean
+): Promise<TreeInventory> {
   const inventory: TreeInventory = {
     files: new Map(),
     directories: new Set(),
@@ -263,6 +267,11 @@ export async function inventoryTree(root: string, targetTree: boolean): Promise<
         relativeDirectory === "" ? entry.name : `${relativeDirectory}/${entry.name}`
       const absolutePath = path.join(directory, entry.name)
       const status = await lstat(absolutePath)
+      if (targetTree && (entry.name === ".env" || /^\.env(?:\..+)?\.local$/u.test(entry.name))) {
+        inventory.unsafe.add(relativePath)
+        continue
+      }
+      if (skip?.(relativePath, status.isDirectory())) continue
       if (entry.name === ".git") {
         if (!targetTree) inventory.unsafe.add(relativePath)
       } else if (status.isSymbolicLink()) {
@@ -401,11 +410,16 @@ export async function loadLock(
 
 /** 复验计划绑定的所有权清单与可选 upstream lock 快照。 */
 export async function assertControlSnapshots(plan: HarnessUpgradePlan): Promise<void> {
-  const projectSnapshot = plan.entries.find(
-    (entry) => entry.path === ".harness/project.json"
-  )?.target
-  if (projectSnapshot === undefined) throw new Error("Upgrade plan lacks target project identity")
-  await readBoundFileStable(plan.targetRoot, ".harness/project.json", projectSnapshot)
+  const identities = plan.entries.filter(
+    (entry) =>
+      entry.path === ".harness/project.json" ||
+      entry.path === ".harness/workspace.json" ||
+      entry.path.endsWith("/.harness/project.json")
+  )
+  if (!identities.length || identities.some((entry) => entry.target === undefined))
+    throw new Error("Upgrade plan lacks target project identity")
+  for (const entry of identities)
+    await readBoundFileStable(plan.targetRoot, entry.path, entry.target)
   const ownershipPath = await exactControlPath(
     plan.targetRoot,
     plan.ownershipPath,

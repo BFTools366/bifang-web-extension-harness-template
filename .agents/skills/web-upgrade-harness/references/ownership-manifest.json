@@ -1,7 +1,13 @@
 {
   "schemaVersion": 1,
   "defaultMode": "protected",
+  "workspaceRules": [
+    { "pattern": ".harness/runtime/workspace.mjs", "mode": "managed", "required": true }
+  ],
   "rules": [
+    { "pattern": "docs/README.md", "mode": "merge-sections" },
+    { "pattern": ".harness/tooling/upgrade-candidate.ts", "mode": "tombstone" },
+    { "pattern": "tests/workspace-upgrade.test.ts", "mode": "tombstone" },
     {
       "pattern": ".agents/skills/go-test-service/**",
       "mode": "managed"

@@ -12,6 +12,8 @@ export const RETIRED_PRD_OUTLINE_PATH =
 
 // Source-only project-creation paths that every terminal project must keep absent.
 export const HARNESS_ONLY_PATHS = [
+  ".harness/tooling/upgrade-candidate.ts",
+  "tests/workspace-upgrade.test.ts",
   ".harness/tooling/workspace.ts",
   ".harness/tooling/workspace-http.ts",
   "tests/application-test-adapters.ts",

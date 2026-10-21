@@ -3,11 +3,10 @@ import path from "node:path"
 import {
   BLOCKING_UPGRADE_CLASSIFICATIONS,
   MANUAL_UPGRADE_CLASSIFICATIONS,
-  REQUIRED_MANAGED_SOURCE_PATHS,
   UPSTREAM_LOCK_RELATIVE_PATH
 } from "./upgrade-policy.ts"
 import { ownershipRuleForNode } from "./upgrade-glob.ts"
-import { readBoundFileStable } from "./upgrade-mutation.ts"
+import { loadUpgradeTargetContext, requiredWorkspaceSourcePaths } from "./upgrade-workspace.ts"
 import type {
   CreateUpgradePlanOptions,
   HarnessUpgradePlan,
@@ -27,9 +26,6 @@ import {
   loadLock,
   sameSnapshot
 } from "./upgrade-snapshot.ts"
-
-/** 本地保存身份路径，避免逐文件自升级先更新 planner 时依赖 policy 的新增导出。 */
-const PROJECT_CONFIG_RELATIVE_PATH = ".harness/project.json"
 
 /** 本地保存宿主专用 Skill 根，保持旧 policy 与新 planner 可共同启动。 */
 const HOST_SPECIFIC_SKILL_ROOTS = {
@@ -200,30 +196,13 @@ export async function createUpgradePlan(
     throw new Error("Source, rendered candidate, and target roots must be distinct and non-nested")
   }
   const ownership = await loadOwnershipManifest(options.ownershipPath, targetRoot)
-  const workspaceFile = await lstat(path.join(targetRoot, ".harness/workspace.json")).catch(
-    (error: unknown) => {
-      if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
-        return undefined
-      throw error
-    }
+  const context = await loadUpgradeTargetContext(targetRoot, ownership.manifest)
+  const manifest = context.manifest
+  const forbiddenSkillRoots = context.frontends.flatMap((member) =>
+    HOST_SPECIFIC_SKILL_ROOTS[member.type === "web" ? "extension" : "web"].map((root) =>
+      member.directory ? `${member.directory}/${root}` : root
+    )
   )
-  if (workspaceFile)
-    throw new Error("Workspace 整体及成员尚不支持原单包升级器；迁移需要单独的逐路径合同")
-  const projectFile = await readBoundFileStable(targetRoot, PROJECT_CONFIG_RELATIVE_PATH)
-  if (projectFile.bytes === undefined || projectFile.snapshot === undefined) {
-    throw new Error("Target project identity is missing")
-  }
-  const project: unknown = JSON.parse(projectFile.bytes.toString("utf8"))
-  if (
-    project === null ||
-    typeof project !== "object" ||
-    !("projectType" in project) ||
-    (project.projectType !== "web" && project.projectType !== "extension")
-  ) {
-    throw new Error("Target projectType must be web or extension")
-  }
-  const projectType = project.projectType
-  const forbiddenSkillRoots = HOST_SPECIFIC_SKILL_ROOTS[projectType === "web" ? "extension" : "web"]
   const lockPath = await exactControlPath(
     targetRoot,
     options.lockPath,
@@ -240,23 +219,38 @@ export async function createUpgradePlan(
   }
   const [candidateInventory, targetInventory, loadedLock] = await Promise.all([
     inventoryTree(candidateRoot, false),
-    inventoryTree(targetRoot, true),
+    inventoryTree(
+      targetRoot,
+      true,
+      context.workspace
+        ? (relative, directory) =>
+            !context.identities.has(relative) &&
+            ownershipRuleForNode(relative, manifest, directory)?.mode === "protected"
+        : undefined
+    ),
     loadLock(lockPath, targetRoot)
   ])
-  if (
-    !sameSnapshot(projectFile.snapshot, targetInventory.files.get(PROJECT_CONFIG_RELATIVE_PATH))
-  ) {
-    throw new Error("Target project identity changed while planning")
-  }
+  for (const [file, snapshot] of context.identities)
+    if (!sameSnapshot(snapshot, targetInventory.files.get(file)))
+      throw new Error("Target project identity changed while planning")
   const lock = loadedLock?.value
+  const workspace = context.workspace
+    ? { id: context.workspace.id, members: context.workspace.members }
+    : undefined
+  if (lock && JSON.stringify(lock.workspace) !== JSON.stringify(workspace))
+    throw new Error(
+      "Upstream lock belongs to another topology; review a separate migration contract"
+    )
   const paths = new Set<string>([
-    PROJECT_CONFIG_RELATIVE_PATH,
+    ...context.identities.keys(),
     ...candidateInventory.files.keys(),
     ...candidateInventory.unsafe,
+    ...[...targetInventory.unsafe].filter((file) =>
+      /(^|\/)\.env(?:$|(?:\..+)?\.local$)/u.test(file)
+    ),
     ...Object.keys(lock?.files ?? {}),
     ...[...targetInventory.files.keys(), ...targetInventory.unsafe].filter(
-      (relativePath) =>
-        ownershipRuleForNode(relativePath, ownership.manifest, true)?.mode === "tombstone"
+      (relativePath) => ownershipRuleForNode(relativePath, manifest, true)?.mode === "tombstone"
     )
   ])
   const entries: UpgradePlanEntry[] = []
@@ -285,11 +279,11 @@ export async function createUpgradePlan(
           (root) => relativePath === root || relativePath.startsWith(`${root}/`)
         )
       ) {
-        block(relativePath, "conditional", `目标 projectType=${projectType} 不允许此 Skill`)
+        block(relativePath, "conditional", "目标成员宿主不允许此 Skill")
       }
     }
   }
-  for (const rule of ownership.manifest.rules) {
+  for (const rule of manifest.rules) {
     if (
       rule.required === true &&
       !rule.pattern.includes("*") &&
@@ -299,36 +293,41 @@ export async function createUpgradePlan(
       block(rule.pattern, rule.mode, "缺少必需的候选路径")
     }
   }
-  const requiredSourcePaths = [
-    ...REQUIRED_MANAGED_SOURCE_PATHS,
-    ...HOST_SPECIFIC_SKILL_ROOTS[projectType].flatMap((root) => [
-      `${root}/SKILL.md`,
-      `${root}/agents/openai.yaml`
-    ]),
-    // 宿主专用 Skill 的全部源文件只要求对应宿主候选精确传播，不能向另一宿主注入。
-    ...(await hostSkillSourcePaths(sourceRoot, HOST_SPECIFIC_SKILL_ROOTS[projectType]))
-  ]
-  for (const relativePath of requiredSourcePaths) {
-    const sourceSnapshot = await optionalSourceSnapshot(sourceRoot, relativePath)
+  const requiredSourcePaths = requiredWorkspaceSourcePaths(context)
+  for (const member of context.frontends) {
+    const roots = HOST_SPECIFIC_SKILL_ROOTS[member.type]
+    const sources = [
+      ...roots.flatMap((root) => [`${root}/SKILL.md`, `${root}/agents/openai.yaml`]),
+      ...(await hostSkillSourcePaths(sourceRoot, roots))
+    ]
+    requiredSourcePaths.push(
+      ...sources.map((source) => ({
+        source,
+        target: member.directory ? `${member.directory}/${source}` : source
+      }))
+    )
+  }
+  for (const { source, target: relativePath } of requiredSourcePaths) {
+    const sourceSnapshot = await optionalSourceSnapshot(sourceRoot, source)
     if (
       sourceSnapshot !== undefined &&
       !sameSnapshot(sourceSnapshot, candidateInventory.files.get(relativePath))
     ) {
       block(
         relativePath,
-        ownershipRuleForNode(relativePath, ownership.manifest, false)?.mode ?? "managed",
+        ownershipRuleForNode(relativePath, manifest, false)?.mode ?? "managed",
         "候选未精确传播必需源文件"
       )
     }
   }
   for (const relativePath of candidateInventory.directories) {
-    const mode = ownershipRuleForNode(relativePath, ownership.manifest, true)?.mode
+    const mode = ownershipRuleForNode(relativePath, manifest, true)?.mode
     if (mode === "protected" || mode === "tombstone") {
       block(relativePath, mode, `候选包含禁止的 ${mode} 目录`)
     }
   }
   for (const relativePath of new Set([...targetInventory.directories, ...targetInventory.unsafe])) {
-    if (ownershipRuleForNode(relativePath, ownership.manifest, true)?.mode === "tombstone") {
+    if (ownershipRuleForNode(relativePath, manifest, true)?.mode === "tombstone") {
       block(relativePath, "tombstone", "终端目标包含已禁止恢复的源专属目录")
     }
   }
@@ -337,7 +336,7 @@ export async function createUpgradePlan(
     const unsafeNode =
       candidateInventory.unsafe.has(relativePath) || targetInventory.unsafe.has(relativePath)
     // 保存 rule 变量，并让符号链接目录根沿用其 /** 所有权而不是落入未知路径。
-    const rule = ownershipRuleForNode(relativePath, ownership.manifest, unsafeNode)
+    const rule = ownershipRuleForNode(relativePath, manifest, unsafeNode)
     if (rule === undefined) {
       entries.push({
         path: relativePath,
@@ -391,6 +390,7 @@ export async function createUpgradePlan(
     .map((entry) => `${entry.path}: ${entry.reason}`)
   return {
     schemaVersion: 2,
+    ...(workspace ? { workspace } : {}),
     sourceRoot,
     sourceVersion: options.sourceVersion,
     sourceCommit: options.sourceCommit,

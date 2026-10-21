@@ -1,5 +1,30 @@
 import type { WorkspaceConfig } from "./workspace.ts"
 
+/** 统一创建与升级时的根命令及工具依赖，不携带产品依赖。 */
+export function workspacePackage(config: WorkspaceConfig, source: Record<string, unknown>) {
+  const scripts: Record<string, string> = {}
+  if (config.members.some((member) => member.type !== "server"))
+    scripts["prototype:check"] =
+      "tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts check"
+  for (const action of ["dev", "test", "typecheck", "lint", "build", "validate"])
+    scripts[action] = `node .harness/runtime/workspace.mjs ${action}`
+  for (const member of config.members)
+    for (const action of ["dev", "test", "build"])
+      scripts[`${action}:${member.type}`] =
+        `node .harness/runtime/workspace.mjs ${action} --member ${member.type}`
+  const dependencies = source.devDependencies as Record<string, string>
+  return {
+    name: config.id,
+    version: "0.1.0",
+    private: true,
+    type: "module",
+    packageManager: source.packageManager,
+    engines: source.engines,
+    scripts,
+    devDependencies: { tsx: dependencies.tsx, sharp: dependencies.sharp }
+  }
+}
+
 /** 为终端工作区生成协作入口，成员技术文档不成为第二份产品规格。 */
 export function workspaceDocuments(config: WorkspaceConfig): Map<string, string> {
   const members = config.members.map((item) => `- ${item.directory}：${item.type}`).join("\n")

@@ -318,12 +318,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-upgrade-harness": {
     description:
-      "在已实例化的单一类型纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。",
+      "在已实例化的 Workspace 或旧独立 React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 下游中，以只读预演和文件所有权分类安全同步较新 Web Harness 工程层，同时保留产品代码、projectType、品牌、项目记忆、策略和本地修改。用于用户要求比较、升级、迁移或刷新前端 Harness；默认不写入。",
     title: "# Web Harness：升级前端工程基线",
     displayName: "Web Harness：升级前端工程基线",
-    shortDescription: "将较新 Web Harness 工程层安全同步到单一 React 或 Plasmo MV3 前端下游",
+    shortDescription: "将较新 Harness 工程层按根所有权安全同步到 Workspace 或旧独立前端",
     defaultPrompt:
-      "使用 $web-upgrade-harness 先执行只读预演，再将较新 Web Harness 前端工程层安全同步到单一 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 下游。"
+      "使用 $web-upgrade-harness 从目标 Git 根执行只读预演，再按目标本地所有权与精确批准同步 Workspace 或旧独立前端工程层，保护 Go 服务和产品内容。"
   },
   "web-verify-delivery": {
     description:

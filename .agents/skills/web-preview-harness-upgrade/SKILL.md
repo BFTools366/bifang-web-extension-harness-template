@@ -5,7 +5,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，只读�
 
 # Web Harness：预演工程基线升级
 
-当前原单包升级器只支持旧独立前端。Workspace 整体及其成员尚不支持该升级器；不得提示选择成员后继续。迁移须在单独明确范围下制定并实现逐路径合同，不自动移动产品、身份或数据。
+支持旧独立前端及已登记 Workspace 的只读比较。Workspace 从唯一 Git 根执行，读取 [Workspace 升级合同](../web-upgrade-harness/references/workspace-upgrade.md)，绑定根和全部前端身份，禁止选择成员绕过根所有权。
 
 ## 适用与边界
 
