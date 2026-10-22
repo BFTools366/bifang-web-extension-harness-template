@@ -67,6 +67,68 @@ function fact<T>(value: T | undefined): T {
   return value
 }
 
+/** 需求自动决定独立记录来源，随需求/范围失效，显式答案仍优先。 */
+test("自动选择可进入完整确认，不能伪装用户答案或复用旧分析", async () => {
+  const { input } = await fixture()
+  delete input.values.projectType
+  delete input.values.serverMode
+  input.values.requirementsText = "浏览器中本地编辑文字，不联网。"
+  const first = await inspectCreationForm(repositoryRoot, input)
+  input.selection = {
+    revision: fact(first.analysisRevision),
+    projectType: { value: "web", reason: "独立浏览器页面完成文字编辑", mode: "automatic" },
+    serverMode: { value: "none", reason: "需求确定本地且不联网", mode: "automatic" }
+  }
+  const selected = await inspectCreationForm(repositoryRoot, input)
+  expect(selected.phase).toBe("awaiting-confirmation")
+  expect(selected.summary).toContain("Agent 根据需求自动选择：需求确定本地且不联网")
+  expect(input.values).not.toHaveProperty("projectType")
+  expect(input.values).not.toHaveProperty("serverMode")
+  input.decision = { revision: fact(selected.revision), answer: "确认", source: "用户确认完整范围" }
+  const authorized = await inspectCreationForm(repositoryRoot, input)
+  expect(authorized.argv).toContain("--type=web")
+  expect(authorized.argv).toContain("--server=none")
+  input.values.name = "Current Notes"
+  const renamed = await inspectCreationForm(repositoryRoot, input)
+  expect(renamed.analysisRevision).toBe(first.analysisRevision)
+  expect(renamed.phase).toBe("awaiting-confirmation")
+  input.values.requirementsText += "并跨设备共享。"
+  const changed = await inspectCreationForm(repositoryRoot, input)
+  expect(changed.analysisRevision).not.toBe(first.analysisRevision)
+  expect(changed.phase).toBe("needs-scope")
+  expect(changed.argv).toBeUndefined()
+  input.selection.revision = fact(changed.analysisRevision)
+  const scoped = await inspectCreationForm(repositoryRoot, {
+    ...input,
+    scope: { ...fact(input.scope), data: "需要集中共享，现成服务待确认" }
+  })
+  expect(scoped.phase).toBe("needs-scope")
+  expect(scoped.analysisRevision).not.toBe(changed.analysisRevision)
+  const explicitInput = {
+    ...input,
+    values: { ...input.values, projectType: "web", serverMode: "create" }
+  }
+  const refreshed = await inspectCreationForm(repositoryRoot, explicitInput)
+  expect(refreshed.phase).toBe("needs-scope")
+  explicitInput.selection = { ...input.selection, revision: fact(refreshed.analysisRevision) }
+  const explicit = await inspectCreationForm(repositoryRoot, explicitInput)
+  expect(explicit.phase).toBe("awaiting-confirmation")
+  expect(explicit.summary).not.toContain("Agent 根据需求自动选择")
+})
+
+/** 外部服务事实和非法推导结构不能冒充有依据的逻辑自动选择。 */
+test.each(["existing", "create"])("拒绝自动编造服务来源 %s", (value) => {
+  expect(() =>
+    parseCreationFormInput({
+      values: {},
+      selection: {
+        revision: "当前修订",
+        serverMode: { value, reason: "缺少地址", mode: "automatic" }
+      }
+    })
+  ).toThrow("是否有现成服务")
+})
+
 describe("共享聊天创建表单", () => {
   /** 验证题库缺失、非法选项与确认模式混淆被硬门禁拒绝。 */
   test("题库结构失效不能交给模型猜测", () => {
@@ -90,18 +152,13 @@ describe("共享聊天创建表单", () => {
   })
 
   /** 验证下一题来自同一收集器，显示完整选项/hint，恢复不受模型影响。 */
-  test("项目类型无默认，完整固定问题可确定性恢复", async () => {
+  test("需求先于项目类型，完整固定问题可确定性恢复", async () => {
     const raw = { values: { name: "Notes" } }
     const first = await inspectCreationForm(repositoryRoot, raw)
     expect(first).toEqual(await inspectCreationForm(repositoryRoot, raw))
-    expect(first).toEqual({
+    expect(first).toMatchObject({
       phase: "collecting",
-      field: "projectType",
-      question: formatInitializationQuestion(INITIALIZATION_QUESTIONS.basic.projectType, {
-        field: "projectType",
-        issue: "项目类型不能为空",
-        mode: "agent"
-      })
+      field: "requirementsFile"
     })
     expect(raw).toEqual({ values: { name: "Notes" } })
     expect(INITIALIZATION_QUESTIONS.basic.projectType.options.map(({ value }) => value)).toEqual([
@@ -111,9 +168,8 @@ describe("共享聊天创建表单", () => {
     expect(first.question).not.toMatch(/3\.|4\.|建议\/默认|Web \+ Extension/)
     for (const projectType of ["1", "2"]) {
       const next = await inspectCreationForm(repositoryRoot, { values: { projectType } })
-      expect(next.field).toBe("serverMode")
-      expect(next.question).toContain("是否已有可接入的服务端？")
-      expect(next.question).toContain("没有则默认创建所选 Web 或 Extension 和一个 Go 服务端")
+      expect(next.field).toBe("requirementsFile")
+      expect(next.question).toContain("这个项目要帮谁完成什么事？")
       expect(
         (await inspectCreationForm(repositoryRoot, { values: { projectType, serverMode: "没有" } }))
           .field
@@ -122,8 +178,8 @@ describe("共享聊天创建表单", () => {
     const invalid = await inspectCreationForm(repositoryRoot, {
       values: { ...raw.values, projectType: "desktop" }
     })
-    expect(invalid.field).toBe("projectType")
-    expect(invalid.question?.split("当前问题：")[0]).toBe(first.question?.split("当前问题：")[0])
+    expect(invalid.field).toBe("requirementsFile")
+    expect(invalid.question?.split("当前问题：")[0]?.trimEnd()).toBe(first.question?.trimEnd())
   })
 
   /** 验证实际默认入口的尾分隔符不制造不同的表单修订。 */
@@ -212,12 +268,22 @@ describe("共享聊天创建表单", () => {
     expect((await inspectCreationForm(repositoryRoot, input)).field).toBe("targetRoot")
   })
 
-  /** 验证聊天空回答不会采用建议，CLI 的实际回车仍按已展示提示接受。 */
-  test("聊天空回答不接受建议，后续只询问缺失策略", async () => {
+  /** 聊天创建缺省策略直接进入最终确认，仍保留可审阅的完整预设。 */
+  test("聊天默认预设不额外询问", async () => {
     const { input } = await fixture()
     delete input.values.policyMode
+    const state = await inspectCreationForm(repositoryRoot, input)
+    expect(state.phase).toBe("awaiting-confirmation")
+    expect(state.summary).toContain("Agent 策略模式：预设")
+    expect(state.summary).toContain("默认预设")
+  })
+
+  /** 验证显式自定义时聊天空回答不接受建议，CLI 的实际回车仍按提示接受。 */
+  test("聊天空回答不接受建议，后续只询问缺失策略", async () => {
+    const { input } = await fixture()
+    input.values.policyMode = "custom"
     const questions: string[] = []
-    const answers = ["", "custom", "2", "2", "2", "1", "2"]
+    const answers = ["", "2", "2", "2", "2", "1", "2"]
     await collectPromptedIdentity(
       input.values,
       async (question) => {

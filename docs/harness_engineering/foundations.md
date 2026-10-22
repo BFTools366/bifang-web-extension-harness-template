@@ -1,20 +1,20 @@
 # 工程基础
 
-新创建以 [Workspace 合同](../WORKSPACE_TEMPLATE.md) 为准：根拥有 Git、锁与产品事实，成员内部单一宿主；已有服务必填开发 BaseURL，无服务创建 Go 成员。下文旧平铺单包限定只适用于既有独立前端；发布与验收必须显式选定一个成员、根 Git 与精确候选。
+新创建以 [Workspace 合同](../WORKSPACE_TEMPLATE.md) 为准：根拥有 Git、锁与产品事实，成员内部单一宿主；已有服务必填开发 BaseURL，明确没有现成服务时创建 Go 成员，确定纯本地时自动 none。下文旧平铺单包限定只适用于既有独立前端；发布与验收必须显式选定一个成员、根 Git 与精确候选。
 
-## 单宿主单包
+## Workspace 与成员单宿主
 
-Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、入口、构建和渠道不同。源 Harness 因此提供终端单选：
+Web 与 Extension 都使用 React/TypeScript，但宿主生命周期、权限、入口、构建和渠道不同。创建先分析需求并自动选择唯一适配宿主，等价或有争议时才推荐；源 Harness 每次生成所选前端成员及按需服务成员：
 
 ```text
 pnpm instantiate -- <parent-outside-harness> ...
-├── --type web → 独立 Vite React 单包
-└── --type extension → 独立 Plasmo Chrome MV3 / Firefox MV2 单包
+├── --type web → Workspace 内 Vite React 单包成员
+└── --type extension → Workspace 内 Plasmo Chrome MV3 / Firefox MV2 单包成员
 ```
 
-需要两个宿主时建立两个仓库。相同技术选型不等于共享业务源码；下游不保留添加/删除宿主、workspace、`apps/`、`packages/` 或共享 core。
+当前公开创建每次选择一个前端宿主。Workspace 根统一 Git、锁、策略与产品事实；前端成员各有唯一 projectType，不跨成员共享产品源码，也不保留再次派生工程或隐式切换宿主入口。
 
-三种 Web 创建类型选择及下游交接边界见 [`../TS_WEB_TEMPLATE.md`](../TS_WEB_TEMPLATE.md) §2；分类不增加宿主。
+宿主、服务与下游交接以[技术与创建合同](../TS_WEB_TEMPLATE.md)和[Workspace 规范](../WORKSPACE_TEMPLATE.md)为准，能力按真实操作组合，不按产品分类启用。
 
 ## Extension 双浏览器兼容
 

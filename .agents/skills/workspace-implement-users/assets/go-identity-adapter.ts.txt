@@ -1,6 +1,6 @@
 import { createHttpClient, ApiError, type HttpClientOptions } from "../client/httpClient"
 import { requestGoTransport } from "../client/goTransport"
-import { requestHttpQuery } from "../client/httpRuntime"
+import { requestHttpQuery, applicationHttp } from "../client/httpRuntime"
 import { IdentityError } from "../../../features/identity/session"
 import type { LoginApi } from "./contracts"
 import { APP_CONFIG } from "../../../config/environment"
@@ -267,7 +267,8 @@ export function createGoIdentityAdapter(
         if (profileMode === "workspace") profileData(profile)
         return {
           id: profile.account.id,
-          displayName: profile.account.nickname || profile.account.username
+          displayName: profile.account.nickname || profile.account.username,
+          email: profile.account.email
         }
       } catch (error) {
         if (error instanceof ApiError && ["network", "timeout", "aborted"].includes(error.kind))
@@ -302,6 +303,13 @@ export const registrationPasswordPolicy = {
   validate(password: string): boolean {
     const length = new TextEncoder().encode(password).length
     return length >= 8 && length <= 64 && /[A-Za-z]/u.test(password) && /[0-9]/u.test(password)
+  },
+  /** 向用户解释实际失败原因，保留服务端长度语义而不展示编码单位。 */
+  errorKey(password: string): string {
+    const length = new TextEncoder().encode(password).length
+    if (length < 8) return "registrationPasswordTooShort"
+    if (length > 64) return "registrationPasswordTooLong"
+    return "registrationPasswordGoRule"
   }
 }
 /** 资料页面复用已接受会话的 HTTP owner，不读取或暴露凭据存储。 */
@@ -309,4 +317,49 @@ export async function readUserProfile(signal?: AbortSignal): Promise<UserProfile
   return profileData(
     await data(await requestHttpQuery("api/v1/auth/profile", { signal }), "account", serviceProfile)
   )
+}
+
+/** 本人设置沿用当前请求 owner；昵称写后权威重读，改密成功撤销所有旧会话。 */
+export const personalSettingsApi = {
+  /** 返回页面所需的全局账号字段，不把组织上下文作为个人资料。 */
+  async read(signal: AbortSignal) {
+    const profile = await readUserProfile(signal)
+    return {
+      id: profile.account.id,
+      email: profile.account.email,
+      nickname: profile.account.nickname || profile.account.username
+    }
+  },
+  /** 目标账号由后端认证确定，客户端只发送新的昵称。 */
+  async rename(nickname: string, signal: AbortSignal): Promise<void> {
+    parseServiceEmpty(
+      await (
+        await applicationHttp.request("api/v1/auth/profile", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nickname }),
+          signal,
+          feedback: "owner"
+        })
+      ).json()
+    )
+  },
+  /** 不自动重试改密；页面成功后失效当前会话并返回登录。 */
+  async changePassword(
+    oldPassword: string,
+    newPassword: string,
+    signal: AbortSignal
+  ): Promise<void> {
+    parseServiceEmpty(
+      await (
+        await applicationHttp.request("api/v1/auth/password", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+          signal,
+          feedback: "owner"
+        })
+      ).json()
+    )
+  }
 }

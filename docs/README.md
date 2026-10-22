@@ -1,6 +1,6 @@
 # 文档索引
 
-本目录维护 TypeScript Web/Chrome MV3/Firefox MV2 Extension Harness 当前有效的长期工程事实。
+本目录维护 Workspace Harness（React Web、Chrome MV3/Firefox MV2 Extension 与 Go 服务成员）当前有效的长期工程事实。
 
 | 文档                                                   | 何时读取                                                             |
 | ------------------------------------------------------ | -------------------------------------------------------------------- |
@@ -8,6 +8,9 @@
 | [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md)         | 修改代码、测试、文档或配置                                           |
 | [`MANTINE_UI_GUIDELINES.md`](MANTINE_UI_GUIDELINES.md) | 修改主题、页面、组件、布局、交互状态或 UI 无障碍                     |
 | [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md)             | 初始化、维护 Web 或 Extension 模板与品牌派生                         |
+| [`WORKSPACE_TEMPLATE.md`](WORKSPACE_TEMPLATE.md)       | Workspace 拓扑、成员协作与领域 Skill 交接                            |
+| [`GO_SERVICE.md`](GO_SERVICE.md)                       | Go 服务成员的实现、并发、配置与测试边界                              |
+| [`GO_CLIENT_CONTRACT.md`](GO_CLIENT_CONTRACT.md)       | 前端成员与 Go 服务之间的客户端契约                                   |
 | [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md) | 初始化、读取或验证 development/test/release 配置                     |
 | [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物                            |
 | [`API.md`](API.md)                                     | 查阅基础 API 契约及 [功能模块映射与缺口](API.md#功能模块与-api-关联) |

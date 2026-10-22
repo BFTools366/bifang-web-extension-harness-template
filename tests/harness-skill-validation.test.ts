@@ -29,7 +29,7 @@ describe("Harness Skill and Agent policy validation", () => {
       "web-compose-capabilities",
       "组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计"
     ],
-    ["web-compose-capabilities", "Web 默认左侧仅工作台与底部设置"],
+    ["web-compose-capabilities", "Web 默认左侧包含工作台、组织管理分组与底部设置"],
     ["web-compose-capabilities", "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)"],
     ["web-instantiate-project", "需求分析委托 `$web-define-product`"],
     ["web-define-product", "源阶段不写 PRD、产品记录、原型或业务代码"],

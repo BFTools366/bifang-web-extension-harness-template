@@ -170,7 +170,7 @@ describe("single-package Harness initialization", () => {
   /** 验证逐项普通回答与建议值可完成初始化，可选字段无需补问。 */
   test("collects only required identity and Chinese preset fields", async () => {
     const questions: string[] = []
-    const answers = ["web", "Simple Web", path.join(repositoryRoot, "..", "simple-web"), ""]
+    const answers = ["web", "Simple Web", path.join(repositoryRoot, "..", "simple-web")]
     const resolved = await collectPromptedIdentity(
       { ...{ confirmedBy: " " }, requirementsFile: "" },
       async (question) => {
@@ -180,14 +180,14 @@ describe("single-package Harness initialization", () => {
         return answer
       }
     )
-    const fields = ["projectType", "name", "targetRoot", "policyMode"]
+    const fields = ["projectType", "name", "targetRoot"]
     expect(questions).toHaveLength(fields.length)
     for (const [index, field] of fields.entries()) {
       expect(questions[index]).toContain(`字段： ${field}`)
       expect(questions[index]?.match(/字段：/g)).toHaveLength(1)
     }
     expect(resolved.id).toBe("simple-web")
-    expect(questions[3]).toContain("建议/默认：预设；回车采用")
+    expect(questions.join("\n")).not.toContain("字段： policyMode")
     for (const key of [
       "description",
       "identityI18n",
@@ -209,7 +209,7 @@ describe("single-package Harness initialization", () => {
       agentPolicy: { confirmedBy: "当前用户" },
       inputSources: {
         id: "英文名称自动生成",
-        policyMode: "交互接受默认值",
+        policyMode: "默认预设",
         description: "默认使用显示名称",
         confirmedBy: "当前用户（自动记录）"
       }

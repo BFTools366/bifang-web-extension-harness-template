@@ -26,7 +26,7 @@ export function RegistrationPage({
   const [stage, setStage] = useState<"new" | "registered" | "unknown">("new")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
-  const [passwordInvalid, setPasswordInvalid] = useState(false)
+  const [passwordError, setPasswordError] = useState("")
   const submitting = useRef(false)
   const controller = useRef(new AbortController())
   const passwordRef = useRef<HTMLInputElement>(null)
@@ -59,7 +59,7 @@ export function RegistrationPage({
     if (submitting.current || stage === "unknown" || (stage === "new" && password !== confirmation))
       return
     if (stage === "new" && api.passwordPolicy && !api.passwordPolicy.validate(password)) {
-      setPasswordInvalid(true)
+      setPasswordError(api.passwordPolicy.errorKey?.(password) ?? api.passwordPolicy.messageKey)
       passwordRef.current?.focus()
       return
     }
@@ -114,9 +114,6 @@ export function RegistrationPage({
   }
   return (
     <AuthLayout title={t("registrationTitle")}>
-      <Text c="dimmed" size="sm">
-        {t("registrationDescription")}
-      </Text>
       {error && (
         <Alert color="red" role="alert">
           {t(error)}
@@ -127,7 +124,6 @@ export function RegistrationPage({
           <TextInput
             ref={emailRef}
             label={t("registrationEmail")}
-            description={t("registrationEmailHint")}
             placeholder={t("registrationEmailPlaceholder")}
             type="email"
             autoComplete="email"
@@ -149,7 +145,6 @@ export function RegistrationPage({
                   label={t("registrationCode")}
                   placeholder={t("registrationCodePlaceholder")}
                   inputWrapperOrder={["label", "input", "description", "error"]}
-                  description={t("registrationCodeHint")}
                   autoComplete="one-time-code"
                   inputMode="numeric"
                   required
@@ -177,6 +172,11 @@ export function RegistrationPage({
                     : t("registrationSend")}
                 </Button>
               </Group>
+              {verification.receipt?.mocked && !verification.expired && (
+                <Text role="status" size="sm">
+                  {t("registrationCodePreview", { code: verification.receipt.code })}
+                </Text>
+              )}
               {verification.error && (
                 <Alert role="status" color="red">
                   {t(
@@ -193,14 +193,14 @@ export function RegistrationPage({
             label={t("identityPassword")}
             placeholder={t("identityPasswordPlaceholder")}
             description={stage === "new" && api.passwordPolicy ? t(api.passwordPolicy.messageKey) : undefined}
-            error={passwordInvalid && api.passwordPolicy ? t(api.passwordPolicy.messageKey) : undefined}
+            error={passwordError ? t(passwordError) : undefined}
             autoComplete={stage === "new" ? "new-password" : "current-password"}
             required
             minLength={stage === "new" ? (api.passwordPolicy ? undefined : 8) : 1}
             maxLength={stage === "new" && api.passwordPolicy ? undefined : 64}
             value={password}
             onChange={(event) => {
-              setPasswordInvalid(false)
+              setPasswordError("")
               setPassword(event.currentTarget.value)
             }}
           />

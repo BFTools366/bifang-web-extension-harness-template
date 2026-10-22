@@ -5,15 +5,15 @@ description: 按具体操作选择身份认证、组织、权限、商品、订�
 
 # Web Harness：组合功能模块
 
-完整用户模块默认选择 identity.workspace，固定解析团队切换、邀请、成员维护、角色管理、角色权限与成员角色分配，遵循八表 RBAC。前端统一判断有效权限 code，不按角色名授权。底层 identity.session 仍可显式独立复用。数据归属统一遵循 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md)；自建 Go 前端装配统一调用 workspace-implement-users/scripts/assemble-account.ts，未选账号的公开项目不产生账号表。
+完整用户模块默认提供 identity.workspace 协作预设；明确取消协作时按核心账号操作装配，不恢复已取消功能。显式协作预设解析组织切换、邀请、成员维护、角色管理、角色权限与成员角色分配，遵循八表 RBAC。前端统一判断有效权限 code，不按角色名授权。底层 identity.session 仍可显式独立复用。数据归属统一遵循 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md)；自建 Go 前端装配统一调用 workspace-implement-users/scripts/assemble-account.ts，未选账号的公开项目不产生账号表。
 
 拥有独立能力、具体操作、领域知识与模板选择，完成后返回当前调用方。知识库与模板库独立索引，模块选择不等于功能启用、接口实现或权限授予；完整需求语义、PRD、实际 UI 和代码分别归其阶段入口。
 
 ## 阶段与职责
 
-- 创建前只读建议：只接受需求定义调用方传入的 `creation-analysis`、明确宿主和已分析流程，按 [需求到能力选择](references/requirements-selection.md) 返回建议、依据、所选知识与缺口；源阶段不取代码模板、不写入工程、不调用组装器，不回调实例化或启动产品定义。
+- 创建前只读建议：只接受需求定义调用方传入的 `creation-analysis`、已知宿主或宿主未定状态和已分析流程，按 [需求到能力选择](references/requirements-selection.md) 返回自动选择或待取舍推荐、依据、所选知识与缺口；源阶段不取代码模板、不写入工程、不调用组装器，不回调实例化或启动产品定义。
 - 下游需求、设计和实施：要求有效 `.harness/project.json`，复用当前唯一 PRD 或本次明确范围，按当前阶段返回知识、设计参考或适用模板。代码装配与测试由 `$web-implement-change` 负责，真实服务接入由其按事件委托；本 Skill 不独立启动实施。
-- 创建前的宿主来自明确用户选择，下游宿主来自身份配置；缺少阶段、宿主或需求依据时返回缺口，不猜测、不自动补选。阶段仅是调用上下文，不新增持久开关或 CLI 模式。
+- 创建前宿主复用用户选择，或由需求定义基于充分需求自动确定；宿主未定先返回无关宿主的操作与依赖，延迟可执行选择器和模板适配。下游复用身份配置，不自动切换。缺阶段或需求依据时返回缺口；唯一适配的必要能力自动选择，等价或有争议时才推荐。阶段仅是调用上下文，不新增持久开关或 CLI 模式。
 
 ## 选择与读取
 
@@ -49,7 +49,7 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 - 当前基础身份资源包含登录页面与路由、主界面用户信息、匿名守卫、安全返回、Token 自动携带及退出/当前 401 清理；完整用户方案还必须接齐账号、组织、成员及所需生命周期。权限码同时用于路由、页面、菜单、动作元素及提交前复核。`.harness/application-wiring.json` 仅记录机械接线，不替代 PRD 或验证。
 - [账户协议参考](templates/compositions/account-workspace/README.md) 仅保留协议、Mock 服务、精确存储及回归，不再提供第二套应用/会话/UI；首版装配统一使用下文 `applicationFiles`，注册、找回等操作按真实需求另行实施。
 - [来源商品设计参考](templates/compositions/purchase-checkout/source-reference/index.html) 保留中性费用中心、商品选购、订单/钱包结构；[购买最小演示](templates/compositions/purchase-checkout/commerce-reference.html) 用于专项交互参考。两者均为 Web 离线设计，无真实扣款，也不作为当前基础装配入口。
-- 先核对真实契约和具体操作，再适配模板；已经实现的模块复用唯一所有者。组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计，详见组织知识；身份、组织、权限、查询与业务各自拥有状态，不另建会话或相互反向调用。组织管理不切换操作者身份；切换不得代替授权。organization.manage 仍是当前显式选择的 owner 改名资源，switch 不自动生成管理、注册或邀请；这些代码边界不能替代完整方案的目标范围。Web 默认左侧仅工作台与底部设置，账号及组织操作集中在右上账号菜单，现有资产迁移差异见接线合同。
+- 先核对真实契约和具体操作，再适配模板；已经实现的模块复用唯一所有者。组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计，详见组织知识；身份、组织、权限、查询与业务各自拥有状态，不另建会话或相互反向调用。组织管理不切换操作者身份；切换不得代替授权。organization.manage 仍是当前显式选择的 owner 改名资源，switch 不自动生成管理、注册或邀请；这些代码边界不能替代完整方案的目标范围。Web 默认左侧包含工作台、组织管理分组与底部设置；账号菜单仅邮箱/昵称、可点击组织名称、个人设置和退出，组织设置与加入组织为左侧两个子菜单，现有资产迁移差异见接线合同。
 - 功能选择不授予权限；集合操作按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 核对契约，返回实际协议缺口，不将模板当作服务事实。
 - 结果未知时先查询，不自动重放创建订单或支付；真实付费、生产账户和扣款没有因编写 Skill 或运行演示获得授权。
 
@@ -65,4 +65,4 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 
 ## Workspace 全栈委托
 
-操作仍由本 Skill 解析最小依赖；所选模块的 implementationSkill 负责对应前端、Go 后端、契约与真实联调。根服务归属来自 .harness/workspace.json：已有服务核对 BaseURL 和可信接口，没有服务在 _server 实现并连接，不另开 Go 问卷。完整用户包含注册自有组织及 owner 成员；注册、资料、验证码、组织成员、角色等操作逐项选择。邮箱注册和条件验证码已有 application 模板；验证码不因基础登录或注册自动启用，开发模拟投递遵循 go-implement-verification 的显式授权分支。固定应用装配只接受 dataMode=adapter，禁止产品 Mock；历史 Mock 资源仅为测试参考。委托完成后返回当前编排者，不重启定义或设计问卷。
+操作仍由本 Skill 解析最小依赖；所选模块的 implementationSkill 负责对应前端、Go 后端、契约与真实联调。根服务归属来自 .harness/workspace.json：已有服务核对 BaseURL 和可信接口，选择 create 时在 _server 实现并连接；none 直接实现本地功能，不另开 Go 问卷。完整用户包含注册自有组织及 owner 成员；注册、资料、验证码、组织成员、角色等操作逐项选择。邮箱注册和条件验证码已有 application 模板；自建邮箱注册默认补齐 verification 和 identity.verification，未接邮件服务时开发环境默认模拟投递并在注册表单显示验证码；真实邮件回执自动移除回显。基础登录不自动增加注册，已有外部服务服从可信合同。固定应用装配只接受 dataMode=adapter，禁止产品 Mock；历史 Mock 资源仅为测试参考。委托完成后返回当前编排者，不重启定义或设计问卷。

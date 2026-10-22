@@ -70,6 +70,11 @@ export function inspectInitializationCatalog(raw: unknown): string[] {
         if (typeof question[key] !== "string" || !question[key].trim())
           errors.push(`初始化题目 ${field} 缺少 ${key}`)
       }
+      if (
+        question.agentHint !== undefined &&
+        (typeof question.agentHint !== "string" || !question.agentHint.trim())
+      )
+        errors.push(`初始化题目 ${field} 的聊天提示必须是非空文本`)
       if (typeof question.title === "string") {
         if (titles.has(question.title)) errors.push(`初始化题名重复：${question.title}`)
         titles.add(question.title)

@@ -34,7 +34,7 @@ export interface UpgradeWorkspace {
   /** 保存原有成员，升级不得增删。 */
   members: { type: "web" | "extension" | "server"; directory: string }[]
   /** 保留服务归属及开发地址。 */
-  service: { mode: "create" | "existing"; developmentBaseUrl: string }
+  service: { mode: "create" | "existing" | "none"; developmentBaseUrl: string }
 }
 
 /** 描述计划使用的路径所有权、身份和宿主边界。 */
@@ -120,10 +120,12 @@ export async function loadUpgradeTargetContext(
     throw new Error("Invalid Workspace identity")
   const service = raw.service as Record<string, unknown>
   if (
-    !["create", "existing"].includes(String(service.mode)) ||
+    !["create", "existing", "none"].includes(String(service.mode)) ||
     typeof service.developmentBaseUrl !== "string"
   )
     throw new Error("Invalid Workspace service")
+  if (service.mode === "none" && (service.developmentBaseUrl !== "" || service.apiContract))
+    throw new Error("Local Workspace cannot configure remote services")
   const seen = new Set<string>()
   const frontends: UpgradeFrontend[] = []
   for (const item of raw.members) {

@@ -255,12 +255,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-prepare-brand-identity": {
     description:
-      "为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目生成三个 Logo 候选供用户选一，或沿用已选正式源图，并同步当前宿主品牌元数据。用于首次实例化、品牌改名、Logo 或用户可见前端产品元数据变化。",
+      "为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目按需求优先自动选择唯一适配的 Logo 方向，等价或有争议时推荐候选，或沿用正式源图，并同步当前宿主品牌元数据。用于首次实例化、品牌改名、Logo 或用户可见前端产品元数据变化。",
     title: "# Web Harness：准备前端品牌身份",
     displayName: "Web Harness：准备前端品牌身份",
-    shortDescription: "为 Web 或 Chrome/Firefox Extension 提供三个 Logo 候选并同步选中品牌",
+    shortDescription: "按需求自动选择适配品牌，等价或有争议时推荐候选并同步",
     defaultPrompt:
-      "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目生成三个独立 Logo 候选供用户选一，或沿用已选正式源图，再同步品牌元数据。"
+      "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目按充分需求自动选择唯一适配 Logo，多个方向同样适用或有争议时推荐候选，或沿用正式源图，再同步品牌元数据。"
   },
   "web-prepare-release": {
     description:

@@ -48,6 +48,12 @@
 .navLink:hover {
   background: var(--mantine-color-default-hover);
 }
+.navGroup > summary {
+  cursor: pointer;
+}
+.navChildren {
+  padding-inline-start: var(--mantine-spacing-md);
+}
 .navLink[aria-current="page"] {
   background: var(--mantine-color-brand-light);
   color: var(--mantine-color-brand-light-color);

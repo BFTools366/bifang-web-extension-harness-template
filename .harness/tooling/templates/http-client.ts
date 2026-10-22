@@ -260,7 +260,12 @@ export function createHttpClient(options: HttpClientOptions): HttpClient {
           "invalid_continuation_header"
         )
         extractedToken = opaqueHeader(
-          await awaitActive(() => extractAuthToken(response.clone())),
+          // 默认提取器只读 Header，仅自定义提取器才克隆以免为每个响应缓冲第二份 Body。
+          await awaitActive(() =>
+            extractAuthToken(
+              extractAuthToken === defaultCredentialExtractor ? response : response.clone()
+            )
+          ),
           MAX_AUTH_TOKEN_LENGTH,
           "invalid_auth_token_header"
         )

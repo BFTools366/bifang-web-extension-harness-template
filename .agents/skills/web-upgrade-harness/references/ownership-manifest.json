@@ -2,14 +2,31 @@
   "schemaVersion": 1,
   "defaultMode": "protected",
   "workspaceRules": [
-    { "pattern": ".harness/runtime/workspace.mjs", "mode": "managed", "required": true }
+    {
+      "pattern": ".harness/runtime/workspace.mjs",
+      "mode": "managed",
+      "required": true
+    }
   ],
   "rules": [
-    { "pattern": "docs/README.md", "mode": "merge-sections" },
-    { "pattern": ".harness/tooling/upgrade-candidate.ts", "mode": "tombstone" },
-    { "pattern": "tests/workspace-upgrade.test.ts", "mode": "tombstone" },
+    {
+      "pattern": "docs/README.md",
+      "mode": "merge-sections"
+    },
+    {
+      "pattern": ".harness/tooling/upgrade-candidate.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/workspace-upgrade.test.ts",
+      "mode": "tombstone"
+    },
     {
       "pattern": ".agents/skills/go-test-service/**",
+      "mode": "managed"
+    },
+    {
+      "pattern": ".agents/skills/workspace-review-performance/**",
       "mode": "managed"
     },
     {
@@ -345,6 +362,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/identity-logo.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/http-foundation.test.ts",
       "mode": "tombstone"
     },
@@ -676,6 +697,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": ".harness/tooling/initialization-answers.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": ".harness/tooling/initialization-form.ts",
       "mode": "tombstone"
     },
@@ -689,6 +714,18 @@
     },
     {
       "pattern": "tests/initialization-form.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/initialization-question-flow.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/local-workspace.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": "tests/requirements-scenarios.test.ts",
       "mode": "tombstone"
     },
     {
@@ -820,6 +857,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/harness-terminal-contracts.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/harness-initialization-web.test.ts",
       "mode": "tombstone"
     },
@@ -896,7 +937,15 @@
       "mode": "managed"
     },
     {
+      "pattern": "tests/harness-upgrade-ownership-policy.test.ts",
+      "mode": "managed"
+    },
+    {
       "pattern": "tests/harness-upgrade-cli.test.ts",
+      "mode": "managed"
+    },
+    {
+      "pattern": "tests/harness-retired-assets-upgrade.test.ts",
       "mode": "managed"
     },
     {

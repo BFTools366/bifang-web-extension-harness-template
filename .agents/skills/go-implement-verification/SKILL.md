@@ -1,20 +1,20 @@
 ---
 name: go-implement-verification
-description: 在已确认验证或找回需求中实施验证码生命周期与投递；真实 SMTP 为默认，仅用户明确授权时采用 dev 注册模拟，保留真实校验与单次消费。
+description: 为自建邮箱注册默认接入验证码；无邮件服务时默认开发模拟投递并在表单显示，真实投递后移除回显，保留真实校验与单次消费。
 ---
 
 # Web Harness：实施验证码与投递
 
-消费已确认的用户域范围、真实服务归属和[身份生成合同](../web-compose-capabilities/knowledge/identity.md#邮箱注册与验证码的生成合同)，完成后返回调用方。注册验证码、找回和短信分别判定，不从基础登录或邮箱字段自动启用；已有会话中的明确 Mock 选择直接沿用，不再索要 SMTP 或测试收件方。
+消费已确认的用户域范围、真实服务归属和[身份生成合同](../web-compose-capabilities/knowledge/identity.md#邮箱注册与验证码的生成合同)，完成后返回调用方。自建邮箱注册默认启用验证码；未配置邮件服务时开发环境默认模拟投递，不再询问。基础登录、找回和短信分别判定；已有外部服务遵循可信合同。
 
 ## 实施与配置
 
-首次自建邮箱注册通过 [注册 overlay](scripts/registration.ts) 和 [账号装配器](../go-implement-service/scripts/install-users.ts) 的 --operations register,login,profile,logout,verification 在同一冻结 Map 校准；不修改带摘要的原始 Go 快照，不覆盖已有业务文件。已存在服务按真实合同增量实施，短信或其他通道不由邮箱资产推断。
+首次自建邮箱注册通过 [注册 overlay](scripts/registration.ts) 和 [账号装配器](../go-implement-service/scripts/install-users.ts) 的 --operations register,login,profile,logout,password.change,verification 在同一冻结 Map 校准；不修改带摘要的原始 Go 快照，不覆盖已有业务文件。已存在服务按真实合同增量实施，短信或其他通道不由邮箱资产推断。
 
-- 默认未选验证时 enabled=false、mock=false，页面、发码路由和验证码表均不生成。
+- 自建服务选择 register 时自动补齐 verification，生成发码路由、验证码表与页面；仅基础登录不生成。主配置 enabled=true、mock=false，开发配置 mock=true，不要求先提供 SMTP。
 - 明确选择验证时安装目标锁、预留状态、验证码模型和真实发码路由，配置 enabled=true。SMTP overlay 使用标准库、STARTTLS/隐式 TLS、超时和可取消连接；服务端配置 provider=smtp、smtp.host/port/from、tls_mode、timeout，账号密码必须同时有或同时无。秘密只在服务端，配置不完整明确报错。
-- 用户明确要求先 Mock 时，仅在 dev 配置 enabled=true、mock=true；随机数字码只在注册回执可见，开发者从授权的本机调试回执获取并手动输入，产品页面不展示开发说明、验证码明文或一键填入工具。在交付说明明确“开发模拟 · 未发送邮件”，不把回执成功宣称为真实投递。它只模拟邮件投递，账号、仓储、用途校验及消费仍由真实服务完成。mock 默认关闭，test/staging/prod 拒绝启动，找回发码拒绝 Mock。切回真实邮件必须显式 mock=false，不能只补 SMTP 配置。
-- 未配置真实 provider 且没有明确 Mock 授权时报告缺口并仅询问当前依赖的投递信息；不得暗中启用 Mock、固定码或未配置 Sender。实际短信需求另按授权实现，不沿用邮箱返回假成功。
+- 未接真实邮件服务时默认只在 dev 使用模拟投递。发送成功后直接在当前表单显示实际验证码及“暂未接通邮件发送”，用户手动输入；到期、更换邮箱、注册成功或卸载后清除。只模拟邮件投递，账号、仓储、用途、限额及单次消费均由真实服务完成，不生成业务 Mock。test/staging/prod 拒绝 Mock，找回拒绝 Mock；交付如实报告未发送真实邮件。配置真实 SMTP 时同时设置 mock=false；真实回执不含 code，页面自动移除回显。
+- 非开发环境或真实投递模式缺少 provider/SMTP 配置时明确报错，不回退模拟或固定码。已有服务按可信合同消费；短信或找回需真实通道，不能沿用注册模拟。
 
 ## 生命周期与响应
 

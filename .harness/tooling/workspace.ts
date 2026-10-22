@@ -27,7 +27,11 @@ export interface WorkspaceConfig {
   name: string
   initializedAt: string
   members: { type: WorkspaceMemberType; directory: string }[]
-  service: { mode: "existing" | "create"; developmentBaseUrl: string; apiContract?: string }
+  service: {
+    mode: "existing" | "create" | "none"
+    developmentBaseUrl: string
+    apiContract?: string
+  }
 }
 
 /** 写入前解析整个工作区，已有服务不得静默退回本地数据。 */
@@ -42,8 +46,17 @@ export function createWorkspaceConfig(options: InitOptions): WorkspaceConfig {
     throw new Error("Workspace 成员必须非空、唯一且属于 web/extension/server")
   }
   const mode = parseServerMode(options.serverMode)
-  if (mode === "existing" && selected.includes("server"))
-    throw new Error("已有服务时不能同时创建 server 成员")
+  if (mode !== "create" && selected.includes("server"))
+    throw new Error("仅自建服务时可以创建 server 成员")
+  if (mode !== "existing" && options.apiContract)
+    throw new Error("当前不接入已有服务，请移除旧接口文档")
+  if (
+    mode === "none" &&
+    [options.developmentBaseUrl, options.testBaseUrl, options.releaseBaseUrl].some((url) =>
+      url.trim()
+    )
+  )
+    throw new Error("纯本地项目不应配置服务地址")
   if (mode === "existing" && !options.developmentBaseUrl.trim())
     throw new Error("已有服务必须提供 BaseURL")
   if (

@@ -77,6 +77,7 @@ ${hostSources}- \`src/pagination/\`：受管 page/pageSize 会话状态与空页
 - \`$web-plan-change\`：只在用户明确要求持久计划、跨会话交接或发布/高风险协调确有必要时建立 Todo。
 - \`$web-review-api-contract\`：只读核对当前接口来源、实现关联与差异，不联网或写文档。
 - \`$web-review-module-boundaries\`：只读定位职责、依赖与状态拥有者，返回有证据的拆分建议。
+- \`$workspace-review-performance\`：只读定位死锁、无界等待、资源泄漏与性能热点，返回有证据的修复建议。
 - \`$web-implement-auth-session\`：统一登录、恢复、退出及失效转换，隔离迟到结果并清理私有缓存。
 - \`$web-implement-access-control\`：按既有身份和权限统一菜单、路由与动作访问控制。
 - \`$web-implement-write-recovery\`：处理当前写操作的防重复、未知查询、冲突及成功后刷新。

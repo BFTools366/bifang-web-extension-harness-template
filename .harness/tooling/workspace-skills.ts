@@ -38,10 +38,10 @@ export const WORKSPACE_SKILL_CONTRACTS = {
   },
   "go-implement-verification": {
     description:
-      "在已确认验证或找回需求中实施验证码生命周期与投递；真实 SMTP 为默认，仅用户明确授权时采用 dev 注册模拟，保留真实校验与单次消费。",
+      "为自建邮箱注册默认接入验证码；无邮件服务时默认开发模拟投递并在表单显示，真实投递后移除回显，保留真实校验与单次消费。",
     title: "# Web Harness：实施验证码与投递",
     displayName: "Web Harness：实施验证码与投递",
-    shortDescription: "实施验证码生命周期、真实投递及显式授权的开发注册模拟，保留真实校验",
+    shortDescription: "实施注册默认验证码与开发页面回显，接通真实邮件后移除回显",
     defaultPrompt:
       "使用 $go-implement-verification 完成当前已确认范围，复用 Workspace 真实成员、契约与相关验证，完成后返回调用方。"
   },
@@ -134,6 +134,15 @@ export const WORKSPACE_SKILL_CONTRACTS = {
     shortDescription: "在统一工作区内实施审计事实，复用真实服务契约并完成相关实现与验证",
     defaultPrompt:
       "使用 $workspace-implement-audit 完成当前已确认范围，复用 Workspace 真实成员、契约与相关验证，完成后返回调用方。"
+  },
+  "workspace-review-performance": {
+    description:
+      "只读审查 Workspace 前端成员、Node 工具与 Go 服务中已定位范围的死锁、无界等待、资源泄漏和性能热点，按清单输出有代码证据的风险与修复建议；不修改代码、不凭预感优化，实施与基准验证归调用方。",
+    title: "# Web Harness：审查并发与性能",
+    displayName: "Web Harness：审查并发与性能",
+    shortDescription: "只读定位死锁、无界等待、资源泄漏与性能热点，给出有证据的修复建议",
+    defaultPrompt:
+      "使用 $workspace-review-performance 只读审查指定范围的死锁、超时、资源泄漏与性能热点，返回有代码证据的风险与修复建议后返回调用方。"
   },
   "go-test-service": {
     description:

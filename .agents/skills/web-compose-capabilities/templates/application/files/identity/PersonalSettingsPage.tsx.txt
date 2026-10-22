@@ -1,0 +1,259 @@
+import { Alert, Button, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useTranslation } from "react-i18next"
+import { ApiError } from "../../data/api/client/httpClient"
+import type { AccountProfile, PersonalSettingsApi } from "../../data/api/identity/personalSettings"
+import type { IdentityRuntime } from "./runtime"
+
+/** 个人设置只按账号读取；组织权限变化不改变邮箱、昵称或密码的归属。 */
+export function PersonalSettingsPage({
+  api,
+  session,
+  onPasswordChanged,
+  canChangePassword
+}: {
+  api: PersonalSettingsApi
+  session: IdentityRuntime
+  onPasswordChanged(): Promise<void>
+  canChangePassword: boolean
+}) {
+  const { t } = useTranslation()
+  const accountId = session.getSnapshot().identity?.id
+  const query = useQuery({
+    queryKey: ["accountProfile", accountId],
+    meta: { private: true },
+    retry: false,
+    queryFn: ({ signal }) => api.read(signal),
+    enabled: !!accountId
+  })
+  if (!query.data || query.data.id !== accountId)
+    return (
+      <Stack>
+        <Title order={1}>{t("personalSettings")}</Title>
+        <Text role="status">{t(query.isError ? "applicationError" : "applicationLoading")}</Text>
+        {query.isError && (
+          <Button
+            onClick={() => {
+              void query.refetch()
+            }}
+          >
+            {t("applicationRetry")}
+          </Button>
+        )}
+      </Stack>
+    )
+  return (
+    <PersonalSettingsForm
+      key={accountId}
+      profile={query.data}
+      api={api}
+      session={session}
+      refresh={async (signal) => {
+        const result = await query.refetch({ throwOnError: true })
+        signal.throwIfAborted()
+        if (session.getSnapshot().identity?.id !== accountId) throw new Error("profile_superseded")
+        if (!result.data || result.data.id !== accountId) throw new Error("profile_unavailable")
+        await session.check(signal)
+        signal.throwIfAborted()
+        if (session.getSnapshot().identity?.id !== accountId) throw new Error("profile_superseded")
+        return result.data
+      }}
+      onPasswordChanged={onPasswordChanged}
+      canChangePassword={canChangePassword}
+    />
+  )
+}
+
+/** 两个表单共用提交锁，未知写结果先核对，迟到回调不能修改后来账号。 */
+function PersonalSettingsForm({
+  profile,
+  api,
+  session,
+  refresh,
+  onPasswordChanged,
+  canChangePassword
+}: {
+  profile: AccountProfile
+  api: PersonalSettingsApi
+  session: IdentityRuntime
+  refresh(signal: AbortSignal): Promise<AccountProfile>
+  onPasswordChanged(): Promise<void>
+  canChangePassword: boolean
+}) {
+  const { t } = useTranslation()
+  const [nickname, setNickname] = useState(profile.nickname)
+  const [oldPassword, setOldPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmation, setConfirmation] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [status, setStatus] = useState("")
+  const [unknown, setUnknown] = useState<"nickname" | "password" | null>(null)
+  const lock = useRef(false)
+  const controller = useRef(new AbortController())
+  useEffect(() => {
+    const owned = new AbortController()
+    controller.current = owned
+    return () => owned.abort()
+  }, [])
+  /** 写入与后续刷新分别确认，刷新失败不能导致重新提交已经成功的修改。 */
+  async function submit(event: FormEvent<HTMLFormElement>, kind: "nickname" | "password") {
+    event.preventDefault()
+    if (lock.current || unknown || (kind === "password" && newPassword !== confirmation)) return
+    if (kind === "password" && (!canChangePassword || !api.changePassword)) return
+    lock.current = true
+    setBusy(true)
+    setStatus("")
+    const signal = controller.current.signal
+    const current = () => !signal.aborted && session.getSnapshot().identity?.id === profile.id
+    let written = false
+    try {
+      if (kind === "nickname") await api.rename(nickname.trim(), signal)
+      else await api.changePassword?.(oldPassword, newPassword, signal)
+      written = true
+      if (!current()) return
+      if (kind === "password") {
+        setOldPassword("")
+        setNewPassword("")
+        setConfirmation("")
+        session.invalidate()
+        await onPasswordChanged()
+      } else {
+        const saved = await refresh(signal)
+        if (current()) {
+          setNickname(saved.nickname)
+          setStatus("personalSaved")
+        }
+      }
+    } catch (error) {
+      if (!current()) return
+      const uncertain =
+        written ||
+        !(error instanceof ApiError) ||
+        ["network", "timeout", "invalid-response"].includes(error.kind)
+      if (uncertain) {
+        setUnknown(kind)
+        setStatus(kind === "nickname" ? "personalSaveUnknown" : "personalPasswordUnknown")
+      } else setStatus(kind === "password" ? "personalPasswordFailed" : "personalSaveFailed")
+    } finally {
+      lock.current = false
+      if (current()) setBusy(false)
+    }
+  }
+  /** 未知昵称写入只刷新核对；未知改密通过重新登录恢复，不自动重放。 */
+  async function recover() {
+    if (lock.current) return
+    lock.current = true
+    setBusy(true)
+    try {
+      if (unknown === "password") {
+        session.invalidate()
+        await onPasswordChanged()
+        return
+      }
+      const actual = await refresh(controller.current.signal)
+      if (!controller.current.signal.aborted && session.getSnapshot().identity?.id === profile.id) {
+        setNickname(actual.nickname)
+        setUnknown(null)
+        setStatus("")
+      }
+    } catch {
+      /* 保留未知提示，等待用户再次核对。 */
+    } finally {
+      lock.current = false
+      if (!controller.current.signal.aborted) setBusy(false)
+    }
+  }
+  return (
+    <Stack maw={480}>
+      <Title order={1}>{t("personalSettings")}</Title>
+      {status && (
+        <Alert role="status">
+          {t(status)}
+          {unknown && (
+            <Button
+              variant="subtle"
+              loading={busy}
+              onClick={() => {
+                void recover()
+              }}
+            >
+              {t(unknown === "password" ? "identityLogin" : "personalRefresh")}
+            </Button>
+          )}
+        </Alert>
+      )}
+      <TextInput label={t("registrationEmail")} value={profile.email} readOnly />
+      <form
+        onSubmit={(event) => {
+          void submit(event, "nickname")
+        }}
+      >
+        <Stack>
+          <TextInput
+            label={t("personalNickname")}
+            placeholder={t("personalNicknamePlaceholder")}
+            value={nickname}
+            required
+            maxLength={64}
+            disabled={busy || !!unknown}
+            onChange={(event) => setNickname(event.currentTarget.value)}
+          />
+          <Button type="submit" loading={busy} disabled={!!unknown || !nickname.trim()}>
+            {t("personalSaveNickname")}
+          </Button>
+        </Stack>
+      </form>
+      {canChangePassword && (
+        <form
+          onSubmit={(event) => {
+            void submit(event, "password")
+          }}
+        >
+          <Stack>
+            <Title order={2}>{t("personalPassword")}</Title>
+            <PasswordInput
+              label={t("personalOldPassword")}
+              placeholder={t("personalOldPasswordPlaceholder")}
+              autoComplete="current-password"
+              value={oldPassword}
+              required
+              disabled={busy || !!unknown}
+              onChange={(event) => setOldPassword(event.currentTarget.value)}
+            />
+            <PasswordInput
+              label={t("personalNewPassword")}
+              placeholder={t("personalNewPasswordPlaceholder")}
+              autoComplete="new-password"
+              value={newPassword}
+              required
+              disabled={busy || !!unknown}
+              onChange={(event) => setNewPassword(event.currentTarget.value)}
+            />
+            <PasswordInput
+              label={t("registrationConfirm")}
+              placeholder={t("registrationConfirmPlaceholder")}
+              autoComplete="new-password"
+              value={confirmation}
+              required
+              disabled={busy || !!unknown}
+              error={
+                confirmation && newPassword !== confirmation
+                  ? t("registrationPasswordMismatch")
+                  : undefined
+              }
+              onChange={(event) => setConfirmation(event.currentTarget.value)}
+            />
+            <Button
+              type="submit"
+              loading={busy}
+              disabled={!!unknown || newPassword !== confirmation}
+            >
+              {t("personalPassword")}
+            </Button>
+          </Stack>
+        </form>
+      )}
+    </Stack>
+  )
+}

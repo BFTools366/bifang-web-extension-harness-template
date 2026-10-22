@@ -1,27 +1,22 @@
 import { Menu } from "@mantine/core"
 import { useQuery } from "@tanstack/react-query"
-import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import type { OrganizationReadApi } from "../../data/api/organization/contracts"
 import { ApplicationIcon } from "../application/ApplicationIcon"
 import { organizationQueryOptions } from "./OrganizationContext"
 
-/** 多组织才显示切换入口；管理入口独立依据当前有效权限 code。 */
+/** 当前组织名称本身就是切换入口；管理与加入由应用导航拥有。 */
 export function OrganizationMenu({
   api,
   scope,
   blocked,
   canSwitch,
-  management,
-  joining,
   open
 }: {
   api: OrganizationReadApi
   scope: number
   blocked: boolean
   canSwitch: boolean
-  management?: ReactNode
-  joining?: ReactNode
   open(): void
 }) {
   const { t, i18n } = useTranslation()
@@ -32,22 +27,14 @@ export function OrganizationMenu({
   const current = query.data?.available.find((row) => row.id === query.data.current)
   return (
     <>
-      <Menu.Label>{t("organizationCurrent")}</Menu.Label>
-      <Menu.Label>
+      <Menu.Item
+        leftSection={<ApplicationIcon name="organization" />}
+        disabled={blocked || !canSwitch || !current}
+        onClick={open}
+        title={t("organizationSwitch")}
+      >
         {blocked ? t("organizationSwitching") : (current?.name ?? t("organizationUnavailable"))}
-      </Menu.Label>
-      {current && !blocked && (
-        <Menu.Label>
-          {t(current.user.role === "owner" ? "organizationOwner" : "organizationMember")}
-        </Menu.Label>
-      )}
-      {canSwitch && !blocked && (query.data?.available.length ?? 0) > 1 && (
-        <Menu.Item leftSection={<ApplicationIcon name="organization" />} onClick={open}>
-          {t("organizationSwitch")}
-        </Menu.Item>
-      )}
-      {!blocked && management}
-      {!blocked && joining}
+      </Menu.Item>
     </>
   )
 }

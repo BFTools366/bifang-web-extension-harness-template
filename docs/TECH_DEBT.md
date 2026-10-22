@@ -16,6 +16,18 @@
 - 影响与状态：待处理，不能声明全仓测试通过；根因及失败项归属仍需逐项复现，不据此修改现有产品或用户未提交代码。
 - 复核条件：专项核对 Windows CLI 启动、ESM 文件 URL 和子进程超时，修复后重跑对应 CLI 及全仓测试。
 
+### LIM-013：上游锁定 Go 资产的并发与资源风险
+
+- 观察：`go-implement-service/assets/go-service` 中由 `UPSTREAM.json` 锁定摘要的文件存在以下风险：`middleware/logger.go` 只把前 1MB 请求体放回 Body（超限请求被截断）、整份响应写入缓冲且响应体日志未脱敏；`ratelimit.go` 未配置可信代理、访客表无上限、GC 在全局锁内全表扫描且后台循环无停止路径；默认 SQLite 连接池 100 且无 `busy_timeout`/WAL；`database.go` 的 Ping 与迁移无超时；GraphQL 无复杂度、别名与 Body 上限。
+- 影响与状态：待处理。源模板不能直接改写锁定字节；响应体日志可能记录凭据，开启 Body 日志前必须先在上游修复，不能仅按技术债延期。
+- 复核条件：在上游 Go Harness 修复后更新 `UPSTREAM.json` 摘要与锚点安装器，并以 `go test -race` 和相关 Go 回归验证。
+
+### LIM-014：团队基线与验证码流程的查询与锁顺序
+
+- 观察：`team-baseline` 的 `Context`、成员、角色与邀请列表按行查询（N+1）；`SyncOwnerPermissions` 等逐行插入并在单个写事务内完成；`TeamStore.Write` 依赖锁定操作者行串行化，换到 Postgres/MySQL 时不同管理员的写入可交错或死锁。`go-service-user-api` 验证码先查配额再发送，并发请求可重复投递。
+- 影响与状态：待处理。SQLite 单写者下暂不触发死锁，但列表与启动同步随团队规模线性放大往返次数。
+- 复核条件：按 `$workspace-review-performance` 清单批量加载、批量写入，按聚合固定加锁顺序并对配额做原子预留；以并发与 `-race` 测试证明。
+
 ## 记录规则
 
 - 新条目必须包含可观察事实、影响、状态和明确的处理/复核条件。

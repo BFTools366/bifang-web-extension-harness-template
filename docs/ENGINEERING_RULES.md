@@ -52,7 +52,7 @@
 - 启用严格 TypeScript；不得用 `any`、非空断言或未校验类型转换掩盖未知输入。确需边界转换时先验证，再收窄为业务类型。
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`data/` 统一承载 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；`data/api/` 提供 client 与类型化服务边界，`data/storage/` 集中存储访问。页面或 route 文件不得直接拼任意 URL。
-- 产品运行路径只用真实 typed API；已有服务要求 BaseURL 与可信契约，没有服务则在 Workspace 创建 Go 服务并连接。未接通显示真实失败，不提供业务 Mock；测试替身仅在测试中。本地能力直接真实实现，存储访问经 src/data/storage，细节见 DATA_ACCESS.md §3.1。
+- 产品运行路径只用真实 typed API；已有服务要求 BaseURL 与可信契约，没有服务则在 Workspace 创建 Go 服务并连接。未接通显示真实失败，不提供业务 Mock；测试替身仅在测试中。本地能力直接真实实现，细节见 DATA_ACCESS.md §3.1；存储访问经 src/data/storage，选型与归属见 §1.3。
 - **带查询条件的网络请求必须使用 GraphQL Query**。查询条件包括字段查找、搜索、筛选、范围、排序与分页；返回单对象、集合、数量或布尔值均适用，不因条件放在 URL query、路径或请求体中，或采用 GET/POST 而改走 REST。条件必须按可信 Schema 通过类型化 variables 传递；缺少 GraphQL 契约时不得以 REST 绕过。无条件远端列表仍须使用 GraphQL；详细协议边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.2。
 - `data/api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。基础 client 不生成业务请求、refresh/replay、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
@@ -175,7 +175,8 @@
 ### 7.1 渐进式交互引导
 
 - 先复用当前请求、会话与工程中已明确且有效的事实；各流程的检查清单用于 Agent 自查，不是要求用户一次填写全部信息的问卷。只补当前下一步真正依赖的缺项，不重问已有答案。
-- 每轮优先提出一个关键问题，确有共同依赖时才合并少量问题。用“是否先采用……？建议/默认……，因为……”引导，给简短选项与实际影响；没有可靠默认值时直接说明需要明确选择，不强凑建议。
+- SOP 从需求采集和理解开始，先按目标、入口、流程与数据归属推导必要选择；充分依据唯一适配时自动采用并记录理由，只有真实争议或多个方案同样适用时才推荐和提问。用户显式决定优先；自动逻辑选择与外部事实、范围批准及副作用授权分别记录，不编造服务存在性、地址、权属或保存位置。
+- 每轮优先提出一个真正影响下一步的关键问题，确有共同依赖时才合并少量问题。用已理解的事实引出自然、具体的问题；有真实分歧才给简短互斥选项、建议及实际影响，没有缺口就继续，不把每项分析或默认行为变成批准题。工程固定题面由共享题库拥有；没有可靠默认值时直接明确选择，不强凑建议。
 - 对可逆、低影响的可选项给出默认方案；非阻断未知项可明确记录为建议或待定并继续独立工作。用户选择后沿用；改变已有明确决定需要新指令，不用新的默认值覆盖。
 - 默认值只降低输入负担，不代替用户同意。必需的范围确认、功能启用及外部副作用授权仍须取得明确答案；沉默、超时或预选项不算批准。CLI 只有在题面明确写出“回车采用”的普通配置项上，才把用户实际提交的空回答记为接受默认值；最终创建确认空回答仍取消。
 - 不从建议值编造项目类型、服务地址、endpoint、凭据、权限码、资金归属或支付契约；只追问本次操作及其最小依赖链。完整范围确定后给一次可审阅汇总，不在每个阶段重复索要同一份资料。

@@ -1,0 +1,22 @@
+package v1
+
+import (
+    "github.com/gin-gonic/gin"
+    "project_id/internal/model"
+    "project_id/internal/pkg/contextx"
+    "project_id/internal/pkg/request"
+    "project_id/internal/pkg/response"
+)
+
+// updateNicknameRequest 只允许修改当前账号昵称，不接受账号、邮箱或组织标识。
+type updateNicknameRequest struct {
+    Nickname string `json:"nickname" binding:"required,max=64"`
+}
+
+// updateNickname 目标账号固定来自认证上下文，成功后由客户端权威重读资料。
+func (m *accountModule) updateNickname(c *gin.Context) {
+    var input updateNicknameRequest
+    request.Bind(c, &input)
+    if err := m.accounts.UpdateNickname(c.Request.Context(), model.ID(contextx.AccountID(c.Request.Context())), input.Nickname); err != nil { panic(err) }
+    response.NoContent(c)
+}

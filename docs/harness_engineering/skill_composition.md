@@ -12,7 +12,7 @@
 
 ## 全部能力地图
 
-以下 32 个 `web-*` Skill 为源能力；实际下游只分发当前宿主适用部分。表中名称均对应 `.agents/skills/<名称>/SKILL.md`。
+以下 32 个 `web-*` Skill 及只读并发与性能审查为源能力（Workspace/Go 领域 Skills 见 [Workspace 规范](../WORKSPACE_TEMPLATE.md)）；实际下游只分发当前宿主适用部分。表中名称均对应 `.agents/skills/<名称>/SKILL.md`。
 
 | 职责组     | 独立入口                                                                                       | 结果与保留边界                                                       |
 | ---------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
@@ -20,6 +20,7 @@
 | 产品与设计 | `web-define-product`、`web-design-prototype`                                                   | 需求语义/唯一 PRD 与实际桌面原型分别拥有；创建前分析只读返回         |
 | 实施与重构 | `web-implement-change`、`web-refactor-code`                                                    | 授权行为变化与行为保持重构分别验证；按事件调用叶子                   |
 | 模块审查   | [`web-review-module-boundaries`](../../.agents/skills/web-review-module-boundaries/SKILL.md)   | 只读职责、依赖和状态拥有者地图；不自动重构                           |
+| 并发与性能 | [`workspace-review-performance`](../../.agents/skills/workspace-review-performance/SKILL.md)   | 只读死锁、无界等待、泄漏与热点证据；无基准不下性能结论，实施归调用方 |
 | 接口契约   | [`web-review-api-contract`](../../.agents/skills/web-review-api-contract/SKILL.md)             | 只读当前操作的来源/实现关联与差异；不联网、不写模块文档              |
 | 服务与文档 | `web-connect-http-service`、`web-document-api`                                                 | 已授权真实接入与合同/实现文档分别负责；设计与 Mock 不冒充已联调      |
 | 身份会话   | [`web-implement-auth-session`](../../.agents/skills/web-implement-auth-session/SKILL.md)       | 唯一会话状态机、异步归属和退出失效接线；不拥有页面设计或持久化授权   |
@@ -41,13 +42,13 @@
 
 保留现有 Skill，不为文档读取、登录页面或某个模块再建编排壳。各职责只拥有自己的判据与产物：
 
-| 能力                                                   | 唯一拥有者                                                                           | 输入与输出边界                                                   |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------- |
-| 宿主、固定工程输入、需求来源及原文事务交接             | [`web-instantiate-project`](../../.agents/skills/web-instantiate-project/SKILL.md)   | 收集与冻结原文、委托分析、确认工程输入与事务交接；不判断产品功能 |
-| 文档语义、基础页面/工作区需求与唯一 PRD                | [`web-define-product`](../../.agents/skills/web-define-product/SKILL.md)             | 创建前只读返回需求事实与界面需求；成功下游确认并记录唯一范围     |
-| 身份、权限、组织、商品、订单、钱包支付、审计的具体操作 | [`web-compose-capabilities`](../../.agents/skills/web-compose-capabilities/SKILL.md) | 根据已分析流程返回独立能力与资源；不拥有完整文档分析或业务装配   |
-| 实际桌面布局、交互原型、自查和摘要登记                 | [`web-design-prototype`](../../.agents/skills/web-design-prototype/SKILL.md)         | 只消费 Approved PRD；需求变化返回需求定义，不重新决定产品范围    |
-| 真实页面、业务代码与模板装配及相关验证                 | [`web-implement-change`](../../.agents/skills/web-implement-change/SKILL.md)         | 按授权范围适配模板并实施，真实领域事件委托相应叶子               |
+| 能力                                                   | 唯一拥有者                                                                           | 输入与输出边界                                                                     |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| 宿主、固定工程输入、需求来源及原文事务交接             | [`web-instantiate-project`](../../.agents/skills/web-instantiate-project/SKILL.md)   | 收集与冻结原文、委托分析、确认工程输入与事务交接；不判断产品功能                   |
+| 文档语义、基础页面/工作区需求与唯一 PRD                | [`web-define-product`](../../.agents/skills/web-define-product/SKILL.md)             | 创建前只读分析需求，唯一适配自动选择，等价或争议才推荐；成功下游确认并记录唯一范围 |
+| 身份、权限、组织、商品、订单、钱包支付、审计的具体操作 | [`web-compose-capabilities`](../../.agents/skills/web-compose-capabilities/SKILL.md) | 根据已分析流程返回独立能力与资源；不拥有完整文档分析或业务装配                     |
+| 实际桌面布局、交互原型、自查和摘要登记                 | [`web-design-prototype`](../../.agents/skills/web-design-prototype/SKILL.md)         | 只消费 Approved PRD；需求变化返回需求定义，不重新决定产品范围                      |
+| 真实页面、业务代码与模板装配及相关验证                 | [`web-implement-change`](../../.agents/skills/web-implement-change/SKILL.md)         | 按授权范围适配模板并实施，真实领域事件委托相应叶子                                 |
 
 PRD 结构归需求定义的 `references/prd-outline.md`；需求分析合同归其 `references/requirements-analysis.md`；模块判据归功能组合的 `references/requirements-selection.md`；输入与创建 SOP 归实例化的 `references/requirements-intake.md`。原型目录不保留第二份 PRD 合同。
 
@@ -57,7 +58,7 @@ PRD 结构归需求定义的 `references/prd-outline.md`；需求分析合同归
 flowchart TD
   request[当前授权请求] --> create[实例化：输入与事务]
   create -->|创建前只读委托| analysis[需求定义：语义与界面需求]
-  analysis -->|只读选择| selection[功能组合：模块与操作建议]
+  analysis -->|只读选择| selection[功能组合：自动选择或待取舍推荐]
   create -->|原子创建成功并切换下游| define[需求定义：唯一 PRD]
   define -->|Approved| prototype[原型：实际桌面布局与登记]
   prototype -->|已有实施授权| entry[实施：真实代码与相关测试]

@@ -140,6 +140,7 @@ describe("workspace creation", () => {
             ])
             expect(verifiedPlan.files.get("configs/config.yaml")).toContain("enabled: true")
             expect(verifiedPlan.files.get("configs/config.yaml")).toContain("mock: false")
+            expect(verifiedPlan.files.get("configs/config-dev.yaml")).toContain("mock: true")
             expect(verifiedPlan.files.get("internal/model/models.go")).toContain(
               "VerificationDeliveryState"
             )
@@ -155,7 +156,10 @@ describe("workspace creation", () => {
               "utf8"
             )
             expect(routes).not.toContain('auth.POST("/refresh"')
-            expect(routes).not.toContain('auth.POST("/verification-code"')
+            expect(routes).toContain('auth.POST("/verification-code"')
+            expect(
+              await readFile(path.join(target, "example_server/configs/config-dev.yaml"), "utf8")
+            ).toContain("mock: true")
             const canonical = await realpath(target)
             const prd = "docs/product_spec/20261020_product_spec.md"
             const prototype = "docs/prototypes/users/v1/prototype.html"

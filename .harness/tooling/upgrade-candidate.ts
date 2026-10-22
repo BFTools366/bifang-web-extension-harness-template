@@ -151,7 +151,12 @@ export async function renderUpgradeCandidate(
       `${prefix}package.json`,
       JSON.stringify(buildProjectManifest(sourcePackage, config))
     )
-    const init = { developmentBaseUrl: "", testBaseUrl: "", releaseBaseUrl: "" }
+    const init = {
+      developmentBaseUrl: "",
+      testBaseUrl: "",
+      releaseBaseUrl: "",
+      serverMode: context.workspace?.service.mode
+    }
     const hostFiles = member.type === "web" ? webFiles(config, init) : extensionFiles(config, init)
     for (const [relative, content] of hostFiles) await rendered(`${prefix}${relative}`, content)
     if (context.workspace && member === context.frontends[0]) {

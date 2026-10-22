@@ -182,7 +182,7 @@ describe("terminal source projection", () => {
     const skills = skillEntries
       .filter(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.isDirectory())
       .map(/* 执行 当前声明 函数的处理逻辑。 */ (entry) => entry.name)
-    expect(skills).toHaveLength(46)
+    expect(skills).toHaveLength(47)
     expect(skills).toContain("web-summarize-development-history")
     expect(skills.sort()).toEqual(
       [

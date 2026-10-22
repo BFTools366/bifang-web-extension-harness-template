@@ -30,7 +30,91 @@ const BASE_INPUT = {
   policyMode: "预设"
 }
 
+/** 只有等价方案才推荐，推荐不变成答案；缺少外部事实仍按需补问。 */
+test("需求先分析，等价宿主推荐与服务事实保持各自边界", async () => {
+  const { inspectCreationForm } = await import("../.harness/tooling/initialization-form.ts")
+  const values = { requirementsText: "阅读和摘录网页内容，独立页或扩展都可。" }
+  const first = await inspectCreationForm(repositoryRoot, { values })
+  expect(first.phase).toBe("needs-scope")
+  expect(first.analysisRevision).toBeDefined()
+  const recommended = await inspectCreationForm(repositoryRoot, {
+    values,
+    selection: {
+      revision: first.analysisRevision ?? "",
+      projectType: { value: "web", reason: "两者均可，网页无需安装", mode: "recommendation" }
+    }
+  })
+  expect(recommended.field).toBe("projectType")
+  expect(recommended.question).toContain("推荐：1.Web")
+  expect(recommended.question).toContain("两者均可，网页无需安装")
+  expect(values).not.toHaveProperty("projectType")
+  const shared = { projectType: "web", requirementsText: "多成员共享笔记，需要服务。" }
+  const analyzed = await inspectCreationForm(repositoryRoot, { values: shared })
+  const pending = await inspectCreationForm(repositoryRoot, {
+    values: shared,
+    selection: { revision: analyzed.analysisRevision ?? "" }
+  })
+  expect(pending.field).toBe("serverMode")
+  expect(shared).not.toHaveProperty("serverMode")
+})
+
+/** 文件原文修订触发重分析；相同范围的字段顺序和无关身份修订不触发。 */
+test("需求全文与范围事实稳定绑定分析修订", async () => {
+  const { inspectCreationForm } = await import("../.harness/tooling/initialization-form.ts")
+  const root = await temporaryDirectory("selection-source-")
+  const file = path.join(root, "brief.md")
+  await writeFile(file, "本地文字编辑。")
+  const values = { requirementsFile: file, name: "Notes", targetRoot: root }
+  const scope = {
+    users: "个人",
+    home: "编辑器",
+    pages: "编辑器",
+    operations: "编辑和清空",
+    design: "单页编辑器",
+    data: "本地处理",
+    acceptance: "编辑及清空"
+  }
+  const first = await inspectCreationForm(repositoryRoot, { values, scope })
+  const selection = {
+    revision: first.analysisRevision ?? "",
+    projectType: { value: "web", reason: "独立编辑页", mode: "automatic" as const },
+    serverMode: { value: "none", reason: "确定本地处理", mode: "automatic" as const }
+  }
+  const reversed = Object.fromEntries(Object.entries(scope).reverse())
+  const restored = await inspectCreationForm(repositoryRoot, { values, selection, scope: reversed })
+  expect(restored.analysisRevision).toBe(first.analysisRevision)
+  expect(restored.phase).toBe("needs-brand")
+  await writeFile(file, "成员跨设备共享文字。")
+  const changed = await inspectCreationForm(repositoryRoot, { values, scope, selection })
+  expect(changed.phase).toBe("needs-scope")
+  expect(changed.analysisRevision).not.toBe(first.analysisRevision)
+  expect(changed.argv).toBeUndefined()
+})
+
 describe("初始化渐进式引导", () => {
+  /** 默认不问策略模式，但基础题主动附带的自定义选择仍必须复用。 */
+  test("基础回答中的自定义策略不会因默认预设而被拒绝", async () => {
+    const fields: string[] = []
+    const result = await collectPromptedIdentity(
+      { ...BASE_INPUT, projectType: undefined, policyMode: undefined, requirementsFile: "" },
+      async (_question, context) => {
+        fields.push(context?.field ?? "")
+        return fields.length === 1
+          ? JSON.stringify({ projectType: "web", policyMode: "custom" })
+          : "2"
+      }
+    )
+    expect(result.policyMode).toBe("custom")
+    expect(result.agentPolicy.acceptanceSmoke).toBe("disabled")
+    expect(fields).toEqual([
+      "projectType",
+      "userOwnedTasks",
+      "superpowers",
+      "parallelWorktreeSubagents",
+      "acceptanceSmoke",
+      "e2eHint"
+    ])
+  })
   /** 验证移除业务分类后仍按固定题目逐项收集，并只重问非法项。 */
   test("工程创建保留固定题面与逐项策略询问", async () => {
     const questions: string[] = []
@@ -40,7 +124,6 @@ describe("初始化渐进式引导", () => {
       "create",
       "Guided Example",
       BASE_INPUT.targetRoot,
-      "custom",
       "2",
       "invalid",
       "2",
@@ -49,7 +132,7 @@ describe("初始化渐进式引导", () => {
       "2"
     ]
     const identity = await collectPromptedIdentity(
-      { serverMode: undefined, requirementsFile: "" },
+      { serverMode: undefined, requirementsFile: "", policyMode: "custom" },
       async (question) => {
         questions.push(question)
         const answer = answers.shift()
@@ -62,9 +145,8 @@ describe("初始化渐进式引导", () => {
       "问题名称：项目类型",
       "问题名称：项目类型",
       "问题名称：已有服务端",
-      "问题名称：项目显示名称",
-      "问题名称：源 Harness 外的父目录",
-      "问题名称：Agent 策略模式",
+      "问题名称：项目名称",
+      "问题名称：保存位置",
       "问题名称：左侧 user-owned Task 自动拆分",
       "问题名称：Superpowers",
       "问题名称：Superpowers",
@@ -88,7 +170,7 @@ describe("初始化渐进式引导", () => {
   })
 
   /** 验证已有决定改变建议值时，只更新建议块而不改问题或重排选项。 */
-  test("策略建议变化不改变固定题面和选项", async () => {
+  test("默认预设及主动单项策略均不询问模式", async () => {
     const modeQuestions: string[] = []
     for (const userOwnedTasks of [undefined, "enabled"]) {
       await collectPromptedIdentity(
@@ -99,12 +181,7 @@ describe("初始化渐进式引导", () => {
         }
       )
     }
-    expect(modeQuestions).toHaveLength(2)
-    expect(modeQuestions[0]?.split("\n").slice(0, 5)).toEqual(
-      modeQuestions[1]?.split("\n").slice(0, 5)
-    )
-    expect(modeQuestions[0]).toContain("建议/默认：预设；回车采用")
-    expect(modeQuestions[1]).toContain("建议/默认：自定义；回车采用")
+    expect(modeQuestions).toEqual([])
   })
 
   /** 验证创建确认使用同一固定表单，取消和空回答均不能成为创建授权。 */
@@ -319,7 +396,7 @@ describe("初始化渐进式引导", () => {
   })
 
   /** 验证已有单项决定不能被建议预设覆盖，后续只补其余项。 */
-  test("已有单项策略时建议自定义并复用明确答案", async () => {
+  test("已有单项策略时直接沿用自定义并只补缺项", async () => {
     const questions: string[] = []
     const resolved = await collectPromptedIdentity(
       {
@@ -331,9 +408,9 @@ describe("初始化渐进式引导", () => {
         return ""
       }
     )
-    expect(questions).toHaveLength(5)
-    expect(questions[0]).toContain("建议/默认：自定义；回车采用")
-    expect(questions.slice(1).join("\n")).not.toContain("问题名称：左侧 user-owned Task 自动拆分")
+    expect(questions).toHaveLength(4)
+    expect(questions.join("\n")).not.toContain("字段： policyMode")
+    expect(questions.join("\n")).not.toContain("问题名称：左侧 user-owned Task 自动拆分")
     expect(resolved.policyMode).toBe("custom")
     expect(resolved.agentPolicy.userOwnedTasks).toBe("enabled")
     expect(resolved.inputSources.userOwnedTasks).toBe("命令行参数")

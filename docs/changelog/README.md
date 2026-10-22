@@ -16,4 +16,4 @@
 
 ## 历史追溯
 
-- [Changelog 历史卷](CHANGELOG_history.md)：仅 Harness 源使用，退役描述不作为当前规范。
+当前没有独立历史卷；更早记录通过 Git 历史追溯。

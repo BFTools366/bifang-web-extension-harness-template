@@ -1,4 +1,4 @@
-import { cp, readFile, readdir, realpath, rm, utimes, writeFile } from "node:fs/promises"
+import { cp, mkdir, readFile, readdir, realpath, rm, utimes, writeFile } from "node:fs/promises"
 import { spawnSync } from "node:child_process"
 import { pathToFileURL } from "node:url"
 import path from "node:path"
@@ -13,11 +13,45 @@ import {
   upgradeCliPath,
   upgradeFixture,
   persistPlan,
-  planCliArguments
+  planCliArguments,
+  planFor
 } from "./harness-upgrade-fixture.ts"
 
 /** 验证 upgrade command-line contract 的完整回归场景。 */
 describe("upgrade command-line contract", () => {
+  /** 验证真实规模的计划与基线超过管道缓冲区后仍能完整读取并继续规划。 */
+  test("replans a baseline larger than the child stdout buffer", async () => {
+    const fixture = await upgradeFixture()
+    const relativeRoot = ".agents/skills/web-define-product/references"
+    await Promise.all(
+      [fixture.target, fixture.candidate].map(async (root) => {
+        const directory = path.join(root, relativeRoot)
+        await mkdir(directory, { recursive: true })
+        await Promise.all(
+          Array.from({ length: 220 }, (_, index) =>
+            writeFile(path.join(directory, `contract-${index}.md`), "# Shared contract\n")
+          )
+        )
+      })
+    )
+    const planPath = await persistPlan(fixture, "large-bootstrap")
+    await recordUpgradeBaseline({
+      planPath,
+      sourceVersion: "202609090101",
+      sourceCommit: fixture.sourceCommit,
+      bootstrap: true,
+      approval: "bootstrap-verified-baseline",
+      resolvedManual: []
+    })
+    expect((await readFile(fixture.lock)).length).toBeGreaterThan(64 * 1024)
+    expect(await planFor(fixture)).toMatchObject({
+      bootstrap: false,
+      blocked: false,
+      manualRequired: false,
+      problems: []
+    })
+  })
+
   /** 验证 stdout-only 预演不刷新 source/target 索引且保留目标已有修改。 */
   test("previews dirty targets without refreshing either Git index", async () => {
     const fixture = await upgradeFixture()
@@ -279,5 +313,6 @@ describe("upgrade command-line contract", () => {
       error: "未知或不适用的选项： --unknown",
       ok: false
     })
-  }, 20_000)
+    // 本场景多次启动真实 CLI，并执行冻结树与 Git 核对，使用有界集成测试预算。
+  }, 60_000)
 })

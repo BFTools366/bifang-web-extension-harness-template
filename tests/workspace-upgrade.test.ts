@@ -16,7 +16,10 @@ import {
 } from "./harness-upgrade-fixture.ts"
 
 /** 创建真实 Git Workspace 与根/成员独立的工程候选，Go 只作为受保护哨兵。 */
-async function workspaceFixture(type: "web" | "extension" = "web") {
+async function workspaceFixture(
+  type: "web" | "extension" = "web",
+  mode: "create" | "none" = "create"
+) {
   const fixture = await upgradeFixture()
   const frontend = `example_${type}`
   const workspace = {
@@ -27,17 +30,19 @@ async function workspaceFixture(type: "web" | "extension" = "web") {
     initializedAt: "2026-10-21T00:00:00Z",
     members: [
       { type, directory: frontend },
-      { type: "server", directory: "example_server" }
+      ...(mode === "create" ? [{ type: "server", directory: "example_server" }] : [])
     ],
-    service: { mode: "create", developmentBaseUrl: "http://127.0.0.1:8080" }
+    service: { mode, developmentBaseUrl: mode === "create" ? "http://127.0.0.1:8080" : "" }
   }
   await rm(path.join(fixture.target, ".harness/project.json"))
   await writeFile(path.join(fixture.target, ".harness/workspace.json"), JSON.stringify(workspace))
-  await mkdir(path.join(fixture.target, "example_server"))
-  await writeFile(
-    path.join(fixture.target, "example_server/config.yaml"),
-    "private provider config\n"
-  )
+  if (mode === "create") {
+    await mkdir(path.join(fixture.target, "example_server"))
+    await writeFile(
+      path.join(fixture.target, "example_server/config.yaml"),
+      "private provider config\n"
+    )
+  }
   await writeProjectFiles(path.join(fixture.target, frontend))
   await writeProjectFiles(path.join(fixture.candidate, frontend))
   await writeFile(
@@ -70,6 +75,18 @@ async function bootstrap(fixture: Awaited<ReturnType<typeof workspaceFixture>>) 
 }
 
 describe("Workspace Harness upgrade", () => {
+  /** 本地服务归属受同一根锁保护，升级不新增服务成员或改变地址。 */
+  test("本地模式可记录并复读工程基线", async () => {
+    const fixture = await workspaceFixture("web", "none")
+    await bootstrap(fixture)
+    const plan = await planFor(fixture)
+    expect(plan.blocked).toBe(false)
+    expect(plan.entries.some((entry) => entry.path.startsWith("example_server/"))).toBe(false)
+    expect(
+      JSON.parse(await readFile(path.join(fixture.target, ".harness/workspace.json"), "utf8"))
+        .service
+    ).toEqual({ mode: "none", developmentBaseUrl: "" })
+  })
   /** 秘密环境只登记路径，不能被保护默认值静默忽略。 */
   test.each([".env", "example_web/.env.local", "example_web/.env.production.local"])(
     "blocks target secret presence at %s",

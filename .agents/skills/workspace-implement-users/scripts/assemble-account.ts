@@ -13,9 +13,20 @@ export function goAccountApplicationFiles(
   }
   if (options.selection.modules || options.selection.recipe)
     throw new Error("完整账号装配必须传入明确 operations，不能混用模块默认或 recipe")
+  const operations = options.selection.operations ?? []
   const selected = {
     ...options.selection,
-    operations: [...new Set(["identity.workspace", ...(options.selection.operations ?? [])])]
+    operations: [
+      ...new Set([
+        "identity.session",
+        "identity.profile",
+        "identity.password.change",
+        "organization.switch",
+        "permissions.enforce",
+        ...operations,
+        ...(operations.includes("identity.register") ? ["identity.verification"] : [])
+      ])
+    ]
   }
   const files = applicationFiles(base, {
     ...options,
@@ -28,8 +39,22 @@ export function goAccountApplicationFiles(
         "../../workspace-implement-permissions/assets/go-permission-adapter.ts.txt"
       )
     },
-    pagePermissions: { "/organization/manage": ["team.manage"], ...options.pagePermissions },
-    actionPermissions: { "organization.manage": ["team.manage"], ...options.actionPermissions }
+    pagePermissions: {
+      ...(operations.some((operation) =>
+        ["identity.workspace", "organization.manage"].includes(operation)
+      )
+        ? { "/organization/manage": ["team.manage"] }
+        : {}),
+      ...options.pagePermissions
+    },
+    actionPermissions: {
+      ...(operations.some((operation) =>
+        ["identity.workspace", "organization.manage"].includes(operation)
+      )
+        ? { "organization.manage": ["team.manage"] }
+        : {}),
+      ...options.actionPermissions
+    }
   })
   const additions: Record<string, string> = {
     "src/data/api/client/goTransport.ts": source("../assets/go-transport.ts.txt"),

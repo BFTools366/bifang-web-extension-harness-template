@@ -302,48 +302,35 @@ async function managedTemplate(): Promise<{ path: string; contents: Buffer }> {
   return { path: templatePath, contents }
 }
 
-/** 失败关闭地检查受管 Git 元数据目录与模板文件类型。 */
-async function assertManagedTarget(filePath: string): Promise<void> {
-  const directoryStatus = await lstat(path.dirname(filePath)).catch((error: unknown) => {
+/** 读取可能尚不存在的路径，只把 ENOENT 视为缺失。 */
+async function ifPresent<T>(operation: Promise<T>): Promise<T | undefined> {
+  return operation.catch((error: unknown) => {
     if ((error as { code?: unknown }).code === "ENOENT") return undefined
     throw error
   })
+}
+
+/** 失败关闭地检查受管 Git 元数据目录与模板文件类型，返回父目录是否已存在。 */
+async function assertManagedTarget(filePath: string): Promise<{ directoryExists: boolean }> {
+  const directoryStatus = await ifPresent(lstat(path.dirname(filePath)))
   if (
     directoryStatus?.isSymbolicLink() === true ||
     (directoryStatus !== undefined && !directoryStatus.isDirectory())
   ) {
     throw new Error("Managed Git metadata path must be a real directory")
   }
-  const fileStatus = await lstat(filePath).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
+  const fileStatus = await ifPresent(lstat(filePath))
   if (fileStatus?.isSymbolicLink() === true || (fileStatus !== undefined && !fileStatus.isFile())) {
     throw new Error("Managed commit template must be a regular file")
   }
+  return { directoryExists: directoryStatus !== undefined }
 }
 
 /** 原子写入文件并同步文件和父目录。 */
 async function writeAtomic(filePath: string, contents: Uint8Array): Promise<void> {
   const directory = path.dirname(filePath)
-  const directoryStatus = await lstat(directory).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
-  if (
-    directoryStatus?.isSymbolicLink() === true ||
-    (directoryStatus !== undefined && !directoryStatus.isDirectory())
-  ) {
-    throw new Error("Managed Git metadata path must be a real directory")
-  }
-  if (directoryStatus === undefined) await mkdir(directory, { mode: 0o700 })
-  const existing = await lstat(filePath).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
-  if (existing?.isSymbolicLink() === true || (existing !== undefined && !existing.isFile())) {
-    throw new Error("Managed commit template must be a regular file")
-  }
+  const { directoryExists } = await assertManagedTarget(filePath)
+  if (!directoryExists) await mkdir(directory, { mode: 0o700 })
   const temporary = `${filePath}.tmp-${process.pid}-${Date.now()}`
   try {
     await writeFile(temporary, contents, { flag: "wx", mode: 0o644 })
@@ -373,20 +360,7 @@ export async function checkCommitConfiguration(
   const template = await managedTemplate()
   const templatePath = path.join(identity.commonDir, "harness/meaningful-commit-template.txt")
   await assertManagedTarget(templatePath)
-  const installedStatus = await lstat(templatePath).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
-  if (
-    installedStatus?.isSymbolicLink() === true ||
-    (installedStatus !== undefined && !installedStatus.isFile())
-  ) {
-    throw new Error("Managed commit template must be a regular file")
-  }
-  const installed = await readFile(templatePath).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
+  const installed = await ifPresent(readFile(templatePath))
   if (installed === undefined || !installed.equals(template.contents)) {
     throw new Error("Managed commit template is missing or differs from the Skill asset")
   }
@@ -416,20 +390,7 @@ export async function installCommitConfiguration(
   const template = await managedTemplate()
   const templatePath = path.join(identity.commonDir, "harness/meaningful-commit-template.txt")
   await assertManagedTarget(templatePath)
-  const existingStatus = await lstat(templatePath).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
-  if (
-    existingStatus?.isSymbolicLink() === true ||
-    (existingStatus !== undefined && !existingStatus.isFile())
-  ) {
-    throw new Error("Managed commit template must be a regular file")
-  }
-  const existingTemplate = await readFile(templatePath).catch((error: unknown) => {
-    if ((error as { code?: unknown }).code === "ENOENT") return undefined
-    throw error
-  })
+  const existingTemplate = await ifPresent(readFile(templatePath))
   const expected = { "commit.template": templatePath, ...MANAGED_CONFIG }
   const previous = new Map<string, string[]>()
   const settingsToChange: Array<[string, string]> = []

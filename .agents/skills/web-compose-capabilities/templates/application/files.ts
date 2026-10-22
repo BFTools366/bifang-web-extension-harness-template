@@ -57,6 +57,7 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
     "src/features/wallet-payments/WalletPage.tsx": "wallet-payments/WalletPage.tsx.txt"
   },
   organization: {
+    "src/data/api/organization/teamContracts.ts": "organization/teamContracts.ts.txt",
     "src/data/api/organization/contracts.ts": "organization/contracts.ts.txt",
     "src/data/api/organization/context.ts": "organization/context.ts.txt",
     "src/features/organization/OrganizationMenu.tsx": "organization/OrganizationMenu.tsx.txt",
@@ -70,8 +71,11 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
 }
 /** 只随具体操作装配的固定资产，不因模块启用而附带写入能力。 */
 const OPERATION_ASSETS: Record<string, Record<string, string>> = {
+  "identity.profile": {
+    "src/data/api/identity/personalSettings.ts": "identity/personalSettings.ts.txt",
+    "src/features/identity/PersonalSettingsPage.tsx": "identity/PersonalSettingsPage.tsx.txt"
+  },
   "identity.workspace": {
-    "src/data/api/organization/teamContracts.ts": "organization/teamContracts.ts.txt",
     "src/data/api/organization/teamService.ts": "organization/teamService.ts.txt",
     "src/features/organization/useTeamMutation.ts": "organization/useTeamMutation.ts.txt",
     "src/features/organization/TeamInbox.tsx": "organization/TeamInbox.tsx.txt",
@@ -203,6 +207,8 @@ export function applicationFiles(
     "identity.session",
     "identity.register",
     "identity.verification",
+    "identity.profile",
+    "identity.password.change",
     "organization.switch",
     "organization.manage",
     "permissions.enforce",
@@ -241,6 +247,17 @@ export function applicationFiles(
   const pages: ApplicationPage[] = [
     { path: "/", file: "index", component: "HomePage", title: "applicationHome" },
     ...MODULE_PAGES.filter((page) => page.module !== undefined && modules.includes(page.module)),
+    ...(frontendOperations.includes("identity.profile")
+      ? [
+          {
+            path: "/account/settings",
+            file: "account_.settings",
+            component: "PersonalSettingsPage",
+            title: "personalSettings",
+            module: "identity"
+          }
+        ]
+      : []),
     ...(selected.resolved.includes("organization.manage")
       ? [
           {
@@ -255,7 +272,7 @@ export function applicationFiles(
   ]
   const actions = ACTIONS.filter((action) => selected.resolved.includes(action))
   const organizationPaths = pages
-    .filter((page) => page.module === "organization")
+    .filter((page) => page.module === "organization" || page.module === "identity")
     .map((page) => page.path)
   validateOptions(options, modules, pages, actions)
   // 全量装配只用于首次工程基线；后续能力添加按现有 owner 增量接线。
@@ -319,7 +336,7 @@ export function applicationFiles(
   )
   files.set(
     "src/features/application/navigation.ts",
-    `export const navigation = ${JSON.stringify(pages.filter((page) => page.module !== "organization").map((page) => ({ path: page.path, title: page.title })))} as const\n`
+    `export const navigation = ${JSON.stringify(pages.filter((page) => page.module !== "identity" && (page.module !== "organization" || page.path !== "/organization" || frontendOperations.includes("identity.workspace"))).map((page) => ({ path: page.path, title: page.path === "/organization" ? "teamJoin" : page.path === "/organization/manage" ? "organizationSettings" : page.title, group: page.module === "organization" ? "organizationNavigation" : null })))} as const\n`
   )
   files.set(
     "src/i18n/application.ts",

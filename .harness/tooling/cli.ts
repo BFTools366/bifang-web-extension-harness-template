@@ -5,7 +5,7 @@ import { refreshBrand } from "./brand.ts"
 import { rejectInPlaceInitialization } from "./init.ts"
 import {
   deriveProjectId,
-  parsePolicyMode,
+  resolvePolicyMode,
   type PromptDefaults,
   validateProjectId
 } from "./initialization-input.ts"
@@ -46,9 +46,9 @@ function usage(): string {
   return `Bifang Web Harness
 
 创建项目（目标必须位于本 Harness 仓库之外）：
-  pnpm instantiate -- <parent-outside-harness> --type web|extension --server existing|create --name <name> \\
+  pnpm instantiate -- <parent-outside-harness> --type web|extension --server existing|create|none --name <name> \\
     [--english-name <English translation>] [--id <id>] [--requirements-file <md-or-txt-path> | --requirements-text <text>] \\
-    --policy-mode 预设|自定义 [--development-base-url <url>] \\
+    [--policy-mode 预设|自定义] [--development-base-url <url>] \\
     [--test-base-url <url>] [--release-base-url <https-url>] \\
     [--description <description>（Extension 必填）] [--identity-i18n <json>] \\
     [--superpowers enabled|disabled] [--user-owned-tasks enabled|disabled] \\
@@ -61,7 +61,7 @@ function usage(): string {
   pnpm harness validate
 
 禁止原地初始化；创建 Workspace，成员内部保持唯一宿主。
-项目类型：1.Web；2.Extension，可输入编号；随后选择是否已有服务端，没有则创建所选前端和一个 Go 服务端。最终目录为 <parent-outside-harness>/<id>。
+先采集需求；Agent 基于充分需求优先自动选择唯一适配宿主和本地方案，等价或有争议时才推荐。CLI 不分析语义，后续显式选择 1.Web 或 2.Extension，再补服务事实。无现成服务默认 create；明确不需要服务端则 none，只创建前端。最终目录为 <parent-outside-harness>/<id>。
 `
 }
 
@@ -94,7 +94,7 @@ function nonInteractiveAgentPolicy(supplied: {
   e2eHint?: string
 }): AgentPolicySelection {
   const confirmedBy = supplied.confirmedBy?.trim() || "当前用户"
-  const policyMode = parsePolicyMode(supplied.policyMode ?? "")
+  const policyMode = resolvePolicyMode(supplied)
   if (policyMode === "recommended") {
     if (
       supplied.superpowers !== undefined ||
@@ -131,8 +131,7 @@ export function requiresInteractiveAgentPolicyPrompt(supplied: {
   e2eHint?: string
 }): boolean {
   return (
-    supplied.policyMode !== undefined &&
-    parsePolicyMode(supplied.policyMode) === "custom" &&
+    resolvePolicyMode(supplied) === "custom" &&
     [
       supplied.userOwnedTasks,
       supplied.superpowers,
@@ -181,8 +180,7 @@ export async function resolveInitOptions(
   const required = [
     ["<parent-outside-harness>", supplied.targetRoot],
     ["--type", supplied.projectType],
-    ["--name", supplied.name],
-    ["--policy-mode", supplied.policyMode]
+    ["--name", supplied.name]
   ] as const
   const missing = required
     .filter(/* 执行 当前声明 函数的处理逻辑。 */ ([, value]) => value === undefined)
@@ -225,7 +223,7 @@ export async function resolveInitOptions(
     "agentPolicy" in identity && identity.agentPolicy !== undefined
       ? identity.agentPolicy
       : nonInteractiveAgentPolicy(supplied)
-  runtime.onPolicyModeResolved?.(parsePolicyMode(identity.policyMode ?? ""))
+  runtime.onPolicyModeResolved?.(resolvePolicyMode(identity))
   if ("inputSources" in identity) runtime.onInputSourcesResolved?.(identity.inputSources)
   if ("rawParentRoot" in identity && identity.rawParentRoot !== undefined) {
     runtime.onParentInputResolved?.(identity.rawParentRoot)

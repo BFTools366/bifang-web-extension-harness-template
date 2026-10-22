@@ -5,6 +5,8 @@ description: 在 Workspace 按已确认需求协调前端、Go 服务、接口�
 
 # Web Harness：协作实施完整功能
 
+service.mode=none 时只实现真实本地功能，不创建 Go、业务 API 或模拟服务。新增跨账号或远端能力会改变服务归属，需按真实需求修订当前范围，不能静默创建或接入服务。
+
 读取 .harness/workspace.json 与唯一 PRD，只展开本次具体操作。已有服务要求 BaseURL 和对应 endpoint/SDL/认证契约；缺合同先补真实资料，不能猜接口。自建服务按领域委托以下 Skill：users、organizations、permissions、catalog、orders、wallet、audit（完整名称均为 workspace-implement-前缀）。
 
 固定交接内容：当前操作、根目录、前端成员、服务归属、可信契约、写入所有权、最小依赖、未决项、真实验证。领域叶子完成后返回此处，不重启初始化、产品定义或设计问卷。前端设计仍由 web-design-prototype 拥有，创建授权按既有合同复用。

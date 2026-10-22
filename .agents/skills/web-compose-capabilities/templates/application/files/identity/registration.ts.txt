@@ -14,6 +14,7 @@ export type RegistrationCodeReceipt = {
 export interface RegistrationPasswordPolicy {
   validate(password: string): boolean
   messageKey: string
+  errorKey?(password: string): string
 }
 /** 注册和可选发码由真实域 adapter 实现，不创建第二会话。 */
 export interface RegistrationApi {
@@ -28,9 +29,19 @@ export function registrationPasswordPolicy(value: unknown): RegistrationPassword
     throw new Error("registration_password_policy_invalid")
   const validate = value.validate
   const messageKey = value.messageKey
+  const errorKey = "errorKey" in value ? value.errorKey : undefined
   if (typeof validate !== "function" || typeof messageKey !== "string" || !messageKey.trim())
     throw new Error("registration_password_policy_invalid")
-  return { validate: (password) => validate(password) === true, messageKey }
+  if (errorKey !== undefined && typeof errorKey !== "function")
+    throw new Error("registration_password_policy_invalid")
+  return {
+    validate: (password) => validate(password) === true,
+    messageKey,
+    errorKey: (password) => {
+      const key: unknown = errorKey?.(password)
+      return typeof key === "string" && key.trim() ? key : messageKey
+    }
+  }
 }
 /** 与邮箱服务合同一致地归一化，不去除别名或改写地址内容。 */
 export function normalizeEmail(value: string): string {

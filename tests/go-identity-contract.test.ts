@@ -171,7 +171,7 @@ test("Go identity adapter uses authoritative wire contracts and durable account 
     const result = await response.json()
     expect(result.data.account).toMatchObject({
       username: expect.stringMatching(/^user_/u),
-      nickname: expect.stringMatching(/^用户 /u),
+      nickname: "New nickname",
       phone: null
     })
   } catch (error) {

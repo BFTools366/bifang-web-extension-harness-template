@@ -1,0 +1,13 @@
+/** 个人资料只属于全局账号，不携带组织权限或会话凭据。 */
+export interface AccountProfile {
+  id: string
+  email: string
+  nickname: string
+}
+
+/** 服务方法沿用唯一 HTTP owner，页面不读取令牌或自行创建客户端。 */
+export interface PersonalSettingsApi {
+  read(signal: AbortSignal): Promise<AccountProfile>
+  rename(nickname: string, signal: AbortSignal): Promise<void>
+  changePassword?(oldPassword: string, newPassword: string, signal: AbortSignal): Promise<void>
+}

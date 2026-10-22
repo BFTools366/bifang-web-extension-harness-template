@@ -1,5 +1,5 @@
 import { renderIdentityBrand, extensionIdentityFiles } from "../identity.ts"
-import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
+import type { EnvironmentBaseUrls, InitOptions, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
 import { httpFiles } from "./http.ts"
 import { dataFiles } from "./data.ts"
@@ -22,7 +22,7 @@ import "./i18n"
 // 执行 extensionFiles 函数的处理逻辑。
 export function extensionFiles(
   config: ProjectConfig,
-  baseUrls: EnvironmentBaseUrls
+  baseUrls: EnvironmentBaseUrls & Pick<InitOptions, "serverMode">
 ): Map<string, string> {
   return new Map<string, string>([
     ...environmentFiles(config, baseUrls),

@@ -21,7 +21,7 @@ e2e_hint: pending
 - `parallel_worktree_subagents`：`enabled` 只表示用户明确要求并行时允许使用 Worktree + 写入型 Subagent；`disabled` 使用单 Agent。持久启用本身不能触发并行步骤。只读 Subagent 可以对彼此独立的问题并行分析，不受写入开关限制。
 - `acceptance_smoke`：只在完整真实候选验收中，允许 Agent 对候选执行适用的浏览器冒烟。普通实现不消费该选择。
 - `e2e_hint`：仅在本次发布尚无 E2E 选择时提供建议默认值；同一发布流程复用已明确的选择，也不授权凭据、生产数据、商店上传或不可逆副作用。
-- `decision_mode: reuse_then_infer_then_ask`：先复用已确认偏好，再依据当前事实判断适用性；仍会改变产品范围、授权或发布目标时才询问。
+- `decision_mode: reuse_then_infer_then_ask`：先复用需求和已确认偏好，再根据充分依据自动选择唯一适配方案；只有真实争议或多个方案同样适用时才推荐并询问。外部事实缺失按需补齐，范围确认与副作用授权仍须真实答案。
 
 `enabled` 表示允许且在真实触发时优先，不表示无条件执行；`user_owned_tasks: enabled` 是自动建 Task 的明确长期授权。安全、产品和渠道硬要求优先于项目偏好，不能用 `disabled` 绕过必需门禁；当前候选的 E2E 明确选择优先于 `e2e_hint` 建议值。
 
@@ -137,9 +137,9 @@ Task 绑定：
 
 ## 初始化与持久化
 
-- `$web-instantiate-project` 按依赖顺序逐项引导尚未明确的项目类型、可选详细需求、名称、绝对父路径和策略模式，每轮只问一个问题并复用已有合法答案；不要求一次交齐。项目宿主类型不得有默认值；需求文档不代替类型选择，有文档时实例化委托需求定义 Skill 只读分析界面需求，再由功能组合 Skill 返回独立能力建议，原文随创建事务交接，正式 PRD 与业务实施在成功下游进行；无文档时按原有题目逐项继续创建。类型只以 1.Web / 2.Extension 显示并接受编号；选好后立即询问是否已有服务端，没有则默认创建所选前端和一个 Go 服务端，不再询问成员组合；id 根据项目名称的英文翻译自动生成，Agent 提供英文译名，纯终端缺译名时补问，已有显式合法 id 复用；最终目录使用“父路径/id”，不从父目录名推导 id。策略以中文“预设”（推荐）或“自定义”提示。CLI 题面明确“回车采用”后可接受配置建议，最终创建仍须明确确认。Web 说明默认使用显示名称；Extension 说明必须非空且询问缺失值。身份默认语言与翻译可通过初始化本地化输入提供，品牌生成/导入及预览按 `$web-prepare-brand-identity` 执行。已有服务须提供开发 BaseURL，没有则同时创建 Go 服务并连接；测试与正式 BaseURL 可留空，测试/正式地址不在首轮询问；正式发布前必须补齐 HTTPS 正式地址。品牌输入可选，确认来源不作为用户必填项。题序、文案、条件与授权修订统一由实例化 Skill 的固定表单和共享只读工具返回；源策略默认值不是新项目答案。
+- `$web-instantiate-project` 从复用或采集需求开始，每轮只补当前真正依赖的缺口，不先发技术问卷。需求原文或口头诉求直接交接，宿主未定也先委托需求定义只读分析目标、入口、流程与数据范围，再由能力组合解析必要操作。充分需求唯一适配时，Agent 自动选择 Web / Extension 宿主、必要能力和纯本地 none，并通过 selection 独立记录理由；存在真实争议或多个方案同样适用时才推荐和询问。现成服务是否存在、地址、接口契约、父目录和资产权属属于用户事实，未知才补问，不能凭缺地址推断没有服务；明确没有后直接 create，已有则接可信合同。CLI 无语义能力，需求后显式收集未提供的宿主与服务事实，无宿主默认值。名称、英文译名/id、三环境、默认 Agent 预设和完整确认继续按实例化共享表单执行；不从父目录推断 id，不询问默认策略，主动自定义仅补缺项。Web 说明默认显示名称，Extension 必须非空。测试/正式地址不在首轮询问；正式发布前补齐 HTTPS 地址。品牌优先自动采用需求唯一适配方向，等价或审美分歧时才推荐。自动选择纳入完整汇总，不冒充用户答案；需求或范围修订使旧推导及旧确认失效，已有合法显式答案始终优先。正式 PRD、原型与业务实施只在成功下游，工程事务不等于首版完成。
 - 选择自定义后，`user_owned_tasks`、`superpowers`、`parallel_worktree_subagents`、`acceptance_smoke`、`e2e_hint` 每轮只询问一个当前缺失或非法字段，并以同名预设值为建议默认值；CLI 明确提示后回车表示采用，用户一次主动提供多个合法字段时全部复用。`user_owned_tasks` 的推荐/default 值都是 `disabled`。
-- 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: disabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。默认关闭的内部并行只限制当前 Task 的 `codex/unit-*` 写入单元，不影响用户明确创建的左侧 Git Task；预设只是输入捷径，不新增持久字段，也不得在用户未确认时静默采用其他值。
+- 推荐预设确定性物化五项为 `user_owned_tasks: disabled`、`superpowers: disabled`、`parallel_worktree_subagents: disabled`、`acceptance_smoke: enabled`、`e2e_hint: disabled`。默认关闭的内部并行只限制当前 Task 的 `codex/unit-*` 写入单元，不影响用户明确创建的左侧 Git Task；新项目默认采用该预设，不再询问，最终汇总展示实际配置；不新增持久字段，不静默覆盖用户主动给定的策略。
 - 五项值全部解析后才以 `schema_version: 3` 一次原子写入本文件；`confirmed_by` 自动记录为“当前用户”，已明确提供合法来源时复用，`confirmed_at` 记录最终收齐日期。内部初始化链只验证并复用，不重复询问。
 - `pending` 只允许存在于源 Harness 或未完成 staging。最终下游任何 `pending`、空确认来源或非法确认日期都阻断原子发布。
 - 初始化后，用户可明确改变五项持久策略；例如“开启左侧 Task”或“关闭左侧 Task”只改变 `user_owned_tasks`。Agent 只更新被确认的字段、`confirmed_by` 与 `confirmed_at`。任何初始化后的永久策略变更都必须写入当日 ADR，目标值相同时按幂等 no-op 报告；临时 Task 限制不得改写持久策略。切换只影响之后的适用行为，不迁移或中断既有 Task/Worktree。

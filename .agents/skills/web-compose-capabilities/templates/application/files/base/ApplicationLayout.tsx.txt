@@ -30,24 +30,47 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
   const compact = desktop && collapsed
   const current = navigation.find((page) => page.path === pathname)
   useEffect(() => setMobileOpened(false), [pathname])
-  const links = navigation
-    .filter((page) => !allow || allow(page.path))
-    .map((page) => (
-      <Anchor
-        key={page.path}
-        component={Link}
-        to={page.path}
-        activeOptions={{ exact: true, includeSearch: false }}
-        preload={false}
-        className={classes.navLink}
-        aria-label={t(page.title)}
-        title={compact ? t(page.title) : undefined}
-        underline="never"
-      >
-        <ApplicationIcon name="workspace" />
-        {(!useSidebar || !compact) && <span>{t(page.title)}</span>}
-      </Anchor>
-    ))
+  const visible = navigation.filter((page) => !allow || allow(page.path))
+  const organizationLinks = visible
+    .filter((page) => page.group === "organizationNavigation")
+    .sort(
+      (left, right) =>
+        Number(String(left.path) !== "/organization/manage") -
+        Number(String(right.path) !== "/organization/manage")
+    )
+  /** 每个子项仍是独立路由链接，父分组只负责展开，当前页语义留在子链接。 */
+  const renderLink = (page: (typeof navigation)[number]) => (
+    <Anchor
+      key={page.path}
+      component={Link}
+      to={page.path}
+      activeOptions={{ exact: true, includeSearch: false }}
+      preload={false}
+      className={classes.navLink}
+      aria-label={t(page.title)}
+      title={compact ? t(page.title) : undefined}
+      underline="never"
+    >
+      <ApplicationIcon name="workspace" />
+      {(!useSidebar || !compact) && <span>{t(page.title)}</span>}
+    </Anchor>
+  )
+  const links = (
+    <>
+      {visible.filter((page) => page.group === null).map(renderLink)}
+      {organizationLinks.length > 0 && (
+        <details className={classes.navGroup} open>
+          <summary className={classes.navLink} title={t("organizationNavigation")}>
+            <ApplicationIcon name="organization" />
+            {(!useSidebar || !compact) && <span>{t("organizationNavigation")}</span>}
+          </summary>
+          <div className={compact ? undefined : classes.navChildren}>
+            {organizationLinks.map(renderLink)}
+          </div>
+        </details>
+      )}
+    </>
+  )
   return (
     <AppShell
       className={classes.shell}

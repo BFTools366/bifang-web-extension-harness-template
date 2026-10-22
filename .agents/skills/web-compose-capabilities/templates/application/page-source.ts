@@ -14,6 +14,7 @@ export function applicationPageSource(
 ): string {
   const identity = operations.includes("identity.session")
   const registration = operations.includes("identity.register")
+  const personal = operations.includes("identity.profile")
   const permissions = operations.includes("permissions.enforce")
   const purchase = operations.includes("orders.purchase")
   const organization = operations.some((operation) => operation.startsWith("organization."))
@@ -27,7 +28,7 @@ export function applicationPageSource(
       ' } from "react"',
     ...(identity
       ? [
-          `import { Outlet, useRouter${registration || (organization && permissions) ? ", Link" : ""} } from "@tanstack/react-router"`
+          `import { Outlet, useRouter${registration || personal || (operations.includes("organization.switch") && permissions) ? ", Link" : ""} } from "@tanstack/react-router"`
         ]
       : ['import { Outlet } from "@tanstack/react-router"']),
     "import { Text" +
@@ -35,7 +36,7 @@ export function applicationPageSource(
       (registration || (operations.includes("organization.switch") && permissions)
         ? ", Anchor"
         : "") +
-      (management ? ", Menu" : "") +
+      (personal ? ", Menu" : "") +
       ' } from "@mantine/core"',
     'import { useTranslation } from "react-i18next"',
     'import { ApplicationLayout } from "./ApplicationLayout"',
@@ -72,6 +73,11 @@ export function applicationPageSource(
       'import { TeamWorkspace } from "../organization/TeamWorkspace"',
       'import { teamService } from "./runtime"'
     )
+  if (personal)
+    imports.push(
+      'import { PersonalSettingsPage } from "../identity/PersonalSettingsPage"',
+      'import { personalSettingsApi } from "../../data/api/identity/adapter"'
+    )
   if (registration)
     imports.push(
       'import { RegistrationPage } from "../identity/RegistrationPage"',
@@ -89,15 +95,41 @@ export function MainLayout() {
   ${identity ? 'const router = useRouter()\n  const onAnonymous = useCallback(() => { void router.navigate({ to: "/login", search: { returnTo: safeReturnTo(router.state.location.pathname) }, replace: true }).catch(() => undefined) }, [router])' : ""}
   const { t } = useTranslation()
   const scope = useScope()
-  ${organization ? "const [switchState, setSwitchState] = useState({ opened: false, scope: scope.revision })\n  const accountTrigger = useRef<HTMLButtonElement>(null)" : ""}
+  ${
+    organization
+      ? `const [switchState, setSwitchState] = useState({ opened: false, scope: scope.revision })
+  const accountTrigger = useRef<HTMLButtonElement>(null)
+  const switchDialog = useRef<HTMLDivElement>(null)
+  const switchOwner = useRef({ opened: false, path: "" })
+  /** 打开时记录导航归属，后来的页面不接收旧弹窗焦点。 */
+  function openSwitch() {
+    switchOwner.current = { opened: true, path: router.state.location.href }
+    setSwitchState({ opened: true, scope: scope.revision })
+  }
+  /** 显式关闭拥有当前弹窗，重新打开会使旧退出回调失效。 */
+  function closeSwitch() {
+    switchOwner.current.opened = false
+    setSwitchState((value) => ({ ...value, opened: false }))
+  }
+  /** 仅在原页面和作用域仍有效、用户尚未选择其他控件时归还焦点。 */
+  function restoreSwitchFocus() {
+    const current = applicationScope.getSnapshot()
+    const trigger = accountTrigger.current
+    if (!trigger?.isConnected || switchOwner.current.opened || switchOwner.current.path !== router.state.location.href || switchState.scope !== current.revision || current.blocked) return
+    const active = trigger.ownerDocument.activeElement
+    if (active && active !== trigger.ownerDocument.body && !switchDialog.current?.contains(active)) return
+    trigger.focus()
+  }`
+      : ""
+  }
   ${permissions ? "useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)" : ""}
   const layout = <ApplicationLayout
-    ${identity ? "account={<AccountMenu session={identitySession} scope={scope.revision}" + (organization ? " triggerRef={accountTrigger} organization={<OrganizationMenu key={scope.revision} api={organizationService} scope={scope.revision} blocked={scope.blocked} canSwitch={" + operations.includes("organization.switch") + "}" + (management ? ' management={canVisit("/organization/manage") && <Menu.Item renderRoot={(props) => <Link {...props} to="/organization/manage" preload={false} />}>{t("organizationManage")}</Menu.Item>}' : "") + " open={() => setSwitchState({ opened: true, scope: scope.revision })} />}" : "") + " />}" : ""}
+    ${identity ? "account={<AccountMenu session={identitySession} scope={scope.revision}" + (organization ? " triggerRef={accountTrigger} organization={<OrganizationMenu key={scope.revision} api={organizationService} scope={scope.revision} blocked={scope.blocked} canSwitch={" + operations.includes("organization.switch") + "} open={openSwitch} />}" : "") + (personal ? ' settings={<Menu.Item renderRoot={(props) => <Link {...props} to="/account/settings" preload={false} />}>{t("personalSettings")}</Menu.Item>}' : "") + " />}" : ""}
     ${organization ? "context={() => <OrganizationContext api={organizationService} scope={scope.revision} blocked={scope.blocked} compact={false} canOpen={false} />}" : ""}
     ${permissions ? "allow={canVisit}" : ""}
-    content={scope.blocked ? <Text role="status">{t("applicationLoading")}</Text> : <Outlet />}
+    content={scope.blocked${personal ? ' && router.state.location.pathname !== "/account/settings"' : ""} ? <Text role="status">{t("applicationLoading")}</Text> : <Outlet />}
   />
-  ${identity ? "return <IdentityBoundary session={identitySession} onAnonymous={onAnonymous}>{layout}" + (organization ? '<Modal opened={switchState.opened && switchState.scope === scope.revision && !scope.blocked} returnFocus={false} onExitTransitionEnd={() => { if (switchState.scope === applicationScope.getSnapshot().revision && !applicationScope.getSnapshot().blocked) accountTrigger.current?.focus() }} onClose={() => setSwitchState((value) => ({ ...value, opened: false }))} title={t("organizationSwitch")}><OrganizationPage key={scope.revision} api={organizationService} scope={scope.revision} canSwitch={' + operations.includes("organization.switch") + "} changed={async () => { setSwitchState((value) => ({ ...value, opened: false })); await router.invalidate({ sync: true }) }} /></Modal>" : "") + "</IdentityBoundary>" : "return layout"}
+  ${identity ? "return <IdentityBoundary session={identitySession} onAnonymous={onAnonymous}>{layout}" + (organization ? '<Modal ref={switchDialog} opened={switchState.opened && switchState.scope === scope.revision && !scope.blocked} returnFocus={false} onExitTransitionEnd={restoreSwitchFocus} onClose={closeSwitch} title={t("organizationSwitch")}><OrganizationPage key={scope.revision} api={organizationService} scope={scope.revision} canSwitch={' + operations.includes("organization.switch") + "} changed={async () => { closeSwitch(); await router.invalidate({ sync: true }) }} /></Modal>" : "") + "</IdentityBoundary>" : "return layout"}
 }`)
   if (identity)
     lines.push(`/** 登录完成后仅返回已声明的应用内部路径。 */
@@ -144,6 +176,14 @@ export function ForbiddenPage() {
     const module = page.module
     const component = page.component
     if (!module) continue
+    if (component === "PersonalSettingsPage") {
+      lines.push(`/** 个人设置属于账号，不消费组织业务权限，改密成功后回到登录。 */
+export function PersonalSettings() {
+  const router = useRouter()
+  return <PersonalSettingsPage api={personalSettingsApi} session={identitySession} canChangePassword={${operations.includes("identity.password.change")}} onPasswordChanged={async () => { await router.navigate({ to: "/login", search: {}, replace: true }) }} />
+}`)
+      continue
+    }
     if (workspace && component === "OrganizationPage") {
       lines.push(`/** 团队恢复与邀请接受是账号级入口，不要求团队业务权限。 */
 export function Organization() {
@@ -196,11 +236,5 @@ export function ${name}() {
 }`)
   }
   // 组件导入与 runtime 导入去重，同时保持显式具名边界。
-  let source = [...new Set(imports)].join("\n") + "\n\n" + lines.join("\n") + "\n"
-  if (workspace)
-    source = source.replace(
-      " open={() => setSwitchState",
-      ' joining={<Menu.Item renderRoot={(props) => <Link {...props} to="/organization" preload={false} />}>{t("teamJoin")}</Menu.Item>} open={() => setSwitchState'
-    )
-  return source
+  return [...new Set(imports)].join("\n") + "\n\n" + lines.join("\n") + "\n"
 }

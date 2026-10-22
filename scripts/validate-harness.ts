@@ -1,7 +1,6 @@
 import { validateGoAssets } from "./harness-validation/go-assets.ts"
 import path from "node:path"
 import { readCapabilityCatalog } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
-import { pathToFileURL } from "node:url"
 import { inspectProjectChineseComments } from "../.harness/tooling/comment-policy.ts"
 import type { HarnessValidationReport } from "./harness-validation/contracts.ts"
 import { validateNodeTooling } from "./harness-validation/node-tooling.ts"
@@ -23,6 +22,7 @@ import { validateToolingContract } from "./harness-validation/tooling.ts"
 import { validateHarnessVersion } from "./harness-validation/version.ts"
 import { validateUpgradeOwnership } from "./harness-validation/upgrade-ownership.ts"
 import { loadDesignSkillBundle } from "../.harness/tooling/install-design-skill.ts"
+import { isMainModule } from "../.harness/tooling/files.ts"
 
 /** 执行完整源 Harness 验证并返回稳定统计。 */
 export async function validateHarness(rootInput: string): Promise<HarnessValidationReport> {
@@ -67,9 +67,7 @@ export async function validateHarness(rootInput: string): Promise<HarnessValidat
   return { files: files.length, skills, markdownLinks }
 }
 
-const executed =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executed === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   validateHarness(process.cwd())
     .then((report) => {
       console.log(

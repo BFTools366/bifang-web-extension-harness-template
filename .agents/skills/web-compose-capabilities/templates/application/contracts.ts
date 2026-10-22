@@ -31,9 +31,10 @@ export interface ApplicationPage {
 }
 /** 路由与 Application 导出共用同一组件名，固定页面去掉 Page 后缀。 */
 export const routeComponent = (page: ApplicationPage) => page.component.replace(/Page$/u, "")
-/** 不要求业务权限码的页面：拒绝页始终豁免，组织恢复页随组织能力豁免。 */
+/** 本人设置和拒绝页只要求身份；组织恢复页随组织能力豁免业务权限。 */
 export const permissionFreePaths = (organization: boolean): string[] => [
   "/forbidden",
+  "/account/settings",
   ...(organization ? ["/organization"] : [])
 ]
 /** 不要求业务权限码的动作：组织切换属于撤权后的恢复入口。 */

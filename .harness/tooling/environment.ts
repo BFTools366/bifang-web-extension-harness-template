@@ -3,6 +3,7 @@ import path from "node:path"
 import { parseEnv } from "node:util"
 import { loadProjectConfig } from "./config.ts"
 import { pathExists, isMainModule } from "./files.ts"
+import { isLocalWorkspaceMember } from "./workspace-context.ts"
 import type { EnvironmentBaseUrls, ProjectType } from "./types.ts"
 
 // 保存 ENVIRONMENT_FILES 变量供当前逻辑使用。
@@ -162,6 +163,7 @@ export async function validateEnvironmentFiles(
   const root = path.resolve(rootInput)
   // 保存 project 变量供当前逻辑使用。
   const project = await loadProjectConfig(root)
+  const local = await isLocalWorkspaceMember(root, project)
   // 保存 prefix 变量供当前逻辑使用。
   const prefix = publicPrefix(project.projectType)
   // 保存 relativePath 变量供当前逻辑使用。
@@ -189,15 +191,17 @@ export async function validateEnvironmentFiles(
             if (process.env[key] !== undefined) raw[key] = process.env[key]
           }
         }
-        return [
+        const result = [
           environment,
           parseApplicationConfig(
             raw,
             project.projectType,
             environment,
-            environment === "release" && activeEnvironment === "release"
+            !local && environment === "release" && activeEnvironment === "release"
           )
         ] as const
+        if (local && result[1].apiBaseUrl) throw new Error("纯本地项目不应配置服务地址")
+        return result
       }
     )
   )

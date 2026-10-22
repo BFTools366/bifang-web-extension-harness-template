@@ -6,7 +6,7 @@
 
 ## Go 服务基准
 
-[固定 Go 上游](../../../../docs/GO_CLIENT_CONTRACT.md) 没有 RBAC；本地团队 overlay 已实现团队角色、角色权限、成员角色、权限目录和有效权限查询。规则统一见 [ACCOUNT_OWNERSHIP.md](../../../../docs/ACCOUNT_OWNERSHIP.md)。Token 只证明身份，所有成员（含 owner）每次经角色权限链计算有效 code；前端菜单、路由、元素和执行前只判断 code，不按角色名授权。CRM 与平台权限仍需独立合同，不能据此伪造。
+[固定 Go 上游](../../../../docs/GO_CLIENT_CONTRACT.md) 没有 RBAC；本地组织 overlay 已实现组织角色、角色权限、成员角色、权限目录和有效权限查询。规则统一见 [ACCOUNT_OWNERSHIP.md](../../../../docs/ACCOUNT_OWNERSHIP.md)。Token 只证明身份，所有成员（含 owner）每次经角色权限链计算有效 code；前端菜单、路由、元素和执行前只判断 code，不按角色名授权。CRM 与平台权限仍需独立合同，不能据此伪造。
 
 ## 能力与事实
 

@@ -1,6 +1,8 @@
 # TypeScript Web / Chrome Extension 单包模板
 
-本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，先选择唯一 Web 或 Extension 前端，再询问是否已有服务端；没有则默认同时创建一个 Go 服务端；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
+服务来源也接受显式 --server none，只生成所选前端，用于明确不需要服务端的本地功能；不要求或生成业务 endpoint。该模式三环境地址为空，正式空地址例外仅属于有效本地成员；不得放宽远端项目的正式地址门禁。
+
+本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，先采集并澄清需求，再自动选择唯一适配的 Web / Extension 宿主、必要能力与本地方案；等价或有争议时才推荐，需要服务时仅补现成服务事实；没有则默认同时创建一个 Go 服务端；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
 
 ## 工程基础与功能组合
 
@@ -36,12 +38,12 @@ pnpm instantiate -- /absolute/path --type extension --server create \
 
 位置参数是源 Harness 之外的相对或绝对父目录；相对路径按调用 cwd 解析（聊天表单按源 Harness 根），只读核对可访问性后展示绝对保存位置，询问是否保存到该位置，用户同意后继续，无需重输绝对路径。无交互终端的相对参数须通过已确认表单执行；最终项目目录自动拼接为“父目录/项目标识”，该子目录必须不存在或为空。上述示例分别创建 `/absolute/path/example-web` 和 `/absolute/path/example-extension`。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
-- 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`，无默认值。
-- 类型选好后立即询问是否已有服务端：有则使用 `--server existing` 并提供开发 BaseURL；没有则使用 `--server create`，默认创建所选前端和一个 Go 服务端，无需再选服务端类型。
+- 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`；CLI 无默认值，Agent 可依据充分需求自动选择唯一适配宿主并记录理由。
+- 需求采集先于类型。Agent 根据充分需求自动选择唯一适配宿主及服务需求，等价或有争议时才推荐；已有合法选择优先复用，自动结果独立记录依据。确定完全本地时自动 none，需要服务且现成服务事实未知才询问：有则使用 `--server existing` 并提供开发 BaseURL；没有则使用 `--server create`，默认创建所选前端和一个 Go 服务端；确定纯本地且不需要服务端时自动采用 `--server none`，无需再选服务端类型。
 - `--name` 是用户可见名称。
-- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互在类型与服务来源之后询问，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
+- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互作为第一项询问，先于类型与服务来源，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
 - 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
-- 非交互 `--policy-mode 预设|自定义` 必填，也接受 `recommended|custom`；自定义模式须显式提供五个 `enabled|disabled` 值。交互模式逐项问答，策略模式及自定义项展示建议默认值，题面明确“回车采用”后可接受；已有单项覆盖时建议自定义。预设模式不能混入单项覆盖。
+- Agent 设置默认采用预设，聊天和 CLI 均不再询问策略模式，`--policy-mode` 可省略，汇总记录“默认预设”。主动提供单项策略时沿用为自定义；显式自定义仍逐项补齐，非交互须提供五项合法值。显式预设不能混入单项覆盖，最终创建确认保持不变。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
 - `--identity-i18n` 接受 §3.1 的 JSON 字符串；默认语言与名称/说明翻译保存在 `.harness/project.json`，UI 和 manifest 都消费同一事实。
 - `--development-base-url` 在已有服务时必填；自建服务由创建器使用 `http://127.0.0.1:8080`。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS；正式发布前及活动 Release 校验必须补齐正式地址。
@@ -86,7 +88,7 @@ pnpm instantiate -- /absolute/path --type extension --server create \
 `.harness/brand/logo-1024.png` 是 1024×1024 的规范母版：
 
 - 上传模式：读取用户提供图像，校验格式与尺寸，按规范缩放/留白并输出 PNG 母版；不得覆盖用户原文件。
-- Agent 创建或重设计路径显式调用 `$web-prepare-brand-identity`，生成并展示三个独立编号候选，用户明确选一后只通过 `--logo` 导入选中图；已有明确选定正式 Logo 则直接沿用。候选临时文件位于源和目标之外，选择前不写正式母版或项目事实，未选候选不进入项目。离线三候选 helper、展示、选择与清理合同由品牌 Skill 唯一维护；选图不代替创建确认。CLI 无图像生成服务依赖；直接省略 `--logo` 时保留原有单图离线生成，并在汇总与完成输出列出母版、Web Logo/Favicon 或 Extension icon。
+- Agent 创建或重设计路径显式调用 `$web-prepare-brand-identity`，生成、查看并展示需求唯一适配的方向并自动选定；等价方向或审美分歧时才展示编号候选并推荐，最终只通过 `--logo` 导入选中图；已有明确选定正式 Logo 则直接沿用。候选临时文件位于源和目标之外，自动或人工选定前不写正式母版或项目事实，未选候选不进入项目。离线候选 helper、展示、自动或人工选择与清理合同由品牌 Skill 唯一维护；选图不代替创建确认。CLI 无图像生成服务依赖；直接省略 `--logo` 时保留原有单图离线生成，并在汇总与完成输出列出母版、Web Logo/Favicon 或 Extension icon。
 - 离线生成模式：以稳定项目标识、名称和品牌色为输入，确定性生成母版；同一输入和模板版本必须得到相同字节或等价的稳定像素结果。
 - 所有派生资产从母版生成。派生失败必须使初始化报错，现有文件不能被宣称为完成项目。
 - 母版与项目事实需要一并纳入版本控制；临时源文件和绝对上传路径不应成为运行时依赖。
@@ -154,7 +156,7 @@ Plasmo 稳定依赖固定 `0.90.5`。同一个 `projectType=extension` 单包默
 
 ### 3.9 项目级设计支持基线
 
-- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和摘要登记 helper。工程事务只分发能力与可选需求原文；事务前允许实例化委托需求定义与功能组合只读分析，正式需求澄清、PRD 与原型登记在成功下游执行。工程事务不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
+- 两种终端同时携带 `$web-define-product`、`$web-design-prototype` 与 `$web-implement-change` 的完整项目级 Skill、发现元数据、PRD 结构参考和摘要登记 helper。工程事务只分发能力与可选需求原文；事务前允许实例化委托需求定义与功能组合只读分析，创建前完成必要澄清和只读分析；正式 PRD 与原型登记在成功下游执行。工程事务不生成 `docs/product_spec/` 或 `docs/prototypes/`，不读取或写入全局 Skills。
 - 下游实际开发才运行“澄清 → 唯一 Product Spec（PRD）→ 一个桌面交互 HTML 原型 → 自查、展示及登记 → 按已有授权开发”；详细合同在 [`web-design-prototype`](../.agents/skills/web-design-prototype/SKILL.md)。原型记录绑定 PRD 和唯一 HTML 的 SHA-256，漂移需修订、自查并重新登记；不做 A/B 选择或 Mobile 设计；日常小修复不自动重走流程。
 
 - Web 与 Extension 初始化默认检查项目内 `.agents/skills/design-taste-frontend/SKILL.md`；有效已有版本连同辅助文件原样保留，缺失时自动安装，无额外用户问询，不读取或写入全局 Skills。
@@ -436,7 +438,7 @@ pnpm harness validate
 
 以下条件只证明工程创建事务完成，不代表完整创建任务完成：
 
-1. 非交互 `--type` 或无默认值的交互提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；已明确选择唯一 Web / Extension 宿主类型，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
+1. 非交互 `--type`、有依据的 Agent 自动选择或无默认值的 CLI 提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；已明确选择唯一 Web / Extension 宿主类型，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。

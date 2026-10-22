@@ -183,6 +183,7 @@ describe("single-package Harness validation and governance", () => {
       JSON.stringify({
         targetRoot: path.join(repositoryRoot, "..", "interactive-web"),
         projectType: "web",
+        serverMode: "existing",
         name: "Interactive Web",
         id: "Invalid_ID",
         description: "Interactive form contract.",
@@ -297,7 +298,7 @@ describe("single-package Harness validation and governance", () => {
       runInstantiateCli(
         [
           "--server",
-          "create",
+          "existing",
           "--type",
           "web",
           "--description",
@@ -356,7 +357,7 @@ describe("single-package Harness validation and governance", () => {
       const argv = [
         parent,
         "--server",
-        "create",
+        "existing",
         "--type",
         "web",
         "--name",

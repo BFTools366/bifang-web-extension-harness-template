@@ -6,6 +6,7 @@ import { assertProjectType, normalizeColor } from "./config.ts"
 import { validateBaseUrls } from "./environment.ts"
 import type { AgentPolicyMode, ProjectType } from "./types.ts"
 import { createRequirementsText, readCreationRequirements } from "./creation-requirements.ts"
+import { parseInitializationPatch, reviseInitializationAnswers } from "./initialization-answers.ts"
 
 /** 将创建类型编号或名称解析为唯一宿主，不提供默认类型。 */
 export function parseProjectType(value: string): ProjectType {
@@ -70,6 +71,23 @@ export interface PromptDefaults {
   e2eHint?: string
 }
 
+/** 创建时默认采用预设；主动提供单项策略时保留自定义意图，不额外询问模式。 */
+export function resolvePolicyMode(values: PromptDefaults): AgentPolicyMode {
+  const hasIndividualPolicy = [
+    values.superpowers,
+    values.userOwnedTasks,
+    values.parallelWorktreeSubagents,
+    values.acceptanceSmoke,
+    values.e2eHint
+  ].some((choice) => choice !== undefined)
+  const mode = parsePolicyMode(
+    values.policyMode ?? (hasIndividualPolicy ? "custom" : "recommended")
+  )
+  if (mode === "recommended" && hasIndividualPolicy)
+    throw new Error("预设模式不能同时指定单项策略；请改用自定义模式")
+  return mode
+}
+
 /** 描述可注入测试替身的单轮交互问答。 */
 export type InteractiveQuestion = (
   question: string,
@@ -81,6 +99,7 @@ export interface InitializationInteraction {
   mode?: "cli" | "agent"
   cwd?: string
   validateTarget?: (values: PromptDefaults) => Promise<void>
+  inputSources?: Readonly<Record<string, string>>
 }
 
 /** 关联题库策略字段与唯一命令行参数，题序仍只来自题库。 */
@@ -103,6 +122,7 @@ interface InitializationQuestion {
   title: string
   question: string
   hint: string
+  agentHint?: string
   options: readonly { value: string; label: string; description: string }[]
 }
 
@@ -118,10 +138,10 @@ export function formatInitializationQuestion(
   }
 ): string {
   const lines = [
-    `问题名称：${definition.title}`,
+    context.mode === "agent" ? definition.title : `问题名称：${definition.title}`,
     definition.question,
     ...definition.options.map(({ label, description }) => `- ${label}（${description}）`),
-    definition.hint
+    context.mode === "agent" ? (definition.agentHint ?? definition.hint) : definition.hint
   ]
   if (context.suggested !== undefined) {
     lines.push(
@@ -132,13 +152,14 @@ export function formatInitializationQuestion(
   }
   if (context.parseError !== undefined) lines.push(`上次回答无法解析：${context.parseError}`)
   if (context.issue !== undefined) lines.push(`当前问题：${context.issue}`)
-  lines.push(`字段： ${context.field}`, "> ")
+  if (context.mode !== "agent") lines.push(`字段： ${context.field}`, "> ")
   return lines.join("\n")
 }
 
 /** 描述已解析基础字段及其最终输入来源。 */
 interface CollectedBasicFields {
   values: PromptDefaults
+  answers: PromptDefaults
   inputSources: Record<string, string>
   rawParentRoot?: string
 }
@@ -146,7 +167,7 @@ interface CollectedBasicFields {
 /** 描述一轮 JSON 回答实际更新的基础字段。 */
 interface MergedBasicAnswer {
   values: PromptDefaults
-  suppliedFields: BasicField[]
+  suppliedFields: (keyof PromptDefaults)[]
 }
 
 /** 按固定清单中的键顺序逐项收集基础字段，不随默认值改变问法。 */
@@ -182,8 +203,11 @@ async function normalizeBasicField(
   allValues: PromptDefaults,
   cwd: string
 ): Promise<string> {
-  const selected = allValues.projectType ? parseWorkspaceSelection(allValues.projectType) : []
-  const isExtension = selected.includes("extension")
+  // 需求校验不依赖宿主，非法宿主不能污染需求采集或抢先要求技术选择。
+  const isExtension =
+    ["name", "description", "identityI18n"].includes(field) && allValues.projectType
+      ? parseWorkspaceSelection(allValues.projectType).includes("extension")
+      : false
   if (field === "targetRoot") {
     const targetRoot = requiredText(value, "目标目录")
     return path.resolve(cwd, targetRoot)
@@ -194,7 +218,15 @@ async function normalizeBasicField(
   if (field === "serverMode") {
     return parseServerMode(value)
   }
-  if (field === "apiContract") return value?.trim() ? path.resolve(cwd, value.trim()) : ""
+  if (field === "apiContract") {
+    if (
+      value?.trim() &&
+      allValues.serverMode &&
+      parseServerMode(allValues.serverMode) !== "existing"
+    )
+      throw new Error("当前不接入已有服务，请移除旧接口文档")
+    return value?.trim() ? path.resolve(cwd, value.trim()) : ""
+  }
   if (field === "requirementsFile") {
     if (value?.trim() && allValues.requirementsText) {
       throw new Error("需求文件与直接文本只能提供一种")
@@ -250,18 +282,7 @@ async function normalizeBasicField(
   }
   if (field === "brandColor") return normalizeColor(requiredText(value, "品牌颜色"))
   if (field === "policyMode") {
-    const policyMode = parsePolicyMode(requiredText(value, "Agent 策略模式"))
-    const hasIndividualPolicy = [
-      allValues.superpowers,
-      allValues.userOwnedTasks,
-      allValues.parallelWorktreeSubagents,
-      allValues.acceptanceSmoke,
-      allValues.e2eHint
-    ].some((choice) => choice !== undefined)
-    if (policyMode === "recommended" && hasIndividualPolicy) {
-      throw new Error("预设模式不能同时指定单项策略；请改用自定义模式")
-    }
-    return policyMode
+    return resolvePolicyMode({ ...allValues, policyMode: value })
   }
   if (field === "confirmedBy") return value?.trim() || "当前用户"
 
@@ -270,14 +291,33 @@ async function normalizeBasicField(
     testBaseUrl: field === "testBaseUrl" ? (value ?? "") : "",
     releaseBaseUrl: field === "releaseBaseUrl" ? (value ?? "") : ""
   }
-  const normalizedUrl = validateBaseUrls(baseUrls)[field]
+  let normalizedUrl: string
+  try {
+    normalizedUrl = validateBaseUrls(baseUrls)[field]
+  } catch (error) {
+    throw new Error(
+      field === "releaseBaseUrl"
+        ? "请填写完整的 HTTPS 地址，不要包含账号、密码或附加参数"
+        : "请填写完整的 HTTP 或 HTTPS 地址，不要包含账号、密码或附加参数",
+      { cause: error }
+    )
+  }
+  const mode = allValues.serverMode ? parseServerMode(allValues.serverMode) : undefined
+  if (mode === "none" && normalizedUrl) throw new Error("纯本地项目不需要服务地址，请移除旧地址")
+  if (
+    mode === "create" &&
+    field === "developmentBaseUrl" &&
+    normalizedUrl &&
+    normalizedUrl !== "http://127.0.0.1:8080"
+  )
+    throw new Error("自建服务使用本地地址，请移除旧服务地址")
   if (
     field === "developmentBaseUrl" &&
     allValues.serverMode &&
     parseServerMode(allValues.serverMode) === "existing" &&
     !normalizedUrl
   ) {
-    throw new Error("已有服务端必须提供开发 BaseURL")
+    throw new Error("请填写已有服务的开发环境地址")
   }
   return normalizedUrl
 }
@@ -326,7 +366,7 @@ function mergeBasicAnswer(
         ...(field === "requirementsFile" ? { requirementsText: undefined } : {}),
         [field]: text
       },
-      suppliedFields: [field]
+      suppliedFields: field === "requirementsFile" ? [field, "requirementsText"] : [field]
     }
   }
   let parsed: unknown
@@ -342,29 +382,17 @@ function mergeBasicAnswer(
   if (field === "identityI18n" && ("defaultLocale" in record || "translations" in record)) {
     return { values: { ...current, identityI18n: text }, suppliedFields: [field] }
   }
-  const allowed = new Set([...pending, ...OPTIONAL_BASIC_FIELDS])
-  const unknown = Object.keys(record).filter((key) => !allowed.has(key as BasicField))
-  if (unknown.length > 0) {
-    throw new Error(`本轮只接受这些字段：${pending.join(", ")}；发现 ${unknown.join(", ")}`)
+  const patch = parseInitializationPatch(answer)
+  return {
+    values: reviseInitializationAnswers(current, patch),
+    suppliedFields: Object.keys(patch) as (keyof PromptDefaults)[]
   }
-  const next = { ...current }
-  const suppliedFields: BasicField[] = []
-  for (const field of allowed) {
-    if (!(field in record)) continue
-    const value = record[field]
-    if (typeof value !== "string" && typeof value !== "number") {
-      throw new Error(`${field} 必须是字符串`)
-    }
-    next[field] = String(value)
-    suppliedFields.push(field)
-  }
-  return { values: next, suppliedFields }
 }
 
 /** 仅呈现决定下一步的一个问题和可明确接受的建议值。 */
 function basicQuestion(
   field: BasicField,
-  issue: string,
+  issue: string | undefined,
   suggested: string | undefined,
   parseError?: string,
   mode?: "cli" | "agent"
@@ -390,6 +418,7 @@ export async function collectBasicFields(
   ask: InteractiveQuestion,
   interaction: InitializationInteraction = {}
 ): Promise<CollectedBasicFields> {
+  let rawAnswers = { ...defaults }
   let values: PromptDefaults = {
     ...defaults,
     brandColor: defaults.brandColor ?? "#4C6EF5"
@@ -397,8 +426,15 @@ export async function collectBasicFields(
   let rawParentRoot = defaults.targetRoot
   const cwd = path.resolve(interaction.cwd ?? process.cwd())
   const inputSources: Record<string, string> = {}
+  const answered = new Set<keyof PromptDefaults>(
+    BASIC_FIELDS.filter(
+      ({ key }) =>
+        defaults[key] !== undefined && interaction.inputSources?.[key] !== "随服务来源修订清除"
+    ).map(({ key }) => key)
+  )
   for (const { key } of BASIC_FIELDS) {
-    if (defaults[key] !== undefined) inputSources[key] = "命令行参数"
+    if (defaults[key] !== undefined)
+      inputSources[key] = interaction.inputSources?.[key] ?? "命令行参数"
   }
   if (defaults.brandColor === undefined) inputSources.brandColor = "Harness 默认值"
   for (const key of OPTIONAL_BASIC_FIELDS) {
@@ -432,6 +468,9 @@ export async function collectBasicFields(
     if (values.id === undefined && normalized.id !== undefined && !issues.has("id")) {
       inputSources.id = "英文名称自动生成"
     }
+    if (values.policyMode === undefined && !issues.has("policyMode")) {
+      inputSources.policyMode = normalized.policyMode === "custom" ? "沿用单项策略" : "默认预设"
+    }
     if (!issues.has("targetRoot") && !issues.has("id") && interaction.validateTarget) {
       try {
         await interaction.validateTarget(normalized)
@@ -444,7 +483,7 @@ export async function collectBasicFields(
       for (const key of ["developmentBaseUrl", "testBaseUrl", "releaseBaseUrl"] as const) {
         if (normalized[key] === "") inputSources[key] = "未配置（可后续补齐）"
       }
-      return { values: normalized, inputSources, rawParentRoot }
+      return { values: normalized, answers: rawAnswers, inputSources, rawParentRoot }
     }
 
     const pending = BASIC_FIELDS.filter(({ key }) => issues.has(key)).map(({ key }) => key)
@@ -453,21 +492,35 @@ export async function collectBasicFields(
     const suggested = suggestedBasicValue(field, normalized)
     const issue = issues.get(field)
     if (issue === undefined) throw new Error(`初始化字段缺少校验问题：${field}`)
-    const answer = await ask(basicQuestion(field, issue, suggested, parseError, interaction.mode), {
-      field
-    })
+    const answer = await ask(
+      basicQuestion(
+        field,
+        answered.has(field) ? issue : undefined,
+        suggested,
+        parseError,
+        interaction.mode
+      ),
+      { field }
+    )
     const acceptedDefault =
       interaction.mode !== "agent" && answer.trim() === "" && suggested !== undefined
     if (interaction.mode === "agent" && answer.trim() === "") continue
     try {
       const merged = mergeBasicAnswer(
-        normalized,
+        inputSources.policyMode === "默认预设"
+          ? { ...normalized, policyMode: undefined }
+          : normalized,
         pending,
         acceptedDefault ? (suggested ?? "") : answer
       )
       values = merged.values
+      rawAnswers = reviseInitializationAnswers(
+        rawAnswers,
+        Object.fromEntries(merged.suppliedFields.map((key) => [key, values[key]]))
+      )
       if (merged.suppliedFields.includes("targetRoot")) rawParentRoot = values.targetRoot
       for (const key of merged.suppliedFields) {
+        answered.add(key)
         inputSources[key] = acceptedDefault
           ? "交互接受默认值"
           : answer.trim().startsWith("{")

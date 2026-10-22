@@ -90,6 +90,16 @@
           "path": "templates/application/files/identity/useEmailVerification.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/PersonalSettingsPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/personalSettings.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
       ],
       "operations": [
@@ -109,7 +119,9 @@
             "organization.accept",
             "organization.leave",
             "permissions.roles",
-            "permissions.grant"
+            "permissions.grant",
+            "identity.profile",
+            "identity.password.change"
           ]
         },
         {
@@ -122,7 +134,7 @@
         },
         {
           "id": "identity.password.change",
-          "requires": ["identity.session"]
+          "requires": ["identity.profile"]
         },
         {
           "id": "identity.verification",

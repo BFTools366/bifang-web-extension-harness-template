@@ -1,10 +1,10 @@
 # Bifang Web Harness Template
 
-新创建以 [Workspace 合同](docs/WORKSPACE_TEMPLATE.md) 为准：根拥有 Git、锁与产品事实，成员内部单一宿主；已有服务必填开发 BaseURL，无服务创建 Go 成员。下文旧平铺单包限定只适用于既有独立前端；发布与验收必须显式选定一个成员、根 Git 与精确候选。
+新创建以 [Workspace 合同](docs/WORKSPACE_TEMPLATE.md) 为准：根拥有 Git、锁与产品事实，成员内部单一宿主；已有服务必填开发 BaseURL，选择自建服务时创建 Go 成员；明确纯本地使用 none。下文旧平铺单包限定只适用于既有独立前端；发布与验收必须显式选定一个成员、根 Git 与精确候选。
 
 Bifang Web Harness Template 是用于创建和维护 Web、Extension 与 Go 服务 Workspace 的 Harness。项目使用者通过 Agent 提供创建信息与开发需求，Agent 依据仓库规则完成工程创建和后续实施。
 
-新创建以 Workspace 为根，用一个 package.json 包装按需成员：`<id>_web`、`<id>_extension`、`<id>_server`。已有服务必填开发 BaseURL；没有服务则创建 Go 服务并连接前端，不另填 Go 问卷，也不生成产品 Mock。用户、组织、权限、商品、订单、钱包与审计通过独立领域 Skill 完成两端实施和真实联调。具体结构与补充分析见 [Workspace 规范](docs/WORKSPACE_TEMPLATE.md)，后端基线见 [Go 服务知识](docs/GO_SERVICE.md)。
+新创建以 Workspace 为根，用一个 package.json 包装按需成员：`<id>_web`、`<id>_extension`、`<id>_server`。已有服务必填开发 BaseURL；选择自建服务时创建 Go 服务并连接前端，不另填 Go 问卷，也不生成产品 Mock。用户、组织、权限、商品、订单、钱包与审计通过独立领域 Skill 完成两端实施和真实联调。具体结构与补充分析见 [Workspace 规范](docs/WORKSPACE_TEMPLATE.md)，后端基线见 [Go 服务知识](docs/GO_SERVICE.md)。
 
 本 README 面向项目使用者和执行 Agent，介绍用途、创建方式、交付内容和常用入口。Agent 开始工作时先读取 [AGENTS.md](AGENTS.md)，按其中的任务路由与 Skills 地图选择需要的规范。
 
@@ -41,18 +41,18 @@ Bifang Web Harness Template 是用于创建和维护 Web、Extension 与 Go 服�
 
 | 信息                  | 提供方式与适用条件                                                                                                                                                                                                                                |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 项目类型              | 先只选择 Web 或 Extension，无默认值。                                                                                                                                                                                                             |
-| 服务来源              | 选好前端后立即询问是否已有服务端；有则必填开发 BaseURL，可附接口文档；没有则默认创建所选前端和一个 Go 服务端。                                                                                                                                    |
 | 详细需求文档          | 可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）附件或直接输入，也可暂不提供；用于明确用户、页面、流程与功能范围，减少重复沟通。CLI 支持 `--requirements-file`（.md/.txt）或 `--requirements-text`；Word 由 Agent 读取完整正文后交接。 |
+| 项目类型              | 先采集需求；Agent 唯一适配时自动选择 Web 或 Extension，等价或有争议时才推荐；CLI 无默认值。                                                                                                                                                       |
+| 服务来源              | 先澄清需求并自动判断服务需求；纯本地自动 none，需要服务时只补现成服务事实；已有服务则必填开发 BaseURL，可附接口文档；无现成服务默认创建 Go；明确纯本地则 none，不创建服务端。                                                                     |
 | 项目显示名称          | 页面或扩展中显示的非空名称。                                                                                                                                                                                                                      |
 | 源 Harness 外的父目录 | 提供模板之外的相对或绝对父路径；相对路径解析、校验后展示绝对保存位置，确认后继续，无需重复输入；最终目录为“父目录/项目标识”，该子目录须不存在或为空。                                                                                             |
 | 项目说明              | Extension 必填非空简短说明；Web 缺省使用显示名称。                                                                                                                                                                                                |
-| Agent 策略模式        | 选择预设或自定义；自定义时逐项选择能力，建议值单独展示。                                                                                                                                                                                          |
+| Agent 策略模式        | 默认采用预设，不再询问；仅主动自定义时补齐缺失能力设置，汇总展示实际配置。                                                                                                                                                                        |
 | 项目标识              | 通常由 Agent 根据名称的英文翻译生成小写 kebab-case，例如“示例网页”→ `example-web`；已有合法标识直接复用。                                                                                                                                         |
 
-Logo、品牌色和身份本地化可一并提供。Agent 创建流程生成并展示 3 个图标方案，用户选 1 个后导入；已有选定正式 Logo 则直接沿用。离线三选一入口见[品牌 Skill](.agents/skills/web-prepare-brand-identity/SKILL.md)，纯 CLI 直接省略 Logo 时保留单图确定性生成。名称、说明与品牌同步规则见[初始化契约](docs/TS_WEB_TEMPLATE.md#3-项目身份与品牌事实)。
+Logo、品牌色和身份本地化可一并提供。Agent 优先生成并展示需求唯一适配的品牌方向并自动选定；等价方向或审美分歧才展示候选并推荐；已有选定正式 Logo 则直接沿用。离线候选入口见[品牌 Skill](.agents/skills/web-prepare-brand-identity/SKILL.md)，纯 CLI 直接省略 Logo 时保留单图确定性生成。名称、说明与品牌同步规则见[初始化契约](docs/TS_WEB_TEMPLATE.md#3-项目身份与品牌事实)。
 
-创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。已有服务须提供开发 BaseURL；没有服务则创建并连接本地 Go，测试和正式地址可后续配置；正式发布前补齐 HTTPS 正式地址。创建需求可先只读分析，原文随事务保存到新项目 `docs/requirements/source.txt`；完整范围确认在下游 PRD 中复用，endpoint 与凭据按对应门禁处理，不要求重贴需求。
+创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。已有服务须提供开发 BaseURL；选择自建服务时创建并连接本地 Go，测试和正式地址可后续配置；正式发布前补齐 HTTPS 正式地址。创建需求可先只读分析，原文随事务保存到新项目 `docs/requirements/source.txt`；完整范围确认在下游 PRD 中复用，endpoint 与凭据按对应门禁处理，不要求重贴需求。
 
 ### 创建后会得到什么
 
@@ -79,16 +79,21 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 
 新页面、影响页面或流程的需求变更，以及明确的设计、视觉、布局或风格修改，先生成或修订一个桌面交互原型，自查后展示预览并等待用户反馈，再实施。产品范围变化时先更新 PRD，纯视觉变更复用有效 PRD；纯逻辑修复、文案纠错或恢复已确认设计的缺陷可直接处理。完整创建仅凭一次性首版授权复用阶段批准，后续改版不能沿用。需求原文按[输入与交接合同](.agents/skills/web-instantiate-project/references/requirements-intake.md)保留，已有分析和建议直接沿用。首页由实际需求实现；基础主界面始终接入宿主路由，所选能力必须完成固定页面及代码接线。
 
-以下命令在生成的新项目目录中运行：
+以下命令在生成的 Workspace 根目录运行，`<member>` 为已选成员 `web`、`extension` 或 `server`：
 
-| 命令                                    | 用途                                                       |
-| --------------------------------------- | ---------------------------------------------------------- |
-| `pnpm dev`                              | 启动当前项目的开发环境；Extension 默认使用 Chrome。        |
-| `pnpm dev:firefox`                      | 仅 Extension，用 Firefox 目标开发。                        |
-| `pnpm test:related <changed-source...>` | 运行与当前改动相关的测试。                                 |
-| `pnpm test`                             | 运行全部测试。                                             |
-| `pnpm build -- --e2e=enabled`           | 构建正式产物并要求 E2E 验证。                              |
-| `pnpm build -- --e2e=disabled`          | 构建正式产物，不执行可选 E2E；适用的浏览器硬要求仍须满足。 |
+| 命令                                             | 用途                                                                   |
+| ------------------------------------------------ | ---------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:<member>`                 | 启动全部或指定成员的开发环境；选中自建服务时先启动并等待 Go 服务健康。 |
+| `pnpm test` / `pnpm test:<member>`               | 运行全部或指定成员的测试。                                             |
+| `pnpm build -- --member <member> --e2e=enabled`  | 构建指定成员的正式产物并要求 E2E 验证；根 `build` 必须指定成员。       |
+| `pnpm build -- --member <member> --e2e=disabled` | 同上，不执行可选 E2E；适用的浏览器硬要求仍须满足。                     |
+
+以下命令在前端成员目录（如 `<id>_web/`、`<id>_extension/`）运行：
+
+| 命令                                    | 用途                                                        |
+| --------------------------------------- | ----------------------------------------------------------- |
+| `pnpm test:related <changed-source...>` | 运行与当前改动相关的测试。                                  |
+| `pnpm dev:firefox`                      | 仅 Extension，用 Firefox 目标开发；默认 `dev` 使用 Chrome。 |
 
 构建与发布的授权、候选及验证规则见[发布说明](docs/RELEASE.md)。Extension 的 Chrome MV3 / Firefox MV2 兼容约束见[技术基线](docs/TS_WEB_TEMPLATE.md#5-extension-技术基线)。
 
@@ -119,13 +124,14 @@ API 与本地存储统一归入 `src/data/`。REST/Ky、GraphQL、IndexedDB 的�
 | `docs/`             | 工程规范、专题说明和项目记忆。                                            |
 | `tests/`            | 生成、治理、升级和工具边界的回归测试。                                    |
 
-| 下游项目路径                   | 职责                                               |
-| ------------------------------ | -------------------------------------------------- |
-| `src/`                         | 当前项目的页面、组件与功能代码。                   |
-| `.harness/project.json`        | 项目身份、唯一类型与品牌事实。                     |
-| `AGENTS.md`、`.agents/skills/` | 当前项目的 Agent 执行入口和可用 Skills。           |
-| `docs/`                        | 当前项目的工程规范及后续事件产生的产品与发布记录。 |
-| `package.json`                 | 当前项目声明的依赖和可执行命令。                   |
+| 下游 Workspace 路径                   | 职责                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------- |
+| `.harness/workspace.json`             | Workspace 成员、服务归属与拓扑事实。                                              |
+| `<id>_web/`、`<id>_extension/`        | 前端成员单包：`src/` 页面与功能代码，`.harness/project.json` 唯一宿主类型与品牌。 |
+| `<id>_server/`                        | 按需创建的 Go 服务成员。                                                          |
+| `AGENTS.md`、`.agents/skills/`        | Workspace 与各成员的 Agent 执行入口和可用 Skills。                                |
+| `docs/`                               | 统一 PRD、工程规范及后续事件产生的产品与发布记录。                                |
+| `package.json`、`pnpm-workspace.yaml` | 根命令、成员声明与工具依赖；成员依赖在各自 `package.json`。                       |
 
 ## 更多说明
 

@@ -33,7 +33,7 @@ func TestLoggerNeverLeaksResponseCredentials(t *testing.T) {
         sensitive := append(cfg.Log.SensitiveKeys, "private_field")
         engine.Use(Logger(LoggerOptions{Logger: logger, LogBody: body, LogHeader: true, SensitiveKeys: sensitive}))
         secret := "fixture-sensitive-credential"
-        payload := "{\"access_token\":\"" + secret + "\",\"refresh_token\":\"" + secret + "\",\"password\":\"" + secret + "\",\"private_field\":\"" + secret + "\"}"
+        payload := "{\"access_token\":\"" + secret + "\",\"refresh_token\":\"" + secret + "\",\"password\":\"" + secret + "\",\"old_password\":\"" + secret + "\",\"new_password\":\"" + secret + "\",\"code\":\"" + secret + "\",\"private_field\":\"" + secret + "\"}"
         engine.POST("/credentials", func(c *gin.Context) {
             received, err := io.ReadAll(c.Request.Body)
             if err != nil || string(received) != payload { t.Error("请求体发生变化") }
@@ -115,7 +115,7 @@ function adaptGoLogger(source: string): string {
   const replacements: [string, string][] = [
     [
       '"access_token", "refresh_token", "cookie", "api_key",',
-      '"access_token", "refresh_token", "cookie", "api_key", "set-cookie", "X-AUTH-TOKEN", "X-Http-Request",'
+      '"access_token", "refresh_token", "cookie", "api_key", "set-cookie", "X-AUTH-TOKEN", "X-Http-Request", "old_password", "new_password", "code",'
     ],
     [
       "\t\tcapture := &bodyCaptureWriter{ResponseWriter: c.Writer, body: &bytes.Buffer{}}\n\t\tc.Writer = capture",

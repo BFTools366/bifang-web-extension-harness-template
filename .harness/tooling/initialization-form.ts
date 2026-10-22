@@ -33,9 +33,24 @@ export const CREATION_SCOPE_FIELDS = {
   acceptance: "可观察验收场景与开发走查"
 } as const
 
+/** 区分有需求依据的自动选择和仍需用户取舍的推荐。 */
+interface SelectionChoice {
+  value: string
+  reason: string
+  mode: "automatic" | "recommendation"
+}
+
+/** 自动选择绑定需求分析修订，不能覆盖显式答案或编造外部服务事实。 */
+interface CreationSelection {
+  revision: string
+  projectType?: SelectionChoice
+  serverMode?: SelectionChoice
+}
+
 /** 描述聊天适配器保存的原始输入；不把派生结果写回 values。 */
 export interface CreationFormInput {
   values: PromptDefaults
+  selection?: CreationSelection
   scope?: Record<keyof typeof CREATION_SCOPE_FIELDS, string>
   logoPath?: string
   /** Agent 推导译名绑定原显示名称；用户显式英文译名仍只存 values。 */
@@ -57,6 +72,7 @@ export interface CreationFormResult {
   question?: string
   summary?: string
   revision?: string
+  analysisRevision?: string
   issue?: string
   argv?: string[]
   approval?: CreationApproval
@@ -79,7 +95,7 @@ export function parseCreationFormInput(input: unknown): CreationFormInput {
   if (!input || typeof input !== "object" || Array.isArray(input))
     throw new Error("表单输入必须是对象")
   const record = input as Record<string, unknown>
-  const allowed = ["values", "scope", "logoPath", "translation", "decision"]
+  const allowed = ["values", "selection", "scope", "logoPath", "translation", "decision"]
   if (Object.keys(record).some((key) => !allowed.includes(key)))
     throw new Error("表单包含未知控制字段")
   const values = record.values
@@ -92,6 +108,7 @@ export function parseCreationFormInput(input: unknown): CreationFormInput {
   for (const [key, value] of Object.entries(values)) {
     if (!fields.has(key) || typeof value !== "string") throw new Error(`非法表单字段：${key}`)
   }
+  if (record.selection !== undefined) validateSelection(record.selection)
   if (record.translation !== undefined) {
     if (
       !record.translation ||
@@ -130,6 +147,41 @@ export function parseCreationFormInput(input: unknown): CreationFormInput {
     }
   }
   return input as CreationFormInput
+}
+
+/** 只接受两项逻辑选择及其理由；现成服务存在性仍须来自用户事实。 */
+function validateSelection(raw: unknown): void {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("selection 必须是对象")
+  const selection = raw as Record<string, unknown>
+  if (
+    Object.keys(selection).some(
+      (key) => !["revision", "projectType", "serverMode"].includes(key)
+    ) ||
+    typeof selection.revision !== "string" ||
+    !selection.revision.trim()
+  )
+    throw new Error("selection 需要有效分析修订")
+  for (const field of ["projectType", "serverMode"] as const) {
+    const rawChoice = selection[field]
+    if (rawChoice === undefined) continue
+    if (!rawChoice || typeof rawChoice !== "object" || Array.isArray(rawChoice))
+      throw new Error(`selection.${field} 必须是对象`)
+    const choice = rawChoice as Record<string, unknown>
+    const allowedValues =
+      field === "projectType" ? ["web", "extension"] : ["existing", "create", "none"]
+    if (
+      Object.keys(choice).some((key) => !["value", "reason", "mode"].includes(key)) ||
+      typeof choice.value !== "string" ||
+      !allowedValues.includes(choice.value) ||
+      typeof choice.reason !== "string" ||
+      !choice.reason.trim() ||
+      typeof choice.mode !== "string" ||
+      !["automatic", "recommendation"].includes(choice.mode)
+    )
+      throw new Error(`selection.${field} 需要合法值、非空理由和选择模式`)
+    if (field === "serverMode" && choice.mode === "automatic" && choice.value !== "none")
+      throw new Error("只能自动选择确定的纯本地模式；是否有现成服务须复用或询问用户事实")
+  }
 }
 
 /** 从已校验结果产生唯一工程命令，调用者不得再手工重组已批准的参数。 */
@@ -181,11 +233,51 @@ export async function inspectCreationForm(
   ) {
     return { phase: "cancelled" }
   }
+  // 需求文件按源根解析；读取失败仍交给共享收集器显示对应修正题。
+  let requirementsSha256: string | undefined
+  try {
+    requirementsSha256 = (
+      await readRequirementsInput({
+        ...input.values,
+        requirementsFile: input.values.requirementsFile
+          ? path.resolve(resolvedSourceRoot, input.values.requirementsFile)
+          : undefined
+      })
+    )?.sha256
+  } catch {
+    /* 需求字段在共享收集器中独立校验。 */
+  }
+  const analysisRevision = createHash("sha256")
+    .update(
+      JSON.stringify({
+        requirementsSha256,
+        scope: input.scope
+          ? Object.keys(CREATION_SCOPE_FIELDS).map((key) => [
+              key,
+              input.scope?.[key as keyof typeof CREATION_SCOPE_FIELDS]
+            ])
+          : undefined,
+        projectType: input.values.projectType,
+        serverMode: input.values.serverMode
+      })
+    )
+    .digest("hex")
+  const selection = input.selection?.revision === analysisRevision ? input.selection : undefined
+  const staleSelection = input.selection !== undefined && selection === undefined
+  const selectedValues: PromptDefaults = { ...input.values }
+  const automaticSources: Record<string, string> = {}
+  for (const field of ["projectType", "serverMode"] as const) {
+    const choice = selection?.[field]
+    if (input.values[field] === undefined && choice?.mode === "automatic") {
+      selectedValues[field] = choice.value
+      automaticSources[field] = `Agent 根据需求自动选择：${choice.reason}`
+    }
+  }
   let identity: PromptedIdentity
   try {
     identity = await collectPromptedIdentity(
       {
-        ...input.values,
+        ...selectedValues,
         englishName:
           input.values.englishName ??
           (input.translation?.name === input.values.name
@@ -204,12 +296,52 @@ export async function inspectCreationForm(
     )
   } catch (error) {
     if (error instanceof PendingQuestion) {
+      if (staleSelection && !["requirementsFile", "requirementsText"].includes(error.field))
+        return {
+          phase: "needs-scope",
+          analysisRevision,
+          issue: "需求、范围或显式选择已变化，请重新分析并绑定当前修订"
+        }
+      // 先分析需求再决定宿主与服务，不要求提前填满最终七项范围。
+      if (
+        !input.scope &&
+        !selection &&
+        [
+          "projectType",
+          "serverMode",
+          "apiContract",
+          "developmentBaseUrl",
+          "testBaseUrl",
+          "releaseBaseUrl"
+        ].includes(error.field)
+      )
+        return { phase: "needs-scope", analysisRevision }
       if (error.field === "englishName" && input.values.englishName === undefined)
-        return { phase: "needs-translation", field: "englishName" }
-      return { phase: "collecting", field: error.field, question: error.question }
+        return { phase: "needs-translation", field: "englishName", analysisRevision }
+      let question =
+        error.field === "serverMode" && input.scope
+          ? `需求判断：${input.scope.data}\n\n${error.question}`
+          : error.question
+      const recommendation =
+        error.field === "projectType" || error.field === "serverMode"
+          ? selection?.[error.field]
+          : undefined
+      if (recommendation?.mode === "recommendation") {
+        const label = INITIALIZATION_QUESTIONS.basic[
+          error.field as "projectType" | "serverMode"
+        ].options.find((option) => option.value === recommendation.value)?.label
+        question += `\n推荐：${label}。依据：${recommendation.reason}；请明确选择。`
+      }
+      return { phase: "collecting", field: error.field, question, analysisRevision }
     }
     throw error
   }
+  if (staleSelection)
+    return {
+      phase: "needs-scope",
+      analysisRevision,
+      issue: "需求、范围或显式选择已变化，请重新分析并绑定当前修订"
+    }
   // 预览不能因运行时间变化使相同输入的确认失效；真实工程创建才记录最终时间。
   identity.agentPolicy.confirmedAt = "工程创建时记录最终日期"
   identity.inputSources = Object.fromEntries(
@@ -218,14 +350,15 @@ export async function inspectCreationForm(
       source === "命令行参数" ? "当前创建请求" : source
     ])
   )
+  identity.inputSources = { ...identity.inputSources, ...automaticSources }
   if (input.values.englishName === undefined && input.translation?.name === input.values.name) {
     identity.inputSources = {
       ...identity.inputSources,
       englishName: "Agent 英文翻译（绑定显示名称）"
     }
   }
-  if (!input.scope) return { phase: "needs-scope", identity }
-  if (!input.logoPath) return { phase: "needs-brand", identity }
+  if (!input.scope) return { phase: "needs-scope", identity, analysisRevision }
+  if (!input.logoPath) return { phase: "needs-brand", identity, analysisRevision }
   if (!path.isAbsolute(input.logoPath)) throw new Error("已选 Logo 必须是绝对路径")
   const logoBytes = await readFile(input.logoPath)
   await createLogo({
@@ -295,7 +428,13 @@ export async function inspectCreationForm(
       })
     )
     .digest("hex")
-  const result: CreationFormResult = { phase: "awaiting-confirmation", summary, question, revision }
+  const result: CreationFormResult = {
+    phase: "awaiting-confirmation",
+    summary,
+    question,
+    revision,
+    analysisRevision
+  }
   if (!input.decision) return result
   if (input.decision.revision !== revision)
     return { ...result, issue: "输入或范围已变化，旧确认不能授权当前汇总" }

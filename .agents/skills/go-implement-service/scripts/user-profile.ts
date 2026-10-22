@@ -1,11 +1,33 @@
-/** 校准资料响应，缺失组织或成员关系时明确失败。 */
-export function completeUserProfile(files: Map<string, string>): void {
+import { readFileSync } from "node:fs"
+
+/** 校准资料响应及本人昵称写入，缺失组织或成员关系时明确失败。 */
+export function completeUserProfile(files: Map<string, string>, moduleId: string): void {
   /** 唯一锚点变化时停止，避免覆盖产品实现。 */
   function change(file: string, before: string, after: string): void {
     const source = files.get(file)
     if (!source || source.split(before).length !== 2) throw new Error("账号模板锚点已变化：" + file)
     files.set(file, source.replace(before, after))
   }
+  for (const [target, asset] of [
+    ["internal/api/v1/profile_settings.go", "api.go.txt"],
+    ["internal/service/profile_settings.go", "service.go.txt"]
+  ] as const) {
+    files.set(
+      target,
+      readFileSync(
+        new URL(
+          "../../workspace-implement-users/assets/profile-settings/" + asset,
+          import.meta.url
+        ),
+        "utf8"
+      ).replaceAll("project_id", moduleId)
+    )
+  }
+  change(
+    "internal/api/v1/account.go",
+    'authed.GET("/profile", m.profile)',
+    'authed.GET("/profile", m.profile)\n\tauthed.PATCH("/profile", m.updateNickname)'
+  )
   change(
     "internal/service/account.go",
     "\treturn org, nil",

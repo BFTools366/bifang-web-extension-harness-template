@@ -2,6 +2,7 @@
 export interface Identity {
   readonly id: string
   readonly displayName?: string
+  readonly email?: string
 }
 
 /** 描述由真实服务 adapter 实现的独立身份认证契约。 */
@@ -81,9 +82,9 @@ export function createIdentitySession<Input>(api: IdentityApi<Input>, storage: C
 
   /** 核实最小身份形状并仅保留允许公开的字段。 */
   function identityValue(value: Identity): Identity {
-    if (typeof value !== "object" || value === null || typeof value.id !== "string" || value.id.trim() === "" || (value.displayName !== undefined && typeof value.displayName !== "string"))
+    if (typeof value !== "object" || value === null || typeof value.id !== "string" || value.id.trim() === "" || (value.displayName !== undefined && typeof value.displayName !== "string") || (value.email !== undefined && typeof value.email !== "string"))
       throw new IdentityError("invalidIdentity")
-    return Object.freeze({ id: value.id, ...(value.displayName === undefined ? {} : { displayName: value.displayName }) })
+    return Object.freeze({ id: value.id, ...(value.displayName === undefined ? {} : { displayName: value.displayName }), ...(value.email === undefined ? {} : { email: value.email }) })
   }
 
   /** 在发布和写入前拒绝旧代次、旧导航和已取消请求。 */

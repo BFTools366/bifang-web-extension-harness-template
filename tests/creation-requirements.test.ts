@@ -8,6 +8,7 @@ import {
 } from "../.harness/tooling/creation-requirements.ts"
 import { createProjectConfig } from "../.harness/tooling/config.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
+import { inspectCreationForm } from "../.harness/tooling/initialization-form.ts"
 import { collectPromptedIdentity as collectIdentity } from "../.harness/tooling/prompts.ts"
 
 /** 本组测试聚焦原有字段；服务来源在 Workspace 表单用例独立覆盖。 */
@@ -32,10 +33,10 @@ const BASICS = {
 }
 
 describe("创建需求输入", () => {
-  /** 验证类型始终先问且无默认，跳过文档后继续原有逐项选择。 */
-  test("宿主首题之后可跳过文档", async () => {
+  /** 验证需求先于工程类型；跳过材料后终端仍按真实回答收集宿主。 */
+  test("首题采集需求，跳过文档后再选宿主", async () => {
     const questions: string[] = []
-    const answers = ["1", "", "Requirements Web", BASICS.targetRoot, "预设"]
+    const answers = ["", "1", "Requirements Web", BASICS.targetRoot]
     const result = await collectPromptedIdentity({}, async (question) => {
       questions.push(question)
       const answer = answers.shift()
@@ -43,14 +44,13 @@ describe("创建需求输入", () => {
       return answer
     })
     expect(questions.map((question) => question.match(/字段： (\w+)/)?.[1])).toEqual([
-      "projectType",
       "requirementsFile",
+      "projectType",
       "name",
-      "targetRoot",
-      "policyMode"
+      "targetRoot"
     ])
-    expect(questions[0]).toContain("无默认值")
-    expect(questions[0]).not.toContain("建议/默认")
+    expect(questions[1]).toContain("无默认值")
+    expect(questions[1]).not.toContain("建议/默认")
     for (const hint of [
       ".md",
       ".txt",
@@ -61,7 +61,7 @@ describe("创建需求输入", () => {
       "核心流程",
       "减少后续重复沟通"
     ]) {
-      expect(questions[1]).toContain(hint)
+      expect(questions[0]).toContain(hint)
     }
     expect(result.requirementsFile).toBeUndefined()
     expect(answers).toEqual([])
@@ -355,4 +355,104 @@ describe("创建需求输入", () => {
       text
     )
   })
+})
+
+const serviceDecisionScope = {
+  users: "组织成员",
+  home: "共享笔记",
+  pages: "笔记列表、编辑器和登录页",
+  operations: "登录、读取和编辑组织笔记",
+  design: "列表与编辑器",
+  data: "多人共享及跨设备同步需要服务端；服务来源待确认",
+  acceptance: "成员能读取组织笔记，越权读取被拒绝"
+}
+
+/** 需求材料可省略，但服务决策必须等待 Agent 澄清真实首版范围。 */
+test.each([{ requirementsText: "组织成员共享笔记并跨设备同步。" }, { requirementsFile: "" }])(
+  "服务未选时先交接需求分析：%j",
+  async (requirements) => {
+    const values = { projectType: "web", ...requirements }
+    const before = structuredClone(values)
+    expect(await inspectCreationForm(repositoryRoot, { values })).toMatchObject({
+      phase: "needs-scope"
+    })
+    const next = await inspectCreationForm(repositoryRoot, { values, scope: serviceDecisionScope })
+    expect(next.phase).toBe("collecting")
+    expect(next.field).toBe("serverMode")
+    expect(next.question).toContain(`需求判断：${serviceDecisionScope.data}`)
+    expect(next.question).toContain("这个项目需要哪种服务端支持？")
+    expect(next.question).not.toContain("当前问题：")
+    expect(next.argv).toBeUndefined()
+    expect(values).toEqual(before)
+  }
+)
+
+/** 已选现有服务的地址和契约缺口同样延迟，已有合法服务选择不能重问。 */
+test.each([
+  ["existing", {}, "developmentBaseUrl"],
+  ["existing", { releaseBaseUrl: "http://release.invalid" }, "releaseBaseUrl"],
+  ["create", { apiContract: "/old-contract.md" }, "apiContract"],
+  ["create", { testBaseUrl: "not-a-url" }, "testBaseUrl"]
+])("服务阶段在需求澄清之后继续：%s %j", async (serverMode, extra, field) => {
+  const values = {
+    projectType: "web",
+    requirementsText: "组织成员共享笔记。",
+    name: "Notes",
+    targetRoot: await temporaryDirectory("server-after-requirements-"),
+    serverMode,
+    ...(serverMode === "existing" && field !== "developmentBaseUrl"
+      ? { developmentBaseUrl: "http://localhost:8080" }
+      : {}),
+    ...extra
+  }
+  expect((await inspectCreationForm(repositoryRoot, { values })).phase).toBe("needs-scope")
+  const next = await inspectCreationForm(repositoryRoot, { values, scope: serviceDecisionScope })
+  expect(next.field).toBe(field)
+  expect(next.question).not.toContain("这个项目需要哪种服务端支持？")
+})
+
+/** 表单不按关键词推理；Agent 必须单独提交有依据的自动选择。 */
+test("未提交选择记录时不从本地关键词猜测 none", async () => {
+  const values = { projectType: "web", requirementsText: "比较两段文字，不联网。" }
+  const localScope = { ...serviceDecisionScope, data: "完全在本地比较文字，建议不需要服务端" }
+  const state = await inspectCreationForm(repositoryRoot, { values, scope: localScope })
+  expect(state.field).toBe("serverMode")
+  expect(state.question).toContain(localScope.data)
+  expect(values).not.toHaveProperty("serverMode")
+  const selected = await inspectCreationForm(repositoryRoot, {
+    values: { ...values, serverMode: "none" },
+    scope: localScope
+  })
+  expect(selected.field).toBe("name")
+})
+
+/** 无法读取的需求先修正，不能跳过输入校验进入服务分析或创建。 */
+test("非法需求正文先修正再进入服务阶段", async () => {
+  const state = await inspectCreationForm(repositoryRoot, {
+    values: { projectType: "web", requirementsText: "无效\0正文", serverMode: "existing" }
+  })
+  expect(state.field).toBe("requirementsText")
+  expect(state.phase).toBe("collecting")
+})
+
+/** 终端按共享题序先收集需求，再明确选择服务，不承担自然语言推断。 */
+test("CLI 先问需求再问服务来源", async () => {
+  const fields: string[] = []
+  const answers = ["text:组织成员共享笔记。", "2"]
+  const result = await collectIdentity(
+    {
+      projectType: "web",
+      name: "Notes",
+      targetRoot: await temporaryDirectory("cli-requirements-first-")
+    },
+    async (_question, context) => {
+      fields.push(context?.field ?? "")
+      const answer = answers.shift()
+      if (answer === undefined) throw new Error("不应增加其他题目")
+      return answer
+    }
+  )
+  expect(fields).toEqual(["requirementsFile", "serverMode"])
+  expect(result.requirementsText).toBe("组织成员共享笔记。")
+  expect(result.serverMode).toBe("create")
 })

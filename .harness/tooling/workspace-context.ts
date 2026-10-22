@@ -67,3 +67,62 @@ export async function resolveWorkspaceContextRoot(root: string): Promise<string>
   if ((await realpath(root)) !== path.resolve(root)) throw new Error("成员上下文不得使用链接路径")
   return parent
 }
+
+/** 仅精确登记且身份一致的本地成员可免于正式环境的远端地址要求。 */
+export async function isLocalWorkspaceMember(
+  root: string,
+  project: ProjectConfig
+): Promise<boolean> {
+  const status = await lstat(root)
+  if (!status.isDirectory() || status.isSymbolicLink()) throw new Error("本地成员路径无效")
+  const canonicalRoot = await realpath(root)
+  const context = await resolveWorkspaceContextRoot(canonicalRoot)
+  if (context === canonicalRoot) return false
+  const workspace = JSON.parse(
+    await readFile(path.join(context, ".harness/workspace.json"), "utf8")
+  )
+  if (workspace.service?.mode !== "none") return false
+  if (
+    workspace.schemaVersion !== 1 ||
+    typeof workspace.id !== "string" ||
+    !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u.test(workspace.id) ||
+    typeof workspace.initializedAt !== "string" ||
+    workspace.service.developmentBaseUrl !== "" ||
+    workspace.service.apiContract ||
+    !workspace.members.every(
+      (member: { type: string; directory: string }) =>
+        ["web", "extension"].includes(member.type) &&
+        member.directory === `${workspace.id}_${member.type}`
+    ) ||
+    !workspace.members.some(
+      (member: { type: string; directory: string }) =>
+        member.directory === project.id &&
+        member.type === project.projectType &&
+        member.directory === path.basename(canonicalRoot)
+    )
+  )
+    throw new Error("纯本地 Workspace 成员或服务身份不一致")
+  const seen = new Set<string>()
+  for (const member of workspace.members as { type: string; directory: string }[]) {
+    if (seen.has(member.type)) throw new Error("Workspace 成员不能重复")
+    seen.add(member.type)
+    const directory = path.join(context, member.directory)
+    const status = await lstat(directory)
+    if (
+      !status.isDirectory() ||
+      status.isSymbolicLink() ||
+      (await realpath(directory)) !== directory
+    )
+      throw new Error("Workspace 成员路径无效")
+    const identity = JSON.parse(
+      await readFile(path.join(directory, ".harness/project.json"), "utf8")
+    )
+    if (
+      identity.schemaVersion !== 1 ||
+      identity.id !== member.directory ||
+      identity.projectType !== member.type
+    )
+      throw new Error("Workspace 成员身份不一致")
+  }
+  return true
+}

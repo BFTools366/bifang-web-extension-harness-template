@@ -71,19 +71,24 @@ export async function readWorkspace(root) {
       throw new Error("Go module 身份与 Workspace 不一致")
   }
   if (
-    !["existing", "create"].includes(config.service?.mode) ||
+    !["existing", "create", "none"].includes(config.service?.mode) ||
     (config.service.mode === "create") !== types.has("server")
   )
     throw new Error("服务归属与成员不一致")
-  const base = new URL(config.service.developmentBaseUrl)
-  if (
-    !["http:", "https:"].includes(base.protocol) ||
-    base.username ||
-    base.password ||
-    base.search ||
-    base.hash
-  )
-    throw new Error("服务 BaseURL 必须是无凭据的 HTTP(S) 地址")
+  if (config.service.mode === "none") {
+    if (config.service.developmentBaseUrl !== "" || config.service.apiContract)
+      throw new Error("纯本地项目不应配置服务地址或接口文档")
+  } else {
+    const base = new URL(config.service.developmentBaseUrl)
+    if (
+      !["http:", "https:"].includes(base.protocol) ||
+      base.username ||
+      base.password ||
+      base.search ||
+      base.hash
+    )
+      throw new Error("服务 BaseURL 必须是无凭据的 HTTP(S) 地址")
+  }
   const manifest = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"))
   if (
     manifest.name !== config.id ||
@@ -107,8 +112,15 @@ export async function readWorkspace(root) {
     const declared = parseEnv(development)[`${prefix}_API_BASE_URL`]
     if (declared !== config.service.developmentBaseUrl)
       throw new Error("前端开发 BaseURL 与 Workspace 漂移")
-    for (const file of [".env.test", ".env.production", "src/data/api/client/httpRuntime.ts"])
-      await readFile(path.join(directory, file))
+    for (const file of [".env.test", ".env.production", "src/data/api/client/httpRuntime.ts"]) {
+      const contents = await readFile(path.join(directory, file), "utf8")
+      if (
+        config.service.mode === "none" &&
+        file.startsWith(".env") &&
+        parseEnv(contents)[`${prefix}_API_BASE_URL`] !== ""
+      )
+        throw new Error("纯本地成员不应配置服务地址")
+    }
   }
   if (config.service.apiContract) {
     if (config.service.apiContract !== "docs/api/source-contract.txt")

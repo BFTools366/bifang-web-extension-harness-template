@@ -1,7 +1,9 @@
 import { validateBaseUrls } from "../environment.ts"
-import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
+import type { EnvironmentBaseUrls, InitOptions, ProjectConfig } from "../types.ts"
 
 const ENVIRONMENT_SCHEMA = `export const APPLICATION_ENVIRONMENTS = ["development", "test", "release"] as const
+/** 创建时明确服务归属，只有纯本地项目不要求远端地址。 */
+const REMOTE_API_REQUIRED = true
 /** 说明 LOG_LEVELS 的稳定结构与职责边界。 */
 export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const
 
@@ -29,9 +31,10 @@ export interface AppConfigInput {
 /** 说明 normalizeBaseUrl 的稳定结构与职责边界。 */
 function normalizeBaseUrl(value: string | undefined, environment: ApplicationEnvironment): string {
   if (value === undefined || value.trim() === "") {
-    if (environment === "release") throw new Error("Release API_BASE_URL is required before release")
+    if (REMOTE_API_REQUIRED && environment === "release") throw new Error("Release API_BASE_URL is required before release")
     return ""
   }
+  if (!REMOTE_API_REQUIRED) throw new Error("Local projects must not configure a remote API")
   let url: URL
   try {
     url = new URL(value.trim())
@@ -175,18 +178,43 @@ describe("application environment", () => {
 `
 
 // 执行 environmentFiles 函数的处理逻辑。
+const LOCAL_ENVIRONMENT_TEST = `import { expect, test } from "vitest"
+import { createAppConfig } from "./environment.schema"
+/** 本地模式在三环境均不联网，正式环境仍保持日志和超时校验。 */
+test("local profiles accept empty APIs and reject remote addresses", () => {
+  for (const appEnv of ["development", "test", "release"]) {
+    const input = { appEnv, apiBaseUrl: "", logLevel: "warn", requestTimeoutMs: "10000" }
+    expect(createAppConfig(input).apiBaseUrl).toBe("")
+    expect(() => createAppConfig({ ...input, apiBaseUrl: "https://api.example.invalid" })).toThrow()
+    expect(() => createAppConfig({ ...input, requestTimeoutMs: "0" })).toThrow()
+  }
+  expect(() => createAppConfig({ appEnv: "release", apiBaseUrl: "", logLevel: "debug", requestTimeoutMs: "10000" })).toThrow()
+})
+`
+
+/** 按明确服务模式生成环境合同，旧独立项目保持远端地址要求。 */
 export function environmentFiles(
   config: ProjectConfig,
-  suppliedBaseUrls: EnvironmentBaseUrls
+  suppliedBaseUrls: EnvironmentBaseUrls & Pick<InitOptions, "serverMode">
 ): Map<string, string> {
   const baseUrls = validateBaseUrls(suppliedBaseUrls)
+  const local = suppliedBaseUrls.serverMode === "none"
+  if (local && Object.values(baseUrls).some(Boolean)) throw new Error("纯本地项目不应配置服务地址")
   const prefix = config.projectType === "web" ? "VITE_" : "PLASMO_PUBLIC_"
   return new Map([
     [".env.development", environmentFile(prefix, "development", baseUrls.developmentBaseUrl)],
     [".env.test", environmentFile(prefix, "test", baseUrls.testBaseUrl)],
     [".env.production", environmentFile(prefix, "release", baseUrls.releaseBaseUrl)],
-    ["src/config/environment.schema.ts", ENVIRONMENT_SCHEMA],
+    [
+      "src/config/environment.schema.ts",
+      local
+        ? ENVIRONMENT_SCHEMA.replace(
+            "const REMOTE_API_REQUIRED = true",
+            "const REMOTE_API_REQUIRED = false"
+          )
+        : ENVIRONMENT_SCHEMA
+    ],
     ["src/config/environment.ts", runtimeAdapter(config.projectType)],
-    ["src/config/environment.test.ts", ENVIRONMENT_TEST]
+    ["src/config/environment.test.ts", local ? LOCAL_ENVIRONMENT_TEST : ENVIRONMENT_TEST]
   ])
 }

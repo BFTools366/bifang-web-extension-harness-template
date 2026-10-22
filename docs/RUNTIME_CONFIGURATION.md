@@ -1,5 +1,7 @@
 # 运行配置与环境
 
+明确 service.mode=none 的纯本地 Workspace 不使用远端地址：三环境均为空，生成的环境合同拒绝额外远端配置；工具验证必须核对根身份、成员登记及服务归属后才允许 Release 空地址。existing/create 与旧独立项目继续要求正式 HTTPS 地址。升级保持这一合同。
+
 本文档是 Bifang Web Harness Template 及其生成下游在运行配置、环境文件、字段校验和命令映射方面的唯一详细事实来源。每个项目固定维护 `development`、`test`、`release` 三个逻辑环境；缺少任何一份配置或必填字段时，验证、测试或构建必须失败。
 
 ## 1. 环境与文件
@@ -40,14 +42,14 @@ BaseURL 只配置远端 API，不是本地能力的启用条件。本地计算�
 
 ## 4. 初始化输入
 
-非交互创建要求绝对父目录、名称、唯一项目类型和 Agent 策略模式；标识由名称的英文翻译自动生成，非英文名称传入 `--english-name`，已有显式 `--id` 可复用，以及当前宿主的条件必填字段；唯一宿主与 Extension 说明规则见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2。初始化必须明确是否已有服务：有则开发 BaseURL 必填，没有则创建 Go 服务并连接本地地址；测试/正式地址无需初始化时填写。Web 说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对父目录必须位于源 Harness 之外，最终目录为“父目录/项目标识”：
+非交互创建要求绝对父目录、名称和唯一项目类型；Agent 设置默认采用预设，不要求策略参数或补问。标识由名称的英文翻译自动生成，非英文名称传入 `--english-name`，已有显式 `--id` 可复用，以及当前宿主的条件必填字段；唯一宿主与 Extension 说明规则见 [`TS_WEB_TEMPLATE.md`](TS_WEB_TEMPLATE.md) §2。初始化必须明确是否已有服务：有则开发 BaseURL 必填，没有则创建 Go 服务并连接本地地址；测试/正式地址无需初始化时填写。Web 说明默认使用显示名称，策略确认来源自动记为“当前用户”。初始化不生成 Release 候选，E2E 选择留给后续显式构建。唯一公开入口在源 Harness 根运行，绝对父目录必须位于源 Harness 之外，最终目录为“父目录/项目标识”：
 
 ```bash
 pnpm instantiate -- /absolute/path --type web \
   --name "示例 Web" --english-name "Example Web" --policy-mode 预设
 ```
 
-命令形态为 `pnpm instantiate -- <parent-outside-harness> ...`。交互式创建按依赖顺序逐项引导尚未明确的基础字段与策略模式，自定义策略每轮只询问一个缺失或非法字段，并给可靠建议默认值；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
+命令形态为 `pnpm instantiate -- <parent-outside-harness> ...`。交互式创建按依赖顺序逐项引导尚未明确的基础字段，Agent 设置直接采用默认预设；仅主动自定义时每轮询问一个缺失或非法字段，并给可靠建议默认值；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
 
 初始化器为当前唯一宿主生成并直接校验三份配置、类型化 schema、运行时 adapter、非空测试与统一 logger。它还生成只读取 `APP_CONFIG` 的Ky HTTP 基础 client，但不生成真实 endpoint 或请求调用，Ky 声明为运行时依赖，其他传输或协议依赖按需加入。语言、分页、continuation 与认证 Token 是运行时状态，不得加入公开环境文件；其存储和安全边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md)。创建期不执行最终构建；后续 `pnpm build` 仍在其他门禁之前重新验证三份文件与活动 Release profile。
 

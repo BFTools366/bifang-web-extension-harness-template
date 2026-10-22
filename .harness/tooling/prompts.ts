@@ -4,6 +4,7 @@ import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
 import { recommendedAgentPolicy } from "./agent-policy.ts"
 import { normalizeColor } from "./config.ts"
+import { parseInitializationPatch, reviseInitializationAnswers } from "./initialization-answers.ts"
 import type {
   AgentPolicyChoice,
   AgentPolicyMode,
@@ -34,7 +35,7 @@ export interface PromptedIdentity {
   inputSources: Readonly<Record<string, string>>
   projectType: ProjectType
   workspaceMembers?: readonly (ProjectType | "server")[]
-  serverMode?: "existing" | "create"
+  serverMode?: "existing" | "create" | "none"
   apiContract?: string
   requirementsFile?: string
   requirementsText?: string
@@ -88,6 +89,14 @@ interface ResolvedPolicyChoice {
   source: "命令行参数" | "交互条件问询" | "交互接受默认值"
 }
 
+/** 把策略阶段收到的合法修订交回同一收集器，不丢失已答事实。 */
+class InitializationRevision extends Error {
+  /** 只携带已知字段，重新进入共享校验而不直接授权。 */
+  constructor(readonly patch: PromptDefaults) {
+    super("创建信息已修订")
+  }
+}
+
 /** 将用户能力回答规范化为 enabled 或 disabled。 */
 function parsePolicyChoice(value: string, label: string): AgentPolicyChoice {
   const normalized = value.trim().toLowerCase()
@@ -132,6 +141,16 @@ async function collectPolicyChoice(
       }),
       { field: key }
     )
+    if (answer.trim().startsWith("{")) {
+      let patch: PromptDefaults
+      try {
+        patch = parseInitializationPatch(answer)
+      } catch (error) {
+        issue = error instanceof Error ? error.message : String(error)
+        continue
+      }
+      throw new InitializationRevision(patch)
+    }
     candidate = answer.trim() || (interaction.mode === "agent" ? undefined : suggested)
     source = answer.trim() ? "交互条件问询" : "交互接受默认值"
   }
@@ -143,63 +162,101 @@ export async function collectPromptedIdentity(
   ask: InteractiveQuestion,
   interaction: InitializationInteraction = {}
 ): Promise<PromptedIdentity> {
-  const collected = await collectBasicFields(defaults, ask, interaction)
-  const basic = collected.values
-  const workspaceMembers = parseWorkspaceSelection(requiredText(basic.projectType, "项目类型"))
-  const projectType = primaryFrontend(workspaceMembers)
-  const policyMode = parsePolicyMode(requiredText(basic.policyMode, "Agent 策略模式"))
-  const confirmedBy = requiredText(basic.confirmedBy, "Agent policy confirmation source")
-  let agentPolicy: AgentPolicySelection
-  let policySources: Record<string, string>
-  if (policyMode === "recommended") {
-    agentPolicy = recommendedAgentPolicy(confirmedBy)
-    policySources = Object.fromEntries(
-      POLICY_QUESTIONS.map(({ key }) => [key, "recommended 确定性预设"])
-    )
-  } else {
-    const suggested = recommendedAgentPolicy(confirmedBy)
-    const choices: Record<string, AgentPolicyChoice> = {}
-    policySources = {}
-    for (const { key, field } of POLICY_QUESTIONS) {
-      const resolved = await collectPolicyChoice(
-        basic[key],
-        field,
-        key,
-        suggested[key],
-        ask,
-        interaction
+  let values = defaults
+  let rememberedSources: Record<string, string> = {}
+  restart: while (true) {
+    const collected = await collectBasicFields(values, ask, {
+      ...interaction,
+      inputSources: rememberedSources
+    })
+    const basic = collected.values
+    const workspaceMembers = parseWorkspaceSelection(requiredText(basic.projectType, "项目类型"))
+    const projectType = primaryFrontend(workspaceMembers)
+    const policyMode = parsePolicyMode(requiredText(basic.policyMode, "Agent 策略模式"))
+    const confirmedBy = requiredText(basic.confirmedBy, "Agent policy confirmation source")
+    let agentPolicy: AgentPolicySelection
+    let policySources: Record<string, string>
+    if (policyMode === "recommended") {
+      agentPolicy = recommendedAgentPolicy(confirmedBy)
+      policySources = Object.fromEntries(
+        POLICY_QUESTIONS.map(({ key }) => [key, "recommended 确定性预设"])
       )
-      choices[key] = resolved.choice
-      policySources[key] = resolved.source
+    } else {
+      const suggested = recommendedAgentPolicy(confirmedBy)
+      const choices: Record<string, AgentPolicyChoice> = {}
+      policySources = {}
+      for (const { key, field } of POLICY_QUESTIONS) {
+        let resolved: ResolvedPolicyChoice
+        try {
+          resolved = await collectPolicyChoice(
+            basic[key],
+            field,
+            key,
+            suggested[key],
+            ask,
+            interaction
+          )
+        } catch (error) {
+          if (!(error instanceof InitializationRevision)) throw error
+          values = reviseInitializationAnswers({ ...collected.answers, ...choices }, error.patch)
+          if (collected.inputSources.id === "英文名称自动生成" && !Object.hasOwn(error.patch, "id"))
+            delete values.id
+          rememberedSources = {
+            ...collected.inputSources,
+            ...rememberedSources,
+            ...policySources,
+            ...Object.fromEntries(Object.keys(error.patch).map((field) => [field, "交互表单"]))
+          }
+          for (const field of [
+            "developmentBaseUrl",
+            "testBaseUrl",
+            "releaseBaseUrl",
+            "apiContract"
+          ] as const)
+            if (
+              error.patch.serverMode &&
+              !Object.hasOwn(error.patch, field) &&
+              values[field] === "" &&
+              basic[field]
+            )
+              rememberedSources[field] = "随服务来源修订清除"
+          continue restart
+        }
+        choices[key] = resolved.choice
+        policySources[key] =
+          resolved.source === "命令行参数"
+            ? (collected.inputSources[key] ?? rememberedSources[key] ?? resolved.source)
+            : resolved.source
+      }
+      agentPolicy = {
+        confirmedBy,
+        confirmedAt: new Date().toISOString(),
+        ...choices
+      } as AgentPolicySelection
     }
-    agentPolicy = {
-      confirmedBy,
-      confirmedAt: new Date().toISOString(),
-      ...choices
-    } as AgentPolicySelection
-  }
 
-  return {
-    targetRoot: requiredText(basic.targetRoot, "目标目录"),
-    rawParentRoot: collected.rawParentRoot,
-    policyMode,
-    inputSources: { ...collected.inputSources, ...policySources },
-    projectType,
-    workspaceMembers,
-    serverMode: basic.serverMode as "existing" | "create",
-    apiContract: basic.apiContract || undefined,
-    requirementsFile: basic.requirementsFile || undefined,
-    requirementsText: basic.requirementsText || undefined,
-    name: requiredText(basic.name, "项目名称"),
-    englishName: basic.englishName || undefined,
-    id: requiredText(basic.id, "项目标识"),
-    description: basic.description?.trim() || requiredText(basic.name, "项目名称"),
-    identityI18n: basic.identityI18n || undefined,
-    brandColor: normalizeColor(requiredText(basic.brandColor, "品牌颜色")),
-    developmentBaseUrl: basic.developmentBaseUrl ?? "",
-    testBaseUrl: basic.testBaseUrl ?? "",
-    releaseBaseUrl: basic.releaseBaseUrl ?? "",
-    agentPolicy
+    return {
+      targetRoot: requiredText(basic.targetRoot, "目标目录"),
+      rawParentRoot: collected.rawParentRoot,
+      policyMode,
+      inputSources: { ...collected.inputSources, ...policySources },
+      projectType,
+      workspaceMembers,
+      serverMode: basic.serverMode as "existing" | "create" | "none",
+      apiContract: basic.apiContract || undefined,
+      requirementsFile: basic.requirementsFile || undefined,
+      requirementsText: basic.requirementsText || undefined,
+      name: requiredText(basic.name, "项目名称"),
+      englishName: basic.englishName || undefined,
+      id: requiredText(basic.id, "项目标识"),
+      description: basic.description?.trim() || requiredText(basic.name, "项目名称"),
+      identityI18n: basic.identityI18n || undefined,
+      brandColor: normalizeColor(requiredText(basic.brandColor, "品牌颜色")),
+      developmentBaseUrl: basic.developmentBaseUrl ?? "",
+      testBaseUrl: basic.testBaseUrl ?? "",
+      releaseBaseUrl: basic.releaseBaseUrl ?? "",
+      agentPolicy
+    }
   }
 }
 
@@ -223,6 +280,7 @@ export async function promptForIdentity(
 /** 渲染写入前必须由用户完整确认的初始化事实。 */
 export function formatInstantiationSummary(summary: InstantiationSummary): string {
   const policy = summary.init.agentPolicy
+  const local = summary.init.serverMode === "none"
   const members = [...(summary.init.workspaceMembers ?? [summary.init.projectType])]
   if (summary.init.serverMode === "create" && !members.includes("server")) members.push("server")
   const developmentBaseUrl =
@@ -233,8 +291,8 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
     .join("\n")
   return `初始化完整汇总
 - Workspace 成员：${members.map((item) => `${summary.init.id}_${item}`).join(", ")}
-- 服务端：${summary.init.serverMode ?? "未选择"}${summary.init.serverMode === "create" ? `；创建 ${summary.init.id}_server，本地 http://127.0.0.1:8080` : ""}
-- 接口契约：${summary.init.apiContract ?? "待所选能力接线时核对"}
+- 服务端：${local ? "不需要（纯本地）" : (summary.init.serverMode ?? "未选择")}${summary.init.serverMode === "create" ? `；创建 ${summary.init.id}_server，本地 http://127.0.0.1:8080` : ""}
+- 接口契约：${local ? "不需要" : (summary.init.apiContract ?? "待所选能力接线时核对")}
 - 源路径（原始）：${summary.rawSourceRoot}
 - 源路径（规范）：${summary.canonicalSourceRoot}
 - 父目录（原始）：${summary.rawParentRoot ?? "未单独提供"}
@@ -254,9 +312,9 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 母版：.harness/brand/logo-1024.png（1024×1024 PNG）
 - 派生资产：${derivedLogoPaths({ projectType: summary.init.projectType }).join(", ")}
 - 身份本地化：${JSON.stringify(summary.init.identityI18n ?? { defaultLocale: "en", translations: {} })}
-- 开发 API 地址：${developmentBaseUrl || "未配置，可后续补齐"}
-- 测试 API 地址：${summary.init.testBaseUrl || "未配置，可后续补齐"}
-- 正式 API 地址：${summary.init.releaseBaseUrl || "未配置，正式发布前必须补齐 HTTPS 地址"}
+- 开发 API 地址：${local ? "不需要" : developmentBaseUrl || "未配置，可后续补齐"}
+- 测试 API 地址：${local ? "不需要" : summary.init.testBaseUrl || "未配置，可后续补齐"}
+- 正式 API 地址：${local ? "不需要" : summary.init.releaseBaseUrl || "未配置，正式发布前必须补齐 HTTPS 地址"}
 - Agent Policy：user_owned_tasks=${policy.userOwnedTasks}, superpowers=${policy.superpowers}, parallel_worktree_subagents=${policy.parallelWorktreeSubagents}, acceptance_smoke=${policy.acceptanceSmoke}, e2e_hint=${policy.e2eHint}
 - 策略确认来源：${policy.confirmedBy}
 - 策略确认时间：${policy.confirmedAt}

@@ -88,7 +88,7 @@ export interface InitOptions extends EnvironmentBaseUrls {
   /** 保存工作区按需选择，叶子生成器仍只处理一个前端宿主。 */
   workspaceMembers?: readonly (ProjectType | "server")[]
   /** 已有服务只接入，无服务时生成同一工作区内的 Go 服务。 */
-  serverMode?: "existing" | "create"
+  serverMode?: "existing" | "create" | "none"
   /** 绑定用户提供的接口文档路径；地址不等同接口契约。 */
   apiContract?: string
   /** 冻结已核对的契约字节，只由事务内部传入。 */

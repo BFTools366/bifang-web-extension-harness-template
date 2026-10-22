@@ -40,6 +40,42 @@ function record(
 }
 
 describe("Agent policy contract", () => {
+  /** 未指定策略也必须在非交互入口物化完整预设，不能再次要求选择。 */
+  test("defaults to the preset without policy arguments", async () => {
+    const result = await resolveInitOptions(
+      parseArgs(["--server", "create", "--type", "web", "--name", "Default Policy"]),
+      repositoryRoot,
+      { interactive: false }
+    )
+    expect(result.agentPolicy).toMatchObject({
+      userOwnedTasks: "disabled",
+      superpowers: "disabled",
+      parallelWorktreeSubagents: "disabled",
+      acceptanceSmoke: "enabled",
+      e2eHint: "disabled",
+      confirmedBy: "当前用户"
+    })
+    expect(requiresInteractiveAgentPolicyPrompt({})).toBe(false)
+    expect(requiresInteractiveAgentPolicyPrompt({ userOwnedTasks: "enabled" })).toBe(true)
+    await expect(
+      resolveInitOptions(
+        parseArgs([
+          "--server",
+          "create",
+          "--type",
+          "web",
+          "--name",
+          "Conflict",
+          "--policy-mode",
+          "recommended",
+          "--user-owned-tasks",
+          "enabled"
+        ]),
+        repositoryRoot,
+        { interactive: false }
+      )
+    ).rejects.toThrow("预设模式不能同时指定单项策略")
+  })
   /** 验证中文自定义必须完整提供五项，空说明与来源使用确定性默认值。 */
   test("resolves Chinese custom policy and blank optional metadata", async () => {
     const base = [

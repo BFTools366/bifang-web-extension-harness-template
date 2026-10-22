@@ -17,8 +17,11 @@ function replaceOnce(source: string, before: string, after: string, file: string
 /** 在任何写入前冻结全部代码计划，不创建工程或安装工具。 */
 export async function prepareUsers(
   workspaceRoot: string,
-  operations: readonly string[] = ["register", "login", "profile", "logout"]
+  operations: readonly string[] = ["register", "login", "profile", "logout", "password.change"]
 ): Promise<{ root: string; files: Map<string, string> }> {
+  // 自建邮箱注册默认验证；只模拟开发投递，账号及验证码仍走真实服务。
+  if (operations.includes("register") && !operations.includes("verification"))
+    operations = [...operations, "verification"]
   if (
     !operations.length ||
     operations.some(
@@ -58,6 +61,14 @@ export async function prepareUsers(
   const root = path.join(workspace, `${config.id}_server`)
   if ((await lstat(root)).isSymbolicLink() || (await realpath(root)) !== root)
     throw new Error("成员路径无效")
+  // 旧成员文件已由组织 overlay 替代，仍须保护磁盘现有文件，避免重复声明。
+  try {
+    await lstat(path.join(root, "internal/model/organization_user.go"))
+    throw new Error("保留已有产品文件：internal/model/organization_user.go")
+  } catch (error) {
+    if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT"))
+      throw error
+  }
   const moduleName = (await readFile(path.join(root, "go.mod"), "utf8"))
     .split(/\r?\n/u)[0]
     ?.replace(/^module /u, "")
@@ -126,6 +137,16 @@ export async function prepareUsers(
     )
     if (source === selected) throw new Error("验证码配置锚点已变化")
     changes["configs/config.yaml"] = [source, selected]
+    const development = (
+      await readFile(path.join(root, "configs/config-dev.yaml"), "utf8")
+    ).replaceAll("\r\n", "\n")
+    if (/^verification:/mu.test(development))
+      throw new Error("保留已有开发投递配置，请按现有服务增量接线")
+    changes["configs/config-dev.yaml"] = [
+      development,
+      development.trimEnd() +
+        "\n\nverification:\n  # 未接邮件服务时在注册页显示验证码；接通 SMTP 后改为 false。\n  mock: true\n"
+    ]
   }
   for (const [file, [before, after]] of Object.entries(changes)) {
     if (!(await lstat(path.join(root, file))).isFile())
@@ -165,7 +186,7 @@ func (r *OrgRepository) CreateOwnerMembership(ctx context.Context, tx *Repositor
 }
 `
   )
-  completeUserProfile(files)
+  completeUserProfile(files, moduleId)
   completePasswordChange(files)
   await completeTeamBaseline(files, moduleId)
   const account = files.get("internal/api/v1/account.go")
@@ -190,6 +211,7 @@ func (r *OrgRepository) CreateOwnerMembership(ctx context.Context, tx *Repositor
     ["refresh", 'auth.POST("/refresh", m.refresh)'],
     ["logout", 'authed.POST("/logout", m.logout)'],
     ["profile", 'authed.GET("/profile", m.profile)'],
+    ["profile", 'authed.PATCH("/profile", m.updateNickname)'],
     ["password.change", 'authed.PUT("/password", m.changePassword)']
   ]) {
     if (operation && route && !operations.includes(operation))

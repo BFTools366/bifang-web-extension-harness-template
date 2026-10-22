@@ -38,7 +38,7 @@ export async function protectPage(target: string, signal?: AbortSignal) {
     throw error
   }
   signal?.throwIfAborted()
-  ${organization ? "await ensureOrganization(signal)\n  signal?.throwIfAborted()" : ""}
+  ${organization ? 'if (target !== "/account/settings") await ensureOrganization(signal)\n  signal?.throwIfAborted()' : ""}
   ${
     permissions
       ? `if (${permissionFreePaths(organization)

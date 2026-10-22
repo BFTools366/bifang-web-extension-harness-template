@@ -1,5 +1,5 @@
 import { renderIdentityBrand } from "../identity.ts"
-import type { EnvironmentBaseUrls, ProjectConfig } from "../types.ts"
+import type { EnvironmentBaseUrls, InitOptions, ProjectConfig } from "../types.ts"
 import { environmentFiles } from "./environment.ts"
 import { escapeHtml } from "./helpers.ts"
 import { httpFiles } from "./http.ts"
@@ -45,7 +45,7 @@ export function renderWebBrand(config: ProjectConfig): string {
 // 执行 webFiles 函数的处理逻辑。
 export function webFiles(
   config: ProjectConfig,
-  baseUrls: EnvironmentBaseUrls
+  baseUrls: EnvironmentBaseUrls & Pick<InitOptions, "serverMode">
 ): Map<string, string> {
   const files = new Map<string, string>([
     ...environmentFiles(config, baseUrls),

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Web Harness：审查并发与性能"
+  short_description: "只读定位死锁、无界等待、资源泄漏与性能热点，给出有证据的修复建议"
+  default_prompt: "使用 $workspace-review-performance 只读审查指定范围的死锁、超时、资源泄漏与性能热点，返回有代码证据的风险与修复建议后返回调用方。"

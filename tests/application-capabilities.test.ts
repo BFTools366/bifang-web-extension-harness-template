@@ -114,7 +114,7 @@ test("wired purchase and permissions follow the current organization", async () 
   permissionMock.set({ subjectId: "member-a", organizationId: "a" }, [])
   await permissionSession.refresh()
   await user.click(screen.getByRole("button", { name: /User center/ }))
-  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
+  await user.click(await screen.findByRole("menuitem", { name: "Team A" }))
   await user.selectOptions(await screen.findByLabelText("Current organization"), "b")
   expect(await screen.findByText("Access denied")).toBeInTheDocument()
   expect(actor()).toBe('member-b')
@@ -238,7 +238,7 @@ test("identity restore single flight is scoped", async () => {
 test("rejects production Mock and delegates unsupported operations to domain implementation", () => {
   expect(() =>
     productionFiles(new Map(), {
-      selection: { host: "web", operations: ["identity.profile"] },
+      selection: { host: "web", operations: ["identity.password.reset"] },
       homePageSource: HOME_SOURCE,
       dataMode: "adapter",
       adapters: { identity: "export const api = {}" }

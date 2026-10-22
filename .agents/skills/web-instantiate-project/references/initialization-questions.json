@@ -1,60 +1,68 @@
 {
   "basic": {
+    "requirementsFile": {
+      "title": "需求输入（可选）",
+      "question": "这个项目要帮谁完成什么事？",
+      "hint": "可提供 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）文档或直接输入文字，也可暂不提供。需求用于理解目标用户、页面、核心流程与功能范围，减少后续重复沟通；暂不提供时随后按需补充。CLI 文件入口读取 .md/.txt，可填相对或绝对路径；直接文字以 text: 或“文字：”开头，回车采用不提供。Word 由 Agent 读取完整正文后交接为文本，CLI 不直接解析 Word；聊天需明确选择暂不提供，已有需求直接复用。",
+      "options": [],
+      "agentHint": "可以直接描述，也可提供 Markdown、TXT 或 Word 文档，或暂不提供。已说清的需求会直接沿用，无需另写文档。"
+    },
+    "requirementsText": {
+      "title": "需求正文",
+      "question": "请补充可读取的完整需求内容。",
+      "hint": "仅已提供正文非法时补问；保留完整文本与换行，最多 1 MiB，不可包含 NUL。与需求文件二选一，不额外询问已提供的需求。",
+      "options": [],
+      "agentHint": "保留原有需求，只补充无法读取或有问题的部分。"
+    },
     "projectType": {
       "title": "项目类型",
-      "question": "请选择要创建的项目类型。",
-      "hint": "输入 1.Web 或 2.Extension；无默认值。选好后询问是否已有服务端。",
+      "question": "你想创建网页应用还是浏览器扩展？",
+      "hint": "输入 1.Web 或 2.Extension；CLI 无默认值。Agent 根据需求优先自动选择唯一合适宿主，存在分歧或两者均适用时才推荐并询问。",
       "options": [
         {
           "value": "web",
           "label": "1.Web",
-          "description": "在 Workspace 下创建 _web 成员"
+          "description": "在浏览器中打开的网页应用"
         },
         {
           "value": "extension",
           "label": "2.Extension",
-          "description": "浏览器扩展项目，同时支持 Chrome MV3 与 Firefox MV2"
+          "description": "可安装到 Chrome 和 Firefox 的浏览器扩展"
         }
-      ]
+      ],
+      "agentHint": "需求存在分歧或两者均适用时，请选择一种；已有明确选择直接沿用。"
     },
     "serverMode": {
       "title": "已有服务端",
-      "question": "是否已有可接入的服务端？",
-      "hint": "有服务时必须提供开发 BaseURL；没有则默认创建所选 Web 或 Extension 和一个 Go 服务端，并连接本地服务，无需再选择服务端类型。",
+      "question": "这个项目需要哪种服务端支持？",
+      "hint": "需求确定完全本地时，Agent 自动选择不需要；需要服务时沿用已提供的服务事实，只补问是否有现成服务，明确没有后创建 Go 服务。需要远端共享或同步时不能凭缺少地址推断没有服务。",
       "options": [
         {
           "value": "existing",
           "label": "1.有",
-          "description": "接入已有服务，不创建 _server"
+          "description": "连接已有服务"
         },
         {
           "value": "create",
           "label": "2.没有",
-          "description": "在 Workspace 创建 _server 并连接前端"
+          "description": "创建 Go 服务并连接前端"
+        },
+        {
+          "value": "none",
+          "label": "3.不需要",
+          "description": "只创建前端，在本地完成实际功能"
         }
       ]
     },
     "apiContract": {
-      "title": "接口契约（可选）",
-      "question": "请提供已有服务的接口文档路径。",
-      "hint": "可稍后按所选能力补齐；BaseURL 不能推断接口。",
-      "options": []
-    },
-    "requirementsFile": {
-      "title": "需求输入（可选）",
-      "question": "是否提供需求文档或直接输入需求？",
-      "hint": "可提供 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）文档或直接输入文字，也可暂不提供。需求用于理解目标用户、页面、核心流程与功能范围，减少后续重复沟通；暂不提供时随后按需补充。CLI 文件入口读取 .md/.txt，可填相对或绝对路径；直接文字以 text: 或“文字：”开头，回车采用不提供。Word 由 Agent 读取完整正文后交接为文本，CLI 不直接解析 Word；聊天需明确选择暂不提供，已有需求直接复用。",
-      "options": []
-    },
-    "requirementsText": {
-      "title": "需求正文",
-      "question": "请修正需求正文。",
-      "hint": "仅已提供正文非法时补问；保留完整文本与换行，最多 1 MiB，不可包含 NUL。与需求文件二选一，不额外询问已提供的需求。",
+      "title": "接口文档（可选）",
+      "question": "可以提供已有服务的接口文档。",
+      "hint": "暂时没有也可继续，接入具体功能时再补充。",
       "options": []
     },
     "name": {
-      "title": "项目显示名称",
-      "question": "请输入项目显示名称。",
+      "title": "项目名称",
+      "question": "这个项目叫什么名字？",
       "hint": "输入页面或扩展中显示的非空名称。",
       "options": []
     },
@@ -62,60 +70,66 @@
       "title": "项目名称的英文翻译",
       "question": "请输入项目名称的英文翻译。",
       "hint": "CLI 缺少必要英文译名或已提供译名非法时补问；使用英文名称生成小写 kebab-case 项目标识，不使用拼音。",
-      "options": []
+      "options": [],
+      "agentHint": "使用英文表达项目名称，项目标识会自动生成。"
     },
     "id": {
       "title": "项目标识",
       "question": "请修正项目标识。",
       "hint": "通常由英文名称自动生成；显式标识非法时补问，小写字母、数字和连字符，例如 my-project。",
-      "options": []
+      "options": [],
+      "agentHint": "请使用小写字母、数字和连字符，例如 my-project。"
     },
     "targetRoot": {
-      "title": "源 Harness 外的父目录",
-      "question": "请输入源 Harness 外的父目录路径。",
-      "hint": "可输入相对或绝对路径；相对路径按明确的当前工作目录解析，校验可访问后展示最终绝对保存位置，确认后继续，无需重复输入。最终项目目录为父目录/项目标识，不猜测默认路径。",
+      "title": "保存位置",
+      "question": "项目要保存在哪个文件夹？",
+      "hint": "请选择本模板之外的上级文件夹，可填相对或绝对路径。确认前会展示完整保存位置，无需重复输入。",
       "options": []
     },
     "description": {
       "title": "项目说明",
-      "question": "请输入项目说明。",
+      "question": "请用一句话介绍这个项目。",
       "hint": "Extension 必填，非空且最多 132 字符；Web 缺省使用显示名称。",
-      "options": []
+      "options": [],
+      "agentHint": "这句话会显示在扩展信息中，最多 132 个字符；已有描述会直接沿用。"
     },
     "identityI18n": {
-      "title": "身份本地化",
+      "title": "多语言名称与介绍",
       "question": "请修正身份本地化配置。",
       "hint": "仅已提供值非法时补问；输入 JSON，defaultLocale 为 en 或 zh_CN，translations 提供另一语言的名称和说明。",
-      "options": []
+      "options": [],
+      "agentHint": "请说明各语言对应的项目名称和介绍。"
     },
     "brandColor": {
       "title": "品牌颜色",
       "question": "请修正品牌颜色。",
       "hint": "仅已提供值非法时补问；输入 #RGB 或 #RRGGBB 十六进制颜色。",
-      "options": []
+      "options": [],
+      "agentHint": "请提供有效颜色，例如 #4C6EF5。"
     },
     "developmentBaseUrl": {
-      "title": "开发 API 基地址",
-      "question": "请修正开发 API 基地址。",
-      "hint": "仅已提供值非法时补问；无凭据、query、fragment 的绝对 HTTP(S) URL，也可留空后续配置。",
-      "options": []
+      "title": "开发服务地址",
+      "question": "请提供开发环境的服务地址。",
+      "hint": "已有服务时必填，例如 http://localhost:8080；自建服务会自动配置。",
+      "options": [],
+      "agentHint": "已有服务时必填，例如 http://localhost:8080；自建服务会自动配置。"
     },
     "testBaseUrl": {
-      "title": "测试 API 基地址",
-      "question": "请修正测试 API 基地址。",
-      "hint": "仅已提供值非法时补问；无凭据、query、fragment 的绝对 HTTP(S) URL，也可留空后续配置。",
+      "title": "测试服务地址",
+      "question": "请检查测试环境的服务地址。",
+      "hint": "请提供完整的 HTTP 或 HTTPS 地址，也可暂时留空。",
       "options": []
     },
     "releaseBaseUrl": {
-      "title": "正式 API 基地址",
-      "question": "请修正正式 API 基地址。",
-      "hint": "仅已提供值非法时补问；无凭据、query、fragment 的绝对 HTTPS URL，可留空但正式发布前必须补齐。",
+      "title": "正式服务地址",
+      "question": "请检查正式环境的服务地址。",
+      "hint": "请提供完整的 HTTPS 地址；创建时可留空，正式发布前再补齐。",
       "options": []
     },
     "policyMode": {
       "title": "Agent 策略模式",
       "question": "请选择 Agent 策略模式。",
-      "hint": "输入 1/2、预设/自定义 或 recommended/custom。",
+      "hint": "默认采用预设，不主动询问；仅主动自定义或已提供值非法时处理。接受预设/自定义或 recommended/custom。",
       "options": [
         {
           "value": "recommended",
@@ -127,13 +141,15 @@
           "label": "2.自定义",
           "description": "逐项选择五项策略，保留已明确的单项决定"
         }
-      ]
+      ],
+      "agentHint": "默认使用预设。只有主动选择自定义时，才逐项补充设置。"
     },
     "confirmedBy": {
       "title": "确认来源",
       "question": "确认来源自动记录为当前用户。",
       "hint": "自动字段，不主动询问；已有明确来源则复用。",
-      "options": []
+      "options": [],
+      "agentHint": "自动记录，无需填写。"
     }
   },
   "policy": {
@@ -255,6 +271,7 @@
         "label": "取消",
         "description": "结束本次创建，不写入目标或暂存目录"
       }
-    ]
+    ],
+    "agentHint": "确认后会在上述位置完成汇总中的首版功能和相关验证；也可以继续修改。"
   }
 }

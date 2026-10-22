@@ -5,20 +5,26 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
 # Web Harness：实例化前端项目
 
+服务来源支持 `none`：需求已确定完全本地且无需服务时自动选择，只创建所选前端，不要求地址或接口文档；“没有现成服务”仍默认 create，不从工具名称猜服务模式。修改服务来源时清除旧开发/测试/正式地址和接口文档，同次明确给出的新值继续校验。核心账号、自有组织和个人设置可以保留；明确取消协作时按操作集合装配，不重新加回 identity.workspace。
+
 完整创建任务交付按已确认需求实现、可运行且完成实际流程验证的首版。工程创建事务负责生成 Workspace 与按需成员、安装依赖和建立唯一根 Git 基线，只是内部阶段；事务成功后继续在下游完成唯一 PRD、固定设计装配、页面与功能实施和开发浏览器走查。源 Harness 只维护规则与可复用资产，产品记录和业务代码只写入成功下游。
 
 ## 收集输入
 
-创建前使用 [`references/form-adapter.md`](references/form-adapter.md) 的共享只读表单工具；它决定下一字段、固定显示内容、汇总修订和授权状态，模型只提取真实用户事实。实际写入仍只走 `pnpm instantiate`。同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用基础输入与策略题目的名称、题面、选项与顺序；CLI 使用 `confirmation` 确认工程事务，Agent 使用 `agentConfirmation` 一次确认完整首版范围，不连续询问两种确认；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
+创建从需求采集开始。需求有充分依据且唯一适配时，优先自动选择宿主、必要能力和本地方案；只有真实争议或多个方案同样适用时才推荐并询问。现成服务存在性、真实地址、保存位置与资产权属仍按用户事实收集，自动逻辑选择不编造这些事实。
 
-1. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按工具返回的 `basic` 顺序和条件逐项处理，每轮只展示工具返回的一题；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。策略模式建议预设（已有单项覆盖则建议自定义），CLI 题面之外明确“回车采用”后可接受默认值；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。父目录支持相对或绝对路径；聊天以源 Harness 根为解析基准，CLI 以调用时 cwd 为基准。只读解析、校验后，在最终汇总展示绝对保存位置并询问是否保存到该位置，用户同意后继续，不要求重输绝对路径。无交互终端的相对位置参数须通过已确认表单执行；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；明确询问是否已有服务端；有则开发 BaseURL 必填，可提供 --api-contract 文档路径，缺接口契约按所选操作补齐；无则同事务创建 Go 服务并连接本地地址，测试/正式地址不在首轮询问。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
-2. 先要求用户明确选择唯一前端类型：1.Web（`web`）或 2.Extension（`extension`），复用合法选择，不默认或从文档推断。选好后立即询问是否已有服务端；有则接入已有服务，没有则默认创建所选前端和一个 Go 服务端并连接，不再询问服务端类型或成员组合。随后复用已提供的 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）文档或直接输入的文字，也可暂不提供。明确告知用途：理解目标用户、页面、核心流程与功能范围，减少后续重复沟通；输入材料可省略，完整创建所需的实际首版范围随后按需澄清。读取 [创建需求输入与事务交接](references/requirements-intake.md)，需求分析委托 `$web-define-product` 的创建前只读模式；本 Skill 不拥有需求或能力判据，再由其委托 `$web-compose-capabilities` 解析操作。至少明确目标用户、真实首页、必要页面、完整核心流程、数据模式和可观察验收标准。按 catalog 自动补齐操作最小依赖并展示原因；购买必须包含基础身份资源；当前图不自动生成注册、找回、组织或权限，完整用户方案仍须满足[账号与组织基线](../web-compose-capabilities/knowledge/identity.md#完整用户信息)，未覆盖接线显式交还实施入口并纳入首版范围，不用最小闭包缩减完整需求。Markdown/TXT 经 `--requirements-file` 交接；直接文字及 Word 完整提取正文经 `requirementsText` / `--requirements-text` 冻结交接，沿用当前对话，不重复索取。Word 读取与完整性按输入合同处理，不宣称 CLI 原生解析 Word。默认欢迎页与计数器演示已移除，首页由实际需求实施，不能以工程空壳交付。
-3. 只复用本次创建请求中用户已给的合法策略决定；源模板 YAML 默认值、`pending` 和其他项目的策略不是新项目答案。尚无有效决定时，让用户选择仓库提供的推荐策略或逐项自定义。推荐模式一次展开；自定义模式每轮只询问一个仍缺失或非法的策略字段，并展示预设中的该项作为建议默认值；CLI 明确提示后回车表示采用，聊天中仍以实际回答为准。用户主动提供的多个合法值全部复用。按用户登记记录“当前用户”和最终收齐日期，不把模板值当作用户决定。
+首次表单及每次后续提问前，先按[聊天适配合同](references/form-adapter.md)理解当前完整会话，提取仍有效的明确事实。已有需求即委托只读分析，宿主未定也可先分析目标、入口与流程，不等工程字段填完；只问工具返回且上下文仍未回答的缺口。首页、页面、操作依赖和验收由 Agent 分析生成，不逐项变成用户问卷。
+
+创建前使用 [`references/form-adapter.md`](references/form-adapter.md) 的共享只读表单工具；它决定下一字段、固定显示内容、汇总修订和授权状态，模型提取真实用户事实，并通过独立 selection 记录有依据的自动选择或推荐。实际写入仍只走 `pnpm instantiate`。同时读取 [`references/initialization-form.md`](references/initialization-form.md) 的条件规则与 [`references/initialization-questions.json`](references/initialization-questions.json) 的固定文案。Agent 和 CLI 共用基础输入与策略题目的名称、题面、选项与顺序；CLI 使用 `confirmation` 确认工程事务，Agent 使用 `agentConfirmation` 一次确认完整首版范围，不连续询问两种确认；每个选项逐字显示为 `label（description）`。每轮只问一项，收到实际回答并校验后才继续；重问与恢复不改名、不改写题面。默认值和错误信息另列，不合并问题或用整表要求用户填写。
+
+1. 先复用或采集已提供的 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）文档或直接输入的文字，也可暂不提供。明确告知用途：理解目标用户、页面、核心流程与功能范围，减少后续重复沟通；输入材料可省略，完整创建所需的实际首版范围随后按需澄清。读取 [创建需求输入与事务交接](references/requirements-intake.md)，需求分析委托 `$web-define-product` 的创建前只读模式；本 Skill 不拥有需求或能力判据，再由其委托 `$web-compose-capabilities` 解析操作。至少明确目标用户、真实首页、必要页面、完整核心流程、数据模式和可观察验收标准。宿主及服务来源未定不阻断分析。根据需求唯一适配时自动选择宿主和必要能力，确定完全本地则自动 none。表单 selection 独立记录自动选择及理由；存在真实分歧或多个同样适用的方案才记录 recommendation。需要服务时只补现成服务存在性这个事实，不因缺地址假定没有服务。宿主与服务未定时先返回 selection，确定后再补齐最终七项 scope。有现成服务则接入；没有则默认创建所选前端和一个 Go 服务端并连接；确定完全本地时自动采用 none，不再询问服务端类型或成员组合。选择后同步数据模式、接口边界与验收，不复用陈旧 scope。按 catalog 自动补齐操作最小依赖并展示原因；购买必须包含基础身份资源；当前图不自动生成注册、找回、组织或权限，完整用户方案仍须满足[账号与组织基线](../web-compose-capabilities/knowledge/identity.md#完整用户信息)，未覆盖接线显式交还实施入口并纳入首版范围，不用最小闭包缩减完整需求。Markdown/TXT 经 `--requirements-file` 交接；直接文字及 Word 完整提取正文经 `requirementsText` / `--requirements-text` 冻结交接，沿用当前对话，不重复索取。Word 读取与完整性按输入合同处理，不宣称 CLI 原生解析 Word。默认欢迎页与计数器演示已移除，首页由实际需求实施，不能以工程空壳交付。
+2. 按 [`references/initialization-form.md`](references/initialization-form.md) 维护字段状态。按工具返回的 `basic` 顺序和条件逐项处理，每轮只展示工具返回的一题；先复用已有合法答案，只重问缺失或非法项。普通回答直接输入文本，不要求 JSON；用户主动一次提供多个值仍复用。项目标识无需用户手填：Agent 根据显示名称生成语义准确的英文翻译，经 `--english-name` 自动转成小写 ASCII kebab-case，并在最终汇总展示；英文名称直接生成，已有显式合法标识优先复用，不转拼音、不从父目录名推导。纯 CLI 无 Agent 翻译能力时只补问英文译名。Agent 设置默认采用预设，不再询问策略模式；主动提供自定义或单项策略时复用并只补齐缺项；父目录不得猜测，最终目录固定为“用户提供的父目录/项目标识”。父目录支持相对或绝对路径；聊天以源 Harness 根为解析基准，CLI 以调用时 cwd 为基准。只读解析、校验后，在最终汇总展示绝对保存位置并询问是否保存到该位置，用户同意后继续，不要求重输绝对路径。无交互终端的相对位置参数须通过已确认表单执行；交互式终端未给位置参数时逐项补问。Web 说明可省略并默认使用显示名称；Extension 必须收集非空简短说明，已提供则复用，类型明确后按需单独补问；需求需要服务且现成服务事实尚未明确时才询问是否已有服务端；有则开发 BaseURL 必填，可提供 --api-contract 文档路径，缺接口契约按所选操作补齐；无则同事务创建 Go 服务并连接本地地址，测试/正式地址不在首轮询问。主动提供的地址仍须校验，正式地址只接受 HTTPS，正式发布前必须补齐。`confirmed_by` 自动记录“当前用户”，已明确提供来源时复用，不询问确认来源；不得为未知 endpoint 猜测值。
+3. Agent 设置默认采用仓库的确定性预设，不再询问策略模式或五项预设值，并在最终汇总显示实际配置及“默认预设”来源。用户主动给出自定义模式或单项策略时保留意图，仅补齐缺失或非法项；显式预设与单项覆盖冲突时不得丢弃用户值。源 YAML 的 pending 和其他项目策略不作为新项目答案。最终完整创建确认仍一次覆盖当前汇总；confirmed_by 记录当前用户，confirmed_at 记录收齐日期。
 
 ## Logo 与身份本地化
 
-1. 调用 `$web-prepare-brand-identity` 的首次实例化分支：只使用已收集的名称、id、说明、品牌色和用户提供源图。已有图像先查看；复用已选正式源图，否则按品牌 Skill 生成、查看并展示三个独立 Logo 候选，等待用户明确选一。生成授权不代替选图，候选编号与选择只由品牌 Skill 管理。创建需求分析不扩大品牌输入或授权。
-2. 候选放在源/目标之外的临时目录，只把已选图作为 `--logo <absolute-path>` 导入；不向源、目标或 staging 提前写入。没有图像生成能力时复用品牌 Skill 的离线三候选 helper 和同一选择流程，不能把通用几何图形称为已完成定制设计。创建成功后查看规范母版并展示其路径，以及 Web Logo/Favicon 或 Extension icon；不以文件存在替代视觉检查。选图与完整创建授权是不同事件；选图不代替完整创建确认，已有覆盖当前汇总的完整创建授权继续复用。
+1. 调用 `$web-prepare-brand-identity` 的首次实例化分支：只使用已收集的名称、id、说明、品牌色和用户提供源图。已有图像先查看；复用已选正式源图，否则按品牌 Skill 生成、查看并展示需求唯一适配方向，自动选定并记录理由；多个方向同样适用或有审美分歧时才展示候选并推荐。创建需求分析不扩大品牌输入或授权。
+2. 候选放在源/目标之外的临时目录，只把已选图作为 `--logo <absolute-path>` 导入；不向源、目标或 staging 提前写入。没有图像生成能力时复用品牌 Skill 的离线候选 helper 和同一决策流程，不能把通用几何图形称为已完成定制设计。创建成功后查看规范母版并展示其路径，以及 Web Logo/Favicon 或 Extension icon；不以文件存在替代视觉检查。品牌选择纳入完整汇总；自动或人工选图均不代替完整创建确认，已有覆盖当前汇总的完整创建授权继续复用。
 3. 名称和说明使用根字段作为默认语言，可通过 `--identity-i18n` JSON 提供 `defaultLocale` 和另一语言的完整 `translations`。当前与既有 UI 对齐支持 `en` 和 `zh_CN`；不猜测翻译。精确配置见 `docs/TS_WEB_TEMPLATE.md` §3.1。
 
 ## 安全复制
@@ -39,11 +45,11 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
 ## 执行唯一创建入口
 
-1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对父目录、身份、策略模式、成员选择与 --server existing|create；已有服务必须传入开发 BaseURL。Workspace 结构与成员命名以 [工作区规范](../../../docs/WORKSPACE_TEMPLATE.md) 为准，Go 不另开问卷。CLI 在父目录下以生成的项目标识创建子目录；英文显示名称可省略 `--english-name`，显式 `--id` 仅用于复用用户已给标识。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
+1. 从源 Harness 根调用唯一公开的 `pnpm instantiate` 入口，并传入已确认的源外绝对父目录、身份、可选策略覆盖、成员选择与 --server existing|create|none；已有服务必须传入开发 BaseURL。Workspace 结构与成员命名以 [工作区规范](../../../docs/WORKSPACE_TEMPLATE.md) 为准，Go 不另开问卷。CLI 在父目录下以生成的项目标识创建子目录；英文显示名称可省略 `--english-name`，显式 `--id` 仅用于复用用户已给标识。初始化不创建 Release 候选，因此不询问或接受 E2E 选择。不要在目标根预先运行 frozen install，也不要直接调用底层 initializer；`instantiate` 会在目标同级 sibling staging 内部重写 manifest，再用一次 `pnpm install --no-frozen-lockfile --prefer-offline` 建立首份与目标清单一致的 lockfile：
 
    ```text
-   pnpm instantiate -- <parent-outside-harness> --type <web|extension> --server <existing|create> \
-     --name "<display-name>" --english-name "<English translation>" --policy-mode <预设|自定义>
+   pnpm instantiate -- <parent-outside-harness> --type <web|extension> --server <existing|create|none> \
+     --name "<display-name>" --english-name "<English translation>" [--policy-mode <预设|自定义>]
    ```
 
    有 Markdown/TXT 时追加 `--requirements-file <md-or-txt-path>`；直接文字或 Word 完整正文使用 `requirementsText` / `--requirements-text <text>`，二者互斥。Word 由 Agent 的文档读取能力处理，无法完整读取时说明具体缺口，不用摘要冒充正文；必要的转换文件只放在源与目标之外临时目录。CLI 只交接原文，需求分析与建议由对应 Skill 返回，不能把 CLI 成功声明为业务已实现。
@@ -80,6 +86,6 @@ description: 通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 
 
 ## Workspace 与 Go 协作
 
-读取 docs/WORKSPACE_TEMPLATE.md 的新拓扑与服务来源合同。根只建立一次 Git 与依赖图，成员以 _web/_extension/_server 命名；现有单包内部 initializer 只生成前端叶子，公开入口默认使用 Workspace 编排器。每次创建一个所选前端；没有已有服务时同时创建一个 Go 服务端。源外原子事务的租约、快照与回收门禁保持适用。
+读取 docs/WORKSPACE_TEMPLATE.md 的新拓扑与服务来源合同。根只建立一次 Git 与依赖图，成员以 _web/_extension/_server 命名；现有单包内部 initializer 只生成前端叶子，公开入口默认使用 Workspace 编排器。每次创建一个所选前端；选择 create 时同时创建一个 Go 服务端。源外原子事务的租约、快照与回收门禁保持适用。
 
 工程成功后，$workspace-implement-feature 根据具体操作委托独立领域 Skill；没有已有服务时必须同时完成服务端实体、业务、REST/GraphQL、前端真实 adapter 及联调，不把未接通责任交还用户。根是唯一策略、产品规格与接口事实，成员不生成独立生命周期。

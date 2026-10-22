@@ -5,7 +5,7 @@ import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture
 /** 仅隔离测试注入的注册服务，产品生成仍强制真实 adapter。 */
 const identityAdapter = `import { ApiError } from "../client/httpClient"
 import type { RegistrationInput } from "./registration"
-export const flow = { calls: 0, rejectLogin: true, unknown: false, slowLogin: false, loginStarted: false, input: {} as RegistrationInput }
+export const flow = { calls: 0, rejectLogin: true, unknown: false, slowLogin: false, loginStarted: false, mockDelivery: true, input: {} as RegistrationInput }
 let finishLogin: (() => void) | undefined
 /** 测试故意模拟不遵循 AbortSignal 的迟到服务，客户端仍必须阻断采用。 */
 export function finishPendingLogin() { finishLogin?.() }
@@ -26,7 +26,8 @@ export async function registerAccount(input: RegistrationInput) {
 }
 /** 仅该测试替身回执允许明文；真实 adapter 另做环境和 wire 校验。 */
 export async function sendRegistrationCode() {
-  return { mocked: true as const, code: "000012", codeLength: 6, expiresAt: Date.now() + 300000, resendAfter: 60 }
+  const timing = { codeLength: 6, expiresAt: Date.now() + 300000, resendAfter: 60 }
+  return flow.mockDelivery ? { ...timing, mocked: true as const, code: "000012" } : { ...timing, mocked: false as const }
 }
 `
 
@@ -84,7 +85,7 @@ test("optional verification and contract password policy", async () => {
   await user.type(screen.getByPlaceholderText("Enter your password again"), "abcdefgh")
   fireEvent.submit(screen.getByRole("button", { name: "Create account and sign in" }).closest("form")!)
   expect(flow.calls).toBe(0)
-  expect(screen.getAllByText("Use 8–64 UTF-8 bytes, including an English letter and a digit.")).toHaveLength(2)
+  expect(screen.getAllByText("Use a password containing an English letter and a number.")).toHaveLength(2)
   await user.clear(screen.getByPlaceholderText("Enter your password"))
   await user.type(screen.getByPlaceholderText("Enter your password"), "密码A1")
   await user.clear(screen.getByPlaceholderText("Enter your password again"))
@@ -147,7 +148,7 @@ test("email code registration retries only sign in", async () => {
   await user.click(screen.getByRole("button", { name: "Get code" }))
   await screen.findByRole("button", { name: /Resend in/ })
   expect(screen.queryByText(/Development simulation/)).not.toBeInTheDocument()
-  expect(screen.queryByText("000012")).not.toBeInTheDocument()
+  expect(screen.getByText("Verification code: 000012 (email delivery is not connected)")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Fill code" })).not.toBeInTheDocument()
   await user.type(screen.getByLabelText(/verification code/), "000012")
   expect(screen.getByLabelText(/verification code/)).toHaveValue("000012")
@@ -165,6 +166,27 @@ test("email code registration retries only sign in", async () => {
   await screen.findByRole("heading", { name: "Text tool" })
   expect(flow.calls).toBe(1)
   ${host === "web" ? 'expect(screen.getByRole("navigation", { name: "Sidebar" })).toBeInTheDocument()' : 'expect(screen.queryByRole("navigation", { name: "Sidebar" })).not.toBeInTheDocument()'}
+})
+/** 开发回显随邮箱失效，真实投递只保留输入与倒计时。 */
+test("real delivery and target changes remove the code preview", async () => {
+  await identitySession.logout()
+  flow.mockDelivery = true
+  const router = ${host === "web" ? 'createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ["/register"] }) })' : 'createExtensionRouter("popup")\n  router.update({ history: createMemoryHistory({ initialEntries: ["/register"] }) })'}
+  const user = userEvent.setup()
+  render(<Providers><RouterProvider router={router} /></Providers>)
+  const email = await screen.findByPlaceholderText("Enter your email")
+  await user.type(email, "preview@example.test")
+  await user.click(screen.getByRole("button", { name: "Get code" }))
+  await screen.findByText(/Verification code: 000012/)
+  await user.clear(email)
+  expect(screen.queryByText(/Verification code: 000012/)).not.toBeInTheDocument()
+  flow.mockDelivery = false
+  await user.type(email, "real@example.test")
+  await user.click(screen.getByRole("button", { name: "Get code" }))
+  await screen.findByRole("button", { name: /Resend in/ })
+  expect(screen.queryByText(/Verification code:/)).not.toBeInTheDocument()
+  expect(screen.getByLabelText(/verification code/)).toHaveValue("")
+  flow.mockDelivery = true
 })
 /** 写入无响应时不自动重试创建，并保留登录恢复入口。 */
 test("unknown registration blocks duplicate create", async () => {
@@ -222,7 +244,7 @@ test("verification owns email generation", async () => {
 })
 `
     )
-    expect(result).toMatch(/Tests\s+4 passed/u)
+    expect(result).toMatch(/Tests\s+5 passed/u)
   },
   90_000
 )

@@ -5,7 +5,13 @@ import type { IdentityRuntime } from "./runtime"
 import classes from "./identity.module.css"
 
 /** 账号触发器与退出复用唯一身份 owner，业务菜单项由组合层注入。 */
-export function IdentityMenu({ session, avatar, children, scope, triggerRef }: {
+export function IdentityMenu({
+  session,
+  avatar,
+  children,
+  scope,
+  triggerRef
+}: {
   session: IdentityRuntime
   avatar?: string
   children?: ReactNode
@@ -18,14 +24,16 @@ export function IdentityMenu({ session, avatar, children, scope, triggerRef }: {
   const [menu, setMenu] = useState({ opened: false, identityId, scope })
   const current = menu.identityId === identityId && menu.scope === scope
   useEffect(() => {
-    setMenu((value) => value.opened ? { ...value, opened: false } : value)
+    setMenu((value) => (value.opened ? { ...value, opened: false } : value))
   }, [identityId, scope])
   if (!state.identity) return null
   const name = state.identity.displayName ?? state.identity.id
   return (
     <Menu
       opened={menu.opened && current}
-      onChange={(opened) => setMenu((value) => opened ? { opened, identityId, scope } : { ...value, opened })}
+      onChange={(opened) =>
+        setMenu((value) => (opened ? { opened, identityId, scope } : { ...value, opened }))
+      }
       position="bottom-end"
       width={330}
       withArrow
@@ -51,6 +59,16 @@ export function IdentityMenu({ session, avatar, children, scope, triggerRef }: {
         </UnstyledButton>
       </Menu.Target>
       <Menu.Dropdown maw="calc(100vw - var(--mantine-spacing-md) * 2)">
+        <Menu.Label>
+          <Text size="sm" fw={600} truncate="end" title={name}>
+            {name}
+          </Text>
+          {state.identity.email && state.identity.email !== name && (
+            <Text size="xs" c="dimmed" truncate="end" title={state.identity.email}>
+              {state.identity.email}
+            </Text>
+          )}
+        </Menu.Label>
         {children}
         <Menu.Divider />
         <Menu.Item

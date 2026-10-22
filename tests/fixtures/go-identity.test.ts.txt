@@ -10,6 +10,9 @@ test("registration password policy matches Go validation", () => {
     expect(registrationPasswordPolicy.validate(value)).toBe(false)
   for (const value of ["Example123", "密码A1", "a1" + "中".repeat(20)])
     expect(registrationPasswordPolicy.validate(value)).toBe(true)
+  expect(registrationPasswordPolicy.errorKey("a1")).toBe("registrationPasswordTooShort")
+  expect(registrationPasswordPolicy.errorKey("a1" + "中".repeat(21))).toBe("registrationPasswordTooLong")
+  expect(registrationPasswordPolicy.errorKey("abcdefgh")).toBe("registrationPasswordGoRule")
 })
 
 /** 真实 SQLite/HTTP 验证公开隔离、完整资料、刷新复用、改密及全账号退出。 */
@@ -68,6 +71,20 @@ test("real Go endpoints match the frontend adapter and token lifecycle", async (
     organizationId: profile.organization.id,
     role: "owner"
   })
+  for (const nickname of ["", "   ", "x".repeat(65)]) {
+    const rejected = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/profile", {
+      method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + access },
+      body: JSON.stringify({ nickname })
+    })
+    expect(rejected.status).toBe(400)
+  }
+  const renamed = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/profile", {
+    method: "PATCH", headers: { "Content-Type": "application/json", Authorization: "Bearer " + access },
+    body: JSON.stringify({ nickname: "  New nickname  ", account_id: "1", email: "forged@example.invalid" })
+  })
+  expect(renamed.status).toBe(200)
+  expect((await adapter.readProfile(access)).account).toMatchObject({ id, nickname: "New nickname", email: "contract@example.invalid" })
+  expect(await adapter.api.validate(access)).toMatchObject({ id, displayName: "New nickname", email: "contract@example.invalid" })
   const response = await fetch(APP_CONFIG.apiBaseUrl + "/api/v1/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

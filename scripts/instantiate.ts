@@ -1,7 +1,8 @@
 import { realpath } from "node:fs/promises"
 import path from "node:path"
-import { fileURLToPath, pathToFileURL } from "node:url"
+import { fileURLToPath } from "node:url"
 import { assertKnownOptions, parseArgs } from "../.harness/tooling/args.ts"
+import { isMainModule } from "../.harness/tooling/files.ts"
 import { INIT_OPTIONS, resolveInitOptions } from "../.harness/tooling/cli.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
 import { initializeWorkspace, createWorkspaceConfig } from "../.harness/tooling/workspace.ts"
@@ -47,7 +48,7 @@ export interface InstantiateCliRuntime {
 
 /** 返回创建命令的稳定用法说明。 */
 function usage(): string {
-  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension --server existing|create --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] --policy-mode 预设|自定义 [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；没有已有服务端时创建所选前端和一个 Go 服务端，最终目录为父目录/项目标识"
+  return "用法：pnpm instantiate -- <parent-outside-harness> --type web|extension --server existing|create|none --name <name> [--requirements-file <md-or-txt-path> | --requirements-text <text>] [--english-name <English translation>] [--id <id>] [--policy-mode 预设|自定义] [--description <text> （Extension 必填）] [--identity-i18n <json>] [--development-base-url <url>] [--test-base-url <url>] [--release-base-url <https-url>] [自定义策略参数]；选择 create 时创建所选前端和 Go 服务；明确不需要服务端则 none，只创建前端，最终目录为父目录/项目标识"
 }
 
 /** 标记每个初始化字段来自命令行、交互表单、默认值或预设。 */
@@ -84,7 +85,11 @@ function inputSources(
     releaseBaseUrl: optionNames.has("release-base-url") ? "命令行参数" : "未配置（可后续补齐）",
     brandColor: optionNames.has("brand-color") ? "命令行参数" : "Harness 默认值",
     logoPath: optionNames.has("logo") ? "命令行参数" : "Harness 确定性生成",
-    policyMode: source("policy-mode"),
+    policyMode: optionNames.has("policy-mode")
+      ? "命令行参数"
+      : policyMode === "recommended"
+        ? "默认预设"
+        : "沿用单项策略",
     confirmedBy: optionNames.has("confirmed-by") ? "命令行参数" : "当前用户（自动记录）"
   }
   for (const choice of choices) {
@@ -268,10 +273,7 @@ async function main(): Promise<void> {
   await runInstantiateCli()
 }
 
-/** 保存当前 Node 入口路径以避免测试 import 时自动执行。 */
-const executedPath =
-  process.argv[1] === undefined ? undefined : pathToFileURL(path.resolve(process.argv[1])).href
-if (executedPath === import.meta.url) {
+if (isMainModule(import.meta.url)) {
   main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error))
     process.exitCode = 1

@@ -1,0 +1,18 @@
+package service
+
+import (
+    "context"
+    "strings"
+    "unicode/utf8"
+    "project_id/internal/apperr"
+    "project_id/internal/model"
+)
+
+// UpdateNickname 只修改认证账号的全局昵称，切换组织不改变此资料。
+func (s *AccountService) UpdateNickname(ctx context.Context, accountID model.ID, nickname string) error {
+    name := strings.TrimSpace(nickname)
+    if name == "" || !utf8.ValidString(name) || utf8.RuneCountInString(name) > 64 { return apperr.ErrBadRequest }
+    if _, err := s.LoadForAuth(ctx, accountID); err != nil { return err }
+    if err := s.accounts.UpdateFields(ctx, accountID, map[string]any{"nickname": name}); err != nil { return apperr.ErrInternal }
+    return nil
+}
