@@ -49,6 +49,11 @@ func rolePermissionIDs(tx *repository.TeamTx, account, org model.ID, codes []str
 		seen[code] = true
 		ids = append(ids, id)
 	}
+	for _, code := range codes {
+		if !seen[permissionRead(code)] {
+			return nil, apperr.ErrForbidden
+		}
+	}
 	return ids, nil
 }
 
@@ -59,7 +64,7 @@ func (s *TeamService) Roles(ctx context.Context, account, org model.ID, page, si
 	}
 	result := &dto.TeamRolePage{Items: []*dto.TeamRole{}}
 	err := s.store.Read(ctx, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		if _, err := teamAuthorize(tx, account, org, "team.roles.read"); err != nil {
 			return err
 		}
 		rows, total, err := tx.Roles(org, page, size)
@@ -72,7 +77,7 @@ func (s *TeamService) Roles(ctx context.Context, account, org model.ID, page, si
 			if err != nil {
 				return err
 			}
-			result.Items = append(result.Items, &dto.TeamRole{ID: row.ID.String(), OrganizationID: org.String(), Code: row.Code, Name: row.Name, Protected: row.Protected, Version: row.Version, Permissions: codes})
+			result.Items = append(result.Items, &dto.TeamRole{ID: row.ID.String(), OrganizationID: org.String(), Code: row.Code, Name: row.Name, Protected: row.Protected, Version: row.Version, Permissions: codes, CanManage: canManageRole(tx, account, org, &row) == nil})
 		}
 		return nil
 	})
@@ -87,7 +92,7 @@ func (s *TeamService) CreateRole(ctx context.Context, account, org model.ID, cod
 		return apperr.ErrBadRequest
 	}
 	return s.store.Write(ctx, account, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		if _, err := teamAuthorize(tx, account, org, "team.roles.create"); err != nil {
 			return err
 		}
 		if _, err := tx.RoleCode(org, code); err == nil {
@@ -101,6 +106,11 @@ func (s *TeamService) CreateRole(ctx context.Context, account, org model.ID, cod
 		}
 		if total >= 100 {
 			return apperr.ErrConflict
+		}
+		if len(codes) > 0 {
+			if _, err := teamAuthorize(tx, account, org, "team.roles.permissions.update"); err != nil {
+				return err
+			}
 		}
 		ids, err := rolePermissionIDs(tx, account, org, codes)
 		if err != nil {
@@ -121,12 +131,15 @@ func (s *TeamService) UpdateRole(ctx context.Context, account, org, id model.ID,
 		return apperr.ErrBadRequest
 	}
 	return s.store.Write(ctx, account, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		if _, err := teamAuthorize(tx, account, org, "team.roles.permissions.update"); err != nil {
 			return err
 		}
 		role, err := tx.Role(org, id)
 		if err != nil || role.Protected {
 			return apperr.ErrForbidden
+		}
+		if err := canManageRole(tx, account, org, role); err != nil {
+			return err
 		}
 		if role.Version != version {
 			return apperr.ErrConflict
@@ -146,16 +159,52 @@ func (s *TeamService) UpdateRole(ctx context.Context, account, org, id model.ID,
 // DeleteRole 原子撤销角色及成员绑定，拥有者和基础角色不可删除。
 func (s *TeamService) DeleteRole(ctx context.Context, account, org, id model.ID, version int) error {
 	return s.store.Write(ctx, account, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		if _, err := teamAuthorize(tx, account, org, "team.roles.delete"); err != nil {
 			return err
 		}
 		role, err := tx.Role(org, id)
 		if err != nil || role.Protected {
 			return apperr.ErrForbidden
 		}
+		if err := canManageRole(tx, account, org, role); err != nil {
+			return err
+		}
 		if role.Version != version {
 			return apperr.ErrConflict
 		}
 		return tx.DeleteRole(role)
 	})
+}
+
+// AssignableRoles 只向有分配权限的成员返回可授予的自定义角色，组织角色有一百条硬上限。
+func (s *TeamService) AssignableRoles(ctx context.Context, account, org model.ID) (*dto.TeamRolePage, error) {
+	result := &dto.TeamRolePage{Items: []*dto.TeamRole{}}
+	err := s.store.Read(ctx, func(tx *repository.TeamTx) error {
+		if _, err := teamAuthorize(tx, account, org, "team.members.roles.assign"); err != nil {
+			return err
+		}
+		rows, total, err := tx.Roles(org, 1, 100)
+		if err != nil {
+			return err
+		}
+		if total > 100 {
+			return apperr.ErrConflict
+		}
+		for _, row := range rows {
+			if row.Protected {
+				continue
+			}
+			codes, err := tx.RoleCodes(row.ID)
+			if err != nil {
+				return err
+			}
+			if _, err := rolePermissionIDs(tx, account, org, codes); err != nil {
+				continue
+			}
+			result.Items = append(result.Items, &dto.TeamRole{ID: row.ID.String(), OrganizationID: org.String(), Code: row.Code, Name: row.Name, Version: row.Version, Permissions: codes})
+		}
+		result.Total = len(result.Items)
+		return nil
+	})
+	return result, err
 }

@@ -14,7 +14,7 @@ import (
 // newTeamService 注册本框架实际使用的团队权限，产品动作由领域模块显式追加。
 func newTeamService(deps Dependencies) *service.TeamService {
 	store := repository.NewTeamStore(deps.DB)
-	if err := store.RegisterPermissions(context.Background(), []string{"team.manage", "team.leave"}); err != nil {
+	if err := store.InitializeManagementPermissions(context.Background(), append(append([]string{}, service.ManagementPermissions...), "team.leave"), service.ManagementPermissions); err != nil {
 		panic(err)
 	}
 	return service.NewTeamService(store)
@@ -25,6 +25,7 @@ type teamCommand struct {
 	OrganizationID string   `json:"organizationId"`
 	MemberID       string   `json:"memberId"`
 	InvitationID   string   `json:"invitationId"`
+	Nickname       string   `json:"nickname"`
 	Name           string   `json:"name"`
 	Email          string   `json:"email"`
 	Version        int      `json:"version"`
@@ -43,6 +44,7 @@ func (m *accountModule) registerTeams(group *gin.RouterGroup) {
 	teams.POST("/invitations/:action", m.teamInvitation)
 	teams.POST("/members/remove", m.teamRemove)
 	teams.PUT("/members/roles", m.teamAssignRoles)
+	teams.PUT("/members/nickname", m.teamNickname)
 	teams.POST("/roles", m.teamCreateRole)
 	teams.PUT("/roles", m.teamUpdateRole)
 	teams.POST("/roles/remove", m.teamDeleteRole)
@@ -137,4 +139,11 @@ func (m *accountModule) teamDeleteRole(c *gin.Context) {
 	var req teamCommand
 	request.Bind(c, &req)
 	teamResult(c, m.teams.DeleteRole(c.Request.Context(), teamActor(c), teamValue(req.OrganizationID), teamValue(req.RoleID), req.Version))
+}
+
+// teamNickname 更新组织内昵称，不触碰账号资料。
+func (m *accountModule) teamNickname(c *gin.Context) {
+	var req teamCommand
+	request.Bind(c, &req)
+	teamResult(c, m.teams.RenameMember(c.Request.Context(), teamActor(c), teamValue(req.OrganizationID), teamValue(req.MemberID), req.Version, req.Nickname))
 }

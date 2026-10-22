@@ -81,7 +81,7 @@ func TestTeamRBAC(t *testing.T) {
 	if err = teams.AssignRoles(ctx, a.ID, orgA, member, 3, []model.ID{ownerRole}); err == nil {
 		t.Fatal("不能分配 owner 角色")
 	}
-	manager := teamCreateRole(t, teams, a.ID, orgA, "manager", []string{"team.manage"})
+	manager := teamCreateRole(t, teams, a.ID, orgA, "manager", []string{"team.settings.read", "team.settings.update"})
 	if err = teams.AssignRoles(ctx, a.ID, orgA, member, 3, []model.ID{reader, manager}); err != nil {
 		t.Fatal(err)
 	}

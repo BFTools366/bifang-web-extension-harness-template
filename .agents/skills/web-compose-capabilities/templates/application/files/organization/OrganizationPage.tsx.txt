@@ -1,73 +1,42 @@
-import { Alert, NativeSelect, Stack, Title } from "@mantine/core"
-import { useQuery } from "@tanstack/react-query"
-import { useState } from "react"
+import { Button, Stack } from "@mantine/core"
+import { useState, type ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import type { OrganizationApi } from "../../data/api/organization/contracts"
-import { ModuleState } from "../application/ModuleState"
-import { organizationQueryOptions } from "./OrganizationContext"
+import { identitySession } from "../application/runtime"
+import { OrganizationSwitchDialog } from "./OrganizationSwitchDialog"
 
-/** 固定组织页只接线当前组织和允许切换项；写入未知先重读。 */
+/** 拒绝访问后的恢复 URL 仍使用同一切换弹窗，不提供个人空间或第二套选择页。 */
 export function OrganizationPage({
   api,
   scope,
+  blocked = false,
+  canSwitch = true,
   changed,
-  canSwitch
+  invitations
 }: {
   api: OrganizationApi
   scope: number
+  blocked?: boolean
+  canSwitch?: boolean
+  invitations?: ReactNode
   changed(): Promise<void>
-  canSwitch: boolean
 }) {
-  const { t, i18n } = useTranslation()
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(false)
-  const query = useQuery(organizationQueryOptions(api, scope, i18n.language))
-  /** 先复核动作授权，切换成功后使旧作用域缓存与权限失效。 */
-  async function select(id: string) {
-    if (busy || !canSwitch || id === query.data?.current) return
-    setBusy(true)
-    setError(false)
-    try {
-      await api.switch(id)
-      await changed()
-    } catch {
-      setError(true)
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { t } = useTranslation()
+  const [opened, setOpened] = useState(canSwitch)
   return (
     <Stack>
-      <Title order={1}>{t("organizationTitle")}</Title>
-      <ModuleState
-        loading={query.isPending}
-        error={query.error}
-        empty={query.data?.available.length === 0}
-        retry={() => {
-          void query.refetch()
-        }}
-      />
-      {error && <Alert role="alert">{t("applicationError")}</Alert>}
-      {query.data && (
-        <NativeSelect
-          label={t("organizationCurrent")}
-          disabled={
-            busy || !canSwitch || !query.data.available.some((row) => row.id !== query.data.current)
-          }
-          value={query.data.current ?? ""}
-          data={[
-            ...(query.data.current === null
-              ? [{ value: "", label: t("organizationNone"), disabled: true }]
-              : []),
-            ...query.data.available.map((row) => ({
-              value: row.id,
-              label: row.name,
-              disabled: row.id === query.data?.current
-            }))
-          ]}
-          onChange={(event) => {
-            void select(event.currentTarget.value).catch(() => undefined)
-          }}
+      <Button disabled={!canSwitch} onClick={() => setOpened(true)}>
+        {t("organizationSwitch")}
+      </Button>
+      {opened && (
+        <OrganizationSwitchDialog
+          api={api}
+          scope={scope}
+          blocked={blocked}
+          accountId={identitySession.getSnapshot().identity?.id ?? null}
+          changed={changed}
+          invitations={invitations}
+          close={() => setOpened(false)}
         />
       )}
     </Stack>

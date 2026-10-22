@@ -1,0 +1,10 @@
+import type { PageRequest } from "../../features/organization/managementPagination"
+const pages = new Map<string, PageRequest>()
+/** 扩展只在当前 popup/options 执行上下文恢复分页，不扩大宿主存储权限。 */
+export function readOrganizationPagination(scope: string): PageRequest {
+  return pages.get(scope) ?? { page: 1, pageSize: 20 }
+}
+/** 各入口自己的 memory/hash Router 是分页唯一 owner，快照随上下文结束。 */
+export function saveOrganizationPagination(scope: string, request: PageRequest) {
+  pages.set(scope, { ...request })
+}

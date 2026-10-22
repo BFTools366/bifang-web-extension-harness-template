@@ -1,0 +1,14 @@
+.header th {
+  background-color: var(--mantine-color-body);
+}
+.table {
+  border: 1px solid var(--mantine-color-default-border);
+  border-radius: var(--mantine-radius-md);
+}
+.scroll:focus-visible {
+  outline: 2px solid var(--mantine-primary-color-filled);
+  outline-offset: 2px;
+}
+.name {
+  overflow-wrap: anywhere;
+}

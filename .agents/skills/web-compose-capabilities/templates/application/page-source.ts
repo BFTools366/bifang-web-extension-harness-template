@@ -15,28 +15,33 @@ export function applicationPageSource(
   const identity = operations.includes("identity.session")
   const registration = operations.includes("identity.register")
   const personal = operations.includes("identity.profile")
+  const password = operations.includes("identity.password.change")
+  const accountSettings = personal || password
   const permissions = operations.includes("permissions.enforce")
   const purchase = operations.includes("orders.purchase")
   const organization = operations.some((operation) => operation.startsWith("organization."))
-  const management = operations.includes("organization.manage")
+  const switching = operations.includes("organization.switch")
   const workspace = operations.includes("identity.workspace")
+  const switchPanel = workspace
+    ? "{(onCloseBlockedChange) => <OrganizationMembership scope={scope.revision} onCloseBlockedChange={onCloseBlockedChange} />}"
+    : ""
   const imports = [
     "import { useSyncExternalStore" +
-      (purchase || organization ? ", useState" : "") +
+      (purchase || switching || accountSettings ? ", useState" : "") +
       (identity ? ", useCallback" : "") +
-      (organization ? ", useRef" : "") +
+      (switching || permissions || accountSettings ? ", useRef" : "") +
+      (accountSettings || workspace ? ", useEffect" : "") +
       ' } from "react"',
     ...(identity
       ? [
-          `import { Outlet, useRouter${registration || personal || (operations.includes("organization.switch") && permissions) ? ", Link" : ""} } from "@tanstack/react-router"`
+          `import { Outlet, useRouter${registration || (operations.includes("organization.switch") && permissions) ? ", Link" : ""} } from "@tanstack/react-router"`
         ]
       : ['import { Outlet } from "@tanstack/react-router"']),
     "import { Text" +
-      (organization ? ", Modal" : "") +
       (registration || (operations.includes("organization.switch") && permissions)
         ? ", Anchor"
         : "") +
-      (personal ? ", Menu" : "") +
+      (personal || password ? ", Menu" : "") +
       ' } from "@mantine/core"',
     'import { useTranslation } from "react-i18next"',
     'import { ApplicationLayout } from "./ApplicationLayout"',
@@ -61,16 +66,18 @@ export function applicationPageSource(
     )
   if (organization)
     imports.push(
-      'import { OrganizationContext } from "../organization/OrganizationContext"',
+      ...(switching ? [] : ['import { OrganizationPage } from "../organization/OrganizationPage"']),
+      "import { organizationService" + ' } from "./runtime"'
+    )
+  if (switching)
+    imports.push(
       'import { OrganizationMenu } from "../organization/OrganizationMenu"',
-      'import { OrganizationPage } from "../organization/OrganizationPage"',
-      "import { organizationService" +
-        (management ? ", canManageOrganization" : "") +
-        ' } from "./runtime"'
+      'import { OrganizationSwitchDialog } from "../organization/OrganizationSwitchDialog"'
     )
   if (workspace)
     imports.push(
-      'import { TeamWorkspace } from "../organization/TeamWorkspace"',
+      'import { TeamInbox } from "../organization/TeamInbox"',
+      'import { TeamLeave } from "../organization/TeamLeave"',
       'import { teamService } from "./runtime"'
     )
   if (personal)
@@ -78,6 +85,14 @@ export function applicationPageSource(
       'import { PersonalSettingsPage } from "../identity/PersonalSettingsPage"',
       'import { personalSettingsApi } from "../../data/api/identity/adapter"'
     )
+  if (password)
+    imports.push(
+      'import { ChangePasswordPage } from "../identity/ChangePasswordPage"',
+      ...(!personal
+        ? ['import { personalSettingsApi } from "../../data/api/identity/adapter"']
+        : [])
+    )
+  if (accountSettings) imports.push('import { AccountDialog } from "../identity/AccountDialog"')
   if (registration)
     imports.push(
       'import { RegistrationPage } from "../identity/RegistrationPage"',
@@ -87,16 +102,26 @@ export function applicationPageSource(
   if (permissions)
     imports.push(
       'import type { ReactNode } from "react"',
-      'import { Access } from "../permissions/Access"',
       'import { ForbiddenPage as PermissionDenied } from "../permissions/ForbiddenPage"'
     )
   lines.push(`/** 持续主界面接入当前用户、权限过滤导航和真实路由正文。 */
 export function MainLayout() {
-  ${identity ? 'const router = useRouter()\n  const onAnonymous = useCallback(() => { void router.navigate({ to: "/login", search: { returnTo: safeReturnTo(router.state.location.pathname) }, replace: true }).catch(() => undefined) }, [router])' : ""}
+  ${identity ? 'const router = useRouter()\n  const onAnonymous = useCallback(() => { void router.navigate({ to: "/login", search: { returnTo: safeReturnTo(router.state.location.href) }, replace: true }).catch(() => undefined) }, [router])' : ""}
   const { t } = useTranslation()
   const scope = useScope()
   ${
-    organization
+    accountSettings
+      ? `const account = useSyncExternalStore(identitySession.subscribe, identitySession.getSnapshot, identitySession.getSnapshot)
+  const [accountOpened, setAccountOpened] = useState<"profile" | "password" | null>(null)
+  const accountFocusTicket = useRef(0)
+  useEffect(() => { accountFocusTicket.current += 1; setAccountOpened(null) }, [account.identity?.id, scope.revision])
+  /** 重新打开会使旧关闭的延迟焦点归还失效。 */
+  function openAccount(kind: "profile" | "password") { accountFocusTicket.current += 1; setAccountOpened(kind) }`
+      : ""
+  }
+  ${accountSettings && !switching ? "const accountTrigger = useRef<HTMLButtonElement>(null)" : ""}
+  ${
+    switching
       ? `const [switchState, setSwitchState] = useState({ opened: false, scope: scope.revision })
   const accountTrigger = useRef<HTMLButtonElement>(null)
   const switchDialog = useRef<HTMLDivElement>(null)
@@ -124,20 +149,41 @@ export function MainLayout() {
   }
   ${permissions ? "useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)" : ""}
   const layout = <ApplicationLayout
-    ${identity ? "account={<AccountMenu session={identitySession} scope={scope.revision}" + (organization ? " triggerRef={accountTrigger} organization={<OrganizationMenu key={scope.revision} api={organizationService} scope={scope.revision} blocked={scope.blocked} canSwitch={" + operations.includes("organization.switch") + "} open={openSwitch} />}" : "") + (personal ? ' settings={<Menu.Item renderRoot={(props) => <Link {...props} to="/account/settings" preload={false} />}>{t("personalSettings")}</Menu.Item>}' : "") + " />}" : ""}
-    ${organization ? "context={() => <OrganizationContext api={organizationService} scope={scope.revision} blocked={scope.blocked} compact={false} canOpen={false} />}" : ""}
+    ${identity ? "account={<AccountMenu session={identitySession} scope={scope.revision}" + (switching ? " triggerRef={accountTrigger} organization={<OrganizationMenu key={scope.revision} blocked={scope.blocked || !(" + operations.includes("organization.switch") + ")} open={openSwitch} />}" : accountSettings ? " triggerRef={accountTrigger}" : "") + (accountSettings ? " settings={<>" + (personal ? '<Menu.Item onClick={() => openAccount("profile")}>{t("personalSettings")}</Menu.Item>' : "") + (password ? '<Menu.Item onClick={() => openAccount("password")}>{t("personalPassword")}</Menu.Item>' : "") + "</>}" : "") + " />}" : ""}
     ${permissions ? "allow={canVisit}" : ""}
-    content={scope.blocked${personal ? ' && router.state.location.pathname !== "/account/settings"' : ""} ? <Text role="status">{t("applicationLoading")}</Text> : <Outlet />}
+    content={scope.blocked${identity ? ' && !["/account/settings", "/account/password", "/organization"].includes(router.state.location.pathname)' : ""} ? <Text role="status">{t("applicationLoading")}</Text> : <Outlet />}
   />
-  ${identity ? "return <IdentityBoundary session={identitySession} onAnonymous={onAnonymous}>{layout}" + (organization ? '<Modal ref={switchDialog} opened={switchState.opened && switchState.scope === scope.revision && !scope.blocked} returnFocus={false} onExitTransitionEnd={restoreSwitchFocus} onClose={closeSwitch} title={t("organizationSwitch")}><OrganizationPage key={scope.revision} api={organizationService} scope={scope.revision} canSwitch={' + operations.includes("organization.switch") + "} changed={async () => { closeSwitch(); await router.invalidate({ sync: true }) }} /></Modal>" : "") + "</IdentityBoundary>" : "return layout"}
+  ${identity ? "return <IdentityBoundary session={identitySession} onAnonymous={onAnonymous}>{layout}" + (organization && operations.includes("organization.switch") ? "{switchState.opened && <OrganizationSwitchDialog api={organizationService} scope={scope.revision} blocked={scope.blocked} accountId={identitySession.getSnapshot().identity?.id ?? null} close={(restore = true) => { closeSwitch(); if (restore) queueMicrotask(restoreSwitchFocus) }} changed={async () => { await router.invalidate({ sync: true }) }}" + (workspace ? " invitations=" + switchPanel : "") + " />}" : "") + (accountSettings ? "{accountOpened && <AccountSettingsDialog key={accountOpened + account.identity?.id} kind={accountOpened} close={() => { setAccountOpened(null); const ticket = ++accountFocusTicket.current; const actor = account.identity?.id; const revision = scope.revision; const href = router.state.location.href; requestAnimationFrame(() => { const trigger = accountTrigger.current; const active = trigger?.ownerDocument.activeElement; if (ticket === accountFocusTicket.current && trigger?.isConnected && !applicationScope.getSnapshot().blocked && identitySession.getSnapshot().identity?.id === actor && applicationScope.getSnapshot().revision === revision && router.state.location.href === href && (!active || active === trigger.ownerDocument.body || active === trigger)) trigger.focus() }) }} />}" : "") + "</IdentityBoundary>" : "return layout"}
 }`)
+  if (workspace)
+    lines.push(`/** 邀请和退出共享父弹窗关闭锁，两个操作的未知状态独立保留。 */
+function OrganizationMembership({ scope, onCloseBlockedChange }: { scope: number; onCloseBlockedChange?(blocked: boolean): void }) {
+  const [inboxBlocked, setInboxBlocked] = useState(false)
+  const [leaveBlocked, setLeaveBlocked] = useState(false)
+  useEffect(() => { onCloseBlockedChange?.(inboxBlocked || leaveBlocked); return () => onCloseBlockedChange?.(false) }, [inboxBlocked, leaveBlocked, onCloseBlockedChange])
+  const isCurrent = () => applicationScope.getSnapshot().revision === scope && !applicationScope.getSnapshot().blocked
+  return <><TeamInbox api={teamService} scope={scope} isCurrent={isCurrent} onCloseBlockedChange={setInboxBlocked} /><TeamLeave api={teamService} scope={scope} isCurrent={isCurrent} onCloseBlockedChange={setLeaveBlocked} /></>
+}`)
+  if (accountSettings) {
+    const profileForm =
+      "<PersonalSettingsPage embedded api={personalSettingsApi} session={identitySession} onCloseBlockedChange={setBlocked} />"
+    const passwordForm =
+      '<ChangePasswordPage embedded api={personalSettingsApi} session={identitySession} onCloseBlockedChange={setBlocked} onPasswordChanged={async () => { await router.navigate({ to: "/login", search: {}, replace: true }) }} />'
+    lines.push(`/** 账号菜单和兼容地址共享弹窗及表单，账号或组织变化由外层身份边界隔离。 */
+function AccountSettingsDialog({ kind, close }: { kind: "profile" | "password"; close(): void }) {
+  const { t } = useTranslation()
+  ${password ? "const router = useRouter()" : ""}
+  const [blocked, setBlocked] = useState(false)
+  return <AccountDialog title={t(kind === "profile" ? "personalSettings" : "personalPassword")} blocked={blocked} close={close}>${personal && password ? '{kind === "profile" ? ' + profileForm + " : " + passwordForm + "}" : personal ? profileForm : passwordForm}</AccountDialog>
+}`)
+  }
   if (identity)
     lines.push(`/** 登录完成后仅返回已声明的应用内部路径。 */
 export function Login() {
   const router = useRouter()
   return <LoginPage session={identitySession} ${registration ? 'registrationLink={<Anchor renderRoot={(props) => <Link {...props} to="/register" search={{ returnTo: safeReturnTo(new URLSearchParams(router.state.location.searchStr).get("returnTo")) }} />}>{t("registrationTitle")}</Anchor>}' : ""} onSuccess={async () => {
     const target = new URLSearchParams(router.state.location.searchStr).get("returnTo")
-    await router.navigate({ to: safeReturnTo(target), replace: true })
+    await router.navigate({ href: safeReturnTo(target), replace: true })
   }} />
 }`)
   if (registration) {
@@ -152,13 +198,23 @@ export function Register() {
   const router = useRouter()
   const { t } = useTranslation()
   const target = safeReturnTo(new URLSearchParams(router.state.location.searchStr).get("returnTo"))
-  return <RegistrationPage session={identitySession} api={{ register: registrationAdapter.registerAccount${operations.includes("identity.verification") ? ", sendCode: registrationAdapter.sendRegistrationCode" : ""}, passwordPolicy: registrationPasswordPolicy("registrationPasswordPolicy" in registrationAdapter ? registrationAdapter.registrationPasswordPolicy : undefined) }} onSuccess={async () => { await router.navigate({ to: target, replace: true }) }} loginLink={<Anchor renderRoot={(props) => <Link {...props} to="/login" search={{ returnTo: target }} />}>{t("registrationBackLogin")}</Anchor>} />
+  return <RegistrationPage session={identitySession} api={{ register: registrationAdapter.registerAccount${operations.includes("identity.verification") ? ", sendCode: registrationAdapter.sendRegistrationCode" : ""}, passwordPolicy: registrationPasswordPolicy("registrationPasswordPolicy" in registrationAdapter ? registrationAdapter.registrationPasswordPolicy : undefined) }} onSuccess={async () => { await router.navigate({ href: target, replace: true }) }} loginLink={<Anchor renderRoot={(props) => <Link {...props} to="/login" search={{ returnTo: target }} />}>{t("registrationBackLogin")}</Anchor>} />
 }`)
   }
   if (permissions)
     lines.push(`/** 撤权发生时立即撤下页面；不依赖被拒绝的业务权限。 */
 export function PageAccess({ path, children }: { path: string; children: ReactNode }) {
-  return <Access permission={permissionSession} required={pagePermissions[path] ?? []} fallback={<ForbiddenPage />}>{children}</Access>
+  const snapshot = useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)
+  const { t } = useTranslation()
+  const lastAuthorized = useRef<string | null>(null)
+  const ownerKey = JSON.stringify([path, snapshot.owner, applicationScope.getSnapshot().revision])
+  const allowed = permissionSession.allow(pagePermissions[path] ?? [])
+  if (allowed) lastAuthorized.current = ownerKey
+  const loading = ["idle", "loading"].includes(snapshot.phase)
+  const retained = loading && lastAuthorized.current === ownerKey
+  if (loading && !retained) return <Text role="status">{t("applicationLoading")}</Text>
+  if (!allowed && !retained) return <ForbiddenPage />
+  return <>{loading && <Text role="status">{t("applicationLoading")}</Text>}<div hidden={loading} inert={loading || undefined} aria-hidden={loading || undefined}>{children}</div></>
 }
 /** 拒绝页的组织恢复不依赖被撤销的业务权限，管理页面仍走独立门禁。 */
 export function ForbiddenPage() {
@@ -180,36 +236,42 @@ export function ForbiddenPage() {
       lines.push(`/** 个人设置属于账号，不消费组织业务权限，改密成功后回到登录。 */
 export function PersonalSettings() {
   const router = useRouter()
-  return <PersonalSettingsPage api={personalSettingsApi} session={identitySession} canChangePassword={${operations.includes("identity.password.change")}} onPasswordChanged={async () => { await router.navigate({ to: "/login", search: {}, replace: true }) }} />
+  return <AccountSettingsDialog kind="profile" close={() => { void router.navigate({ to: "/", replace: true }) }} />
 }`)
       continue
     }
-    if (workspace && component === "OrganizationPage") {
-      lines.push(`/** 团队恢复与邀请接受是账号级入口，不要求团队业务权限。 */
+    if (component === "ChangePasswordPage") {
+      lines.push(`/** 改密属于账号级入口，成功后撤销旧会话并返回登录。 */
+export function ChangePassword() {
+  const router = useRouter()
+  return <AccountSettingsDialog kind="password" close={() => { void router.navigate({ to: "/", replace: true }) }} />
+}`)
+      continue
+    }
+    if (
+      ["OrganizationSettingsPage", "OrganizationMembersPage", "OrganizationRolesPage"].includes(
+        component
+      )
+    ) {
+      imports.push(`import { ${component} } from "../organization/${component}"`)
+      lines.push(`/** 组织管理只消费当前有效读取码，持续撤权立即撤下正文。 */
+export function ${routeComponent(page)}() { return <PageAccess path=${JSON.stringify(page.path)}><${component} /></PageAccess> }`)
+      continue
+    }
+    if (component === "OrganizationPage" && switching) {
+      lines.push(`/** 兼容组织地址仍复用切换弹窗，关闭后返回安全首页。 */
 export function Organization() {
   const scope = useScope()
   const router = useRouter()
-  return <TeamWorkspace key={scope.revision} api={teamService} scope={scope.revision} isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && !applicationScope.getSnapshot().blocked} changed={async () => { await router.invalidate({ sync: true }) }} />
+  return <OrganizationSwitchDialog api={organizationService} scope={scope.revision} blocked={scope.blocked} accountId={identitySession.getSnapshot().identity?.id ?? null} close={() => { void router.navigate({ to: "/", replace: true }) }} changed={async () => { await router.invalidate({ sync: true }) }} ${workspace ? "invitations=" + switchPanel : ""} />
 }`)
       continue
     }
     const service = module === "organization" ? "organizationService" : serviceName(module) + "Api"
-    if (component === "OrganizationManagementPage") {
-      imports.push(
-        'import { OrganizationManagementPage } from "../organization/OrganizationManagementPage"'
-      )
-      lines.push(`/** 管理直达、持续权限与保存动作均按有效权限 code 判断。 */
-export function OrganizationManagement() {
-  const scope = useScope()
-  useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)
-  return canVisit("/organization/manage") ? <> <OrganizationManagementPage key={scope.revision} api={organizationService} scope={scope.revision} authorize={() => { if (!canVisit("/organization/manage")) throw new Error("organization_denied") }} isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && canManageOrganization()} /> ${workspace ? '<TeamWorkspace key={"members:" + scope.revision} api={teamService} scope={scope.revision} manage isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && canManageOrganization()} changed={async () => {}} />' : ""}</> : <ForbiddenPage />
-}`)
-      continue
-    }
     imports.push(`import { ${component} } from "../${module}/${component}"`)
     if (module !== "organization") imports.push(`import { ${service} } from "./runtime"`)
     const name = routeComponent(page)
-    const content = `<${component} api={${service}} scope={scope.revision}${module === "catalog" && purchase ? " canPurchase={" + (permissions ? 'canAct("orders.purchase")' : "true") + "} onPurchase={(product) => { assertPurchase(); setSelection({ product, purchase: purchaseRegistry.get(product.id), scope: scope.revision }) }}" : ""}${module === "organization" ? " canSwitch={" + JSON.stringify(operations.includes("organization.switch")) + "} changed={async () => { await router.invalidate({ sync: true }) }}" : ""} />`
+    const content = `<${component} api={${service}} scope={scope.revision}${module === "catalog" && purchase ? " canPurchase={" + (permissions ? 'canAct("orders.purchase")' : "true") + "} onPurchase={(product) => { assertPurchase(); setSelection({ product, purchase: purchaseRegistry.get(product.id), scope: scope.revision }) }}" : ""}${module === "organization" ? " blocked={scope.blocked} canSwitch={" + JSON.stringify(operations.includes("organization.switch")) + "} changed={async () => { await router.invalidate({ sync: true }) }}" + (workspace ? " invitations=" + switchPanel : "") : ""} />`
     const wrapped =
       permissions && !permissionFreePaths(organization).includes(page.path)
         ? `<PageAccess path=${JSON.stringify(page.path)}>${content}</PageAccess>`

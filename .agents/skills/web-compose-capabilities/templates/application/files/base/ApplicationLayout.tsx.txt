@@ -15,15 +15,14 @@ export interface ApplicationLayoutProps {
   account?: ReactNode
   allow?: (path: string) => boolean
   content?: ReactNode
-  context?: (compact: boolean) => ReactNode
 }
 
 /** 从客户端主壳提取侧栏、顶部工具区和正文插槽；单页及扩展使用紧凑导航。 */
-export function ApplicationLayout({ account, allow, content, context }: ApplicationLayoutProps) {
+export function ApplicationLayout({ account, allow, content }: ApplicationLayoutProps) {
   const { t } = useTranslation()
   const { pathname, href } = useLocation()
+  const { ref: headerRef, height: headerHeight } = useElementSize()
   const desktop = useMediaQuery("(min-width: 48em)")
-  const { ref, height } = useElementSize<HTMLDivElement>()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpened, setMobileOpened] = useState(false)
   const useSidebar = true
@@ -75,7 +74,7 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
     <AppShell
       className={classes.shell}
       layout="alt"
-      header={{ height: `calc(${Math.max(height, 72)}px)` }}
+      header={{ height: useSidebar ? 72 : headerHeight || 112 }}
       navbar={
         useSidebar
           ? { width: compact ? 76 : 248, breakpoint: "sm", collapsed: { mobile: !mobileOpened } }
@@ -87,9 +86,9 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
         {t("applicationSkip")}
       </a>
       <AppShell.Header>
-        <div ref={ref}>
-          <Stack px="md" py="sm" gap="xs">
-            <Group justify="space-between" wrap="wrap">
+        <div ref={headerRef} className={classes.header}>
+          <Stack px="lg" gap="xs">
+            <Group justify="space-between" wrap="nowrap" mih={72}>
               <Group>
                 {useSidebar && (
                   <Burger
@@ -100,7 +99,6 @@ export function ApplicationLayout({ account, allow, content, context }: Applicat
                     onClick={() => setMobileOpened((value) => !value)}
                   />
                 )}
-                {context && <div className={classes.context}>{context(false)}</div>}
                 <Text fw={600} visibleFrom="sm">
                   {t(current?.title ?? "projectName")}
                 </Text>

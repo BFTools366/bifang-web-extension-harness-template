@@ -210,3 +210,8 @@ func (t *TeamTx) RemoveMember(member *model.OrganizationUser) error {
 func (t *TeamTx) AdvanceMemberVersion(member model.ID) error {
 	return t.db.Model(&model.OrganizationUser{}).Where("id = ?", member).UpdateColumn("version", gorm.Expr("version + 1")).Error
 }
+
+// RenameMember 推进版本，其他组织及全局账号资料不受影响。
+func (t *TeamTx) RenameMember(member *model.OrganizationUser, nickname string) error {
+	return t.db.Model(member).Updates(map[string]any{"nickname": nickname, "version": gorm.Expr("version + 1")}).Error
+}

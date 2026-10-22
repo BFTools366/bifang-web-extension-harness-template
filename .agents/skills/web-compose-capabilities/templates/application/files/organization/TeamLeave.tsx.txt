@@ -1,0 +1,66 @@
+import { Alert, Button, Stack } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useEffect, useSyncExternalStore } from "react"
+import { useTranslation } from "react-i18next"
+import type { TeamApi } from "../../data/api/organization/teamContracts"
+import { permissionSession } from "../application/runtime"
+import { useTeamMutation } from "./useTeamMutation"
+
+/** 本人退出沿用组织成员版本与服务对象保护，拥有者没有退出入口。 */
+export function TeamLeave({
+  api,
+  scope,
+  isCurrent,
+  onCloseBlockedChange
+}: {
+  api: TeamApi
+  scope: number
+  isCurrent(): boolean
+  onCloseBlockedChange?(blocked: boolean): void
+}) {
+  const { t, i18n } = useTranslation()
+  useSyncExternalStore(
+    permissionSession.subscribe,
+    permissionSession.getSnapshot,
+    permissionSession.getSnapshot
+  )
+  const query = useQuery({
+    queryKey: ["organization", scope, i18n.language],
+    meta: { private: true },
+    staleTime: 10000,
+    retry: false,
+    queryFn: ({ signal }) => api.read(signal)
+  })
+  const current = query.data?.available.find((row) => row.id === query.data.current)?.user
+  const mutation = useTeamMutation(isCurrent, async () => {
+    await query.refetch({ throwOnError: true })
+  })
+  useEffect(() => { onCloseBlockedChange?.(mutation.disabled); return () => onCloseBlockedChange?.(false) }, [mutation.disabled, onCloseBlockedChange])
+  if (!current || current.role === "owner" || !permissionSession.allow(["team.leave"])) return null
+  return (
+    <Stack>
+      {mutation.status === "unknown" && (
+        <Alert role="alert">
+          {t("teamUnknown")}
+          <Button
+            onClick={() => {
+              void mutation.verify()
+            }}
+          >
+            {t("teamVerify")}
+          </Button>
+        </Alert>
+      )}
+      <Button
+        color="red"
+        variant="subtle"
+        disabled={mutation.disabled || query.isFetching || query.isError}
+        onClick={() => {
+          void mutation.run(() => api.remove(current))
+        }}
+      >
+        {t("teamLeave")}
+      </Button>
+    </Stack>
+  )
+}

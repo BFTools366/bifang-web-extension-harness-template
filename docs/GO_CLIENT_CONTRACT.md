@@ -17,7 +17,7 @@
 
 ## 本地个人设置
 
-完整 identity.workspace 默认包含本人资料与改密，页面为 /account/settings，不进入业务侧栏。账号菜单固定显示可信邮箱/昵称摘要、可点击组织名、个人设置和退出；组织设置、加入组织在左侧组织管理分组下。
+完整 identity.workspace 提供独立 /account/settings 与 /account/password，不进入业务侧栏。账号菜单显示可信邮箱/昵称摘要、切换组织、个人设置、修改密码和退出；组织管理分组包含组织设置、成员管理、角色管理，各按读取码控制。详见 [Auth 标准](ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)。
 
 - GET /api/v1/auth/profile：权威读取当前账号、邮箱及昵称；组织切换不改变个人资料。
 - PATCH /api/v1/auth/profile：仅提交 nickname，trim 后 1–64 个字符；目标账号由认证上下文确定，不接受账号、邮箱或组织更改。成功返回 empty，客户端权威重读资料并刷新唯一 session；失败或未知不自动重放。
@@ -36,16 +36,17 @@
 | 定向邀请              | POST /invitations                        | organizationId, email；返回 team.invitation 对象及 id/version |
 | 接受 / 拒绝 / 撤销    | POST /invitations/accept、reject、revoke | invitationId, version                                         |
 | 本人退出 / 管理员移除 | POST /members/remove                     | organizationId, memberId, version                             |
+| 修改组织内成员昵称    | PUT /members/nickname                    | organizationId, memberId, version, nickname                   |
 | 替换成员自定义角色    | PUT /members/roles                       | organizationId, memberId, version, roleIds                    |
 | 创建角色              | POST /roles                              | organizationId, code, name, codes                             |
 | 修改角色名称和权限    | PUT /roles                               | organizationId, roleId, version, name, codes                  |
 | 删除角色              | POST /roles/remove                       | organizationId, roleId, version                               |
 
-POST /graphql 使用标准 data/errors；实际 SDL 随服务生成在 internal/graphql/team.graphqls。teamContext 返回 current 和有效成员组织 available；teamMembers(organizationId,page,pageSize) 与 teamInvitations(organizationId?,page,pageSize) 返回 items/total，page 从 1 起、pageSize 1–100。未指定组织的邀请查询只读本人收到的邀请，指定组织则要求 team.manage。teamPermissions(organizationId,subjectId) 只返回当前账号在该组织真实成员的权限；teamPermissionCatalog(organizationId) 要求 team.manage，只返回操作者可授予的有效权限。错误码沿用 common.forbidden/conflict/bad.request 等既有稳定码，不暴露 SQL。
+POST /graphql 使用标准 data/errors；实际 SDL 随服务生成在 internal/graphql/team.graphqls。teamContext 返回 current 和有效成员组织 available；teamMembers(organizationId,page,pageSize) 与 teamInvitations(organizationId?,page,pageSize) 返回 items/total，page 从 1 起、pageSize 1–100。未指定组织的邀请查询只读本人收到的邀请，指定组织则要求 team.members.read + team.members.invite。teamPermissions(organizationId,subjectId) 只返回当前账号在该组织真实成员的权限；teamPermissionCatalog(organizationId) 要求 team.roles.read，只返回操作者可授予的有效权限。错误码沿用 common.forbidden/conflict/bad.request 等既有稳定码，不暴露 SQL。
 
-teamRoles(organizationId,page,pageSize) 要求 team.manage，返回角色 items/total；角色字段 id/organizationId/code/name/protected/version/permissions。角色归组织，角色权限必须来自服务目录；创建、修改和分配角色不得授予操作者自己没有的权限，系统角色不可经客户端更改。
+teamRoles(organizationId,page,pageSize) 要求 team.roles.read，返回角色 items/total；角色字段 id/organizationId/code/name/protected/canManage/version/permissions。角色归组织，角色权限必须来自服务目录；创建、修改和分配角色不得授予操作者自己没有的权限，系统角色不可经客户端更改。
 
-成员投影含 id/accountId/organizationId/displayName/role/status/version/permissions/roleIds/canRemove/canAssignRoles；role 是兼容的拥有关系展示标记，不是前端授权依据，permissions 才是经 RBAC 计算的有效 code。canRemove/canAssignRoles 表达目标的对象保护，调用者还必须拥有动作权限。邀请投影含 id/organizationId/organizationName/accountId/status/version/expiresAt（Unix 秒）。成员状态 active/removed；查询只返回 active 成员。邀请状态 pending/accepted/rejected/revoked，过期 pending 在查询中投影为 expired。并发成员/角色变更和邀请续发增加各自版本；未知写结果先查询核对，禁止自动重放。
+成员投影含 id/accountId/organizationId/displayName/role/status/version/permissions/roleIds/roleNames/canRemove/canAssignRoles；role 是兼容的拥有关系展示标记，不是前端授权依据，permissions 才是经 RBAC 计算的有效 code。canRemove/canAssignRoles 表达目标的对象保护，调用者还必须拥有动作权限。邀请投影含 id/organizationId/organizationName/accountId/status/version/expiresAt（Unix 秒）。成员状态 active/removed；查询只返回 active 成员。邀请状态 pending/accepted/rejected/revoked，过期 pending 在查询中投影为 expired。并发成员/角色变更和邀请续发增加各自版本；未知写结果先查询核对，禁止自动重放。
 
 ## 数据结构
 
@@ -106,3 +107,5 @@ REST 对象 {model,data,request_id}；empty 没有 data；失败 {model:"errors"
 新密码遵循 Go password 校验：8–64 个 UTF-8 字节，同时含 ASCII 字母与数字；Go adapter 导出 registrationPasswordPolicy 供注册表单校验并显示本地化提示。既有账号登录保留旧口令兼容性，不套用新注册规则。
 
 发码先按规范化目标与用途事务预留配额，再单次发送，再确认最新预留并激活；失败/未知不自动重复发送，迟到激活不能替换新码。消费时同时复核状态、到期及尝试次数，和 Account、Org、owner 成员在同一事务提交；失败回滚后原验证码仍可用。生成工程回归覆盖缺码、错码、过期、用途、尝试耗尽、重发、并发额度、并发单次消费和 owner 失败回滚。
+
+teamAssignableRoles(organizationId) 返回有界角色 items/total，只要求 team.members.read 与 team.members.roles.assign。canManage 表达服务计算的角色可操作性；roleNames 与 roleIds 对齐，昵称仅属于成员。全部动作的读取依赖、对象保护、旧码迁移与未知恢复以 [Auth 标准](ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)为准。

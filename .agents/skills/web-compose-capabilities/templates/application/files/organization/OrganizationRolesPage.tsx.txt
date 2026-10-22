@@ -1,0 +1,147 @@
+import { ListSurface, ListTable } from "../../pagination/ListSurface"
+import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Badge, Button, Group, Stack, Table, Text, Title } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { ModuleState } from "../application/ModuleState"
+import { useManagementScope, useManagementRejection } from "./useManagement"
+import { useManagementList } from "./managementList"
+import { rolesQuery } from "./managementQueries"
+import { RoleDialog, type RoleAction } from "./RoleDialog"
+import { ManagementPagination } from "./ManagementParts"
+import classes from "./management.module.css"
+import "../../i18n/organizationManagement"
+
+/** 组织角色独立分页，系统角色及超出操作者权限的角色只允许查看。 */
+export function OrganizationRolesPage() {
+  const { t, i18n } = useTranslation(),
+    { owner, ownerKey, allow } = useManagementScope()
+  const list = useManagementList(ownerKey)
+  const [action, setAction] = useState<{ kind: RoleAction; id?: string } | null>(null)
+  const query = useQuery({
+    ...rolesQuery(ownerKey, owner?.organizationId ?? "", i18n.language, list.state),
+    enabled: !!owner
+  })
+  useManagementRejection(query.error, ownerKey)
+  useEffect(() => {
+    if (query.isSuccess && !query.isFetching && !query.isPlaceholderData)
+      list.correct(query.data.total)
+  }, [
+    query.data,
+    query.isFetching,
+    query.isSuccess,
+    ownerKey,
+    list.state.page,
+    list.state.pageSize
+  ])
+  const target = query.data?.items.find((role) => role.id === action?.id)
+  return (
+    <Stack>
+      <Group justify="space-between">
+        <Title order={1}>{t("orgRolesTitle")}</Title>
+        {allow("team.roles.create") && (
+          <Button disabled={query.isFetching} onClick={() => setAction({ kind: "create" })}>
+            {t("teamCreateRole")}
+          </Button>
+        )}
+      </Group>
+      <ModuleState
+        loading={query.isPending}
+        error={query.error}
+        empty={false}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {query.data && !query.isError && (
+        <ListSurface
+          label={t("orgRoleTable")}
+          minWidth={640}
+          footer={
+            <ManagementPagination
+              state={list.state}
+              total={query.data.total}
+              change={list.change}
+              disabled={query.isFetching}
+            />
+          }
+        >
+          <ListTable>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th scope="col">{t("orgRole")}</Table.Th>
+                <Table.Th scope="col">{t("orgPermissions")}</Table.Th>
+                <Table.Th scope="col">{t("orgType")}</Table.Th>
+                <Table.Th scope="col">{t("orgActions")}</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {query.data.items.map((role) => (
+                <Table.Tr key={"role:" + role.id}>
+                  <Table.Th scope="row" className={classes.name}>
+                    {role.protected
+                      ? t(role.code === "owner" ? "organizationOwner" : "orgBaseRole")
+                      : role.name}
+                    <Text size="xs" c="dimmed">
+                      {role.code}
+                    </Text>
+                  </Table.Th>
+                  <Table.Td>{t("orgPermissionCount", { count: role.permissions.length })}</Table.Td>
+                  <Table.Td>
+                    <Badge color="gray" variant="light">
+                      {t(role.protected ? "teamSystemRole" : "orgCustomRole")}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <Button
+                        variant="subtle"
+                        size="compact-sm"
+                        disabled={query.isFetching}
+                        onClick={() => setAction({ kind: "permissions", id: role.id })}
+                      >
+                        {t(
+                          allow("team.roles.permissions.update") && role.canManage
+                            ? "orgConfigurePermissions"
+                            : "orgViewPermissions"
+                        )}
+                      </Button>
+                      {allow("team.roles.delete") && role.canManage && (
+                        <Button
+                          variant="subtle"
+                          color="red"
+                          size="compact-sm"
+                          disabled={query.isFetching}
+                          onClick={() => setAction({ kind: "delete", id: role.id })}
+                        >
+                          {t("teamDeleteRole")}
+                        </Button>
+                      )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              {!query.data.items.length && (
+                <Table.Tr>
+                  <Table.Td colSpan={4}>
+                    <Text p="xl" ta="center" c="dimmed">
+                      {t("applicationEmpty")}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </ListTable>
+        </ListSurface>
+      )}
+      {action && owner && (action.kind === "create" || target) && (
+        <RoleDialog
+          key={ownerKey + action.kind + action.id}
+          kind={action.kind}
+          role={target}
+          close={() => setAction(null)}
+        />
+      )}
+    </Stack>
+  )
+}

@@ -1,0 +1,200 @@
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
+import { ApiError } from "../../data/api/client/httpClient"
+import {
+  applicationScope,
+  identitySession,
+  currentDataOwnership,
+  currentScope,
+  identityActor,
+  permissionSession,
+  assertAction
+} from "../application/runtime"
+
+/** 组织页面只订阅现有身份与组织 owner，不保存第二套上下文。 */
+export function useManagementScope() {
+  useSyncExternalStore(
+    applicationScope.subscribe,
+    applicationScope.getSnapshot,
+    applicationScope.getSnapshot
+  )
+  useSyncExternalStore(
+    identitySession.subscribe,
+    identitySession.getSnapshot,
+    identitySession.getSnapshot
+  )
+  useSyncExternalStore(
+    permissionSession.subscribe,
+    permissionSession.getSnapshot,
+    permissionSession.getSnapshot
+  )
+  const owner = currentDataOwnership()
+  return {
+    owner,
+    ownerKey: JSON.stringify(owner),
+    allow: (code: string) => permissionSession.allow([code])
+  }
+}
+
+/** 每次组织写入冻结作用域，未知结果和刷新失败只能通过只读核对恢复。 */
+export function useManagementWrite(target: string, accessChanged = false) {
+  const { owner, ownerKey } = useManagementScope(),
+    router = useRouter()
+  const queryClient = useQueryClient()
+  const lock = useRef(false),
+    controller = useRef<AbortController | null>(null),
+    live = useRef(true)
+  const [checking, setChecking] = useState(false)
+  const [recovery, setRecovery] = useState(false),
+    [message, setMessage] = useState("")
+  const latest = useRef(ownerKey + target)
+  latest.current = ownerKey + target
+  const mutation = useMutation({
+    /** 写入必须拥有当前生命周期的取消句柄。 */
+    mutationFn: (action: (signal: AbortSignal) => Promise<void>) => {
+      const signal = controller.current?.signal
+      if (!signal) throw new Error("organization_superseded")
+      return action(signal)
+    },
+    retry: false,
+    gcTime: 0
+  })
+  useEffect(() => {
+    live.current = true
+    return () => {
+      live.current = false
+      controller.current?.abort()
+    }
+  }, [])
+  /** 只刷新读取和权限，不重放上一笔命令。 */
+  async function refresh(refreshPermissions = accessChanged) {
+    const token = ownerKey + target
+    /** 各个读取阶段只能刷新原账号、原组织及原对象。 */
+    const current = () =>
+      live.current &&
+      latest.current === token &&
+      ownerKey === JSON.stringify(currentDataOwnership())
+    if (!current()) throw new Error("organization_superseded")
+    if (refreshPermissions) await permissionSession.refresh()
+    if (!current()) throw new Error("organization_superseded")
+    await queryClient.invalidateQueries(
+      {
+        predicate: (q) =>
+          q.queryKey[0] === "organization-management" || q.queryKey[0] === "organization"
+      },
+      { throwOnError: true }
+    )
+    if (!current()) throw new Error("organization_superseded")
+    if (refreshPermissions) await router.invalidate({ sync: true })
+  }
+  /** 结果归属账号、组织和当前对象；已成功写入后的失败保持只读恢复。 */
+  async function run(code: string, action: (signal: AbortSignal) => Promise<void>) {
+    if (lock.current || recovery || !owner) return false
+    lock.current = true
+    controller.current = new AbortController()
+    const token = ownerKey + target
+    let written = false
+    setMessage("")
+    try {
+      assertAction(code)
+      await mutation.mutateAsync(action)
+      written = true
+      if (
+        !live.current ||
+        latest.current !== token ||
+        currentScope() !== owner.revision ||
+        identityActor() !== owner.accountId
+      )
+        return false
+      await refresh()
+      if (
+        !live.current ||
+        latest.current !== token ||
+        ownerKey !== JSON.stringify(currentDataOwnership())
+      )
+        return false
+      setMessage("teamUpdated")
+      return true
+    } catch (error) {
+      if (
+        !live.current ||
+        latest.current !== token ||
+        ownerKey !== JSON.stringify(currentDataOwnership())
+      )
+        return false
+      const unknown =
+        written ||
+        !(error instanceof ApiError) ||
+        ["network", "timeout", "aborted", "invalid-response"].includes(error.kind) ||
+        (error.status ?? 0) >= 500
+      setRecovery(unknown)
+      setMessage(
+        unknown
+          ? "teamUnknown"
+          : error instanceof ApiError && error.status === 409
+            ? "orgConflict"
+            : "orgWriteFailed"
+      )
+      if (error instanceof ApiError && error.status === 403) {
+        await permissionSession.refresh().catch(() => undefined)
+        if (
+          live.current &&
+          latest.current === token &&
+          ownerKey === JSON.stringify(currentDataOwnership())
+        )
+          await router.invalidate().catch(() => undefined)
+      }
+      return false
+    } finally {
+      lock.current = false
+    }
+  }
+  /** 用户核对未知结果后结束本次表单，不自动恢复提交。 */
+  async function verify() {
+    if (lock.current || !owner) return false
+    lock.current = true
+    setChecking(true)
+    const token = ownerKey + target
+    /** 核对期间禁止新提交，迟到核对不能解除另一作用域的未知状态。 */
+    const current = () =>
+      live.current &&
+      latest.current === token &&
+      ownerKey === JSON.stringify(currentDataOwnership())
+    try {
+      await refresh(accessChanged && recovery)
+      if (!current()) return false
+      setRecovery(false)
+      setMessage("")
+      return true
+    } catch {
+      if (current()) setMessage("teamUnknown")
+      return false
+    } finally {
+      lock.current = false
+      if (live.current && latest.current === token) setChecking(false)
+    }
+  }
+  return { run, verify, busy: mutation.isPending || checking || lock.current, recovery, message }
+}
+
+/** 敏感读取被拒绝时立即重读授权并重跑守卫，403 不注销有效账号。 */
+export function useManagementRejection(error: unknown, ownerKey: string) {
+  const router = useRouter()
+  useEffect(() => {
+    if (
+      !(error instanceof ApiError) ||
+      error.status !== 403 ||
+      ownerKey !== JSON.stringify(currentDataOwnership())
+    )
+      return
+    void permissionSession
+      .refresh()
+      .catch(() => undefined)
+      .then(() => {
+        if (ownerKey === JSON.stringify(currentDataOwnership()))
+          return router.invalidate({ sync: true })
+      })
+      .catch(() => undefined)
+  }, [error, ownerKey, router])
+}

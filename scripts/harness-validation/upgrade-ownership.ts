@@ -8,8 +8,23 @@ import type {
   OwnershipMode
 } from "../../.agents/skills/web-upgrade-harness/scripts/upgrade-types.ts"
 
+/** 独立锚定已退役的混合 Auth 资产，拒绝以任意精确规则覆盖受管 Skill。 */
+const RETIRED_AUTH_SOURCE_RULES: Readonly<Record<string, OwnershipMode>> = {
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/PaginationControls.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationManagementPage.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamMembers.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamRoles.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamWorkspace.tsx.txt":
+    "tombstone"
+}
+
 /** 独立锚定升级所有权下限，避免运行时规则与清单同时弱化时绕过源门禁。 */
 export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
+  ...RETIRED_AUTH_SOURCE_RULES,
   "docs/README.md": "merge-sections",
   ".harness/tooling/upgrade-candidate.ts": "tombstone",
   "tests/workspace-upgrade.test.ts": "tombstone",
@@ -18,6 +33,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   ".harness/tooling/workspace-context.ts": "managed",
   ".harness/tooling/workspace-http.ts": "tombstone",
   "tests/application-test-adapters.ts": "tombstone",
+  "tests/application-ui-standards.test.ts": "tombstone",
   "tests/fixtures/application-api/**": "tombstone",
   ".agents/skills/workspace-implement-audit/**": "managed",
   ".agents/skills/go-implement-external-command/**": "managed",
@@ -282,9 +298,13 @@ function validateIndependentOwnershipBoundary(manifest: OwnershipManifest): void
       throw new Error(`Independent ownership rule weakened: ${pattern} must be ${mode}`)
     }
     const ruleIndex = manifest.rules.findIndex((rule) => rule.pattern === pattern)
-    const shadowingRule = manifest.rules
-      .slice(0, ruleIndex)
-      .find((rule) => ownershipPatternsOverlap(rule.pattern, pattern))
+    const shadowingRule = manifest.rules.slice(0, ruleIndex).find((rule) => {
+      const retiredAuth =
+        pattern === ".agents/skills/web-compose-capabilities/**" &&
+        rule.mode === "tombstone" &&
+        RETIRED_AUTH_SOURCE_RULES[rule.pattern] === "tombstone"
+      return !retiredAuth && ownershipPatternsOverlap(rule.pattern, pattern)
+    })
     if (shadowingRule !== undefined) {
       throw new Error(
         `Independent ownership rule shadowed: ${shadowingRule.pattern} precedes ${pattern}`

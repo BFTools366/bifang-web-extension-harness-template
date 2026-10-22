@@ -35,8 +35,7 @@ export function IdentityMenu({
         setMenu((value) => (opened ? { opened, identityId, scope } : { ...value, opened }))
       }
       position="bottom-end"
-      width={330}
-      withArrow
+      width={220}
       returnFocus={current}
       closeOnEscape={current}
     >
@@ -59,21 +58,10 @@ export function IdentityMenu({
         </UnstyledButton>
       </Menu.Target>
       <Menu.Dropdown maw="calc(100vw - var(--mantine-spacing-md) * 2)">
-        <Menu.Label>
-          <Text size="sm" fw={600} truncate="end" title={name}>
-            {name}
-          </Text>
-          {state.identity.email && state.identity.email !== name && (
-            <Text size="xs" c="dimmed" truncate="end" title={state.identity.email}>
-              {state.identity.email}
-            </Text>
-          )}
-        </Menu.Label>
         {children}
         <Menu.Divider />
         <Menu.Item
           color="red"
-          leftSection={<span aria-hidden="true">⇥</span>}
           onClick={() => {
             void session.logout().catch(() => undefined)
           }}

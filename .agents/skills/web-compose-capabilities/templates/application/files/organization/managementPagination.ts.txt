@@ -1,0 +1,5 @@
+export { PAGE_SIZES, isPageSize, type PageRequest, type PageSize } from "../../pagination/useSessionPagination"
+/** 快照只保存本列表拥有的分页字段，按账号和组织隔离。 */
+export function paginationStorageKey(scope: string) {
+  return "auth:organization-pagination:" + scope
+}

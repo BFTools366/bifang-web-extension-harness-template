@@ -85,8 +85,8 @@ export function applicationFiles(
           : `import { createWalletMock } from "./mock"\nimport { ordersMock } from "../orders/adapter"\nexport const api = createWalletMock(() => actor(), ${JSON.stringify(fixture.balances ?? {})}, ordersMock.settle)\n`)
     if (id === "organization")
       adapters[id] =
-        'import { actor, identityActor, canManageOrganization } from "../../../features/application/runtime"\n' +
-        `import { createOrganizationMock } from "./mock"\nexport const api = createOrganizationMock(() => identityActor(), ${JSON.stringify(fixture.organizations ?? [])}, ${JSON.stringify(fixture.organizationUsers ?? [])}, (user) => user.id === actor() && canManageOrganization())\n`
+        `import { actor, identityActor${selected.resolved.includes("permissions.enforce") ? ", canAct" : ""} } from "../../../features/application/runtime"\n` +
+        `import { createOrganizationMock } from "./mock"\nexport const api = createOrganizationMock(() => identityActor(), ${JSON.stringify(fixture.organizations ?? [])}, ${JSON.stringify(fixture.organizationUsers ?? [])}, (user) => user.id === actor() && ${selected.resolved.includes("permissions.enforce") ? 'canAct("team.settings.update")' : "false"})\n`
     if (id === "audit")
       adapters[id] =
         actorImport +

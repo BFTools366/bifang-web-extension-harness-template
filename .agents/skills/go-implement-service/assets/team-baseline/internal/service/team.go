@@ -51,28 +51,6 @@ func teamAccess(tx *repository.TeamTx, account, org model.ID) (*model.Org, *mode
 	return team, member, nil
 }
 
-// teamManager 校验团队管理 code；拥有关系仅用于保护目标，不能替代 RBAC 授权。
-func teamManager(tx *repository.TeamTx, account, org model.ID) (*model.OrganizationUser, error) {
-	_, member, err := teamAccess(tx, account, org)
-	if err != nil {
-		return nil, err
-	}
-	codes, err := tx.Grants(member.ID)
-	if err != nil {
-		return nil, err
-	}
-	allowed := false
-	for _, code := range codes {
-		if code == "team.manage" {
-			allowed = true
-		}
-	}
-	if !allowed {
-		return nil, apperr.ErrForbidden
-	}
-	return member, nil
-}
-
 // teamCodes 所有成员（含拥有者）的有效权限都通过角色权限关系计算。
 func teamCodes(tx *repository.TeamTx, member *model.OrganizationUser) ([]string, error) {
 	return tx.Grants(member.ID)
@@ -88,7 +66,10 @@ func teamMember(tx *repository.TeamTx, row *model.OrganizationUser) (*dto.TeamMe
 	if err != nil {
 		return nil, err
 	}
-	name := account.Nickname
+	name := row.Nickname
+	if name == "" {
+		name = account.Nickname
+	}
 	if name == "" {
 		name = account.Username
 	}
@@ -97,10 +78,12 @@ func teamMember(tx *repository.TeamTx, row *model.OrganizationUser) (*dto.TeamMe
 		return nil, err
 	}
 	roleIDs := []string{}
+	roleNames := []string{}
 	for _, role := range roles {
 		roleIDs = append(roleIDs, role.ID.String())
+		roleNames = append(roleNames, role.Name)
 	}
-	return &dto.TeamMember{ID: row.ID.String(), AccountID: row.AccountID.String(), OrganizationID: row.OrganizationID.String(), DisplayName: name, Role: row.Role, Status: row.Status, Version: row.Version, Permissions: codes, RoleIDs: roleIDs, CanRemove: row.Role != "owner", CanAssignRoles: row.Role != "owner"}, nil
+	return &dto.TeamMember{ID: row.ID.String(), AccountID: row.AccountID.String(), OrganizationID: row.OrganizationID.String(), DisplayName: name, Role: row.Role, Status: row.Status, Version: row.Version, Permissions: codes, RoleIDs: roleIDs, RoleNames: roleNames, CanRemove: row.Role != "owner", CanAssignRoles: row.Role != "owner"}, nil
 }
 
 // Require 校验实际资源所属团队和成员私有范围；新增领域接口必须在读写事务内复用同等检查。
@@ -185,7 +168,7 @@ func (s *TeamService) Members(ctx context.Context, account, org model.ID, page, 
 	}
 	result := &dto.TeamMemberPage{Items: []*dto.TeamMember{}}
 	err := s.store.Read(ctx, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		if _, err := teamAuthorize(tx, account, org, "team.members.read"); err != nil {
 			return err
 		}
 		rows, total, err := tx.Members(org, page, size)
@@ -226,7 +209,7 @@ func (s *TeamService) Permissions(ctx context.Context, account, org, subject mod
 func (s *TeamService) PermissionCatalog(ctx context.Context, account, org model.ID) ([]string, error) {
 	result := []string{}
 	err := s.store.Read(ctx, func(tx *repository.TeamTx) error {
-		member, err := teamManager(tx, account, org)
+		member, err := teamAuthorize(tx, account, org, "team.roles.read")
 		if err != nil {
 			return err
 		}

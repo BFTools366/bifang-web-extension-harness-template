@@ -1,0 +1,39 @@
+/** 页面、按钮与配置分组复用服务端的精确权限码。 */
+export const managementPermissions = [
+  ["team.settings.read", "orgPermSettingsRead", "settings"],
+  ["team.settings.update", "orgPermSettingsUpdate", "settings"],
+  ["team.members.read", "orgPermMembersRead", "members"],
+  ["team.members.invite", "orgPermMembersInvite", "members"],
+  ["team.members.remove", "orgPermMembersRemove", "members"],
+  ["team.members.nickname.update", "orgPermMembersNickname", "members"],
+  ["team.members.roles.assign", "orgPermMembersRoles", "members"],
+  ["team.roles.read", "orgPermRolesRead", "roles"],
+  ["team.roles.create", "orgPermRolesCreate", "roles"],
+  ["team.roles.delete", "orgPermRolesDelete", "roles"],
+  ["team.roles.permissions.update", "orgPermRolesPermissions", "roles"],
+  ["team.leave", "orgPermLeave", "business"]
+] as const
+
+/** 勾选动作自动包含读取，取消读取同时取消其依赖动作。 */
+export function togglePermission(selected: readonly string[], code: string, checked: boolean) {
+  const result = new Set(selected)
+  const entry = managementPermissions.find((row) => row[0] === code)
+  if (checked) {
+    result.add(code)
+    if (entry && entry[2] !== "business") result.add(`team.${entry[2]}.read`)
+  } else {
+    result.delete(code)
+    if (code.endsWith(".read"))
+      for (const value of result) if (value.startsWith(code.slice(0, -4))) result.delete(value)
+  }
+  return [...result]
+}
+
+/** 隐藏候选的已有角色仍须保留，系统基础角色由服务保留。 */
+export function preserveRoles(
+  existing: readonly string[],
+  candidates: readonly string[],
+  selected: readonly string[]
+) {
+  return [...new Set([...existing.filter((id) => !candidates.includes(id)), ...selected])]
+}

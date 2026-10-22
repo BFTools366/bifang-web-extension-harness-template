@@ -40,7 +40,14 @@ test("完整账号基线在 Web/Extension 复用真实团队归属与权限服�
     await installUsers(root)
     await run(
       "go",
-      ["test", "-race", "./internal/service", "-run", "TestTeam", "-count=1"],
+      [
+        "test",
+        "-race",
+        "./internal/service",
+        "-run",
+        "Test(Team|GranularManagement|ManagementMigration|RoleMutationBoundaries)",
+        "-count=1"
+      ],
       goOptions
     )
     const binary = path.join(server, process.platform === "win32" ? "fixture.exe" : "fixture")
@@ -74,7 +81,9 @@ test("完整账号基线在 Web/Extension 复用真实团队归属与权限服�
         selection: { host, operations: ["identity.workspace", "identity.register"] },
         homePageSource: HOME_SOURCE,
         dataMode: "adapter" as const,
-        pagePermissions: { "/": ["team.manage"] }
+        pagePermissions: {
+          "/": ["team.settings.read", "team.members.read", "team.members.roles.assign"]
+        }
       }
       const source = `import { expect, test, vi } from "vitest"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
@@ -86,7 +95,6 @@ ${host === "web" ? 'import { routeTree } from "./routeTree.gen"\nimport { AppPro
 import { identitySession, ensureOrganization, permissionSession, organizationService, teamService, currentScope, canManageOrganization } from "./features/application/runtime"
 import { api as teams } from "./data/api/organization/adapter"
 import { TeamInbox } from "./features/organization/TeamInbox"
-import { TeamMembers } from "./features/organization/TeamMembers"
 import { PersonalSettingsPage } from "./features/identity/PersonalSettingsPage"
 import { ApiError } from "./data/api/client/httpClient"
 import i18n from "./i18n"
@@ -102,16 +110,43 @@ test("mutual membership keeps ownership and rejects cross-team authority", async
   await teamService.invite(org, "${host}-member@example.invalid")
   const sent = await teams.invitations(org, 1, 20)
   expect(sent.items).toHaveLength(1)
-  const ownerView = render(<MantineProvider env="test"><QueryClientProvider client={queryClient}><TeamMembers api={teamService} organizationId={org} scope={currentScope()} isCurrent={() => true} /></QueryClientProvider></MantineProvider>)
-  expect(await screen.findByText("Organization members")).toBeInTheDocument()
-  expect(await screen.findByText(/Pending/)).toBeInTheDocument()
-  expect(await screen.findByRole("heading", { name: "Organization roles" })).toBeInTheDocument()
+  const rolesRouter = ${host === "web" ? 'createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ["/organization/roles"] }) })' : 'createExtensionRouter("popup")'}
+  ${host === "extension" ? 'await rolesRouter.navigate({ to: "/organization/roles" })' : ""}
+  const ownerView = render(<Providers><RouterProvider router={rolesRouter} /></Providers>)
+  await screen.findByRole("heading", { name: "Role management" })
   const user = userEvent.setup()
-  await user.type(screen.getByLabelText(/Role code/), "reviewer")
-  await user.type(screen.getByLabelText(/Role name/), "Reviewers")
+  await waitFor(() => expect(screen.getByRole("button", { name: "Create role" })).toBeEnabled())
   await user.click(screen.getByRole("button", { name: "Create role" }))
+  const createDialog = await screen.findByRole("dialog")
+  await user.type(within(createDialog).getByLabelText(/Role code/), "reviewer")
+  await user.type(within(createDialog).getByLabelText(/Role name/), "Reviewers")
+  await user.click(within(createDialog).getByRole("button", { name: "Create role" }))
   expect(await screen.findByText("reviewer")).toBeInTheDocument()
   expect((await teams.roles(org, 1, 100)).items).toHaveLength(3)
+  await user.click(within(await screen.findByRole("row", { name: /Reviewers/ })).getByRole("button", { name: "Configure permissions" }))
+  let editor = await screen.findByRole("dialog")
+  const invitePermission = await within(editor).findByRole("checkbox", { name: "Invite members" })
+  await user.click(invitePermission)
+  expect(within(editor).getByRole("checkbox", { name: "View members" })).toBeChecked()
+  const update = vi.spyOn(teams, "updateRole").mockRejectedValueOnce(new ApiError({ kind: "timeout", code: "timeout", message: "timeout", retryable: false }))
+  await user.click(within(editor).getByRole("button", { name: "Save permissions" }))
+  await within(editor).findByText("The result needs checking. Refresh the data before another operation.")
+  const readRoles = vi.spyOn(teams, "roles").mockRejectedValueOnce(new Error("offline"))
+  await user.click(within(editor).getByRole("button", { name: "Check result" }))
+  await waitFor(() => expect(within(editor).getByRole("button", { name: "Check result" })).toBeEnabled())
+  expect(within(editor).getByRole("checkbox", { name: "Invite members" })).toBeChecked()
+  expect(within(editor).getByRole("button", { name: "Save permissions" })).toBeDisabled()
+  readRoles.mockRestore()
+  await user.click(within(editor).getByRole("button", { name: "Check result" }))
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  expect(update).toHaveBeenCalledTimes(1)
+  update.mockRestore()
+  await user.click(within(await screen.findByRole("row", { name: /Reviewers/ })).getByRole("button", { name: "Configure permissions" }))
+  editor = await screen.findByRole("dialog")
+  await user.click(await within(editor).findByRole("checkbox", { name: "Invite members" }))
+  await user.click(within(editor).getByRole("button", { name: "Save permissions" }))
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  expect((await teams.roles(org, 1, 100)).items.find((row) => row.code === "reviewer")?.permissions).toEqual(["team.members.invite", "team.members.read"])
   ownerView.unmount()
   await identitySession.logout()
   await identitySession.login({ account: "${host}-outsider@example.invalid", password: "Password123" })
@@ -139,7 +174,7 @@ test("mutual membership keeps ownership and rejects cross-team authority", async
   await identitySession.logout()
   await identitySession.login({ account: "${host}-owner@example.invalid", password: "Password123" })
   await ensureOrganization(); await permissionSession.refresh()
-  await teamService.createRole(org, "manager", "Manager", ["team.manage"])
+  await teamService.createRole(org, "manager", "Manager", ["team.settings.read", "team.members.read", "team.members.roles.assign"])
   const manager = (await teams.roles(org, 1, 100)).items.find((role) => role.code === "manager")!
   await teamService.assignRoles(member, [manager.id])
   await identitySession.logout()
@@ -147,7 +182,22 @@ test("mutual membership keeps ownership and rejects cross-team authority", async
   await ensureOrganization(); await permissionSession.refresh()
   expect(canManageOrganization()).toBe(true)
   const managerMember = (await teams.read()).available.find((row) => row.id === org)!.user
-  await expect(teamService.assignRoles(managerMember, [])).rejects.toThrow("team_superseded")
+  await expect(teamService.assignRoles(managerMember, [])).rejects.toBeDefined()
+  expect(canManageOrganization()).toBe(true)
+  // 成员分配候选独立授权，无 roles.read 不能借角色页读取完整目录。
+  expect((await teams.assignableRoles(org)).items.some((row) => row.id === manager.id)).toBe(true)
+  await expect(teams.roles(org, 1, 20)).rejects.toBeDefined()
+  await identitySession.logout()
+  await identitySession.login({ account: "${host}-owner@example.invalid", password: "Password123" })
+  await ensureOrganization(); await permissionSession.refresh()
+  const latestMember = (await teams.members(org, 1, 100)).items.find((row) => row.id === managerMember.id)!
+  await teams.nickname(latestMember, "Organization nickname")
+  const renamedMember = (await teams.members(org, 1, 100)).items.find((row) => row.id === managerMember.id)!
+  expect(renamedMember.displayName).toBe("Organization nickname")
+  await teamService.assignRoles(renamedMember, [])
+  await identitySession.logout()
+  await identitySession.login({ account: "${host}-member@example.invalid", password: "Password123" })
+  await ensureOrganization(); await permissionSession.refresh()
   expect(canManageOrganization()).toBe(false)
   const leaving = (await teams.read()).available.find((row) => row.id === org)!.user
   await expect(teamService.remove(leaving)).rejects.toThrow("team_superseded")
@@ -168,19 +218,21 @@ test("account menu, organization navigation and personal settings", async () => 
   await screen.findByRole("heading", { name: "Text tool" })
   const navigation = screen.getByRole("navigation", { name: "Application navigation" })
   const group = within(navigation).getByText("Organization management").closest("details")!
-  expect(within(group).getAllByRole("link").map((link) => link.textContent)).toEqual(["Organization settings", "Join an organization"])
+  expect(within(group).getAllByRole("link").map((link) => link.textContent)).toEqual(["Organization settings", "Member management", "Role management"])
   await user.click(screen.getByRole("button", { name: /User center/ }))
   let menu = await screen.findByRole("menu")
-  expect(within(menu).getByText("${host}-owner@example.invalid")).toBeInTheDocument()
-  expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([orgName, "Personal settings", "⇥Sign out"])
-  await user.click(within(menu).getByRole("menuitem", { name: orgName }))
+  expect(within(menu).queryByText("${host}-owner@example.invalid")).not.toBeInTheDocument()
+  expect(menu.querySelectorAll(".mantine-Menu-itemSection")).toHaveLength(0)
+  expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Switch organization", "Personal settings", "Change password", "Sign out"])
+  await user.click(within(menu).getByRole("menuitem", { name: "Switch organization" }))
   const dialog = await screen.findByRole("dialog")
-  expect(within(dialog).getByRole("option", { name: orgName })).toBeDisabled()
+  expect(await within(dialog).findByRole("radio", { name: new RegExp(orgName) })).toBeDisabled()
   await user.keyboard("{Escape}")
   await user.click(screen.getByRole("button", { name: /User center/ }))
   menu = await screen.findByRole("menu")
   await user.click(within(menu).getByRole("menuitem", { name: "Personal settings" }))
-  await screen.findByRole("heading", { name: "Personal settings" })
+  await screen.findByRole("dialog", { name: "Personal settings" })
+  expect(router.state.location.pathname).toBe("/")
   const email = await screen.findByLabelText("Email")
   expect(email).toHaveValue("${host}-owner@example.invalid")
   expect(email).toHaveAttribute("readonly")
@@ -190,6 +242,13 @@ test("account menu, organization navigation and personal settings", async () => 
   await user.click(screen.getByRole("button", { name: "Save nickname" }))
   await screen.findByText("Nickname saved.")
   expect(await screen.findByRole("button", { name: "User center: Changed nickname" })).toBeInTheDocument()
+  expect(screen.queryByPlaceholderText("Enter your current password")).not.toBeInTheDocument()
+  await user.keyboard("{Escape}")
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  await user.click(screen.getByRole("button", { name: /User center/ }))
+  await user.click(await screen.findByRole("menuitem", { name: "Change password" }))
+  await screen.findByRole("dialog", { name: "Change password" })
+  expect(router.state.location.pathname).toBe("/")
   await user.type(screen.getByPlaceholderText("Enter your current password"), "WrongPassword")
   await user.type(screen.getByPlaceholderText("Enter a new password"), "Password456")
   await user.type(screen.getByPlaceholderText("Enter your password again"), "Password456")
@@ -209,7 +268,7 @@ test("unknown nickname writes recover by reading the authoritative value", async
   queryClient.removeQueries({ queryKey: ["accountProfile"] })
   const rename = vi.fn(async () => { throw new ApiError({ kind: "timeout", code: "timeout", message: "timeout", retryable: false }) })
   const api = { read: async () => ({ id: accountId, email: "${host}-outsider@example.invalid", nickname: "Stored name" }), rename }
-  render(<MantineProvider env="test"><QueryClientProvider client={queryClient}><PersonalSettingsPage api={api} session={identitySession} canChangePassword={false} onPasswordChanged={async () => {}} /></QueryClientProvider></MantineProvider>)
+  render(<MantineProvider env="test"><QueryClientProvider client={queryClient}><PersonalSettingsPage api={api} session={identitySession} /></QueryClientProvider></MantineProvider>)
   const user = userEvent.setup()
   const input = await screen.findByPlaceholderText("Enter your nickname")
   await user.clear(input); await user.type(input, "Attempted name")
@@ -234,7 +293,7 @@ test("leaving personal settings cancels the post-write session refresh", async (
   })
   const check = vi.spyOn(identitySession, "check")
   const api = { read, rename: async () => {} }
-  const view = render(<MantineProvider env="test"><QueryClientProvider client={queryClient}><PersonalSettingsPage api={api} session={identitySession} canChangePassword={false} onPasswordChanged={async () => {}} /></QueryClientProvider></MantineProvider>)
+  const view = render(<MantineProvider env="test"><QueryClientProvider client={queryClient}><PersonalSettingsPage api={api} session={identitySession} /></QueryClientProvider></MantineProvider>)
   const user = userEvent.setup()
   const input = await screen.findByPlaceholderText("Enter your nickname")
   await user.clear(input); await user.type(input, "Attempted name")
@@ -262,7 +321,7 @@ test("leaving personal settings cancels the post-write session refresh", async (
       const coreOutput = await runApplicationFixture(
         coreOptions,
         `import { expect, test, vi } from "vitest"
-import { render, screen, within } from "@testing-library/react"
+import { render, screen, within, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { RouterProvider, createMemoryHistory${host === "web" ? ", createRouter" : ""} } from "@tanstack/react-router"
 ${host === "web" ? 'import { routeTree } from "./routeTree.gen"\nimport { AppProviders as Providers } from "./app/AppProviders"' : 'import { createExtensionRouter } from "./extension-router"\nimport { Providers } from "./providers"'}
@@ -292,6 +351,13 @@ test("core account keeps ownership and settings without collaboration", async ()
   await user.click(screen.getByRole("button", { name: "Save nickname" }))
   await screen.findByText("Nickname saved.")
   expect(await screen.findByRole("button", { name: "User center: Core nickname" })).toBeInTheDocument()
+  expect(screen.queryByPlaceholderText("Enter your current password")).not.toBeInTheDocument()
+  await user.keyboard("{Escape}")
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  await user.click(screen.getByRole("button", { name: /User center/ }))
+  await user.click(await screen.findByRole("menuitem", { name: "Change password" }))
+  await screen.findByRole("dialog", { name: "Change password" })
+  expect(router.state.location.pathname).toBe("/")
   await user.type(screen.getByPlaceholderText("Enter your current password"), "Password123")
   await user.type(screen.getByPlaceholderText("Enter a new password"), "PasswordCore456")
   await user.type(screen.getByPlaceholderText("Enter your password again"), "PasswordCore456")

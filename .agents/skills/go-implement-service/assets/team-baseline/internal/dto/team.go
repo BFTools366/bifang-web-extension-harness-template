@@ -11,6 +11,7 @@ type TeamMember struct {
 	Version        int      `json:"version"`
 	Permissions    []string `json:"permissions"`
 	RoleIDs        []string `json:"roleIds"`
+	RoleNames      []string `json:"roleNames"`
 	CanRemove      bool     `json:"canRemove"`
 	CanAssignRoles bool     `json:"canAssignRoles"`
 }
@@ -54,6 +55,7 @@ type TeamInvitationPage struct {
 
 // TeamRole 只暴露所属团队的 RBAC 定义，不携带其他团队成员或平台角色。
 type TeamRole struct {
+	CanManage      bool     `json:"canManage"`
 	ID             string   `json:"id"`
 	OrganizationID string   `json:"organizationId"`
 	Code           string   `json:"code"`

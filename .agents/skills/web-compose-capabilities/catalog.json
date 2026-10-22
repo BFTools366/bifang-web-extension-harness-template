@@ -100,6 +100,11 @@
           "path": "templates/application/files/identity/personalSettings.ts.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/identity/ChangePasswordPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
         }
       ],
       "operations": [
@@ -199,7 +204,162 @@
           "hosts": ["web", "extension"]
         },
         {
-          "path": "templates/application/files/organization/OrganizationManagementPage.tsx.txt",
+          "path": "templates/application/files/base/ApplicationIcon.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/ApplicationLayout.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/ModuleState.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/Preferences.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/SettingsPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/application.module.css.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/price.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/base/scope.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/ManagementParts.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/MemberDialog.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationMembersPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationRolesPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationSettingsPage.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/OrganizationSwitchDialog.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/RoleDialog.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/TeamInbox.tsx.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/extensionPagination.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/management.module.css.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/managementList.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/managementPagination.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/managementPermissions.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/managementQueries.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/managementSearch.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/organizationManagement.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/organizationPagination.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/organizationSwitch.module.css.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/teamContracts.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/teamService.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/useManagement.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/useTeamMutation.ts.txt",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/management-source.ts",
+          "kind": "code",
+          "hosts": ["web", "extension"]
+        },
+        {
+          "path": "templates/application/files/organization/TeamLeave.tsx.txt",
           "kind": "code",
           "hosts": ["web", "extension"]
         }
@@ -719,11 +879,6 @@
   ],
   "application": [
     {
-      "path": "templates/application/files/organization/TeamRoles.tsx.txt",
-      "kind": "code",
-      "hosts": ["web", "extension"]
-    },
-    {
       "path": "templates/application/team-locales.ts",
       "kind": "code",
       "hosts": ["web", "extension"]
@@ -745,16 +900,6 @@
     },
     {
       "path": "templates/application/files/organization/TeamInbox.tsx.txt",
-      "kind": "code",
-      "hosts": ["web", "extension"]
-    },
-    {
-      "path": "templates/application/files/organization/TeamMembers.tsx.txt",
-      "kind": "code",
-      "hosts": ["web", "extension"]
-    },
-    {
-      "path": "templates/application/files/organization/TeamWorkspace.tsx.txt",
       "kind": "code",
       "hosts": ["web", "extension"]
     },
@@ -851,6 +996,11 @@
     {
       "path": "templates/application/source-map.json",
       "kind": "design",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/identity/AccountDialog.tsx.txt",
+      "kind": "code",
       "hosts": ["web", "extension"]
     }
   ]

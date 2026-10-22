@@ -18,3 +18,5 @@ Account、Organization、OrganizationUser 分开建模；组织 ID 是租户边�
 产品运行只用真实服务，禁止业务 Mock、默认演示账号或 fixtures。测试使用隔离数据库和测试替身可行；完成需真实 HTTP 证明核心成功、最高风险失败和数据持久化，核对前端实际请求及恢复。同步根 docs/api 的受影响契约和业务关联，返回实际路径、运行结果及未决外部条件。
 
 成员范围严格来自 Workspace：纯 Server 只完成后端、接口及实际 HTTP/持久化验证，不生成前端或索要 UI 表单；存在所选前端成员时完成这些成员的真实消费端与联调。
+
+前后端固定 Auth 设计、11 码、读取依赖、版本及恢复合同见 [Auth 标准](../../../docs/ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)。首次装配同步页面、HTTP adapter、Go overlay、迁移及相关行为测试；已有产品按同一 owner 增量实现，不仅更新菜单或文档。

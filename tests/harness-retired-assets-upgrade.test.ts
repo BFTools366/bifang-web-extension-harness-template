@@ -6,6 +6,7 @@ import {
   recordUpgradeBaseline
 } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-core.ts"
 import { digest, git, persistPlan, planFor, upgradeFixture } from "./harness-upgrade-fixture.ts"
+import { RETIRED_AUTH_TEMPLATE_PATHS } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-policy.ts"
 
 /** 退役上游副本只产生显式删除或冲突，不能自动删除或触及产品会话。 */
 test.each([false, true])(
@@ -96,4 +97,20 @@ test("retires cleared tombstones from historical ownership baselines", async () 
     resolvedManual: []
   })
   expect(JSON.parse(await readFile(fixture.lock, "utf8")).files).not.toHaveProperty(retired)
+})
+
+/** 旧混合 Auth 源资产的残留显式阻断，不重装或删除下游真实页面。 */
+test("blocks retired mixed Auth templates without touching product files", async () => {
+  const fixture = await upgradeFixture()
+  for (const relative of RETIRED_AUTH_TEMPLATE_PATHS) {
+    const target = path.join(fixture.target, relative)
+    await mkdir(path.dirname(target), { recursive: true })
+    await writeFile(target, "// 保留的本地定制模板\n")
+    const plan = await planFor(fixture)
+    expect(plan.entries).toContainEqual(
+      expect.objectContaining({ path: relative, ownership: "tombstone", classification: "blocked" })
+    )
+    expect(await readFile(target, "utf8")).toBe("// 保留的本地定制模板\n")
+    await rm(target)
+  }
 })

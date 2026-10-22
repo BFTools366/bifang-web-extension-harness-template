@@ -13,7 +13,19 @@ export function accessSource(operations: readonly string[], paths: readonly stri
   const imports = ['import { navigation } from "./navigation"']
   const lines = [
     "/** 返回目标仅限已声明的内部页面，不接受外部 URL、编码逃逸或未知路径。 */",
-    `export function safeReturnTo(input: unknown) { return [...navigation${paths.map((path) => ", " + JSON.stringify({ path })).join("")}].find((page) => page.path === input)?.path ?? "/" }`
+    `export function safeReturnTo(input: unknown): string {
+  if (typeof input !== "string" || !input.startsWith("/") || input.startsWith("//") || input.includes("\\\\") || [...input].some((character) => character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127)) return "/"
+  const url = new URL(input, "https://auth.invalid")
+  const page = [...navigation${paths.map((path) => ", " + JSON.stringify({ path })).join("")}].find((page) => page.path === url.pathname)
+  if (!page || input.split(/[?#]/u)[0] !== url.pathname) return "/"
+  if (!["/organization/members", "/organization/roles"].includes(page.path)) return page.path
+  const search = new URLSearchParams()
+  for (const key of ["page", "pageSize"]) {
+    const value = url.searchParams.get(key)
+    if (value && /^\\d+$/u.test(value) && Number(value) >= 1 && Number(value) <= 100000 && (key !== "pageSize" || [10,20,50,100].includes(Number(value)))) search.set(key, String(Number(value)))
+  }
+  return page.path + (search.size ? "?" + search.toString() : "")
+}`
   ]
   if (identity) {
     imports.push(
@@ -29,16 +41,16 @@ export function authSearch(input: Record<string, unknown>): { returnTo?: ReturnT
   return input.returnTo === undefined ? {} : { returnTo: safeReturnTo(input.returnTo) }
 }
 /** 私有导航先完成会话校验；取消、预取或未加载权限不能放行正文。 */
-export async function protectPage(target: string, signal?: AbortSignal) {
+export async function protectPage(target: string, signal?: AbortSignal, href = target) {
   try { await identitySession.ensure() }
   catch (error) {
     signal?.throwIfAborted()
     if (error instanceof IdentityError && ["anonymous", "expired"].includes(error.code))
-      throw redirect({ to: "/login", search: { returnTo: safeReturnTo(target) }, replace: true })
+      throw redirect({ to: "/login", search: { returnTo: safeReturnTo(href) }, replace: true })
     throw error
   }
   signal?.throwIfAborted()
-  ${organization ? 'if (target !== "/account/settings") await ensureOrganization(signal)\n  signal?.throwIfAborted()' : ""}
+  ${organization ? 'if (!["/account/settings", "/account/password"].includes(target)) await ensureOrganization(signal)\n  signal?.throwIfAborted()' : ""}
   ${
     permissions
       ? `if (${permissionFreePaths(organization)
@@ -93,13 +105,14 @@ export const Route = createFileRoute("/_application")({ component: MainLayout })
     )
     for (const page of pages) {
       const relative = page.file
+      const list = ["/organization/members", "/organization/roles"].includes(page.path)
       files.set(
         `src/routes/_application/${relative}.tsx`,
         `import { createFileRoute } from "@tanstack/react-router"
 import { ${routeComponent(page)} } from "../../features/application/Application"
-${identity ? 'import { protectPage } from "../../features/application/routeAccess"\n' : ""}/** ${page.module ?? "产品首页"} 的路由只声明路径、前置门禁与组件。 */
+${list ? 'import { protectManagementList } from "../../features/organization/managementList"\nimport { validateManagementSearch } from "../../features/organization/managementSearch"\n' : identity ? 'import { protectPage } from "../../features/application/routeAccess"\n' : ""}/** ${page.module ?? "产品首页"} 的路由只声明路径、前置门禁与组件。 */
 export const Route = createFileRoute(${JSON.stringify("/_application/" + (page.file === "index" ? "" : page.file.replaceAll(".", "/")))})({
-${identity ? `  beforeLoad: ({ abortController }) => protectPage(${JSON.stringify(page.path)}, abortController.signal),\n` : ""}  component: ${routeComponent(page)}
+${list ? `  validateSearch: validateManagementSearch,\n  beforeLoad: ({ abortController, location }) => protectManagementList(${JSON.stringify(page.path)}, location, abortController.signal),\n` : identity ? `  beforeLoad: ({ abortController, location }) => protectPage(${JSON.stringify(page.path)}, abortController.signal, location.href),\n` : ""}  component: ${routeComponent(page)}
 })\n`
       )
     }
@@ -131,11 +144,14 @@ import { protectPage } from "../../features/application/routeAccess"
 export const Route = createFileRoute("/_application/forbidden")({ component: ForbiddenPage, beforeLoad: ({ abortController }) => protectPage("/forbidden", abortController.signal) })\n`
       )
   } else {
+    const lists = pages.some((page) =>
+      ["/organization/members", "/organization/roles"].includes(page.path)
+    )
     files.set(
       "src/extension-router.tsx",
       `import { createRootRoute, createRoute, createRouter, createMemoryHistory, createHashHistory } from "@tanstack/react-router"
 import { ${["MainLayout", ...(identity ? ["Login"] : []), ...(registration ? ["Register"] : []), ...(permissions ? ["ForbiddenPage"] : []), ...pages.map((page) => routeComponent(page))].join(", ")} } from "./features/application/Application"
-import { SettingsPage } from "./features/application/SettingsPage"
+${lists ? 'import { protectManagementList } from "./features/organization/managementList"\nimport { validateManagementSearch } from "./features/organization/managementSearch"\n' : ""}import { SettingsPage } from "./features/application/SettingsPage"
 ${identity ? 'import { protectPage, authSearch, publicLogin } from "./features/application/routeAccess"\n' : ""}import { ExtensionShell } from "./ExtensionShell"
 import { ExtensionNotFoundPage } from "./ExtensionNotFoundPage"
 import { ExtensionRouteErrorPage } from "./data/api/client/ExtensionRouteErrorPage"
@@ -147,7 +163,7 @@ export function createExtensionRouter(surface: "popup" | "options") {
   const application = createRoute({ getParentRoute: () => root, id: "application", component: MainLayout })
   const settings = createRoute({ getParentRoute: () => root, path: "/settings", component: SettingsPage })
   const pages = [
-${pages.map((page) => `    createRoute({ getParentRoute: () => application, path: ${JSON.stringify(page.path)}, component: ${routeComponent(page)}${identity ? `, beforeLoad: ({ abortController }) => protectPage(${JSON.stringify(page.path)}, abortController.signal)` : ""} })`).join(",\n")}${permissions ? ',\n    createRoute({ getParentRoute: () => application, path: "/forbidden", component: ForbiddenPage, beforeLoad: ({ abortController }) => protectPage("/forbidden", abortController.signal) })' : ""}
+${pages.map((page) => `    createRoute({ getParentRoute: () => application, path: ${JSON.stringify(page.path)}, component: ${routeComponent(page)}${["/organization/members", "/organization/roles"].includes(page.path) ? `, validateSearch: validateManagementSearch, beforeLoad: ({ abortController, location }) => protectManagementList(${JSON.stringify(page.path)}, location, abortController.signal)` : identity ? `, beforeLoad: ({ abortController, location }) => protectPage(${JSON.stringify(page.path)}, abortController.signal, location.href)` : ""} })`).join(",\n")}${permissions ? ',\n    createRoute({ getParentRoute: () => application, path: "/forbidden", component: ForbiddenPage, beforeLoad: ({ abortController }) => protectPage("/forbidden", abortController.signal) })' : ""}
   ]
 ${identity ? '  const login = createRoute({ getParentRoute: () => root, path: "/login", component: Login, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}${registration ? '  const register = createRoute({ getParentRoute: () => root, path: "/register", component: Register, validateSearch: authSearch, beforeLoad: ({ search }) => publicLogin(search.returnTo) })\n' : ""}  return createRouter({ routeTree: root.addChildren([application.addChildren(pages), settings${identity ? ", login" : ""}${registration ? ", register" : ""}]), history: surface === "popup" ? createMemoryHistory({ initialEntries: ["/"] }) : createHashHistory(), defaultErrorComponent: ExtensionRouteErrorPage, defaultOnCatch: (error) => logger.error("route_failed", { surface, error }) })
 }

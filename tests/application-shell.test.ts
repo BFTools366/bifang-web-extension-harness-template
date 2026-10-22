@@ -72,7 +72,7 @@ test("account structure, preferences and persistent shell", async () => {
   await user.keyboard("{Enter}")
   const menu = await screen.findByRole("menu")
   expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
-    "Team A", "⇥Sign out"
+    "Switch organization", "Sign out"
   ])
   expect(within(menu).queryByRole("menuitem", { name: "Account settings" })).not.toBeInTheDocument()
   await user.keyboard("{Escape}")
@@ -114,14 +114,14 @@ test("account structure, preferences and persistent shell", async () => {
   await act(async () => { await organizationService.switch("b") })
   expect(screen.getByRole("button", { name: "User center: Member" })).toBe(trigger)
   await user.click(trigger)
-  expect(await screen.findByRole("menuitem", { name: "Team B" })).toBeInTheDocument()
-  await user.click(await screen.findByRole("menuitem", { name: "Team B" }))
+  expect(await screen.findByRole("menuitem", { name: "Switch organization" })).toBeInTheDocument()
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
   const dialog = await screen.findByRole("dialog")
-  expect(within(dialog).getByRole("option", { name: "Team B" })).toBeDisabled()
+  expect(within(dialog).getByRole("radio", { name: /Team B/ })).toBeDisabled()
   await user.keyboard("{Escape}")
   await waitFor(() => expect(trigger).toHaveFocus())
   await user.click(trigger)
-  await user.click(await screen.findByRole("menuitem", { name: "Team B" }))
+  await user.click(await screen.findByRole("menuitem", { name: "Switch organization" }))
   await screen.findByRole("dialog")
   await user.keyboard("{Escape}")
   const nextInput = screen.getByLabelText("Input")

@@ -1,0 +1,65 @@
+import { readManagementSearch } from "./managementSearch"
+import { useEffect } from "react"
+import {
+  defaultParseSearch,
+  redirect,
+  useLocation,
+  useNavigate,
+  useSearch
+} from "@tanstack/react-router"
+import { protectPage } from "../application/routeAccess"
+import { currentDataOwnership } from "../application/runtime"
+import { type PageRequest } from "./managementPagination"
+import {
+  readOrganizationPagination,
+  saveOrganizationPagination
+} from "../../data/storage/organizationPagination"
+
+/** 请求前完成权限与 session 单次恢复，不把其他组织的快照混入。 */
+export async function protectManagementList(
+  path: string,
+  location: { href: string; searchStr: string },
+  signal: AbortSignal
+) {
+  await protectPage(path, signal, location.href)
+  const raw: Record<string, unknown> = defaultParseSearch(location.searchStr)
+  const owner = currentDataOwnership()
+  const scope = JSON.stringify(["organization", owner?.accountId, owner?.organizationId, path])
+  const next =
+    Object.hasOwn(raw, "page") || Object.hasOwn(raw, "pageSize")
+      ? readManagementSearch(raw)
+      : { ...raw, ...readOrganizationPagination(scope) }
+  if (raw.page !== next.page || raw.pageSize !== next.pageSize)
+    throw redirect({ to: path, search: next, replace: true })
+}
+
+/** Router 是页码唯一 owner；成功结果才允许纠正到末页。 */
+export function useManagementList(ownerKey: string) {
+  const location = useLocation(),
+    navigate = useNavigate(),
+    raw = useSearch({ strict: false })
+  const state = readManagementSearch(raw)
+  const owner = currentDataOwnership()
+  const storageScope = JSON.stringify([
+    "organization",
+    owner?.accountId,
+    owner?.organizationId,
+    location.pathname
+  ])
+  useEffect(() => {
+    saveOrganizationPagination(storageScope, state)
+  }, [storageScope, state.page, state.pageSize])
+  /** 分页与容量变更原子写入当前 URL。 */
+  function change(patch: Partial<PageRequest>, replace = false) {
+    void navigate({ to: location.pathname, search: { ...state, ...patch }, replace }).catch(
+      () => undefined
+    )
+  }
+  /** 校验当前 scope 后纠正越界页，旧请求不导航新组织。 */
+  function correct(total: number) {
+    if (ownerKey !== JSON.stringify(currentDataOwnership())) return
+    const last = Math.max(1, Math.ceil(total / state.pageSize))
+    if (state.page > last) change({ page: last }, true)
+  }
+  return { state, change, correct }
+}

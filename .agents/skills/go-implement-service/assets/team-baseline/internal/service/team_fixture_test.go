@@ -47,7 +47,7 @@ func teamFixture(t *testing.T) (*gorm.DB, *AuthService, *TeamService) {
 	verification := NewVerificationService(repository.NewVerificationCodeRepository(db), accounts, config.Verification{Enabled: true, Mock: true, CodeLength: 6, TTL: time.Hour, MaxAttempts: 5, DailyLimit: 100}, notify.New(""))
 	auth := NewAuthService(accounts, orgs, verification, token.NewManager("fixture-secret-not-for-production", "fixture", time.Hour, time.Hour))
 	store := repository.NewTeamStore(db)
-	if err = store.RegisterPermissions(context.Background(), []string{"team.manage", "team.leave", "document.read", "document.write"}); err != nil {
+	if err = store.RegisterPermissions(context.Background(), append(append([]string{}, ManagementPermissions...), "team.leave", "document.read", "document.write")); err != nil {
 		t.Fatal(err)
 	}
 	return db, auth, NewTeamService(store)

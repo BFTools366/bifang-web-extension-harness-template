@@ -14,6 +14,11 @@ import { applicationRoutes, accessSource } from "./route-source.ts"
 import { runtimeSource } from "./runtime-source.ts"
 import { applicationPageSource } from "./page-source.ts"
 import { settingsNavigationSource } from "./settings-source.ts"
+import {
+  managementPages,
+  managementActions,
+  managementPagePermissions
+} from "./management-source.ts"
 
 /** 固定资产到当前单包的实际落点，所有路径均纳入 catalog 管理。 */
 export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
@@ -60,6 +65,10 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
     "src/data/api/organization/teamContracts.ts": "organization/teamContracts.ts.txt",
     "src/data/api/organization/contracts.ts": "organization/contracts.ts.txt",
     "src/data/api/organization/context.ts": "organization/context.ts.txt",
+    "src/features/organization/OrganizationSwitchDialog.tsx":
+      "organization/OrganizationSwitchDialog.tsx.txt",
+    "src/features/organization/organizationSwitch.module.css":
+      "organization/organizationSwitch.module.css.txt",
     "src/features/organization/OrganizationMenu.tsx": "organization/OrganizationMenu.tsx.txt",
     "src/features/organization/OrganizationPage.tsx": "organization/OrganizationPage.tsx.txt",
     "src/features/organization/OrganizationContext.tsx": "organization/OrganizationContext.tsx.txt"
@@ -72,16 +81,34 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
 /** 只随具体操作装配的固定资产，不因模块启用而附带写入能力。 */
 const OPERATION_ASSETS: Record<string, Record<string, string>> = {
   "identity.profile": {
+    "src/features/identity/AccountDialog.tsx": "identity/AccountDialog.tsx.txt",
     "src/data/api/identity/personalSettings.ts": "identity/personalSettings.ts.txt",
     "src/features/identity/PersonalSettingsPage.tsx": "identity/PersonalSettingsPage.tsx.txt"
+  },
+  "identity.password.change": {
+    "src/features/identity/AccountDialog.tsx": "identity/AccountDialog.tsx.txt",
+    "src/data/api/identity/personalSettings.ts": "identity/personalSettings.ts.txt",
+    "src/features/identity/ChangePasswordPage.tsx": "identity/ChangePasswordPage.tsx.txt"
   },
   "identity.workspace": {
     "src/data/api/organization/teamService.ts": "organization/teamService.ts.txt",
     "src/features/organization/useTeamMutation.ts": "organization/useTeamMutation.ts.txt",
+    "src/features/organization/OrganizationMembersPage.tsx":
+      "organization/OrganizationMembersPage.tsx.txt",
+    "src/features/organization/OrganizationRolesPage.tsx":
+      "organization/OrganizationRolesPage.tsx.txt",
+    "src/features/organization/MemberDialog.tsx": "organization/MemberDialog.tsx.txt",
+    "src/features/organization/RoleDialog.tsx": "organization/RoleDialog.tsx.txt",
+    "src/features/organization/managementPermissions.ts":
+      "organization/managementPermissions.ts.txt",
+    "src/features/organization/managementQueries.ts": "organization/managementQueries.ts.txt",
+    "src/features/organization/managementSearch.ts": "organization/managementSearch.ts.txt",
+    "src/features/organization/managementList.ts": "organization/managementList.ts.txt",
+    "src/features/organization/managementPagination.ts": "organization/managementPagination.ts.txt",
+    "src/features/organization/management.module.css": "organization/management.module.css.txt",
+    "src/data/storage/organizationPagination.ts": "organization/organizationPagination.ts.txt",
     "src/features/organization/TeamInbox.tsx": "organization/TeamInbox.tsx.txt",
-    "src/features/organization/TeamMembers.tsx": "organization/TeamMembers.tsx.txt",
-    "src/features/organization/TeamRoles.tsx": "organization/TeamRoles.tsx.txt",
-    "src/features/organization/TeamWorkspace.tsx": "organization/TeamWorkspace.tsx.txt"
+    "src/features/organization/TeamLeave.tsx": "organization/TeamLeave.tsx.txt"
   },
   "identity.register": {
     "src/data/api/identity/registration.ts": "identity/registration.ts.txt",
@@ -89,8 +116,12 @@ const OPERATION_ASSETS: Record<string, Record<string, string>> = {
     "src/features/identity/useEmailVerification.ts": "identity/useEmailVerification.ts.txt"
   },
   "organization.manage": {
-    "src/features/organization/OrganizationManagementPage.tsx":
-      "organization/OrganizationManagementPage.tsx.txt"
+    "src/features/organization/OrganizationSettingsPage.tsx":
+      "organization/OrganizationSettingsPage.tsx.txt",
+    "src/features/organization/useManagement.ts": "organization/useManagement.ts.txt",
+    "src/features/organization/ManagementParts.tsx": "organization/ManagementParts.tsx.txt",
+    "src/features/organization/managementPagination.ts": "organization/managementPagination.ts.txt",
+    "src/i18n/organizationManagement.ts": "organization/organizationManagement.ts.txt"
   },
   "orders.purchase": {
     "src/features/orders/purchase.ts": "orders/purchase.ts.txt",
@@ -98,7 +129,7 @@ const OPERATION_ASSETS: Record<string, Record<string, string>> = {
   }
 }
 /** 可执行操作入口，未选择时不进入接线清单。 */
-const ACTIONS = ["orders.purchase", "organization.switch", "organization.manage"]
+const ACTIONS = ["orders.purchase", "organization.switch"]
 /** 对应固定能力页的规范 URL，基础主界面始终存在。 */
 const MODULE_PAGES: ApplicationPage[] = [
   {
@@ -197,6 +228,14 @@ export function applicationFiles(
   options: ApplicationOptions
 ): Map<string, string> {
   const selected = resolveCapabilitySelection(options.selection)
+  const workspace = selected.resolved.includes("identity.workspace")
+  const management = selected.resolved.includes("organization.manage")
+  if (management)
+    options = {
+      ...options,
+      pagePermissions: { ...options.pagePermissions, ...managementPagePermissions(workspace) },
+      actionPermissions: { ...options.actionPermissions, ...managementActions(workspace) }
+    }
   const serverOnly = new Set(
     selected.modules.flatMap((module) =>
       module.operations.filter((op) => op.serverOnly).map((op) => op.id)
@@ -258,19 +297,23 @@ export function applicationFiles(
           }
         ]
       : []),
-    ...(selected.resolved.includes("organization.manage")
+    ...(frontendOperations.includes("identity.password.change")
       ? [
           {
-            path: "/organization/manage",
-            file: "organization_.manage",
-            component: "OrganizationManagementPage",
-            title: "organizationManage",
-            module: "organization"
+            path: "/account/password",
+            file: "account_.password",
+            component: "ChangePasswordPage",
+            title: "personalPassword",
+            module: "identity"
           }
         ]
-      : [])
+      : []),
+    ...(management ? managementPages(workspace) : [])
   ]
-  const actions = ACTIONS.filter((action) => selected.resolved.includes(action))
+  const actions = [
+    ...ACTIONS.filter((action) => selected.resolved.includes(action)),
+    ...(management ? Object.keys(managementActions(workspace)) : [])
+  ]
   const organizationPaths = pages
     .filter((page) => page.module === "organization" || page.module === "identity")
     .map((page) => page.path)
@@ -316,6 +359,14 @@ export function applicationFiles(
   for (const module of modules) {
     files.set(`src/data/api/${module}/adapter.ts`, options.adapters?.[module] ?? "")
   }
+  if (
+    options.selection.host === "extension" &&
+    files.has("src/data/storage/organizationPagination.ts")
+  )
+    files.set(
+      "src/data/storage/organizationPagination.ts",
+      asset("organization/extensionPagination.ts.txt")
+    )
   files.set("src/features/home/HomePage.tsx", options.homePageSource)
   files.set("src/features/application/runtime.ts", runtimeSource(options, frontendOperations))
   files.set(
@@ -336,7 +387,7 @@ export function applicationFiles(
   )
   files.set(
     "src/features/application/navigation.ts",
-    `export const navigation = ${JSON.stringify(pages.filter((page) => page.module !== "identity" && (page.module !== "organization" || page.path !== "/organization" || frontendOperations.includes("identity.workspace"))).map((page) => ({ path: page.path, title: page.path === "/organization" ? "teamJoin" : page.path === "/organization/manage" ? "organizationSettings" : page.title, group: page.module === "organization" ? "organizationNavigation" : null })))} as const\n`
+    `export const navigation = ${JSON.stringify(pages.filter((page) => page.module !== "identity" && page.path !== "/organization").map((page) => ({ path: page.path, title: page.title, group: page.module === "organization" ? "organizationNavigation" : null })))} as const\n`
   )
   files.set(
     "src/i18n/application.ts",

@@ -19,7 +19,7 @@ func (s *TeamService) Invitations(ctx context.Context, account, org model.ID, pa
 			return err
 		}
 		if org != 0 {
-			if _, err := teamManager(tx, account, org); err != nil {
+			if _, err := teamAuthorize(tx, account, org, "team.members.invite"); err != nil {
 				return err
 			}
 		}

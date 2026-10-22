@@ -44,7 +44,7 @@ export const api: OrganizationApi = {
         }
       },
       `import { test, expect, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { RouterProvider${host === "web" ? ", createRouter, createMemoryHistory" : ""} } from "@tanstack/react-router"
 import "./i18n/application"
@@ -61,12 +61,12 @@ test("selects a single organization from an unselected context", async () => {
   ${host === "extension" ? 'await router.navigate({ to: "/organization" })' : ""}
   render(<Providers><RouterProvider router={router} /></Providers>)
   const user = userEvent.setup()
-  const select = await screen.findByLabelText("Current organization")
-  expect(select).toBeEnabled()
-  expect(select).toHaveValue("")
-  await user.selectOptions(select, "a")
-  await waitFor(() => expect(screen.getByLabelText("Current organization")).toHaveValue("a"))
-  expect(screen.getByLabelText("Current organization")).toBeDisabled()
+  const radio = await screen.findByRole("radio", { name: /Team A/ })
+  expect(radio).toBeEnabled()
+  await user.click(radio)
+  await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Switch organization" }))
+  await waitFor(() => expect(actor()).toBe("member-a"))
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   expect(identitySession.getSnapshot().identity?.id).toBe("member")
 })
 /** 响应超时先查询；已提交结果成功，明确未提交仍报错且保留已确认身份。 */

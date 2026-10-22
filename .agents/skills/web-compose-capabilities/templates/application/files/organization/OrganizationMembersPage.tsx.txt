@@ -1,0 +1,165 @@
+import { ListSurface, ListTable } from "../../pagination/ListSurface"
+import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Badge, Button, Group, Stack, Table, Text, Title } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { ModuleState } from "../application/ModuleState"
+import { useManagementScope, useManagementRejection } from "./useManagement"
+import { useManagementList } from "./managementList"
+import { membersQuery } from "./managementQueries"
+import { MemberDialog, type MemberAction } from "./MemberDialog"
+import { ManagementPagination } from "./ManagementParts"
+import classes from "./management.module.css"
+import "../../i18n/organizationManagement"
+
+/** 当前组织成员列表按服务端稳定 ID 排序，行操作同时受对象和精确权限约束。 */
+export function OrganizationMembersPage() {
+  const { t, i18n } = useTranslation(),
+    { owner, ownerKey, allow } = useManagementScope()
+  const list = useManagementList(ownerKey)
+  const [action, setAction] = useState<{ kind: MemberAction; id?: string } | null>(null)
+  const query = useQuery({
+    ...membersQuery(ownerKey, owner?.organizationId ?? "", i18n.language, list.state),
+    enabled: !!owner
+  })
+  useManagementRejection(query.error, ownerKey)
+  useEffect(() => {
+    if (query.isSuccess && !query.isFetching && !query.isPlaceholderData)
+      list.correct(query.data.total)
+  }, [
+    query.data,
+    query.isFetching,
+    query.isSuccess,
+    ownerKey,
+    list.state.page,
+    list.state.pageSize
+  ])
+  const target = query.data?.items.find((row) => row.id === action?.id)
+  return (
+    <Stack>
+      <Group justify="space-between">
+        <Title order={1}>{t("orgMembersTitle")}</Title>
+        {allow("team.members.invite") && (
+          <Button disabled={query.isFetching} onClick={() => setAction({ kind: "invite" })}>
+            {t("orgInviteMember")}
+          </Button>
+        )}
+      </Group>
+      <ModuleState
+        loading={query.isPending}
+        error={query.error}
+        empty={false}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {query.data && !query.isError && (
+        <ListSurface
+          label={t("orgMemberTable")}
+          minWidth={640}
+          footer={
+            <ManagementPagination
+              state={list.state}
+              total={query.data.total}
+              change={list.change}
+              disabled={query.isFetching}
+            />
+          }
+        >
+          <ListTable>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th scope="col">{t("orgMember")}</Table.Th>
+                <Table.Th scope="col">{t("orgRoles")}</Table.Th>
+                <Table.Th scope="col">{t("orgActions")}</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {query.data.items.map((member) => (
+                <Table.Tr key={"member:" + member.id}>
+                  <Table.Th scope="row" className={classes.name}>
+                    {member.displayName}
+                    {member.accountId === owner?.accountId && (
+                      <Text size="xs" c="dimmed">
+                        {t("orgMe")}
+                      </Text>
+                    )}
+                  </Table.Th>
+                  <Table.Td>
+                    <Group gap="xs">
+                      {member.roleNames.map((name, index) => (
+                        <Badge key={member.roleIds[index] ?? name} color="gray" variant="light">
+                          {name === "Owner"
+                            ? t("organizationOwner")
+                            : name === "Member"
+                              ? t("orgBaseRole")
+                              : name}
+                        </Badge>
+                      ))}
+                    </Group>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      {allow("team.members.nickname.update") && (
+                        <Button
+                          size="compact-sm"
+                          variant="subtle"
+                          disabled={query.isFetching}
+                          onClick={() => setAction({ kind: "nickname", id: member.id })}
+                        >
+                          {t("orgNicknameAction")}
+                        </Button>
+                      )}
+                      {allow("team.members.roles.assign") &&
+                        member.canAssignRoles &&
+                        member.accountId !== owner?.accountId && (
+                          <Button
+                            size="compact-sm"
+                            variant="subtle"
+                            disabled={query.isFetching}
+                            onClick={() => setAction({ kind: "roles", id: member.id })}
+                          >
+                            {t("orgAssignRoles")}
+                          </Button>
+                        )}
+                      {allow("team.members.remove") &&
+                        member.canRemove &&
+                        member.accountId !== owner?.accountId && (
+                          <Button
+                            size="compact-sm"
+                            variant="subtle"
+                            color="red"
+                            disabled={query.isFetching}
+                            onClick={() => setAction({ kind: "remove", id: member.id })}
+                          >
+                            {t("teamRemove")}
+                          </Button>
+                        )}
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              {!query.data.items.length && (
+                <Table.Tr>
+                  <Table.Td colSpan={3}>
+                    <Text p="xl" ta="center" c="dimmed">
+                      {t("applicationEmpty")}
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </ListTable>
+        </ListSurface>
+      )}
+      {action && owner && (action.kind === "invite" || target) && (
+        <MemberDialog
+          key={ownerKey + action.kind + action.id}
+          kind={action.kind}
+          member={target}
+          close={() => setAction(null)}
+        />
+      )}
+    </Stack>
+  )
+}

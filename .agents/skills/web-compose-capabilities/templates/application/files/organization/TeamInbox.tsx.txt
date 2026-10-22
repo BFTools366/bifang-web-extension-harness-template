@@ -1,6 +1,10 @@
-import { Alert, Button, Group, Pagination, Stack, Text, Title } from "@mantine/core"
-import { useQuery } from "@tanstack/react-query"
-import { useState } from "react"
+import { Alert, Button, Group, Stack, Text, Title } from "@mantine/core"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect } from "react"
+import { useLocalPagination } from "../../pagination/useLocalPagination"
+import { ListSurface } from "../../pagination/ListSurface"
+import { ListFooter } from "../../pagination/ListFooter"
+import classes from "../../pagination/listSurface.module.css"
 import { useTranslation } from "react-i18next"
 import type { TeamApi } from "../../data/api/organization/teamContracts"
 import { ModuleState } from "../application/ModuleState"
@@ -10,30 +14,37 @@ import { useTeamMutation } from "./useTeamMutation"
 export function TeamInbox({
   api,
   scope,
-  isCurrent
+  isCurrent,
+  onCloseBlockedChange
 }: {
   api: TeamApi
   scope: number
   isCurrent(): boolean
+  onCloseBlockedChange?(blocked: boolean): void
 }) {
   const { t, i18n } = useTranslation()
-  const [page, setPage] = useState(1)
+  const client = useQueryClient()
+  const { request, change, correct } = useLocalPagination(String(scope))
+  const { page, pageSize } = request
   const query = useQuery({
-    queryKey: ["team", scope, "inbox", page, i18n.language],
+    queryKey: ["team", scope, "inbox", page, pageSize, i18n.language],
     meta: { private: true },
     retry: false,
-    queryFn: ({ signal }) => api.invitations(null, page, 20, signal)
+    queryFn: ({ signal }) => api.invitations(null, page, pageSize, signal)
   })
   const mutation = useTeamMutation(isCurrent, async () => {
     await query.refetch({ throwOnError: true })
+    await client.invalidateQueries({ queryKey: ["organization"] }, { throwOnError: true })
   })
+  useEffect(() => { if (query.isSuccess && !query.isFetching) correct(query.data.total) }, [query.isSuccess, query.isFetching, query.data?.total, page, pageSize])
+  useEffect(() => { onCloseBlockedChange?.(mutation.disabled); return () => onCloseBlockedChange?.(false) }, [mutation.disabled, onCloseBlockedChange])
   return (
     <Stack>
-      <Title order={2}>{t("teamJoin")}</Title>
+      <Title order={2}>{t("orgIncomingInvitations")}</Title>
       <ModuleState
         loading={query.isPending}
         error={query.error}
-        empty={query.data?.total === 0}
+        empty={false}
         retry={() => {
           void mutation.verify()
         }}
@@ -51,43 +62,38 @@ export function TeamInbox({
         </Alert>
       )}
       {mutation.status === "saved" && <Text role="status">{t("teamUpdated")}</Text>}
-      {query.data?.items.map((invitation) => (
-        <Group key={invitation.id} justify="space-between">
-          <Text>
-            {invitation.organizationName} · {t("teamStatus_" + invitation.status)}
-          </Text>
-          {invitation.status === "pending" && (
-            <Group>
-              <Button
-                disabled={mutation.disabled}
-                onClick={() => {
-                  void mutation.run(() => api.resolve(invitation, "accept"))
-                }}
-              >
-                {t("teamAccept")}
-              </Button>
-              <Button
-                variant="subtle"
-                disabled={mutation.disabled}
-                onClick={() => {
-                  void mutation.run(() => api.resolve(invitation, "reject"))
-                }}
-              >
-                {t("teamReject")}
-              </Button>
-            </Group>
-          )}
-        </Group>
-      ))}
-      {(query.data?.total ?? 0) > 20 && (
-        <Pagination
-          aria-label={t("teamInvitationPages")}
-          value={page}
-          onChange={setPage}
-          total={Math.ceil((query.data?.total ?? 0) / 20)}
-          disabled={mutation.disabled}
-        />
-      )}
+      <ListSurface label={t("orgIncomingInvitations")} scroll={false} footer={query.data && !query.isError ? <ListFooter state={request} total={query.data.total} change={change} disabled={mutation.disabled || query.isFetching} /> : undefined}>
+      {query.data?.total === 0 && <Text className={classes.state} ta="center" c="dimmed">{t("orgNoInvitations")}</Text>}
+      {!query.isError &&
+        query.data?.items.map((invitation) => (
+          <Group className={classes.row} key={invitation.id} justify="space-between">
+            <Text>
+              {invitation.organizationName} · {t("teamStatus_" + invitation.status)}
+            </Text>
+            {invitation.status === "pending" && (
+              <Group>
+                <Button
+                  disabled={mutation.disabled}
+                  onClick={() => {
+                    void mutation.run(() => api.resolve(invitation, "accept"))
+                  }}
+                >
+                  {t("teamAccept")}
+                </Button>
+                <Button
+                  variant="subtle"
+                  disabled={mutation.disabled}
+                  onClick={() => {
+                    void mutation.run(() => api.resolve(invitation, "reject"))
+                  }}
+                >
+                  {t("teamReject")}
+                </Button>
+              </Group>
+            )}
+          </Group>
+        ))}
+      </ListSurface>
     </Stack>
   )
 }

@@ -1,0 +1,25 @@
+import type { SearchSchemaInput } from "@tanstack/react-router"
+import { isPageSize } from "./managementPagination"
+
+/** 组织列表只拥有页码与页容量，保留其他 URL 参数。 */
+export function readManagementSearch(raw: Record<string, unknown>) {
+  const page =
+    typeof raw.page === "number" || (typeof raw.page === "string" && /^\d+$/u.test(raw.page))
+      ? Number(raw.page)
+      : NaN
+  const size =
+    typeof raw.pageSize === "number" ||
+    (typeof raw.pageSize === "string" && /^\d+$/u.test(raw.pageSize))
+      ? Number(raw.pageSize)
+      : NaN
+  return {
+    ...raw,
+    page: Number.isSafeInteger(page) && page >= 1 && page <= 100000 ? page : 1,
+    pageSize: isPageSize(size) ? size : 20
+  }
+}
+
+/** 路由输入允许缺省页码，输出保持规范化分页；直接导航无需伪造 search。 */
+export function validateManagementSearch(raw: Record<string, unknown> & SearchSchemaInput) {
+  return readManagementSearch(raw)
+}

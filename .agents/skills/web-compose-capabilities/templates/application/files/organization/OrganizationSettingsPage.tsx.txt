@@ -1,0 +1,91 @@
+import { useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Button, Paper, Stack, TextInput, Title } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import { api } from "../../data/api/organization/adapter"
+import { organizationService } from "../application/runtime"
+import { organizationQueryOptions } from "./OrganizationContext"
+import { ModuleState } from "../application/ModuleState"
+import { useManagementScope, useManagementWrite } from "./useManagement"
+import { ManagementFeedback } from "./ManagementParts"
+import "../../i18n/organizationManagement"
+
+/** 组织设置在当前组织与读取权限内显示，名称沿用可信上下文。 */
+export function OrganizationSettingsPage() {
+  const { t, i18n } = useTranslation(),
+    { owner, ownerKey } = useManagementScope()
+  const query = useQuery({
+    ...organizationQueryOptions(organizationService, owner?.revision ?? -1, i18n.language),
+    enabled: !!owner
+  })
+  const organization = query.data?.available.find((row) => row.id === owner?.organizationId)
+  return (
+    <Stack>
+      <Title order={1}>{t("orgSettingsTitle")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.error}
+        empty={false}
+        retry={() => {
+          void query.refetch()
+        }}
+      />
+      {organization && (
+        <OrganizationNameForm key={ownerKey} id={organization.id} initial={organization.name} />
+      )}
+    </Stack>
+  )
+}
+
+/** 名称草稿只归本表单，写入结果未知时先核对真实名称。 */
+function OrganizationNameForm({ id, initial }: { id: string; initial: string }) {
+  const { t, i18n } = useTranslation(),
+    { allow, owner } = useManagementScope(),
+    write = useManagementWrite(id)
+  const queryClient = useQueryClient()
+  const [name, setName] = useState(initial)
+  return (
+    <Paper withBorder p="lg" maw={680}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (!name.trim() || Array.from(name.trim()).length > 60) return
+          void write.run("team.settings.update", (signal) => api.rename(id, name.trim(), signal))
+        }}
+      >
+        <Stack>
+          <TextInput
+            label={t("orgName")}
+            placeholder={t("orgNamePlaceholder")}
+            value={name}
+            maxLength={60}
+            required
+            readOnly={!allow("team.settings.update")}
+            disabled={write.busy || write.recovery}
+            onChange={(event) => setName(event.currentTarget.value)}
+          />
+          <ManagementFeedback
+            write={write}
+            checked={() => {
+              const latest = queryClient.getQueryData(
+                organizationQueryOptions(organizationService, owner?.revision ?? -1, i18n.language)
+                  .queryKey
+              )
+              setName(latest?.available.find((row) => row.id === id)?.name ?? initial)
+            }}
+          />
+          {allow("team.settings.update") && (
+            <Button
+              type="submit"
+              loading={write.busy}
+              disabled={write.recovery}
+              style={{ alignSelf: "flex-start" }}
+            >
+              {t("orgSave")}
+            </Button>
+          )}
+        </Stack>
+      </form>
+    </Paper>
+  )
+}

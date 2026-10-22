@@ -10,6 +10,30 @@
   ],
   "rules": [
     {
+      "pattern": "tests/application-ui-standards.test.ts",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".agents/skills/web-compose-capabilities/templates/application/files/organization/PaginationControls.tsx.txt",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationManagementPage.tsx.txt",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamMembers.tsx.txt",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamRoles.tsx.txt",
+      "mode": "tombstone"
+    },
+    {
+      "pattern": ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamWorkspace.tsx.txt",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "docs/README.md",
       "mode": "merge-sections"
     },

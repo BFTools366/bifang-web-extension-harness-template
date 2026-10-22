@@ -1,0 +1,68 @@
+import { Alert, Button, Group, Text } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import type { useManagementWrite } from "./useManagement"
+
+export { ListFooter as ManagementPagination } from "../../pagination/ListFooter"
+
+/** 写入未知仅允许只读核对；冲突重读仍保留表单草稿。 */
+export function ManagementFeedback({
+  write,
+  checked
+}: {
+  write: ReturnType<typeof useManagementWrite>
+  checked?(): void
+}) {
+  const { t } = useTranslation()
+  if (!write.message) return null
+  return (
+    <Alert
+      role={write.message === "teamUpdated" ? "status" : "alert"}
+      color={write.message === "teamUpdated" ? "green" : "red"}
+    >
+      <Text>{t(write.message)}</Text>
+      {(write.recovery || write.message === "orgConflict") && (
+        <Button
+          mt="sm"
+          variant="default"
+          onClick={() => {
+            void write.verify().then((ok) => {
+              if (ok && write.recovery) checked?.()
+            })
+          }}
+        >
+          {t("teamVerify")}
+        </Button>
+      )}
+    </Alert>
+  )
+}
+
+/** 弹窗提交区统一处理重复提交、未知结果和关闭约束。 */
+export function ManagementActions({
+  write,
+  close,
+  submit,
+  danger = false
+}: {
+  write: ReturnType<typeof useManagementWrite>
+  close(): void
+  submit: string
+  danger?: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <Group justify="flex-end">
+      <Button variant="default" disabled={write.busy} onClick={close}>
+        {t("applicationCancel")}
+      </Button>
+      <Button
+        type="submit"
+        color={danger ? "red" : undefined}
+        loading={write.busy}
+        disabled={write.recovery}
+      >
+        {t(submit)}
+      </Button>
+    </Group>
+  )
+}

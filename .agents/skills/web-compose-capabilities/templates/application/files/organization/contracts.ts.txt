@@ -30,5 +30,5 @@ export interface OrganizationApi extends OrganizationReadApi {
 }
 /** 只有显式选择组织管理才接线改名，服务端仍须校验有效成员及管理权限 code。 */
 export interface OrganizationManagementApi extends OrganizationReadApi {
-  rename(id: string, name: string): Promise<void>
+  rename(id: string, name: string, signal?: AbortSignal): Promise<void>
 }

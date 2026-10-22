@@ -15,6 +15,7 @@ export interface TeamMember {
   version: number
   permissions: readonly string[]
   roleIds: readonly string[]
+  roleNames: readonly string[]
   canRemove: boolean
   canAssignRoles: boolean
 }
@@ -25,6 +26,7 @@ export interface TeamRole {
   code: string
   name: string
   protected: boolean
+  canManage: boolean
   version: number
   permissions: readonly string[]
 }
@@ -64,22 +66,34 @@ export interface TeamApi extends OrganizationApi, OrganizationManagementApi {
     signal?: AbortSignal
   ): Promise<TeamPage<TeamInvitation>>
   permissionCatalog(organizationId: string, signal?: AbortSignal): Promise<readonly string[]>
-  invite(organizationId: string, email: string): Promise<void>
-  resolve(invitation: TeamInvitation, action: "accept" | "reject" | "revoke"): Promise<void>
-  remove(member: TeamMember): Promise<void>
+  nickname(member: TeamMember, nickname: string, signal?: AbortSignal): Promise<void>
+  assignableRoles(organizationId: string, signal?: AbortSignal): Promise<TeamPage<TeamRole>>
+  invite(organizationId: string, email: string, signal?: AbortSignal): Promise<void>
+  resolve(
+    invitation: TeamInvitation,
+    action: "accept" | "reject" | "revoke",
+    signal?: AbortSignal
+  ): Promise<void>
+  remove(member: TeamMember, signal?: AbortSignal): Promise<void>
   roles(
     organizationId: string,
     page: number,
     pageSize: number,
     signal?: AbortSignal
   ): Promise<TeamPage<TeamRole>>
-  assignRoles(member: TeamMember, roleIds: readonly string[]): Promise<void>
+  assignRoles(member: TeamMember, roleIds: readonly string[], signal?: AbortSignal): Promise<void>
   createRole(
     organizationId: string,
     code: string,
     name: string,
-    permissions: readonly string[]
+    permissions: readonly string[],
+    signal?: AbortSignal
   ): Promise<void>
-  updateRole(role: TeamRole, name: string, permissions: readonly string[]): Promise<void>
-  deleteRole(role: TeamRole): Promise<void>
+  updateRole(
+    role: TeamRole,
+    name: string,
+    permissions: readonly string[],
+    signal?: AbortSignal
+  ): Promise<void>
+  deleteRole(role: TeamRole, signal?: AbortSignal): Promise<void>
 }

@@ -74,7 +74,7 @@ export const identityActor = () => identitySession.getSnapshot().identity?.id ??
     imports.push('import { createTeamService } from "../../data/api/organization/teamService"')
     lines.push(`/** 团队生命周期复用既有会话、组织切换和权限 owner，不创建第二套上下文。 */
 export const teamService = createTeamService({ ...organizationApi, switch: (id) => organizationService.switch(id) }, {
-  account: identityActor, scope: currentScope, blocked: () => applicationScope.getSnapshot().blocked, canManage: canManageOrganization,
+  account: identityActor, scope: currentScope, blocked: () => applicationScope.getSnapshot().blocked, allow: (codes) => permissionSession.allow(codes),
   /** 写入后先权威恢复成员和权限，撤权立即撤下旧正文，再刷新当前私有查询。 */
   async refresh() {
     await ensureOrganization()
@@ -124,7 +124,7 @@ export async function ensureOrganization(signal?: AbortSignal) {
 }
 /** 前端只以有效权限码控制管理入口，拥有者保护由后端对象规则执行。 */
 export function canManageOrganization() {
-  return ${management ? '!applicationScope.getSnapshot().blocked && canAct("organization.manage")' : "false"}
+  return ${management ? '!applicationScope.getSnapshot().blocked && ["team.settings.read", "team.members.read", "team.roles.read"].some((code) => permissionSession.allow([code]))' : "false"}
 }
 /** 切换期间撤下私有正文；服务端未知结果权威重读，不用本地旧值伪装回滚。 */
 export const organizationService = {
@@ -161,7 +161,7 @@ export const organizationService = {
       ? `,
   /** 页面提交前与服务层共用权限 code 判定，迟到结果不刷新新组织。 */
   async rename(id: string, name: string) {
-    if (!canManageOrganization() || id !== organizationId) throw new Error("organization_denied")
+    if (!permissionSession.allow(["team.settings.read", "team.settings.update"]) || id !== organizationId) throw new Error("organization_denied")
     const accountId = identityActor()
     const revision = currentScope()
     await organizationApi.rename(id, name)
@@ -195,9 +195,7 @@ export const organizationService = {
 export const pagePermissions: Record<string, readonly string[]> = ${JSON.stringify(options.pagePermissions ?? {})}
 export const actionPermissions: Record<string, readonly string[]> = ${JSON.stringify(options.actionPermissions ?? {})}
 /** 菜单、路由和页面共用相同权限码；缺失要求不会自动放行。 */
-export const canVisit = (path: string) => ${management ? 'path === "/organization/manage" ? canManageOrganization() && permissionSession.allow(pagePermissions[path] ?? []) : ' : ""}${permissionFreePaths(
-      organization
-    )
+export const canVisit = (path: string) => ${permissionFreePaths(organization)
       .map((path) => "path === " + JSON.stringify(path))
       .join(" || ")} || permissionSession.allow(pagePermissions[path] ?? [])
 /** 元素可见性与提交前复核来自同一动作要求。 */

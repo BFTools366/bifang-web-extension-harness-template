@@ -1,0 +1,48 @@
+import { queryOptions } from "@tanstack/react-query"
+import { api } from "../../data/api/organization/adapter"
+import type { PageRequest } from "./managementPagination"
+
+/** 所有组织管理查询带身份、组织、成员、代次与语言，撤权统一清理。 */
+export function managementQueryKey(owner: string, language: string) {
+  return ["organization-management", owner, language] as const
+}
+/** 成员列表查询保留有界分页和成员投影。 */
+export function membersQuery(owner: string, org: string, language: string, page: PageRequest) {
+  return queryOptions({
+    queryKey: [...managementQueryKey(owner, language), "members", page.page, page.pageSize],
+    meta: { private: true },
+    staleTime: 0,
+    retry: false,
+    queryFn: ({ signal }) => api.members(org, page.page, page.pageSize, signal)
+  })
+}
+/** 角色列表查询独立于成员候选查询。 */
+export function rolesQuery(owner: string, org: string, language: string, page: PageRequest) {
+  return queryOptions({
+    queryKey: [...managementQueryKey(owner, language), "roles", page.page, page.pageSize],
+    meta: { private: true },
+    staleTime: 0,
+    retry: false,
+    queryFn: ({ signal }) => api.roles(org, page.page, page.pageSize, signal)
+  })
+}
+/** 候选读取只要求成员分配权限，不能借完整角色页扩大访问。 */
+export function assignableRolesQuery(owner: string, org: string, language: string) {
+  return queryOptions({
+    queryKey: [...managementQueryKey(owner, language), "assignable"],
+    meta: { private: true },
+    staleTime: 0,
+    retry: false,
+    queryFn: ({ signal }) => api.assignableRoles(org, signal)
+  })
+}
+/** 目录只消费服务返回可授予代码，前端标签不制造权限。 */
+export function permissionCatalogQuery(owner: string, org: string, language: string) {
+  return queryOptions({
+    queryKey: [...managementQueryKey(owner, language), "catalog"],
+    meta: { private: true },
+    staleTime: 0,
+    retry: false,
+    queryFn: ({ signal }) => api.permissionCatalog(org, signal)
+  })
+}

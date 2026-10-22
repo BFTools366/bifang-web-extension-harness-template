@@ -9,6 +9,7 @@ type TeamMember {
  status: String!
  version: Int!
  roleIds: [ID!]!
+ roleNames: [String!]!
  canRemove: Boolean!
  canAssignRoles: Boolean!
  permissions: [String!]!
@@ -31,7 +32,7 @@ type TeamInvitation {
 }
 type TeamMemberPage { items: [TeamMember!]!, total: Int! }
 type TeamInvitationPage { items: [TeamInvitation!]!, total: Int! }
-type TeamRole { id: ID!, organizationId: ID!, code: String!, name: String!, protected: Boolean!, version: Int!, permissions: [String!]! }
+type TeamRole { canManage: Boolean!, id: ID!, organizationId: ID!, code: String!, name: String!, protected: Boolean!, version: Int!, permissions: [String!]! }
 type TeamRolePage { items: [TeamRole!]!, total: Int! }
 extend type Query {
  teamContext: TeamContext!
@@ -39,5 +40,6 @@ extend type Query {
  teamInvitations(organizationId: ID, page: Int!, pageSize: Int!): TeamInvitationPage!
  teamPermissions(organizationId: ID!, subjectId: ID!): [String!]!
  teamPermissionCatalog(organizationId: ID!): [String!]!
+ teamAssignableRoles(organizationId: ID!): TeamRolePage!
  teamRoles(organizationId: ID!, page: Int!, pageSize: Int!): TeamRolePage!
 }

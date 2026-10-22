@@ -1,39 +1,13 @@
 import { Menu } from "@mantine/core"
-import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import type { OrganizationReadApi } from "../../data/api/organization/contracts"
-import { ApplicationIcon } from "../application/ApplicationIcon"
-import { organizationQueryOptions } from "./OrganizationContext"
 
-/** 当前组织名称本身就是切换入口；管理与加入由应用导航拥有。 */
-export function OrganizationMenu({
-  api,
-  scope,
-  blocked,
-  canSwitch,
-  open
-}: {
-  api: OrganizationReadApi
-  scope: number
-  blocked: boolean
-  canSwitch: boolean
-  open(): void
-}) {
-  const { t, i18n } = useTranslation()
-  const query = useQuery({
-    ...organizationQueryOptions(api, scope, i18n.language),
-    enabled: !blocked
-  })
-  const current = query.data?.available.find((row) => row.id === query.data.current)
+/** 组织切换只作为用户下拉中的动作入口，组织列表由弹窗读取。 */
+export function OrganizationMenu({ blocked, open }: { blocked: boolean; open(): void }) {
+  const { t } = useTranslation()
   return (
     <>
-      <Menu.Item
-        leftSection={<ApplicationIcon name="organization" />}
-        disabled={blocked || !canSwitch || !current}
-        onClick={open}
-        title={t("organizationSwitch")}
-      >
-        {blocked ? t("organizationSwitching") : (current?.name ?? t("organizationUnavailable"))}
+      <Menu.Item disabled={blocked} onClick={open} title={t("organizationSwitch")}>
+        {t("organizationSwitch")}
       </Menu.Item>
     </>
   )

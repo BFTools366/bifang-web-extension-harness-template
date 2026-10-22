@@ -17,6 +17,7 @@ type OrganizationUser struct {
 	Account        *Account              `gorm:"foreignKey:AccountID;references:ID;constraint:OnDelete:RESTRICT" json:"-"`
 	Role           string                `gorm:"size:16;not null" json:"role"`
 	Status         string                `gorm:"size:16;not null;default:active" json:"status"`
+	Nickname       string                `gorm:"size:256;not null;default:''" json:"nickname"`
 	Version        int                   `gorm:"not null;default:1" json:"version"`
 }
 

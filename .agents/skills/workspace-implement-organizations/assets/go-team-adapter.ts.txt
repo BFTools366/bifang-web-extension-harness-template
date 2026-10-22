@@ -45,6 +45,8 @@ function member(value: unknown): TeamMember {
     !Number.isSafeInteger(row.version) ||
     Number(row.version) < 1 ||
     !Array.isArray(row.roleIds) ||
+    !Array.isArray(row.roleNames) ||
+    row.roleNames.length !== row.roleIds.length ||
     typeof row.canRemove !== "boolean" ||
     typeof row.canAssignRoles !== "boolean"
   )
@@ -59,6 +61,7 @@ function member(value: unknown): TeamMember {
     version: Number(row.version),
     permissions: codes(row.permissions),
     roleIds: row.roleIds.map(id),
+    roleNames: codes(row.roleNames),
     canRemove: row.canRemove,
     canAssignRoles: row.canAssignRoles
   }
@@ -80,6 +83,7 @@ function role(value: unknown): TeamRole {
     code: row.code,
     name: row.name,
     protected: row.protected,
+    canManage: typeof row.canManage === "boolean" ? row.canManage : invalid(),
     version: Number(row.version),
     permissions: codes(row.permissions)
   }
@@ -115,16 +119,27 @@ function invitation(value: unknown): TeamInvitation {
   }
 }
 /** 校验分页结果总数与本批次，不接受无边界的服务器数据。 */
-function page<T>(value: unknown, parse: (row: unknown) => T): TeamPage<T> {
+function page<T extends { id: string }>(
+  value: unknown,
+  parse: (row: unknown) => T,
+  current = 1,
+  size = 100
+): TeamPage<T> {
   const result = object(value)
   if (
     !Array.isArray(result.items) ||
-    result.items.length > 100 ||
+    result.items.length > size ||
     !Number.isSafeInteger(result.total) ||
     Number(result.total) < result.items.length
   )
     return invalid()
-  return { items: result.items.map(parse), total: Number(result.total) }
+  const items = result.items.map(parse)
+  if (
+    new Set(items.map((row) => row.id)).size !== items.length ||
+    (items.length > 0 && (current - 1) * size + items.length > Number(result.total))
+  )
+    return invalid()
+  return { items, total: Number(result.total) }
 }
 /** GraphQL 使用现有 Ky/session owner；Query 的缓存和错误反馈仍归当前 feature。 */
 async function query(
@@ -165,9 +180,15 @@ async function query(
   return object(result.data)[field]
 }
 /** REST 写入不自动重放；未知结果由页面只读核对。 */
-async function command(endpoint: string, body: unknown, method = "POST"): Promise<void> {
+async function command(
+  endpoint: string,
+  body: unknown,
+  method = "POST",
+  signal?: AbortSignal
+): Promise<void> {
   const response = await applicationHttp.request("api/v1/auth/teams/" + endpoint, {
     method,
+    signal,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
   })
@@ -177,9 +198,6 @@ async function command(endpoint: string, body: unknown, method = "POST"): Promis
     if (result.model !== "team.invitation" || !object(result.data).id) invalid()
   }
 }
-/** 成员选择字段由团队上下文、成员列表和授权页复用。 */
-const MEMBER_FIELDS =
-  "id accountId organizationId displayName role status version permissions roleIds canRemove canAssignRoles"
 /** 团队查询、切换和成员生命周期共用一个实际 adapter。 */
 export const api: TeamApi = {
   /** 当前选择由服务端账号偏好恢复，本地不维护竞争选择。 */
@@ -187,7 +205,7 @@ export const api: TeamApi = {
     const result = object(
       await query(
         "teamContext",
-        `query TeamContext { teamContext { current available { id name ownerAccountId user { ${MEMBER_FIELDS} } } } }`,
+        "query TeamContext { teamContext { current available { id name ownerAccountId user { id accountId organizationId displayName role status version permissions roleIds roleNames canRemove canAssignRoles } } } }",
         {},
         signal
       )
@@ -216,17 +234,20 @@ export const api: TeamApi = {
     }
   },
   switch: (organizationId) => command("switch", { organizationId }),
-  rename: (organizationId, name) => command("name", { organizationId, name }, "PUT"),
+  rename: (organizationId, name, signal) =>
+    command("name", { organizationId, name }, "PUT", signal),
   /** 团队管理集合始终按当前团队查询。 */
   async members(organizationId, current, pageSize, signal) {
     return page(
       await query(
         "teamMembers",
-        `query Members($org:ID!,$page:Int!,$size:Int!) { teamMembers(organizationId:$org,page:$page,pageSize:$size) { total items { ${MEMBER_FIELDS} } } }`,
+        "query Members($org:ID!,$page:Int!,$size:Int!) { teamMembers(organizationId:$org,page:$page,pageSize:$size) { total items { id accountId organizationId displayName role status version permissions roleIds roleNames canRemove canAssignRoles } } }",
         { org: id(organizationId), page: current, size: pageSize },
         signal
       ),
-      member
+      member,
+      current,
+      pageSize
     )
   },
   /** organizationId 为空只读取当前账号收到的邀请。 */
@@ -238,7 +259,9 @@ export const api: TeamApi = {
         { org: organizationId === null ? null : id(organizationId), page: current, size: pageSize },
         signal
       ),
-      invitation
+      invitation,
+      current,
+      pageSize
     )
   },
   /** 可授予范围以当前服务目录为准，不从前端页面自动制造权限码。 */
@@ -252,28 +275,65 @@ export const api: TeamApi = {
       )
     )
   },
-  invite: (organizationId, email) => command("invitations", { organizationId, email }),
-  resolve: (invitation, action) =>
-    command("invitations/" + action, { invitationId: invitation.id, version: invitation.version }),
-  remove: (member) =>
-    command("members/remove", {
-      organizationId: member.organizationId,
-      memberId: member.id,
-      version: member.version
-    }),
+  invite: (organizationId, email, signal) =>
+    command("invitations", { organizationId, email }, "POST", signal),
+  resolve: (invitation, action, signal) =>
+    command(
+      "invitations/" + action,
+      { invitationId: invitation.id, version: invitation.version },
+      "POST",
+      signal
+    ),
+  remove: (member, signal) =>
+    command(
+      "members/remove",
+      {
+        organizationId: member.organizationId,
+        memberId: member.id,
+        version: member.version
+      },
+      "POST",
+      signal
+    ),
   /** 角色集合由目标团队的权限门禁保护。 */
   async roles(organizationId, current, pageSize, signal) {
     return page(
       await query(
         "teamRoles",
-        "query TeamRoles($org:ID!,$page:Int!,$size:Int!) { teamRoles(organizationId:$org,page:$page,pageSize:$size) { total items { id organizationId code name protected version permissions } } }",
+        "query TeamRoles($org:ID!,$page:Int!,$size:Int!) { teamRoles(organizationId:$org,page:$page,pageSize:$size) { total items { id organizationId code name protected canManage version permissions } } }",
         { org: id(organizationId), page: current, size: pageSize },
+        signal
+      ),
+      role,
+      current,
+      pageSize
+    )
+  },
+  /** 成员角色候选独立授权，不能借用完整角色页权限。 */
+  async assignableRoles(organizationId, signal) {
+    return page(
+      await query(
+        "teamAssignableRoles",
+        "query AssignableRoles($org:ID!) { teamAssignableRoles(organizationId:$org) { total items { id organizationId code name protected canManage version permissions } } }",
+        { org: id(organizationId) },
         signal
       ),
       role
     )
   },
-  assignRoles: (member, roleIds) =>
+  nickname: (member, nickname, signal) =>
+    command(
+      "members/nickname",
+      {
+        organizationId: member.organizationId,
+        memberId: member.id,
+        version: member.version,
+        nickname
+      },
+      "PUT",
+      signal
+    ),
+  assignRoles: (member, roleIds, signal) =>
     command(
       "members/roles",
       {
@@ -282,22 +342,29 @@ export const api: TeamApi = {
         version: member.version,
         roleIds
       },
-      "PUT"
+      "PUT",
+      signal
     ),
-  createRole: (organizationId, code, name, codes) =>
-    command("roles", { organizationId, code, name, codes }),
-  updateRole: (role, name, codes) =>
+  createRole: (organizationId, code, name, codes, signal) =>
+    command("roles", { organizationId, code, name, codes }, "POST", signal),
+  updateRole: (role, name, codes, signal) =>
     command(
       "roles",
       { organizationId: role.organizationId, roleId: role.id, version: role.version, name, codes },
-      "PUT"
+      "PUT",
+      signal
     ),
-  deleteRole: (role) =>
-    command("roles/remove", {
-      organizationId: role.organizationId,
-      roleId: role.id,
-      version: role.version
-    })
+  deleteRole: (role, signal) =>
+    command(
+      "roles/remove",
+      {
+        organizationId: role.organizationId,
+        roleId: role.id,
+        version: role.version
+      },
+      "POST",
+      signal
+    )
 }
 /** 权限 adapter 复用同一查询协议；服务逐次绑定账号、团队与成员主体。 */
 export async function readTeamPermissions(

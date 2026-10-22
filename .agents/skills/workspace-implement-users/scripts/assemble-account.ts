@@ -39,22 +39,8 @@ export function goAccountApplicationFiles(
         "../../workspace-implement-permissions/assets/go-permission-adapter.ts.txt"
       )
     },
-    pagePermissions: {
-      ...(operations.some((operation) =>
-        ["identity.workspace", "organization.manage"].includes(operation)
-      )
-        ? { "/organization/manage": ["team.manage"] }
-        : {}),
-      ...options.pagePermissions
-    },
-    actionPermissions: {
-      ...(operations.some((operation) =>
-        ["identity.workspace", "organization.manage"].includes(operation)
-      )
-        ? { "organization.manage": ["team.manage"] }
-        : {}),
-      ...options.actionPermissions
-    }
+    pagePermissions: options.pagePermissions,
+    actionPermissions: options.actionPermissions
   })
   const additions: Record<string, string> = {
     "src/data/api/client/goTransport.ts": source("../assets/go-transport.ts.txt"),

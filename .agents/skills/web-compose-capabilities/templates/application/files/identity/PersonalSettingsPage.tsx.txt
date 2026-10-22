@@ -1,25 +1,26 @@
-import { Alert, Button, PasswordInput, Stack, Text, TextInput, Title } from "@mantine/core"
+import { Alert, Button, Stack, Text, TextInput, Title } from "@mantine/core"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect, useRef, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from "react"
 import { useTranslation } from "react-i18next"
 import { ApiError } from "../../data/api/client/httpClient"
 import type { AccountProfile, PersonalSettingsApi } from "../../data/api/identity/personalSettings"
 import type { IdentityRuntime } from "./runtime"
 
-/** 个人设置只按账号读取；组织权限变化不改变邮箱、昵称或密码的归属。 */
+/** 个人设置只按账号读取邮箱和昵称；改密由独立页面拥有。 */
 export function PersonalSettingsPage({
   api,
   session,
-  onPasswordChanged,
-  canChangePassword
+  embedded = false,
+  onCloseBlockedChange
 }: {
   api: PersonalSettingsApi
   session: IdentityRuntime
-  onPasswordChanged(): Promise<void>
-  canChangePassword: boolean
+  embedded?: boolean
+  onCloseBlockedChange?(blocked: boolean): void
 }) {
   const { t } = useTranslation()
-  const accountId = session.getSnapshot().identity?.id
+  const identity = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot)
+  const accountId = identity.identity?.id
   const query = useQuery({
     queryKey: ["accountProfile", accountId],
     meta: { private: true },
@@ -27,10 +28,15 @@ export function PersonalSettingsPage({
     queryFn: ({ signal }) => api.read(signal),
     enabled: !!accountId
   })
-  if (!query.data || query.data.id !== accountId)
+  const [verifiedAccount, setVerifiedAccount] = useState<string | undefined>()
+  useEffect(() => {
+    if (query.isSuccess && query.isFetchedAfterMount && query.data.id === accountId)
+      setVerifiedAccount(accountId)
+  }, [accountId, query.isSuccess, query.isFetchedAfterMount, query.data])
+  if (!accountId || verifiedAccount !== accountId || !query.data || query.data.id !== accountId)
     return (
       <Stack>
-        <Title order={1}>{t("personalSettings")}</Title>
+        {!embedded && <Title order={1}>{t("personalSettings")}</Title>}
         <Text role="status">{t(query.isError ? "applicationError" : "applicationLoading")}</Text>
         {query.isError && (
           <Button
@@ -47,6 +53,8 @@ export function PersonalSettingsPage({
     <PersonalSettingsForm
       key={accountId}
       profile={query.data}
+      embedded={embedded}
+      onCloseBlockedChange={onCloseBlockedChange}
       api={api}
       session={session}
       refresh={async (signal) => {
@@ -59,36 +67,35 @@ export function PersonalSettingsPage({
         if (session.getSnapshot().identity?.id !== accountId) throw new Error("profile_superseded")
         return result.data
       }}
-      onPasswordChanged={onPasswordChanged}
-      canChangePassword={canChangePassword}
     />
   )
 }
 
-/** 两个表单共用提交锁，未知写结果先核对，迟到回调不能修改后来账号。 */
+/** 资料保存后刷新可信身份；未知写结果只读取核对，不重放修改。 */
 function PersonalSettingsForm({
   profile,
   api,
   session,
   refresh,
-  onPasswordChanged,
-  canChangePassword
+  embedded,
+  onCloseBlockedChange
 }: {
   profile: AccountProfile
   api: PersonalSettingsApi
   session: IdentityRuntime
+  embedded?: boolean
+  onCloseBlockedChange?(blocked: boolean): void
   refresh(signal: AbortSignal): Promise<AccountProfile>
-  onPasswordChanged(): Promise<void>
-  canChangePassword: boolean
 }) {
   const { t } = useTranslation()
   const [nickname, setNickname] = useState(profile.nickname)
-  const [oldPassword, setOldPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmation, setConfirmation] = useState("")
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState("")
-  const [unknown, setUnknown] = useState<"nickname" | "password" | null>(null)
+  const [unknown, setUnknown] = useState(false)
+  useEffect(() => {
+    onCloseBlockedChange?.(busy || unknown)
+    return () => onCloseBlockedChange?.(false)
+  }, [busy, unknown, onCloseBlockedChange])
   const lock = useRef(false)
   const controller = useRef(new AbortController())
   useEffect(() => {
@@ -97,10 +104,15 @@ function PersonalSettingsForm({
     return () => owned.abort()
   }, [])
   /** 写入与后续刷新分别确认，刷新失败不能导致重新提交已经成功的修改。 */
-  async function submit(event: FormEvent<HTMLFormElement>, kind: "nickname" | "password") {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (lock.current || unknown || (kind === "password" && newPassword !== confirmation)) return
-    if (kind === "password" && (!canChangePassword || !api.changePassword)) return
+    if (
+      session.getSnapshot().identity?.id !== profile.id ||
+      lock.current ||
+      unknown ||
+      !nickname.trim()
+    )
+      return
     lock.current = true
     setBusy(true)
     setStatus("")
@@ -108,53 +120,40 @@ function PersonalSettingsForm({
     const current = () => !signal.aborted && session.getSnapshot().identity?.id === profile.id
     let written = false
     try {
-      if (kind === "nickname") await api.rename(nickname.trim(), signal)
-      else await api.changePassword?.(oldPassword, newPassword, signal)
+      await api.rename(nickname.trim(), signal)
       written = true
       if (!current()) return
-      if (kind === "password") {
-        setOldPassword("")
-        setNewPassword("")
-        setConfirmation("")
-        session.invalidate()
-        await onPasswordChanged()
-      } else {
-        const saved = await refresh(signal)
-        if (current()) {
-          setNickname(saved.nickname)
-          setStatus("personalSaved")
-        }
+      const saved = await refresh(signal)
+      if (current()) {
+        setNickname(saved.nickname)
+        setStatus("personalSaved")
       }
     } catch (error) {
       if (!current()) return
       const uncertain =
         written ||
         !(error instanceof ApiError) ||
-        ["network", "timeout", "invalid-response"].includes(error.kind)
+        ["network", "timeout", "invalid-response"].includes(error.kind) ||
+        (error.status !== undefined && error.status >= 500)
       if (uncertain) {
-        setUnknown(kind)
-        setStatus(kind === "nickname" ? "personalSaveUnknown" : "personalPasswordUnknown")
-      } else setStatus(kind === "password" ? "personalPasswordFailed" : "personalSaveFailed")
+        setUnknown(true)
+        setStatus("personalSaveUnknown")
+      } else setStatus("personalSaveFailed")
     } finally {
       lock.current = false
       if (current()) setBusy(false)
     }
   }
-  /** 未知昵称写入只刷新核对；未知改密通过重新登录恢复，不自动重放。 */
+  /** 未知昵称写入只刷新核对，不自动重放。 */
   async function recover() {
     if (lock.current) return
     lock.current = true
     setBusy(true)
     try {
-      if (unknown === "password") {
-        session.invalidate()
-        await onPasswordChanged()
-        return
-      }
       const actual = await refresh(controller.current.signal)
       if (!controller.current.signal.aborted && session.getSnapshot().identity?.id === profile.id) {
         setNickname(actual.nickname)
-        setUnknown(null)
+        setUnknown(false)
         setStatus("")
       }
     } catch {
@@ -165,8 +164,8 @@ function PersonalSettingsForm({
     }
   }
   return (
-    <Stack maw={480}>
-      <Title order={1}>{t("personalSettings")}</Title>
+    <Stack maw={embedded ? undefined : 480}>
+      {!embedded && <Title order={1}>{t("personalSettings")}</Title>}
       {status && (
         <Alert role="status">
           {t(status)}
@@ -178,7 +177,7 @@ function PersonalSettingsForm({
                 void recover()
               }}
             >
-              {t(unknown === "password" ? "identityLogin" : "personalRefresh")}
+              {t("personalRefresh")}
             </Button>
           )}
         </Alert>
@@ -186,7 +185,7 @@ function PersonalSettingsForm({
       <TextInput label={t("registrationEmail")} value={profile.email} readOnly />
       <form
         onSubmit={(event) => {
-          void submit(event, "nickname")
+          void submit(event)
         }}
       >
         <Stack>
@@ -204,56 +203,6 @@ function PersonalSettingsForm({
           </Button>
         </Stack>
       </form>
-      {canChangePassword && (
-        <form
-          onSubmit={(event) => {
-            void submit(event, "password")
-          }}
-        >
-          <Stack>
-            <Title order={2}>{t("personalPassword")}</Title>
-            <PasswordInput
-              label={t("personalOldPassword")}
-              placeholder={t("personalOldPasswordPlaceholder")}
-              autoComplete="current-password"
-              value={oldPassword}
-              required
-              disabled={busy || !!unknown}
-              onChange={(event) => setOldPassword(event.currentTarget.value)}
-            />
-            <PasswordInput
-              label={t("personalNewPassword")}
-              placeholder={t("personalNewPasswordPlaceholder")}
-              autoComplete="new-password"
-              value={newPassword}
-              required
-              disabled={busy || !!unknown}
-              onChange={(event) => setNewPassword(event.currentTarget.value)}
-            />
-            <PasswordInput
-              label={t("registrationConfirm")}
-              placeholder={t("registrationConfirmPlaceholder")}
-              autoComplete="new-password"
-              value={confirmation}
-              required
-              disabled={busy || !!unknown}
-              error={
-                confirmation && newPassword !== confirmation
-                  ? t("registrationPasswordMismatch")
-                  : undefined
-              }
-              onChange={(event) => setConfirmation(event.currentTarget.value)}
-            />
-            <Button
-              type="submit"
-              loading={busy}
-              disabled={!!unknown || newPassword !== confirmation}
-            >
-              {t("personalPassword")}
-            </Button>
-          </Stack>
-        </form>
-      )}
     </Stack>
   )
 }

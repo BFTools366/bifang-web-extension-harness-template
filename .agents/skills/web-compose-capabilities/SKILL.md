@@ -49,7 +49,7 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 - 当前基础身份资源包含登录页面与路由、主界面用户信息、匿名守卫、安全返回、Token 自动携带及退出/当前 401 清理；完整用户方案还必须接齐账号、组织、成员及所需生命周期。权限码同时用于路由、页面、菜单、动作元素及提交前复核。`.harness/application-wiring.json` 仅记录机械接线，不替代 PRD 或验证。
 - [账户协议参考](templates/compositions/account-workspace/README.md) 仅保留协议、Mock 服务、精确存储及回归，不再提供第二套应用/会话/UI；首版装配统一使用下文 `applicationFiles`，注册、找回等操作按真实需求另行实施。
 - [来源商品设计参考](templates/compositions/purchase-checkout/source-reference/index.html) 保留中性费用中心、商品选购、订单/钱包结构；[购买最小演示](templates/compositions/purchase-checkout/commerce-reference.html) 用于专项交互参考。两者均为 Web 离线设计，无真实扣款，也不作为当前基础装配入口。
-- 先核对真实契约和具体操作，再适配模板；已经实现的模块复用唯一所有者。组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计，详见组织知识；身份、组织、权限、查询与业务各自拥有状态，不另建会话或相互反向调用。组织管理不切换操作者身份；切换不得代替授权。organization.manage 仍是当前显式选择的 owner 改名资源，switch 不自动生成管理、注册或邀请；这些代码边界不能替代完整方案的目标范围。Web 默认左侧包含工作台、组织管理分组与底部设置；账号菜单仅邮箱/昵称、可点击组织名称、个人设置和退出，组织设置与加入组织为左侧两个子菜单，现有资产迁移差异见接线合同。
+- 先核对真实契约和具体操作，再适配模板；已经实现的模块复用唯一所有者。组织 ID 负责租户隔离，组织用户 ID 负责成员授权、成员私有范围及审计，详见组织知识；身份、组织、权限、查询与业务各自拥有状态，不另建会话或相互反向调用。组织管理不切换操作者身份；切换不得代替授权。organization.manage 单独接通组织设置，菜单、直达和写入按 settings.read/update 授权，不按 owner 名称放行；完整 identity.workspace 另接成员管理和角色管理。switch 不自动生成管理、注册或邀请。账号菜单提供邮箱/昵称摘要、切换组织、个人设置、修改密码和退出；Web 默认左侧包含工作台、组织管理分组与底部设置，组织管理下设组织设置、成员管理、角色管理三个子页，本人邀请在切换弹窗。具体前后端合同以 Auth 标准和接线合同为准。
 - 功能选择不授予权限；集合操作按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 核对契约，返回实际协议缺口，不将模板当作服务事实。
 - 结果未知时先查询，不自动重放创建订单或支付；真实付费、生产账户和扣款没有因编写 Skill 或运行演示获得授权。
 
@@ -66,3 +66,5 @@ node .agents/skills/web-compose-capabilities/scripts/capabilities.ts resolve --h
 ## Workspace 全栈委托
 
 操作仍由本 Skill 解析最小依赖；所选模块的 implementationSkill 负责对应前端、Go 后端、契约与真实联调。根服务归属来自 .harness/workspace.json：已有服务核对 BaseURL 和可信接口，选择 create 时在 _server 实现并连接；none 直接实现本地功能，不另开 Go 问卷。完整用户包含注册自有组织及 owner 成员；注册、资料、验证码、组织成员、角色等操作逐项选择。邮箱注册和条件验证码已有 application 模板；自建邮箱注册默认补齐 verification 和 identity.verification，未接邮件服务时开发环境默认模拟投递并在注册表单显示验证码；真实邮件回执自动移除回显。基础登录不自动增加注册，已有外部服务服从可信合同。固定应用装配只接受 dataMode=adapter，禁止产品 Mock；历史 Mock 资源仅为测试参考。委托完成后返回当前编排者，不重启定义或设计问卷。
+
+完整 Auth 的前后端标准由 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)统一拥有；组合时保留个人设置与独立改密、组织切换弹窗、三页细权限、Go 迁移及写入恢复，不将固定界面降为混合设置页或粗权限。仅组织设置的独立操作不扩张成员／角色协作。

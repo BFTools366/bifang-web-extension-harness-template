@@ -1,0 +1,209 @@
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import {
+  Button,
+  Checkbox,
+  Group,
+  Modal,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  Title
+} from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import type { TeamRole } from "../../data/api/organization/teamContracts"
+import { api } from "../../data/api/organization/adapter"
+import { ModuleState } from "../application/ModuleState"
+import { permissionCatalogQuery } from "./managementQueries"
+import { useManagementScope, useManagementWrite, useManagementRejection } from "./useManagement"
+import { managementPermissions, togglePermission } from "./managementPermissions"
+import { ManagementActions, ManagementFeedback } from "./ManagementParts"
+
+/** 角色弹窗的操作与版本属于同一组织对象。 */
+export type RoleAction = "create" | "permissions" | "delete"
+/** 配置权限只消费真实可授予目录，系统角色始终只读。 */
+export function RoleDialog({
+  kind,
+  role,
+  close
+}: {
+  kind: RoleAction
+  role?: TeamRole
+  close(): void
+}) {
+  const { t, i18n } = useTranslation(),
+    { owner, ownerKey, allow } = useManagementScope()
+  const [name, setName] = useState(""),
+    [code, setCode] = useState("")
+  const [selected, setSelected] = useState<readonly string[]>(role?.permissions ?? [])
+  const write = useManagementWrite(role?.id ?? "new-role", kind !== "create")
+  const editable =
+    kind === "permissions" && !!role?.canManage && allow("team.roles.permissions.update")
+  const catalog = useQuery({
+    ...permissionCatalogQuery(ownerKey, owner?.organizationId ?? "", i18n.language),
+    enabled: editable && !!owner
+  })
+  useManagementRejection(catalog.error, ownerKey)
+  const title =
+    kind === "create"
+      ? "teamCreateRole"
+      : kind === "delete"
+        ? "teamDeleteRole"
+        : editable
+          ? "orgConfigurePermissions"
+          : "orgViewPermissions"
+  /** 新角色默认空权限；配置和删除在提交前再次校验精确动作。 */
+  async function submit() {
+    if (!owner || write.busy) return
+    let permission: string, action: (signal: AbortSignal) => Promise<void>
+    if (kind === "create") {
+      if (!name.trim() || !/^[a-z][a-z0-9._-]{0,63}$/u.test(code.trim())) return
+      permission = "team.roles.create"
+      action = (signal) =>
+        api.createRole(owner.organizationId, code.trim(), name.trim(), [], signal)
+    } else if (!role || !role.canManage) return
+    else if (kind === "delete") {
+      permission = "team.roles.delete"
+      action = (signal) => api.deleteRole(role, signal)
+    } else {
+      if (!editable || !catalog.data || catalog.isFetching || catalog.isError) return
+      permission = "team.roles.permissions.update"
+      action = (signal) => api.updateRole(role, role.name, selected, signal)
+    }
+    if (!allow(permission)) return
+    if (await write.run(permission, action)) close()
+  }
+  const visible = editable ? (catalog.data ?? []) : (role?.permissions ?? [])
+  return (
+    <Modal
+      withinPortal={false}
+      opened
+      onClose={() => {
+        if (!write.busy) close()
+      }}
+      title={t(title) + (role ? " · " + role.name : "")}
+      centered
+      size="lg"
+      closeOnClickOutside={!write.busy}
+      closeOnEscape={!write.busy}
+      closeButtonProps={{ disabled: write.busy, "aria-label": t("applicationClose") }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          void submit()
+        }}
+      >
+        <Stack>
+          {kind === "create" && (
+            <>
+              <TextInput
+                required
+                label={t("teamRoleName")}
+                placeholder={t("teamRoleNamePlaceholder")}
+                maxLength={60}
+                value={name}
+                disabled={write.busy || write.recovery}
+                onChange={(event) => setName(event.currentTarget.value)}
+              />
+              <TextInput
+                required
+                label={t("teamRoleCode")}
+                placeholder={t("teamRoleCodePlaceholder")}
+                maxLength={64}
+                pattern="[a-z][a-z0-9._\-]{0,63}"
+                value={code}
+                disabled={write.busy || write.recovery}
+                onChange={(event) => setCode(event.currentTarget.value)}
+              />
+            </>
+          )}
+          {kind === "delete" && <Text>{t("orgDeleteRoleConfirm", { name: role?.name })}</Text>}
+          {kind === "permissions" && (
+            <>
+              {editable && (
+                <ModuleState
+                  loading={catalog.isPending}
+                  error={catalog.error}
+                  empty={false}
+                  retry={() => {
+                    void catalog.refetch()
+                  }}
+                />
+              )}
+              {(["settings", "members", "roles", "business"] as const).map((group) => {
+                const options = managementPermissions.filter(
+                  (row) => row[2] === group && visible.includes(row[0])
+                )
+                return (
+                  options.length > 0 && (
+                    <Stack key={group} gap="sm">
+                      <Title order={3} size="h5">
+                        {t("orgPermissionGroup_" + group)}
+                      </Title>
+                      <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                        {options.map(([permission, label]) => (
+                          <Checkbox
+                            key={permission}
+                            label={t(label)}
+                            checked={selected.includes(permission)}
+                            disabled={
+                              !editable || write.busy || write.recovery || catalog.isFetching
+                            }
+                            onChange={(event) =>
+                              setSelected(
+                                togglePermission(selected, permission, event.currentTarget.checked)
+                              )
+                            }
+                          />
+                        ))}
+                      </SimpleGrid>
+                    </Stack>
+                  )
+                )
+              })}
+              {visible
+                .filter((permission) => !managementPermissions.some((row) => row[0] === permission))
+                .map((permission) => (
+                  <Checkbox
+                    key={permission}
+                    label={permission}
+                    checked={selected.includes(permission)}
+                    disabled={!editable || write.busy || write.recovery}
+                    onChange={(event) =>
+                      setSelected(
+                        togglePermission(selected, permission, event.currentTarget.checked)
+                      )
+                    }
+                  />
+                ))}
+              {!editable && role?.permissions.length === 0 && <Text>{t("orgNoPermissions")}</Text>}
+            </>
+          )}
+          <ManagementFeedback write={write} checked={close} />
+          {kind !== "permissions" || editable ? (
+            <ManagementActions
+              write={write}
+              close={close}
+              danger={kind === "delete"}
+              submit={
+                kind === "create"
+                  ? "teamCreateRole"
+                  : kind === "delete"
+                    ? "teamDeleteRole"
+                    : "teamSavePermissions"
+              }
+            />
+          ) : (
+            <Group justify="flex-end">
+              <Button variant="default" onClick={close}>
+                {t("applicationClose")}
+              </Button>
+            </Group>
+          )}
+        </Stack>
+      </form>
+    </Modal>
+  )
+}

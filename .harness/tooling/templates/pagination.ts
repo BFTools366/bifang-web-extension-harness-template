@@ -1,4 +1,5 @@
 import type { ProjectConfig } from "../types.ts"
+import { listFiles } from "./list.ts"
 import { paginationTest } from "./pagination-test.ts"
 
 // 保存 PAGINATION_SOURCE 变量供当前逻辑使用。
@@ -210,7 +211,8 @@ export function useSessionPagination<Item>({
 `
 
 // 保存 PAGINATION_CONTROLS_SOURCE 变量供当前逻辑使用。
-const PAGINATION_CONTROLS_SOURCE = `import { Group, Pagination, Select } from "@mantine/core"
+const PAGINATION_CONTROLS_SOURCE = `import { Group, Pagination, Select, Text } from "@mantine/core"
+import classes from "./listSurface.module.css"
 import {
   PAGE_SIZES,
   isPageSize,
@@ -227,6 +229,8 @@ export interface PaginationControlsLabels {
   readonly previous: string
   readonly next: string
   readonly pageSize: string
+  readonly pageSizePlaceholder?: string
+  readonly range?: (from: number, to: number, total: number) => string
 }
 
 /** 说明 PaginationControlsProps 的稳定结构与职责边界。 */
@@ -254,36 +258,56 @@ export function PaginationControls({
   disabled = false
 }: PaginationControlsProps) {
   const pageCount = Math.ceil(normalizedTotal(total) / request.pageSize)
-  const visiblePageCount = pageCount === 0 ? 0 : Math.max(pageCount, request.page)
+  const validPage = request.page <= Math.max(1, pageCount)
 
   return (
-    <nav aria-label={labels.navigation}>
-      <Group align="flex-end" justify="space-between" wrap="wrap">
-        {visiblePageCount > 0 ? (
-          <Pagination
-            total={visiblePageCount}
-            value={request.page}
-            onChange={onPageChange}
-            disabled={disabled}
-            getItemProps={(page) => ({ "aria-label": labels.page(page) })}
-            getControlProps={(control) => {
-              if (control === "previous") return { "aria-label": labels.previous }
-              if (control === "next") return { "aria-label": labels.next }
-              return {}
-            }}
-          />
-        ) : null}
-        <Select
-          label={labels.pageSize}
-          value={String(request.pageSize)}
-          data={PAGE_SIZES.map(String)}
-          allowDeselect={false}
-          disabled={disabled}
-          onChange={(value) => {
-            const pageSize = Number(value)
-            if (isPageSize(pageSize)) onPageSizeChange(pageSize)
-          }}
-        />
+    <nav aria-label={labels.navigation} className={classes.footer}>
+      <Group align="center" justify="space-between" wrap="wrap" gap="md">
+        {labels.range && validPage && (
+          <Text size="sm" c="dimmed" role="status">
+            {labels.range(
+              normalizedTotal(total) ? (request.page - 1) * request.pageSize + 1 : 0,
+              Math.min(request.page * request.pageSize, normalizedTotal(total)),
+              normalizedTotal(total)
+            )}
+          </Text>
+        )}
+        <div className={classes.controls}>
+          <div className={classes.pageSize}>
+            <Text component="span" size="sm" c="dimmed">
+              {labels.pageSize}
+            </Text>
+            <Select
+              aria-label={labels.pageSize}
+              placeholder={labels.pageSizePlaceholder ?? labels.pageSize}
+              value={String(request.pageSize)}
+              data={PAGE_SIZES.map((value) => ({ value: String(value), label: String(value) }))}
+              allowDeselect={false}
+              disabled={disabled}
+              w={80}
+              size="sm"
+              onChange={(value) => {
+                const pageSize = Number(value)
+                if (isPageSize(pageSize)) onPageSizeChange(pageSize)
+              }}
+            />
+          </div>
+          {pageCount > 0 && validPage ? (
+            <Pagination
+              total={pageCount}
+              value={request.page}
+              onChange={onPageChange}
+              disabled={disabled}
+              size="sm"
+              getItemProps={(page) => ({ "aria-label": labels.page(page) })}
+              getControlProps={(control) => {
+                if (control === "previous") return { "aria-label": labels.previous }
+                if (control === "next") return { "aria-label": labels.next }
+                return {}
+              }}
+            />
+          ) : null}
+        </div>
       </Group>
     </nav>
   )
@@ -293,6 +317,7 @@ export function PaginationControls({
 // 执行 paginationFiles 函数的处理逻辑。
 export function paginationFiles(config: ProjectConfig): Map<string, string> {
   return new Map([
+    ...listFiles(),
     ["src/pagination/useSessionPagination.ts", PAGINATION_SOURCE],
     ["src/pagination/PaginationControls.tsx", PAGINATION_CONTROLS_SOURCE],
     ["src/pagination/pagination.test.tsx", paginationTest(config)]

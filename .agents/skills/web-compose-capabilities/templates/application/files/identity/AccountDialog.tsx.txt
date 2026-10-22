@@ -1,0 +1,16 @@
+import { Modal } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import type { ReactNode } from "react"
+
+/** 账号弹窗保留底层路由；写入和未知结果期间关闭不能解除表单锁。 */
+export function AccountDialog({ title, children, close, blocked }: {
+  title: string
+  children: ReactNode
+  close(): void
+  blocked: boolean
+}) {
+  const { t } = useTranslation()
+  return <Modal closeButtonProps={{ "aria-label": t("applicationClose") }} opened centered size="lg" title={title} returnFocus={false}
+    closeOnEscape={!blocked} closeOnClickOutside={!blocked} withCloseButton={!blocked}
+    onClose={() => { if (!blocked) close() }}>{children}</Modal>
+}

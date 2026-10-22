@@ -70,3 +70,7 @@ Web 菜单、文件路由和动作复用现有 Router/Query；拒绝恢复 URL �
 [精确权限模板](../templates/permissions/capability.ts.txt) 可独立使用，不制造组织依赖；[应用接线](../templates/application/wiring.md) 提供当前页面与撤权回归。
 
 基础接线以 [固定设计](../templates/permissions/design.md) 和 [应用装配](../templates/application/wiring.md) 为准。catalog 只描述当前可执行资源的最小前置，不随模块名启用全部操作；完整用户信息遵循[账号与组织基线](identity.md#完整用户信息)，购买必须含基础身份。旧专项操作建议不覆盖该基础接线合同。
+
+## Auth 组织细权限
+
+本地 Go overlay 的 11 项管理权限、所属 read 依赖、受保护 owner/member、分配角色新增与撤销上限、隐藏绑定保留、本人角色保护及旧 team.manage 幂等迁移，统一遵循 [Auth 标准](../../../../docs/ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)。成员管理候选通过 teamAssignableRoles 独立授权，不以 roles.read 代替。权限加载期间保留原主体的编辑实例但隐藏并阻断交互；确认撤权后卸载及清理。

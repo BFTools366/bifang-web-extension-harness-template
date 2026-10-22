@@ -1,0 +1,159 @@
+import { useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { Checkbox, Modal, Stack, Text, TextInput } from "@mantine/core"
+import { useTranslation } from "react-i18next"
+import type { TeamMember } from "../../data/api/organization/teamContracts"
+import { api } from "../../data/api/organization/adapter"
+import { ModuleState } from "../application/ModuleState"
+import { assignableRolesQuery } from "./managementQueries"
+import { useManagementScope, useManagementWrite, useManagementRejection } from "./useManagement"
+import { preserveRoles } from "./managementPermissions"
+import { ManagementActions, ManagementFeedback } from "./ManagementParts"
+
+/** 成员弹窗按独立操作捕获对象版本，不修改全局账号资料。 */
+export type MemberAction = "invite" | "nickname" | "roles" | "remove"
+const titles = {
+  invite: "orgInviteMember",
+  nickname: "orgNicknameAction",
+  roles: "orgAssignRoles",
+  remove: "teamRemove"
+} as const
+const permissions = {
+  invite: "team.members.invite",
+  nickname: "team.members.nickname.update",
+  roles: "team.members.roles.assign",
+  remove: "team.members.remove"
+} as const
+/** 邀请、昵称、角色及移除复用同一受版本保护的对象边界。 */
+export function MemberDialog({
+  kind,
+  member,
+  close
+}: {
+  kind: MemberAction
+  member?: TeamMember
+  close(): void
+}) {
+  const { t, i18n } = useTranslation(),
+    { owner, ownerKey, allow } = useManagementScope()
+  const [value, setValue] = useState(kind === "nickname" ? (member?.displayName ?? "") : "")
+  const [selected, setSelected] = useState<readonly string[]>(member?.roleIds ?? [])
+  const write = useManagementWrite(member?.id ?? "invite", kind === "roles" || kind === "remove")
+  const candidates = useQuery({
+    ...assignableRolesQuery(ownerKey, owner?.organizationId ?? "", i18n.language),
+    enabled: kind === "roles" && !!owner
+  })
+  useManagementRejection(candidates.error, ownerKey)
+  /** 提交前复核权限和当前对象，未知结果不再次发送命令。 */
+  async function submit() {
+    if (!owner || !allow(permissions[kind]) || write.busy) return
+    let action: (signal: AbortSignal) => Promise<void>
+    if (kind === "invite")
+      action = (signal) => api.invite(owner.organizationId, value.trim(), signal)
+    else if (!member) return
+    else if (kind === "nickname") {
+      if (!value.trim() || Array.from(value.trim()).length > 64) return
+      action = (signal) => api.nickname(member, value.trim(), signal)
+    } else if (kind === "roles") {
+      if (!candidates.data || candidates.isFetching || candidates.isError) return
+      const roles = preserveRoles(
+        member.roleIds,
+        candidates.data.items.map((role) => role.id),
+        selected
+      )
+      action = (signal) => api.assignRoles(member, roles, signal)
+    } else action = (signal) => api.remove(member, signal)
+    if (await write.run(permissions[kind], action)) close()
+  }
+  return (
+    <Modal
+      withinPortal={false}
+      opened
+      onClose={() => {
+        if (!write.busy) close()
+      }}
+      title={t(titles[kind])}
+      centered
+      size="lg"
+      closeOnEscape={!write.busy}
+      closeOnClickOutside={!write.busy}
+      closeButtonProps={{ disabled: write.busy, "aria-label": t("applicationClose") }}
+    >
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          void submit()
+        }}
+      >
+        <Stack>
+          {kind === "invite" && (
+            <TextInput
+              type="email"
+              required
+              label={t("teamInviteEmail")}
+              placeholder={t("teamInvitePlaceholder")}
+              maxLength={128}
+              value={value}
+              disabled={write.busy || write.recovery}
+              onChange={(event) => setValue(event.currentTarget.value)}
+              description={t("orgInviteHint")}
+            />
+          )}
+          {kind === "nickname" && (
+            <TextInput
+              required
+              label={t("orgNickname")}
+              placeholder={t("orgNicknamePlaceholder")}
+              maxLength={64}
+              value={value}
+              disabled={write.busy || write.recovery}
+              onChange={(event) => setValue(event.currentTarget.value)}
+              description={t("orgNicknameHint")}
+            />
+          )}
+          {kind === "remove" && <Text>{t("orgRemoveConfirm", { name: member?.displayName })}</Text>}
+          {kind === "roles" && (
+            <>
+              <Text>{member?.displayName}</Text>
+              <ModuleState
+                loading={candidates.isPending}
+                error={candidates.error}
+                empty={candidates.isSuccess && !candidates.data.total}
+                retry={() => {
+                  void candidates.refetch()
+                }}
+              />
+              {candidates.data &&
+                !candidates.isError &&
+                candidates.data.items.map((role) => (
+                  <Checkbox
+                    key={role.id}
+                    label={role.name}
+                    checked={selected.includes(role.id)}
+                    disabled={write.busy || write.recovery || candidates.isFetching}
+                    onChange={(event) =>
+                      setSelected(
+                        event.currentTarget.checked
+                          ? [...selected, role.id]
+                          : selected.filter((id) => id !== role.id)
+                      )
+                    }
+                  />
+                ))}
+              <Text size="sm" c="dimmed">
+                {t("orgRetainRoles")}
+              </Text>
+            </>
+          )}
+          <ManagementFeedback write={write} checked={close} />
+          <ManagementActions
+            write={write}
+            close={close}
+            submit={kind === "remove" ? "teamRemove" : kind === "invite" ? "teamInvite" : "orgSave"}
+            danger={kind === "remove"}
+          />
+        </Stack>
+      </form>
+    </Modal>
+  )
+}

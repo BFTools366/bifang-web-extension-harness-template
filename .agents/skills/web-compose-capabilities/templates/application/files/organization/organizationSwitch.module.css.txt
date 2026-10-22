@@ -1,0 +1,14 @@
+.options {
+  max-height: 22rem;
+  overflow-y: auto;
+  padding: var(--mantine-spacing-xs);
+}
+
+.option {
+  padding: var(--mantine-spacing-md);
+  border-radius: var(--mantine-radius-md);
+}
+
+.name {
+  overflow-wrap: anywhere;
+}

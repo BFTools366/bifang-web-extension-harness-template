@@ -58,17 +58,11 @@ export function createOrganizationMock(
       if (actor() !== accountId) throw new Error("organization_superseded")
       current.set(accountId, id)
     },
-    /** API 边界同时复核活动组织、拥有者账号与组织用户角色。 */
+    /** API 边界同时复核活动组织、账号与有效权限。 */
     async rename(id, input) {
       const { accountId, user, organization } = membership(id)
       const context = snapshot()
-      if (
-        actor() !== accountId ||
-        context.current !== id ||
-        user.role !== "owner" ||
-        !canManage(user) ||
-        organization.ownerAccountId !== accountId
-      )
+      if (actor() !== accountId || context.current !== id || !canManage(user))
         throw new Error("organization_denied")
       const name = input.trim()
       if (!name || name.length > 60) throw new Error("organization_name_invalid")

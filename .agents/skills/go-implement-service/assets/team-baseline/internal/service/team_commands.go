@@ -34,7 +34,7 @@ func (s *TeamService) Rename(ctx context.Context, account, org model.ID, name st
 		return apperr.ErrBadRequest
 	}
 	return s.store.Write(ctx, account, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		if _, err := teamAuthorize(tx, account, org, "team.settings.update"); err != nil {
 			return err
 		}
 		return tx.RenameOrg(org, name)
@@ -49,7 +49,7 @@ func (s *TeamService) Invite(ctx context.Context, account, org model.ID, email s
 	}
 	var result *model.OrganizationInvitation
 	err := s.store.Write(ctx, account, func(tx *repository.TeamTx) error {
-		owner, err := teamManager(tx, account, org)
+		owner, err := teamAuthorize(tx, account, org, "team.members.invite")
 		if err != nil {
 			return err
 		}
@@ -121,7 +121,7 @@ func (s *TeamService) ResolveInvitation(ctx context.Context, account, id model.I
 			return apperr.ErrBadRequest
 		}
 		if action == "revoke" {
-			if _, err = teamManager(tx, account, row.OrganizationID); err != nil {
+			if _, err = teamAuthorize(tx, account, row.OrganizationID, "team.members.invite"); err != nil {
 				return err
 			}
 		} else if row.AccountID != account {
@@ -168,7 +168,7 @@ func (s *TeamService) Remove(ctx context.Context, account, org, target model.ID,
 			return err
 		}
 		if target != actor.ID {
-			if _, err := teamManager(tx, account, org); err != nil {
+			if _, err := teamAuthorize(tx, account, org, "team.members.remove"); err != nil {
 				return err
 			}
 		} else if err := RequireTeamResource(tx, account, org, org, 0, "team.leave"); err != nil {
@@ -194,15 +194,41 @@ func (s *TeamService) AssignRoles(ctx context.Context, account, org, target mode
 		return apperr.ErrBadRequest
 	}
 	return s.store.Write(ctx, account, func(tx *repository.TeamTx) error {
-		if _, err := teamManager(tx, account, org); err != nil {
+		actor, err := teamAuthorize(tx, account, org, "team.members.roles.assign")
+		if err != nil {
 			return err
 		}
 		member, err := tx.MemberByID(org, target)
-		if err != nil || member.Role == "owner" {
+		if err != nil || member.Role == "owner" || member.ID == actor.ID {
 			return apperr.ErrForbidden
 		}
 		if member.Version != version {
 			return apperr.ErrConflict
+		}
+		existing, err := tx.MemberRoles(org, member.ID)
+		if err != nil {
+			return err
+		}
+		existingIDs := map[model.ID]bool{}
+		for _, old := range existing {
+			existingIDs[old.ID] = true
+		}
+		requested := map[model.ID]bool{}
+		for _, id := range roles {
+			requested[id] = true
+		}
+		// 被漏传的旧角色也必须处于操作者权限上限内。
+		for _, old := range existing {
+			if old.Protected || requested[old.ID] {
+				continue
+			}
+			codes, err := tx.RoleCodes(old.ID)
+			if err != nil {
+				return err
+			}
+			if _, err = rolePermissionIDs(tx, account, org, codes); err != nil {
+				return err
+			}
 		}
 		base, err := tx.BaseMemberRole(org)
 		if err != nil {
@@ -211,6 +237,9 @@ func (s *TeamService) AssignRoles(ctx context.Context, account, org, target mode
 		ids := []model.ID{base.ID}
 		seen := map[model.ID]bool{}
 		for _, id := range roles {
+			if id == base.ID {
+				continue
+			} // 基础绑定只能原样保留，不能选择其他系统角色。
 			role, err := tx.Role(org, id)
 			if err != nil || role.Protected || seen[id] {
 				return apperr.ErrForbidden
@@ -219,8 +248,10 @@ func (s *TeamService) AssignRoles(ctx context.Context, account, org, target mode
 			if err != nil {
 				return err
 			}
-			if _, err = rolePermissionIDs(tx, account, org, codes); err != nil {
-				return err
+			if !existingIDs[id] {
+				if _, err = rolePermissionIDs(tx, account, org, codes); err != nil {
+					return err
+				}
 			}
 			seen[id] = true
 			ids = append(ids, id)

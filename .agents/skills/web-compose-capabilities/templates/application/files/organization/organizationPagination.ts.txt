@@ -1,0 +1,51 @@
+/** sessionStorage 不可用时分页继续以 URL 为准。 */
+function getWebStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage
+  } catch {
+    return null
+  }
+}
+import {
+  paginationStorageKey,
+  isPageSize,
+  type PageRequest
+} from "../../features/organization/managementPagination"
+
+/** 分页快照按账号、组织、稳定列表标识隔离，不保存成员数据。 */
+export function readOrganizationPagination(scope: string): PageRequest {
+  try {
+    const value: unknown = JSON.parse(
+      getWebStorage()?.getItem(paginationStorageKey(scope)) ?? "null"
+    )
+    if (
+      value &&
+      typeof value === "object" &&
+      "version" in value &&
+      value.version === 1 &&
+      "page" in value &&
+      typeof value.page === "number" &&
+      Number.isSafeInteger(value.page) &&
+      value.page >= 1 &&
+      value.page <= 100000 &&
+      "pageSize" in value &&
+      isPageSize(value.pageSize)
+    )
+      return { page: value.page, pageSize: value.pageSize }
+  } catch {
+    /* 分页快照不可用不阻断页面。 */
+  }
+  return { page: 1, pageSize: 20 }
+}
+
+/** URL 应用后只单向保存本列表两项 owned 字段。 */
+export function saveOrganizationPagination(scope: string, request: PageRequest) {
+  try {
+    getWebStorage()?.setItem(
+      paginationStorageKey(scope),
+      JSON.stringify({ version: 1, ...request })
+    )
+  } catch {
+    /* URL 仍是权威状态。 */
+  }
+}

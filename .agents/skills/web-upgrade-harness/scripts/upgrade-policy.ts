@@ -46,8 +46,29 @@ function skillRule(name: string, mode: OwnershipMode): Record<string, OwnershipM
   return { [`.agents/skills/${name}/**`]: mode }
 }
 
+/** 明确退役的 Auth 源模板；不覆盖下游产品实现，也不自动删除残留。 */
+export const RETIRED_AUTH_TEMPLATE_PATHS = [
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/PaginationControls.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationManagementPage.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamMembers.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamRoles.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamWorkspace.tsx.txt"
+] as const
+
 /** 保存所有权清单不可弱化的关键规则。 */
 export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = {
+  ...Object.fromEntries(
+    RETIRED_AUTH_TEMPLATE_PATHS.map((relative) => [relative, "tombstone" as const])
+  ),
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationManagementPage.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamMembers.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamRoles.tsx.txt":
+    "tombstone",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamWorkspace.tsx.txt":
+    "tombstone",
+
   "docs/README.md": "merge-sections",
   ".harness/tooling/upgrade-candidate.ts": "tombstone",
   "tests/workspace-upgrade.test.ts": "tombstone",
@@ -56,6 +77,7 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   ".harness/tooling/workspace-context.ts": "managed",
   ".harness/tooling/workspace-http.ts": "tombstone",
   "tests/application-test-adapters.ts": "tombstone",
+  "tests/application-ui-standards.test.ts": "tombstone",
   "tests/fixtures/application-api/**": "tombstone",
   ".agents/skills/workspace-implement-audit/**": "managed",
   ".agents/skills/go-implement-external-command/**": "managed",
@@ -307,15 +329,36 @@ export const MINIMUM_REQUIRED_OWNERSHIP_PATTERNS = new Set([
   "package.json"
 ])
 
-/** 保存必须从 source 精确传播到候选的关键 managed 文件。 */
+/** 精确安全路径清单集中审核；本文件超过 500 行的部分为常量，扫描和写入逻辑已在独立模块。
+ * 保存必须从 source 精确传播到候选的关键 managed 文件。 */
 export const REQUIRED_MANAGED_SOURCE_PATHS = [
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/organizationSwitch.module.css.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationMembersPage.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/organizationPagination.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/managementPagination.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationSettingsPage.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/organizationManagement.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/managementSearch.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/identity/AccountDialog.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/useManagement.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/managementList.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/managementPermissions.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamLeave.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationRolesPage.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/managementQueries.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/RoleDialog.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/extensionPagination.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/MemberDialog.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationSwitchDialog.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/management.module.css.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/ManagementParts.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/identity/ChangePasswordPage.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/management-source.ts",
+
   ".agents/skills/web-compose-capabilities/templates/application/files/identity/PersonalSettingsPage.tsx.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/identity/personalSettings.ts.txt",
   ".agents/skills/web-compose-capabilities/templates/application/team-locales.ts",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamInbox.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamMembers.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamRoles.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamWorkspace.tsx.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/teamContracts.ts.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/teamService.ts.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/useTeamMutation.ts.txt",
@@ -375,7 +418,6 @@ export const REQUIRED_MANAGED_SOURCE_PATHS = [
   ".agents/skills/web-compose-capabilities/templates/application/files/orders/purchase.ts.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationPage.tsx.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationContext.tsx.txt",
-  ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationManagementPage.tsx.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/OrganizationMenu.tsx.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/context.ts.txt",
   ".agents/skills/web-compose-capabilities/templates/application/files/organization/contracts.ts.txt",

@@ -35,6 +35,7 @@ export const routeComponent = (page: ApplicationPage) => page.component.replace(
 export const permissionFreePaths = (organization: boolean): string[] => [
   "/forbidden",
   "/account/settings",
+  "/account/password",
   ...(organization ? ["/organization"] : [])
 ]
 /** 不要求业务权限码的动作：组织切换属于撤权后的恢复入口。 */

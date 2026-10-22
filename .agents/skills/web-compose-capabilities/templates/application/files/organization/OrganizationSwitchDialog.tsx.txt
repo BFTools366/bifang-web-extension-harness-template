@@ -1,0 +1,187 @@
+import type { ReactNode } from "react"
+import { Alert, Badge, Button, Group, Modal, Radio, Stack, Text } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useEffect, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { OrganizationApi, OrganizationContext } from "../../data/api/organization/contracts"
+import { ModuleState } from "../application/ModuleState"
+import { organizationQueryOptions } from "./OrganizationContext"
+import classes from "./organizationSwitch.module.css"
+
+/** 弹窗只选择已加入组织，真实转换、权限与相关信息刷新仍由唯一会话 owner 完成。 */
+export function OrganizationSwitchDialog({
+  api,
+  scope,
+  blocked,
+  accountId,
+  changed,
+  close,
+  invitations
+}: {
+  api: OrganizationApi
+  scope: number
+  blocked: boolean
+  accountId: string | null
+  changed(): Promise<void>
+  close(restoreFocus?: boolean): void
+  invitations?: ReactNode | ((onBlockedChange: (blocked: boolean) => void) => ReactNode)
+}) {
+  const { t, i18n } = useTranslation()
+  const [selected, setSelected] = useState("")
+  const [invitationBlocked, setInvitationBlocked] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(false)
+  const [refreshOnly, setRefreshOnly] = useState(false)
+  const [pendingContext, setPendingContext] = useState<OrganizationContext | null>(null)
+  const lock = useRef(false)
+  const transition = useRef(false)
+  const alive = useRef(true)
+  const owner = useRef({ accountId, scope })
+  const query = useQuery({
+    ...organizationQueryOptions(api, scope, i18n.language),
+    enabled: !blocked && !!accountId
+  })
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+    }
+  }, [])
+  useEffect(() => {
+    const previous = owner.current
+    owner.current = { accountId, scope }
+    if (previous.accountId !== accountId || (previous.scope !== scope && !transition.current))
+      close(false)
+    if (!busy) transition.current = false
+  }, [accountId, scope, busy, close])
+  const context = busy ? pendingContext : query.data
+  const selectable =
+    !!selected &&
+    selected !== context?.current &&
+    !!context?.available.some((organization) => organization.id === selected)
+  /** 已确认切换后只恢复路由读取；失败不能重复提交已成功的切换。 */
+  async function submit() {
+    if (invitationBlocked || lock.current || !accountId || blocked || (!refreshOnly && (!selectable || query.isError)))
+      return
+    lock.current = true
+    transition.current = true
+    setBusy(true)
+    setError(false)
+    setPendingContext(query.data ?? null)
+    let switched = refreshOnly
+    const ownedAccount = accountId
+    try {
+      if (!refreshOnly) {
+        await api.switch(selected)
+        switched = true
+      }
+      if (!alive.current || owner.current.accountId !== ownedAccount) return
+      await changed()
+      if (alive.current && owner.current.accountId === ownedAccount) close()
+    } catch {
+      if (alive.current && owner.current.accountId === ownedAccount) {
+        setRefreshOnly(switched)
+        setError(true)
+      }
+    } finally {
+      lock.current = false
+      if (alive.current) {
+        setBusy(false)
+        setPendingContext(null)
+      }
+    }
+  }
+  return (
+    <Modal
+      opened
+      onClose={() => {
+        if (!lock.current && !invitationBlocked) close()
+      }}
+      title={t("organizationSwitch")}
+      size="lg"
+      centered
+      closeOnClickOutside={!busy && !invitationBlocked}
+      closeOnEscape={!busy && !invitationBlocked}
+      returnFocus={false}
+      closeButtonProps={{ disabled: busy || invitationBlocked, "aria-label": t("applicationClose") }}
+    >
+      <Stack gap="lg">
+        {busy ? (
+          <Text role="status">{t("organizationSwitching")}</Text>
+        ) : (
+          <ModuleState
+            loading={query.isPending}
+            error={query.error}
+            empty={false}
+            retry={() => {
+              void query.refetch()
+            }}
+          />
+        )}
+        {error && (
+          <Alert role="alert" color="red">
+            {t(refreshOnly ? "organizationRefreshFailed" : "organizationSwitchFailed")}
+          </Alert>
+        )}
+        {context && (!query.isError || busy) && (
+          <>
+            {context.available.length === 0 ? (
+              <Text role="status">{t("organizationEmpty")}</Text>
+            ) : (
+              <Radio.Group label={t("organizationJoined")} value={selected} onChange={setSelected}>
+                <Stack gap="sm" className={classes.options}>
+                  {context.available.map((organization) => {
+                    const current = organization.id === context.current
+                    return (
+                      <Radio.Card
+                        key={organization.id}
+                        value={organization.id}
+                        disabled={current || busy || blocked || refreshOnly || invitationBlocked}
+                        className={classes.option}
+                      >
+                        <Group wrap="nowrap" justify="space-between">
+                          <Group wrap="nowrap">
+                            <Radio.Indicator disabled={current || busy || blocked || refreshOnly || invitationBlocked} />
+                            <Text className={classes.name}>{organization.name}</Text>
+                          </Group>
+                          {current && (
+                            <Badge variant="light" color="gray">
+                              {t("organizationCurrent")}
+                            </Badge>
+                          )}
+                        </Group>
+                      </Radio.Card>
+                    )
+                  })}
+                </Stack>
+              </Radio.Group>
+            )}
+            {context.available.length > 0 &&
+              !context.available.some((organization) => organization.id !== context.current) && (
+                <Text size="sm" c="dimmed" role="status">
+                  {t("organizationNoOther")}
+                </Text>
+              )}
+          </>
+        )}
+        {accountId && !busy && (typeof invitations === "function" ? invitations(setInvitationBlocked) : invitations)}
+        <Group justify="flex-end">
+          <Button variant="default" disabled={busy || invitationBlocked} onClick={() => close()}>
+            {t("applicationCancel")}
+          </Button>
+          <Button
+            loading={busy}
+            disabled={
+              blocked || invitationBlocked || (!refreshOnly && (!selectable || query.isPending || query.isError))
+            }
+            onClick={() => {
+              void submit()
+            }}
+          >
+            {t(refreshOnly ? "applicationRetry" : "organizationSwitch")}
+          </Button>
+        </Group>
+      </Stack>
+    </Modal>
+  )
+}

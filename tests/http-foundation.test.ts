@@ -192,6 +192,11 @@ for (const projectType of ["web", "extension"] as const) {
             : source
         await writeFile(path.join(root, name), fixtureSource)
       }
+      // 分页现在包含 CSS Modules；隔离 fixture 不引入完整 Vite，但保留其样式类型合同。
+      await writeFile(
+        path.join(root, "src/css-fixture.d.ts"),
+        'declare module "*.module.css" { const classes: Record<string, string>; export default classes }\n'
+      )
       if (projectType === "web") {
         // 模拟生产 Router 的全局类型注册，局部测试路径不能依赖未注册时的宽泛 Link 类型。
         await writeFile(
