@@ -34,6 +34,8 @@ CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；E
 
 ## 身份、组织与验证码
 
+本地完整账号装配在上游之上增加八表团队 RBAC、邀请、成员/角色版本、真实 GraphQL 集合和 REST 写入，唯一规则见 [ACCOUNT_OWNERSHIP.md](ACCOUNT_OWNERSHIP.md)。权限按成员角色与角色权限的并集计算，owner 无授权旁路，前端只判断有效 code。资产位于 go-implement-service/assets/team-baseline；首次装配在隔离副本按 SDL 生成真实 gqlgen 代码再写回。TeamOwned、MemberOwned 是新增领域实体可嵌入的归属字段，RequireTeamResource 必须进入实际领域读写事务。
+
 上游账号条件资产提供真实 SQLite 密码哈希、JWT、注册/登录/profile/refresh/logout/已登录改密；不是完整用户方案。完整用户模块需要同一注册事务创建账号、自有组织和 owner 成员，组织 ID 与成员授权主体分开。
 
 上游 logout 自增账号 token_version，会撤销该账号所有会话；refresh 没有单 refresh token 的轮换撤销语义。实施者需按需求明确该行为，不能在前端假设只退出当前设备或宣称 refresh 单次轮换。非开发环境必须拒绝公开默认 JWT 密钥，实际秘密由服务端环境注入。

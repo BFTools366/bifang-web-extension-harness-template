@@ -1,0 +1,89 @@
+package graphql
+
+import (
+	"context"
+	"project_id/internal/dto"
+	"project_id/internal/model"
+	"project_id/internal/service"
+)
+
+// TeamRoles 通过同一领域服务按团队管理权限 code 读取角色和角色权限。
+func (r *queryResolver) TeamRoles(ctx context.Context, organizationID string, page int, pageSize int) (*dto.TeamRolePage, error) {
+	id, err := currentAccountID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	org, err := service.TeamID(organizationID)
+	if err != nil {
+		return nil, err
+	}
+	return r.Teams.Roles(ctx, id, org, page, pageSize)
+}
+
+// TeamContext 从认证账号恢复所有有效成员团队。
+func (r *queryResolver) TeamContext(ctx context.Context) (*dto.TeamContext, error) {
+	id, err := currentAccountID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return r.Teams.Context(ctx, id)
+}
+
+// TeamMembers 按团队和有界分页读取成员。
+func (r *queryResolver) TeamMembers(ctx context.Context, organizationID string, page int, pageSize int) (*dto.TeamMemberPage, error) {
+	id, err := currentAccountID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	org, err := service.TeamID(organizationID)
+	if err != nil {
+		return nil, err
+	}
+	return r.Teams.Members(ctx, id, org, page, pageSize)
+}
+
+// TeamInvitations 默认读取本人邀请，带团队参数时要求团队管理权限 code。
+func (r *queryResolver) TeamInvitations(ctx context.Context, organizationID *string, page int, pageSize int) (*dto.TeamInvitationPage, error) {
+	id, err := currentAccountID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var org model.ID
+	if organizationID != nil {
+		org, err = service.TeamID(*organizationID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return r.Teams.Invitations(ctx, id, org, page, pageSize)
+}
+
+// TeamPermissions 不接受调用方伪造其他账号的成员身份。
+func (r *queryResolver) TeamPermissions(ctx context.Context, organizationID string, subjectID string) ([]string, error) {
+	id, err := currentAccountID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	org, err := service.TeamID(organizationID)
+	if err != nil {
+		return nil, err
+	}
+	subject, err := service.TeamID(subjectID)
+	if err != nil {
+		return nil, err
+	}
+	return r.Teams.Permissions(ctx, id, org, subject)
+}
+
+// TeamPermissionCatalog 只向有管理权限的成员公开可授予目录。
+func (r *queryResolver) TeamPermissionCatalog(ctx context.Context, organizationID string) ([]string, error) {
+	id, err := currentAccountID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	org, err := service.TeamID(organizationID)
+	if err != nil {
+		return nil, err
+	}
+	return r.Teams.PermissionCatalog(ctx, id, org)
+}

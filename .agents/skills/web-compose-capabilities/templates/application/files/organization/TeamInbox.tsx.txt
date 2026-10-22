@@ -1,0 +1,93 @@
+import { Alert, Button, Group, Pagination, Stack, Text, Title } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { TeamApi } from "../../data/api/organization/teamContracts"
+import { ModuleState } from "../application/ModuleState"
+import { useTeamMutation } from "./useTeamMutation"
+
+/** 账号级邀请入口不依赖团队业务权限，接受后仍需用户显式选择目标团队。 */
+export function TeamInbox({
+  api,
+  scope,
+  isCurrent
+}: {
+  api: TeamApi
+  scope: number
+  isCurrent(): boolean
+}) {
+  const { t, i18n } = useTranslation()
+  const [page, setPage] = useState(1)
+  const query = useQuery({
+    queryKey: ["team", scope, "inbox", page, i18n.language],
+    meta: { private: true },
+    retry: false,
+    queryFn: ({ signal }) => api.invitations(null, page, 20, signal)
+  })
+  const mutation = useTeamMutation(isCurrent, async () => {
+    await query.refetch({ throwOnError: true })
+  })
+  return (
+    <Stack>
+      <Title order={2}>{t("teamJoin")}</Title>
+      <ModuleState
+        loading={query.isPending}
+        error={query.error}
+        empty={query.data?.total === 0}
+        retry={() => {
+          void mutation.verify()
+        }}
+      />
+      {mutation.status === "unknown" && (
+        <Alert role="alert">
+          {t("teamUnknown")}
+          <Button
+            onClick={() => {
+              void mutation.verify()
+            }}
+          >
+            {t("teamVerify")}
+          </Button>
+        </Alert>
+      )}
+      {mutation.status === "saved" && <Text role="status">{t("teamUpdated")}</Text>}
+      {query.data?.items.map((invitation) => (
+        <Group key={invitation.id} justify="space-between">
+          <Text>
+            {invitation.organizationName} · {t("teamStatus_" + invitation.status)}
+          </Text>
+          {invitation.status === "pending" && (
+            <Group>
+              <Button
+                disabled={mutation.disabled}
+                onClick={() => {
+                  void mutation.run(() => api.resolve(invitation, "accept"))
+                }}
+              >
+                {t("teamAccept")}
+              </Button>
+              <Button
+                variant="subtle"
+                disabled={mutation.disabled}
+                onClick={() => {
+                  void mutation.run(() => api.resolve(invitation, "reject"))
+                }}
+              >
+                {t("teamReject")}
+              </Button>
+            </Group>
+          )}
+        </Group>
+      ))}
+      {(query.data?.total ?? 0) > 20 && (
+        <Pagination
+          aria-label={t("teamInvitationPages")}
+          value={page}
+          onChange={setPage}
+          total={Math.ceil((query.data?.total ?? 0) / 20)}
+          disabled={mutation.disabled}
+        />
+      )}
+    </Stack>
+  )
+}

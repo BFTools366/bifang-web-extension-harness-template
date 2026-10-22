@@ -103,7 +103,11 @@ function routeTreeFixture(wiring: ApplicationWiring): string {
 /** 对实际生成资产执行编译与行为测试，临时工程仅存在于受忽略 cache。 */
 export async function runApplicationFixture(
   options: ApplicationOptions,
-  testSource: string
+  testSource: string,
+  integration?: {
+    assemble(base: ReadonlyMap<string, string>): Map<string, string>
+    baseUrl: string
+  }
 ): Promise<string> {
   const repository = path.resolve(import.meta.dirname, "..")
   const cache = path.join(repository, "node_modules/.cache")
@@ -120,7 +124,7 @@ export async function runApplicationFixture(
     const urls = { developmentBaseUrl: "", testBaseUrl: "", releaseBaseUrl: "" }
     const base =
       config.projectType === "web" ? webFiles(config, urls) : extensionFiles(config, urls)
-    const files = applicationFiles(base, options)
+    const files = integration ? integration.assemble(base) : applicationFiles(base, options)
     const wiring = JSON.parse(
       files.get(".harness/application-wiring.json") ?? ""
     ) as ApplicationWiring
@@ -162,7 +166,7 @@ export async function runApplicationFixture(
       )
     await writeFile(
       path.join(root, "src/config/environment.ts"),
-      `export const APP_CONFIG: Readonly<{environment: "test";apiBaseUrl:string;requestTimeoutMs:number;logLevel:"error"}> = Object.freeze({ environment: "test", apiBaseUrl: "https://api.fixture.invalid/v1", requestTimeoutMs: 1000, logLevel: "error" })\n`
+      `export const APP_CONFIG: Readonly<{environment: "development" | "test" | "release";apiBaseUrl:string;requestTimeoutMs:number;logLevel:"error"}> = Object.freeze({ environment: "test", apiBaseUrl: ${JSON.stringify(integration?.baseUrl ?? "https://api.fixture.invalid/v1")}, requestTimeoutMs: 3000, logLevel: "error" })\n`
     )
     await writeFile(path.join(root, "src/application.test.tsx"), testSource)
     await writeFile(

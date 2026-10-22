@@ -5,6 +5,8 @@ description: 在 Workspace 按具体操作完成组织切换、成员管理、�
 
 # Web Harness：实施组织与成员
 
+数据归属统一遵循 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md)。本地 install-users 装配八表 RBAC 与团队服务；完整前端入口是 workspace-implement-users/scripts/assemble-account.ts，不另建组织 owner。新增共享实体嵌入 TeamOwned，私有实体嵌入 MemberOwned；在实际领域事务内调用 RequireTeamResource 并约束 SQL/total，不能按创建者或成员 actor 分区团队共享数据。团队管理 adapter 位于 assets/go-team-adapter.ts.txt，前端只消费有效权限 code，既有服务须提供等效合同。
+
 先读根 .harness/workspace.json、唯一 PRD 与 [领域知识](../web-compose-capabilities/knowledge/organization.md)，只取当前操作需要的固定设计和模板。由 workspace-implement-feature 或 web-implement-change 委托，收到范围、成员、服务归属、写入所有权和验收合同后执行，完成后返回调用方，不重启创建或重复问卷。
 
 已有服务：核对 BaseURL、endpoint/SDL、字段、认证、授权、错误及恢复语义，仅实现消费侧，不擅自扩张服务端写入。自建服务：调用 go-implement-service 与 go-implement-persistence，在 _server 实现该领域，再按 web-implement-change 接齐真实 typed adapter、Query、页面和错误恢复；不要求用户单独填写 Go 表单。

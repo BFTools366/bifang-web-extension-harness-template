@@ -44,7 +44,7 @@ test.each(["web", "extension"] as const)(
   async (host) => {
     const output = await runApplicationFixture(
       {
-        selection: { host, modules: ["identity", "catalog"] },
+        selection: { host, operations: ["identity.session", "catalog.browse"] },
         homePageSource: HOME_SOURCE,
         dataMode: "mock",
         content: {

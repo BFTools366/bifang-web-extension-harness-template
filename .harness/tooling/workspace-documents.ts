@@ -31,7 +31,7 @@ export function workspaceDocuments(config: WorkspaceConfig): Map<string, string>
   return new Map([
     [
       "docs/README.md",
-      "# Workspace 文档\n\n工作区与服务归属见 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md)，Go 实施见 [GO_SERVICE.md](GO_SERVICE.md)。产品规格统一在根 docs/product_spec，接口与业务说明在根 docs/api；按对应真实事件创建记录。各前端技术规范在对应成员 docs，Go 不套用前端宿主规范。Git、依赖锁、策略与创建需求原文只归根。\n"
+      "# Workspace 文档\n\n工作区与服务归属见 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md)，Go 实施见 [GO_SERVICE.md](GO_SERVICE.md)，用户、团队和业务数据归属见 [ACCOUNT_OWNERSHIP.md](ACCOUNT_OWNERSHIP.md)。产品规格统一在根 docs/product_spec，接口与业务说明在根 docs/api；按对应真实事件创建记录。各前端技术规范在对应成员 docs，Go 不套用前端宿主规范。Git、依赖锁、策略与创建需求原文只归根。\n"
     ],
     [
       "AGENTS.md",

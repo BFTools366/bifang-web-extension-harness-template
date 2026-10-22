@@ -5,6 +5,8 @@ description: 按具体操作选择身份认证、组织、权限、商品、订�
 
 # Web Harness：组合功能模块
 
+完整用户模块默认选择 identity.workspace，固定解析团队切换、邀请、成员维护、角色管理、角色权限与成员角色分配，遵循八表 RBAC。前端统一判断有效权限 code，不按角色名授权。底层 identity.session 仍可显式独立复用。数据归属统一遵循 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md)；自建 Go 前端装配统一调用 workspace-implement-users/scripts/assemble-account.ts，未选账号的公开项目不产生账号表。
+
 拥有独立能力、具体操作、领域知识与模板选择，完成后返回当前调用方。知识库与模板库独立索引，模块选择不等于功能启用、接口实现或权限授予；完整需求语义、PRD、实际 UI 和代码分别归其阶段入口。
 
 ## 阶段与职责

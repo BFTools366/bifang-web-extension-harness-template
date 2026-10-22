@@ -1,0 +1,44 @@
+import { useEffect, useRef, useState } from "react"
+
+/** 团队写入同步防重，未知结果只允许刷新核对，账号或团队变更后丢弃旧反馈。 */
+export function useTeamMutation(isCurrent: () => boolean, refresh: () => Promise<void>) {
+  const [status, setStatus] = useState<"idle" | "pending" | "saved" | "unknown">("idle")
+  const pending = useRef(false),
+    mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
+  /** 成功事实和刷新失败区分处理，失败时不自动重放原操作。 */
+  async function run(action: () => Promise<void>) {
+    if (pending.current || status === "unknown" || !isCurrent()) return
+    pending.current = true
+    setStatus("pending")
+    try {
+      await action()
+      if (!mounted.current || !isCurrent()) return
+      await refresh()
+      if (mounted.current && isCurrent()) setStatus("saved")
+    } catch {
+      if (mounted.current && isCurrent()) setStatus("unknown")
+    } finally {
+      pending.current = false
+    }
+  }
+  /** 用户主动核对成功读取后才能再次操作，读取失败继续保持阻断。 */
+  async function verify() {
+    if (pending.current || !isCurrent()) return
+    pending.current = true
+    try {
+      await refresh()
+      if (mounted.current && isCurrent()) setStatus("idle")
+    } catch {
+      if (mounted.current && isCurrent()) setStatus("unknown")
+    } finally {
+      pending.current = false
+    }
+  }
+  return { status, run, verify, disabled: status === "pending" || status === "unknown" }
+}

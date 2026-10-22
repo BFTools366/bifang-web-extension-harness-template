@@ -1,0 +1,37 @@
+import type { TeamApi } from "./teamContracts"
+
+/** 团队写入消费当前账号和作用域，迟到结果不能刷新新团队；服务端仍逐请求授权。 */
+export function createTeamService(
+  api: TeamApi,
+  owner: {
+    account(): string | null
+    scope(): number
+    blocked(): boolean
+    canManage(): boolean
+    refresh(): Promise<void>
+  }
+): TeamApi {
+  /** 写入不重放，失败返回调用方先读取核对；仅当前 owner 可处理成功后的刷新。 */
+  async function write(action: () => Promise<void>, management: boolean) {
+    const account = owner.account(),
+      scope = owner.scope()
+    if (!account || owner.blocked() || (management && !owner.canManage()))
+      throw new Error("team_denied")
+    await action()
+    if (account !== owner.account() || scope !== owner.scope()) throw new Error("team_superseded")
+    await owner.refresh()
+    if (account !== owner.account() || scope !== owner.scope()) throw new Error("team_superseded")
+  }
+  return {
+    ...api,
+    invite: (org, email) => write(() => api.invite(org, email), true),
+    resolve: (invitation, action) =>
+      write(() => api.resolve(invitation, action), action === "revoke"),
+    remove: (member) => write(() => api.remove(member), member.accountId !== owner.account()),
+    assignRoles: (member, roleIds) => write(() => api.assignRoles(member, roleIds), true),
+    createRole: (org, code, name, codes) =>
+      write(() => api.createRole(org, code, name, codes), true),
+    updateRole: (role, name, codes) => write(() => api.updateRole(role, name, codes), true),
+    deleteRole: (role) => write(() => api.deleteRole(role), true)
+  }
+}

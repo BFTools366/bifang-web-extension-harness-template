@@ -1,0 +1,11 @@
+import type { PermissionApi } from "./contracts"
+import { readTeamPermissions } from "../organization/adapter"
+
+/** 权限只属于指定团队成员；缺团队上下文时拒绝读取和授权。 */
+export const api: PermissionApi = {
+  /** 以当前团队成员身份读取服务端权限。 */
+  read(context, signal) {
+    if (!context.organizationId) throw new Error("team_context_required")
+    return readTeamPermissions(context.organizationId, context.subjectId, signal)
+  }
+}

@@ -1,0 +1,316 @@
+import { applicationHttp, requestHttpQuery } from "../client/httpRuntime"
+import { ApiError } from "../client/httpClient"
+import { parseServiceEmpty } from "../foundationProtocol"
+import type {
+  TeamApi,
+  TeamContext,
+  TeamInvitation,
+  TeamMember,
+  TeamPage,
+  TeamRole
+} from "./teamContracts"
+
+/** 缺失、损坏或 GraphQL 拒绝不转为空集合，错误不包含服务原文或私有变量。 */
+function invalid(): never {
+  throw new ApiError({
+    kind: "invalid-response",
+    code: "invalidTeamResponse",
+    message: "invalidTeamResponse",
+    retryable: false
+  })
+}
+/** 只收窄非数组对象；所有边界字段在当前领域校验。 */
+function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid()
+  return value as Record<string, unknown>
+}
+/** 雪花 ID 必须保留精确字符串。 */
+function id(value: unknown): string {
+  if (typeof value !== "string" || !/^[1-9][0-9]*$/u.test(value)) return invalid()
+  return value
+}
+/** 字符串集合不能混入空权限码。 */
+function codes(value: unknown): string[] {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || !item.trim()))
+    return invalid()
+  return value as string[]
+}
+/** 成员身份、状态和团队关联全部由服务返回。 */
+function member(value: unknown): TeamMember {
+  const row = object(value)
+  if (
+    typeof row.displayName !== "string" ||
+    !["owner", "member"].includes(String(row.role)) ||
+    row.status !== "active" ||
+    !Number.isSafeInteger(row.version) ||
+    Number(row.version) < 1 ||
+    !Array.isArray(row.roleIds) ||
+    typeof row.canRemove !== "boolean" ||
+    typeof row.canAssignRoles !== "boolean"
+  )
+    return invalid()
+  return {
+    id: id(row.id),
+    accountId: id(row.accountId),
+    organizationId: id(row.organizationId),
+    displayName: row.displayName,
+    role: row.role === "owner" ? "owner" : "member",
+    status: "active",
+    version: Number(row.version),
+    permissions: codes(row.permissions),
+    roleIds: row.roleIds.map(id),
+    canRemove: row.canRemove,
+    canAssignRoles: row.canAssignRoles
+  }
+}
+/** 角色定义保留团队和版本，前端只消费有效权限码，不按角色名授权。 */
+function role(value: unknown): TeamRole {
+  const row = object(value)
+  if (
+    typeof row.code !== "string" ||
+    typeof row.name !== "string" ||
+    typeof row.protected !== "boolean" ||
+    !Number.isSafeInteger(row.version) ||
+    Number(row.version) < 1
+  )
+    return invalid()
+  return {
+    id: id(row.id),
+    organizationId: id(row.organizationId),
+    code: row.code,
+    name: row.name,
+    protected: row.protected,
+    version: Number(row.version),
+    permissions: codes(row.permissions)
+  }
+}
+/** 邀请版本和期限拒绝损坏数值，不能从客户端时间产生授权。 */
+function invitation(value: unknown): TeamInvitation {
+  const row = object(value)
+  const status = row.status
+  if (
+    status !== "pending" &&
+    status !== "accepted" &&
+    status !== "rejected" &&
+    status !== "revoked" &&
+    status !== "expired"
+  )
+    return invalid()
+  if (
+    typeof row.organizationName !== "string" ||
+    !Number.isSafeInteger(row.version) ||
+    Number(row.version) < 1 ||
+    !Number.isSafeInteger(row.expiresAt) ||
+    Number(row.expiresAt) < 1
+  )
+    return invalid()
+  return {
+    id: id(row.id),
+    accountId: id(row.accountId),
+    organizationId: id(row.organizationId),
+    organizationName: row.organizationName,
+    status,
+    version: Number(row.version),
+    expiresAt: Number(row.expiresAt)
+  }
+}
+/** 校验分页结果总数与本批次，不接受无边界的服务器数据。 */
+function page<T>(value: unknown, parse: (row: unknown) => T): TeamPage<T> {
+  const result = object(value)
+  if (
+    !Array.isArray(result.items) ||
+    result.items.length > 100 ||
+    !Number.isSafeInteger(result.total) ||
+    Number(result.total) < result.items.length
+  )
+    return invalid()
+  return { items: result.items.map(parse), total: Number(result.total) }
+}
+/** GraphQL 使用现有 Ky/session owner；Query 的缓存和错误反馈仍归当前 feature。 */
+async function query(
+  field: string,
+  document: string,
+  variables: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<unknown> {
+  const response = await requestHttpQuery("graphql", {
+    method: "POST",
+    signal,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: document, variables })
+  })
+  const result = object(await response.json())
+  if (result.errors !== undefined) {
+    if (!Array.isArray(result.errors)) return invalid()
+    if (result.errors.length) {
+      const error = object(result.errors[0]),
+        extensions = object(error.extensions)
+      const unauthorized =
+        typeof extensions.code === "string" &&
+        /^(auth\.|common.unauthorized)/u.test(extensions.code)
+      const denied = extensions.code === "common.forbidden"
+      const status = unauthorized
+        ? 401
+        : denied
+          ? 403
+          : extensions.code === "common.bad.request"
+            ? 400
+            : extensions.code === "common.conflict"
+              ? 409
+              : 500
+      const code = unauthorized ? "teamIdentityRequired" : denied ? "teamDenied" : "teamQueryFailed"
+      throw new ApiError({ kind: "http", code, message: code, status, retryable: status === 500 })
+    }
+  }
+  return object(result.data)[field]
+}
+/** REST 写入不自动重放；未知结果由页面只读核对。 */
+async function command(endpoint: string, body: unknown, method = "POST"): Promise<void> {
+  const response = await applicationHttp.request("api/v1/auth/teams/" + endpoint, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  })
+  if (endpoint !== "invitations") parseServiceEmpty(await response.json())
+  else {
+    const result = object(await response.json())
+    if (result.model !== "team.invitation" || !object(result.data).id) invalid()
+  }
+}
+/** 成员选择字段由团队上下文、成员列表和授权页复用。 */
+const MEMBER_FIELDS =
+  "id accountId organizationId displayName role status version permissions roleIds canRemove canAssignRoles"
+/** 团队查询、切换和成员生命周期共用一个实际 adapter。 */
+export const api: TeamApi = {
+  /** 当前选择由服务端账号偏好恢复，本地不维护竞争选择。 */
+  async read(signal): Promise<TeamContext> {
+    const result = object(
+      await query(
+        "teamContext",
+        `query TeamContext { teamContext { current available { id name ownerAccountId user { ${MEMBER_FIELDS} } } } }`,
+        {},
+        signal
+      )
+    )
+    if (
+      !Array.isArray(result.available) ||
+      result.available.length < 1 ||
+      result.available.length > 100
+    )
+      return invalid()
+    return {
+      current: id(result.current),
+      available: result.available.map((value) => {
+        const row = object(value)
+        if (typeof row.name !== "string" || !row.name.trim()) return invalid()
+        const user = member(row.user)
+        const organizationId = id(row.id)
+        const ownerAccountId = id(row.ownerAccountId)
+        if (
+          user.organizationId !== organizationId ||
+          (user.role === "owner") !== (user.accountId === ownerAccountId)
+        )
+          return invalid()
+        return { id: organizationId, name: row.name, ownerAccountId, user }
+      })
+    }
+  },
+  switch: (organizationId) => command("switch", { organizationId }),
+  rename: (organizationId, name) => command("name", { organizationId, name }, "PUT"),
+  /** 团队管理集合始终按当前团队查询。 */
+  async members(organizationId, current, pageSize, signal) {
+    return page(
+      await query(
+        "teamMembers",
+        `query Members($org:ID!,$page:Int!,$size:Int!) { teamMembers(organizationId:$org,page:$page,pageSize:$size) { total items { ${MEMBER_FIELDS} } } }`,
+        { org: id(organizationId), page: current, size: pageSize },
+        signal
+      ),
+      member
+    )
+  },
+  /** organizationId 为空只读取当前账号收到的邀请。 */
+  async invitations(organizationId, current, pageSize, signal) {
+    return page(
+      await query(
+        "teamInvitations",
+        "query Invitations($org:ID,$page:Int!,$size:Int!) { teamInvitations(organizationId:$org,page:$page,pageSize:$size) { total items { id organizationId organizationName accountId status version expiresAt } } }",
+        { org: organizationId === null ? null : id(organizationId), page: current, size: pageSize },
+        signal
+      ),
+      invitation
+    )
+  },
+  /** 可授予范围以当前服务目录为准，不从前端页面自动制造权限码。 */
+  async permissionCatalog(organizationId, signal) {
+    return codes(
+      await query(
+        "teamPermissionCatalog",
+        "query PermissionCatalog($org:ID!) { teamPermissionCatalog(organizationId:$org) }",
+        { org: id(organizationId) },
+        signal
+      )
+    )
+  },
+  invite: (organizationId, email) => command("invitations", { organizationId, email }),
+  resolve: (invitation, action) =>
+    command("invitations/" + action, { invitationId: invitation.id, version: invitation.version }),
+  remove: (member) =>
+    command("members/remove", {
+      organizationId: member.organizationId,
+      memberId: member.id,
+      version: member.version
+    }),
+  /** 角色集合由目标团队的权限门禁保护。 */
+  async roles(organizationId, current, pageSize, signal) {
+    return page(
+      await query(
+        "teamRoles",
+        "query TeamRoles($org:ID!,$page:Int!,$size:Int!) { teamRoles(organizationId:$org,page:$page,pageSize:$size) { total items { id organizationId code name protected version permissions } } }",
+        { org: id(organizationId), page: current, size: pageSize },
+        signal
+      ),
+      role
+    )
+  },
+  assignRoles: (member, roleIds) =>
+    command(
+      "members/roles",
+      {
+        organizationId: member.organizationId,
+        memberId: member.id,
+        version: member.version,
+        roleIds
+      },
+      "PUT"
+    ),
+  createRole: (organizationId, code, name, codes) =>
+    command("roles", { organizationId, code, name, codes }),
+  updateRole: (role, name, codes) =>
+    command(
+      "roles",
+      { organizationId: role.organizationId, roleId: role.id, version: role.version, name, codes },
+      "PUT"
+    ),
+  deleteRole: (role) =>
+    command("roles/remove", {
+      organizationId: role.organizationId,
+      roleId: role.id,
+      version: role.version
+    })
+}
+/** 权限 adapter 复用同一查询协议；服务逐次绑定账号、团队与成员主体。 */
+export async function readTeamPermissions(
+  organizationId: string,
+  subjectId: string,
+  signal?: AbortSignal
+): Promise<readonly string[]> {
+  return codes(
+    await query(
+      "teamPermissions",
+      "query TeamPermissions($org:ID!,$subject:ID!) { teamPermissions(organizationId:$org,subjectId:$subject) }",
+      { org: id(organizationId), subject: id(subjectId) },
+      signal
+    )
+  )
+}

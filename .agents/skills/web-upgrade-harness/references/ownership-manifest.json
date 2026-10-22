@@ -105,6 +105,14 @@
       "mode": "managed"
     },
     {
+      "pattern": "docs/ACCOUNT_OWNERSHIP.md",
+      "mode": "managed"
+    },
+    {
+      "pattern": "tests/team-baseline.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/go-identity-contract.test.ts",
       "mode": "tombstone"
     },

@@ -1,7 +1,7 @@
 import { expect, test } from "vitest"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
-/** 两宿主真实生成代码覆盖拥有者入口、改名刷新、成员拒绝和单组织恢复。 */
+/** 两宿主以前端权限 code 控制入口，后端替身独立验证对象拥有关系。 */
 test.each(["web", "extension"] as const)(
   "enforces %s organization ownership",
   async (host) => {
@@ -50,6 +50,7 @@ import "./i18n/application"
 ${host === "web" ? 'import { routeTree } from "./routeTree.gen"\nimport { AppProviders as Providers } from "./app/AppProviders"' : 'import { createExtensionRouter } from "./extension-router"\nimport { Providers } from "./providers"'}
 import { identitySession, organizationService, ensureOrganization, permissionSession, applicationScope, actor } from "./features/application/runtime"
 import { createOrganizationMock } from "./data/api/organization/mock"
+import { permissionMock } from "./data/api/permissions/adapter"
 /** 管理操作同时要求当前组织用户与可信权限，名称刷新进入切换弹窗。 */
 test("owner rename synchronizes shared context and viewer cannot bypass gates", async () => {
   await i18n.changeLanguage("en")
@@ -90,9 +91,13 @@ test("owner rename synchronizes shared context and viewer cannot bypass gates", 
   await user.click(screen.getByRole("button", { name: /User center/ }))
   await screen.findByRole("menu")
   expect(screen.queryByRole("menuitem", { name: "Switch organization" })).not.toBeInTheDocument()
-  expect(screen.queryByRole("menuitem", { name: "Organization management" })).not.toBeInTheDocument()
+  // 相同有效 code 具有相同前端入口，不按 viewer/owner 名称区别授权。
+  expect(screen.getByRole("menuitem", { name: "Organization management" })).toBeInTheDocument()
   await user.keyboard("{Escape}")
   await act(async () => { await router.navigate({ to: "/organization/manage" }) })
+  await screen.findByRole("heading", { name: "Organization management" })
+  await expect(organizationService.rename("own", "forged")).rejects.toThrow("organization_denied")
+  await act(async () => { permissionMock.set({ subjectId: "viewer-own", organizationId: "own" }, ["home"]); await permissionSession.refresh(); await router.invalidate({ sync: true }) })
   await waitFor(() => expect(router.state.location.pathname).toBe("/forbidden"))
   await expect(organizationService.rename("own", "forged")).rejects.toThrow("organization_denied")
   const revision = applicationScope.getSnapshot().revision

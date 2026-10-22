@@ -1,6 +1,9 @@
+import { teamLocales } from "./team-locales.ts"
+
 /** 固定设计文案仍进入既有 i18next，不新建国际化机制。 */
 export const applicationLocales = {
   en: {
+    ...teamLocales.en,
     registrationCodeRequestAgain: "This code cannot be used again. Request a new code.",
     registrationTitle: "Create account",
     registrationDescription: "Use your email to create an account. No username needed.",
@@ -99,6 +102,7 @@ export const applicationLocales = {
     commerceSessionChanged: "The account or scope changed. Reopen this operation."
   },
   zh: {
+    ...teamLocales.zh,
     registrationCodeRequestAgain: "验证码已不可用，请重新获取。",
     registrationTitle: "创建账号",
     registrationDescription: "使用邮箱创建账号，无需填写用户名。",

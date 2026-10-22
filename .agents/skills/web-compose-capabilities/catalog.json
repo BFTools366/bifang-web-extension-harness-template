@@ -98,6 +98,21 @@
           "requires": []
         },
         {
+          "id": "identity.workspace",
+          "requires": [
+            "identity.session",
+            "organization.provision",
+            "organization.switch",
+            "organization.manage",
+            "organization.members",
+            "organization.invite",
+            "organization.accept",
+            "organization.leave",
+            "permissions.roles",
+            "permissions.grant"
+          ]
+        },
+        {
           "id": "identity.register",
           "requires": ["identity.session", "organization.provision"]
         },
@@ -118,7 +133,7 @@
           "requires": ["identity.verification"]
         }
       ],
-      "defaultOperations": ["identity.session"],
+      "defaultOperations": ["identity.workspace"],
       "implementationSkill": "workspace-implement-users"
     },
     {
@@ -269,7 +284,7 @@
         },
         {
           "id": "permissions.grant",
-          "requires": ["permissions.roles"]
+          "requires": ["permissions.roles", "organization.members"]
         }
       ],
       "defaultOperations": ["permissions.enforce"],
@@ -691,6 +706,46 @@
     }
   ],
   "application": [
+    {
+      "path": "templates/application/files/organization/TeamRoles.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/team-locales.ts",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/organization/teamContracts.ts.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/organization/teamService.ts.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/organization/useTeamMutation.ts.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/organization/TeamInbox.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/organization/TeamMembers.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
+    {
+      "path": "templates/application/files/organization/TeamWorkspace.tsx.txt",
+      "kind": "code",
+      "hosts": ["web", "extension"]
+    },
     {
       "path": "templates/application/settings-source.ts",
       "kind": "code",

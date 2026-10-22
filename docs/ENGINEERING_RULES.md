@@ -47,6 +47,8 @@
 
 ## 3. TypeScript 与模块规则
 
+用户系统及团队业务的数据归属统一遵守 [ACCOUNT_OWNERSHIP.md](ACCOUNT_OWNERSHIP.md)：团队共享资源按团队分区，成员私有资源同时约束团队与成员；创建者字段只作审计，不能替代所有者。新增域的 SQL 及 total 在真实业务事务内授权并按归属过滤，不能仅靠前端 actor、切换状态或缓存键隔离。
+
 - 启用严格 TypeScript；不得用 `any`、非空断言或未校验类型转换掩盖未知输入。确需边界转换时先验证，再收窄为业务类型。
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`data/` 统一承载 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；`data/api/` 提供 client 与类型化服务边界，`data/storage/` 集中存储访问。页面或 route 文件不得直接拼任意 URL。

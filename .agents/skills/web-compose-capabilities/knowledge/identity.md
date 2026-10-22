@@ -6,7 +6,7 @@
 
 ## Go 服务基准
 
-当前 Go Harness 的账号自服务、原始 DTO、Token 生命周期及客户端接线边界见 [Go 客户端合同](../../../../docs/GO_CLIENT_CONTRACT.md)。上游 profile 仅有 account 与可空 org，没有成员或权限；Workspace 完整方案另实施 organization_user 扩展。昵称可为空，显示层回落用户名；phone/last_login_at 可 null，时间为 Unix 秒。注册不自动登录，refresh 不撤销旧 refresh，logout/改密/找回撤销全账号令牌。基础会话仅采用 access；显式刷新结果须由唯一 owner 接受，不能自动重放写入。
+当前 Go Harness 的账号自服务、原始 DTO、Token 生命周期及客户端接线边界见 [Go 客户端合同](../../../../docs/GO_CLIENT_CONTRACT.md)。上游 profile 仅有 account 与可空 org；本地 install-users 自动增加完整团队 overlay，完整前端使用 identity.workspace。归属规则统一见 [ACCOUNT_OWNERSHIP.md](../../../../docs/ACCOUNT_OWNERSHIP.md)。昵称可为空，显示层回落用户名；phone/last_login_at 可 null，时间为 Unix 秒。注册不自动登录，refresh 不撤销旧 refresh，logout/改密/找回撤销全账号令牌。基础会话仅采用 access；显式刷新结果须由唯一 owner 接受，不能自动重放写入。
 
 ## 完整用户信息
 

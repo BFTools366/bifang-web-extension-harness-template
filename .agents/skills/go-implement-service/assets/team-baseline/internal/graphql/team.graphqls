@@ -1,0 +1,43 @@
+# 团队身份和权限查询复用同一领域服务；ID 全部为十进制字符串。
+scalar TeamTimestamp
+type TeamMember {
+ id: ID!
+ accountId: ID!
+ organizationId: ID!
+ displayName: String!
+ role: String!
+ status: String!
+ version: Int!
+ roleIds: [ID!]!
+ canRemove: Boolean!
+ canAssignRoles: Boolean!
+ permissions: [String!]!
+}
+type TeamMembership {
+ id: ID!
+ name: String!
+ ownerAccountId: ID!
+ user: TeamMember!
+}
+type TeamContext { current: ID!, available: [TeamMembership!]! }
+type TeamInvitation {
+ id: ID!
+ organizationId: ID!
+ organizationName: String!
+ accountId: ID!
+ status: String!
+ version: Int!
+ expiresAt: TeamTimestamp!
+}
+type TeamMemberPage { items: [TeamMember!]!, total: Int! }
+type TeamInvitationPage { items: [TeamInvitation!]!, total: Int! }
+type TeamRole { id: ID!, organizationId: ID!, code: String!, name: String!, protected: Boolean!, version: Int!, permissions: [String!]! }
+type TeamRolePage { items: [TeamRole!]!, total: Int! }
+extend type Query {
+ teamContext: TeamContext!
+ teamMembers(organizationId: ID!, page: Int!, pageSize: Int!): TeamMemberPage!
+ teamInvitations(organizationId: ID, page: Int!, pageSize: Int!): TeamInvitationPage!
+ teamPermissions(organizationId: ID!, subjectId: ID!): [String!]!
+ teamPermissionCatalog(organizationId: ID!): [String!]!
+ teamRoles(organizationId: ID!, page: Int!, pageSize: Int!): TeamRolePage!
+}

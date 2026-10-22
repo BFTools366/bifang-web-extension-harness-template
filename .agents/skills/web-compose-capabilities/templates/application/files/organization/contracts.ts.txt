@@ -28,7 +28,7 @@ export interface OrganizationReadApi {
 export interface OrganizationApi extends OrganizationReadApi {
   switch(id: string): Promise<void>
 }
-/** 只有显式选择组织管理才接线改名，服务端仍须校验当前组织用户为拥有者。 */
+/** 只有显式选择组织管理才接线改名，服务端仍须校验有效成员及管理权限 code。 */
 export interface OrganizationManagementApi extends OrganizationReadApi {
   rename(id: string, name: string): Promise<void>
 }

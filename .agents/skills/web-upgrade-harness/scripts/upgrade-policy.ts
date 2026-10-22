@@ -75,7 +75,9 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   "docs/WORKSPACE_TEMPLATE.md": "managed",
   "docs/GO_SERVICE.md": "managed",
   "docs/GO_CLIENT_CONTRACT.md": "managed",
+  "docs/ACCOUNT_OWNERSHIP.md": "managed",
   "tests/go-identity-contract.test.ts": "tombstone",
+  "tests/team-baseline.test.ts": "tombstone",
   "tests/go-identity-support.ts": "tombstone",
   "tests/fixtures/go-identity.test.ts.txt": "tombstone",
   ".harness/workspace.json": "protected",
@@ -298,6 +300,15 @@ export const MINIMUM_REQUIRED_OWNERSHIP_PATTERNS = new Set([
 
 /** 保存必须从 source 精确传播到候选的关键 managed 文件。 */
 export const REQUIRED_MANAGED_SOURCE_PATHS = [
+  ".agents/skills/web-compose-capabilities/templates/application/team-locales.ts",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamInbox.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamMembers.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamRoles.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/TeamWorkspace.tsx.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/teamContracts.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/teamService.ts.txt",
+  ".agents/skills/web-compose-capabilities/templates/application/files/organization/useTeamMutation.ts.txt",
+  "docs/ACCOUNT_OWNERSHIP.md",
   "docs/GO_CLIENT_CONTRACT.md",
   ".harness/tooling/workspace-context.ts",
   ".harness/tooling/workspace-skills.ts",

@@ -6,13 +6,14 @@ import type { OrganizationReadApi } from "../../data/api/organization/contracts"
 import { ApplicationIcon } from "../application/ApplicationIcon"
 import { organizationQueryOptions } from "./OrganizationContext"
 
-/** 多组织才显示切换入口；管理入口独立依据当前组织拥有者身份与权限。 */
+/** 多组织才显示切换入口；管理入口独立依据当前有效权限 code。 */
 export function OrganizationMenu({
   api,
   scope,
   blocked,
   canSwitch,
   management,
+  joining,
   open
 }: {
   api: OrganizationReadApi
@@ -20,6 +21,7 @@ export function OrganizationMenu({
   blocked: boolean
   canSwitch: boolean
   management?: ReactNode
+  joining?: ReactNode
   open(): void
 }) {
   const { t, i18n } = useTranslation()
@@ -45,6 +47,7 @@ export function OrganizationMenu({
         </Menu.Item>
       )}
       {!blocked && management}
+      {!blocked && joining}
     </>
   )
 }

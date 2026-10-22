@@ -76,6 +76,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/identity-localization.test.ts",
   "tests/http-foundation.test.ts",
   "tests/go-identity-contract.test.ts",
+  "tests/team-baseline.test.ts",
   "tests/go-identity-support.ts",
   "tests/fixtures/go-identity.test.ts.txt",
   "tests/harness-http-governance.test.ts",

@@ -5,6 +5,8 @@ description: 在 Workspace 按具体操作完成用户生命周期、注册、�
 
 # Web Harness：实施用户与会话
 
+完整用户数据归属以 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md) 为准。首次自建账号服务使用 install-users，同时安装八表团队 RBAC 和真实 gqlgen 查询。前端统一使用 [goAccountApplicationFiles](scripts/assemble-account.ts)，提供真实首页、host、operations 和业务权限；固定闭包 identity.workspace 自动接通用户、团队、成员、邀请、角色权限、成员角色分配及协议桥，前端只以有效 code 授权。identity.session 只作低层会话复用，不能作为完整用户系统交付；已有产品和外部服务继续按可信合同增量接线，不重装。
+
 先读根 .harness/workspace.json、唯一 PRD 与 [领域知识](../web-compose-capabilities/knowledge/identity.md)，只取当前操作需要的固定设计和模板。由 workspace-implement-feature 或 web-implement-change 委托，收到范围、成员、服务归属、写入所有权和验收合同后执行，完成后返回调用方，不重启创建或重复问卷。
 
 已有服务：核对 BaseURL、endpoint/SDL、字段、认证、授权、错误及恢复语义，仅实现消费侧，不擅自扩张服务端写入。自建服务：调用 go-implement-service 与 go-implement-persistence，在 _server 实现该领域，再按 web-implement-change 接齐真实 typed adapter、Query、页面和错误恢复；不要求用户单独填写 Go 表单。

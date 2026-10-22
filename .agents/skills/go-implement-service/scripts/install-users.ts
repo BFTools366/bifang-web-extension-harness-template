@@ -1,9 +1,11 @@
 import { execFileSync } from "node:child_process"
-import { lstat, mkdir, readFile, readdir, realpath, writeFile } from "node:fs/promises"
+import { lstat, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { completeUserProfile } from "./user-profile.ts"
 import { completePasswordChange } from "./password-change.ts"
+import { completeTeamBaseline } from "./team-baseline.ts"
+import { generateAccountPlan } from "./generate-account.ts"
 import { completeEmailRegistration } from "../../go-implement-verification/scripts/registration.ts"
 
 /** 要求唯一中性锚点，已有产品实现不得按模板覆盖。 */
@@ -66,7 +68,7 @@ export async function prepareUsers(
   /** 只消费普通资产并在生成前拒绝已有业务文件。 */
   async function collect(relative: string): Promise<void> {
     for (const entry of await readdir(path.join(assets, relative), { withFileTypes: true })) {
-      const file = path.join(relative, entry.name)
+      const file = path.posix.join(relative, entry.name)
       if (entry.isDirectory()) await collect(file)
       else if (!entry.isFile()) throw new Error(`模板不允许链接：${file}`)
       else if (entry.name !== "README.md") {
@@ -103,12 +105,22 @@ export async function prepareUsers(
       'if (c.JWT.Secret == "" || c.JWT.Secret == "change-me-in-production-please") && !c.App.IsDev() {'
     ]
   }
+  const configuration = (await readFile(path.join(root, "configs/config.yaml"), "utf8")).replaceAll(
+    "\r\n",
+    "\n"
+  )
+  const teamConfiguration = configuration.replace(
+    /(graphql:\n(?:\s*#[^\n]*\n)*\s*enabled:) false/u,
+    "$1 true"
+  )
+  if (configuration === teamConfiguration) throw new Error("团队 GraphQL 配置锚点已变化")
+  changes["configs/config.yaml"] = [configuration, teamConfiguration]
   if (operations.includes("verification")) {
     const source = (await readFile(path.join(root, "configs/config.yaml"), "utf8")).replaceAll(
       "\r\n",
       "\n"
     )
-    const selected = source.replace(
+    const selected = teamConfiguration.replace(
       /(verification:\s*\n(?:\s*#[^\n]*\n)*\s*enabled:) false/u,
       "$1 true"
     )
@@ -155,6 +167,7 @@ func (r *OrgRepository) CreateOwnerMembership(ctx context.Context, tx *Repositor
   )
   completeUserProfile(files)
   completePasswordChange(files)
+  await completeTeamBaseline(files, moduleId)
   const account = files.get("internal/api/v1/account.go")
   if (!account) throw new Error("账号路由模板缺失")
   files.set(
@@ -201,7 +214,7 @@ func (r *OrgRepository) CreateOwnerMembership(ctx context.Context, tx *Repositor
       files.set(file, execFileSync("gofmt", [], { input: source, encoding: "utf8" }))
   }
   for (const file of files.keys()) {
-    const parts = file.split(path.sep)
+    const parts = file.split("/")
     let current = root
     for (const part of parts.slice(0, -1)) {
       current = path.join(current, part)
@@ -224,10 +237,45 @@ export async function installUsers(
 ): Promise<string[]> {
   const plan = await prepareUsers(workspace, operations)
   if (!check) {
-    for (const [file, source] of plan.files) {
-      await mkdir(path.dirname(path.join(plan.root, file)), { recursive: true })
-      await writeFile(path.join(plan.root, file), source)
+    const originals = new Map<string, string | undefined>()
+    for (const file of new Set([...plan.files.keys(), "go.sum"])) {
+      try {
+        originals.set(file, await readFile(path.join(plan.root, file), "utf8"))
+      } catch (error) {
+        if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT"))
+          throw error
+        originals.set(file, undefined)
+      }
     }
+    const generated = await generateAccountPlan(plan.root, plan.files)
+    for (const [file, original] of originals) {
+      let current: string | undefined
+      try {
+        current = await readFile(path.join(plan.root, file), "utf8")
+      } catch (error) {
+        if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT"))
+          throw error
+      }
+      if (current !== original) throw new Error("账号生成期间目标已变化，保留现场：" + file)
+    }
+    const written: string[] = []
+    try {
+      for (const [file, source] of generated) {
+        await mkdir(path.dirname(path.join(plan.root, file)), { recursive: true })
+        await writeFile(path.join(plan.root, file), source)
+        written.push(file)
+      }
+    } catch (error) {
+      for (const file of written.reverse()) {
+        const target = path.join(plan.root, file)
+        if ((await readFile(target, "utf8")) !== generated.get(file)) continue
+        const original = originals.get(file)
+        if (original === undefined) await rm(target)
+        else await writeFile(target, original)
+      }
+      throw error
+    }
+    return [...generated.keys()]
   }
   return [...plan.files.keys()]
 }

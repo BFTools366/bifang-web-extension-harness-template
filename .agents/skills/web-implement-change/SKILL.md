@@ -79,6 +79,8 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 ## 完整创建的固定能力装配
 
+采用完整用户系统时固定选择 identity.workspace；自建 Go 服务前端调用 workspace-implement-users/scripts/assemble-account.ts 的 goAccountApplicationFiles，不再逐个手拼团队和权限 adapter。数据归属统一遵循 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md)，新增业务必须区分共享团队、成员私有及全局账号数据，不把 actor 或 createdBy 当共享分区键。独立 identity.session 只是低层资源，不能替代完整基线。
+
 完整创建授权包含成功下游首版实施，工程事务不是完成边界。复用已确认 PRD、固定设计和有效原型登记，通过 `$web-compose-capabilities` 的 `templates/application/files.ts` 装配当前宿主基线与实际 HomePage，按 wiring.md 接入所选能力。identity.session 包含登录页/路由、用户区、匿名守卫、Token 和退出/401；permissions.enforce 将同一权限码用于页面/导航/路由/元素和执行前；orders.purchase 当前自动依赖基础身份资源及商品/订单/钱包。完整用户方案仍须按[账号与组织基线](../web-compose-capabilities/knowledge/identity.md#完整用户信息)及接线差异表补齐，不能用当前闭包省略组织或已确认流程。未决购买由当前作用域持续持有，关闭弹窗或切换路由不能丢弃后重新下单。
 
 运行首版相关类型检查、非空行为测试和开发浏览器核心流程走查；Extension 覆盖 Chrome/Firefox。此触发源于完整创建合同，不扩大普通修复的默认检查。首版必须连接真实 adapter；自建服务需真实 HTTP、持久化和最高风险失败验证，缺项不能宣告完成。只在要求最终 dist/zip 时转最终候选门禁。

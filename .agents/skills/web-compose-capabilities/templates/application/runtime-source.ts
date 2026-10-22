@@ -7,6 +7,7 @@ export function runtimeSource(options: ApplicationOptions, operations: readonly 
   const permissions = modules.has("permissions")
   const organization = modules.has("organization")
   const management = operations.includes("organization.manage")
+  const workspace = operations.includes("identity.workspace")
   const imports = [
     'import { queryClient } from "../../app/queryClient"',
     'import { createApplicationScope } from "./scope"'
@@ -68,9 +69,30 @@ export const identityActor = () => identitySession.getSnapshot().identity?.id ??
       "identitySession.subscribe(() => { if (organizationUser?.accountId !== identityActor()) { organizationId = null; organizationUser = null } })"
     )
   }
+
+  if (workspace) {
+    imports.push('import { createTeamService } from "../../data/api/organization/teamService"')
+    lines.push(`/** 团队生命周期复用既有会话、组织切换和权限 owner，不创建第二套上下文。 */
+export const teamService = createTeamService({ ...organizationApi, switch: (id) => organizationService.switch(id) }, {
+  account: identityActor, scope: currentScope, blocked: () => applicationScope.getSnapshot().blocked, canManage: canManageOrganization,
+  /** 写入后先权威恢复成员和权限，撤权立即撤下旧正文，再刷新当前私有查询。 */
+  async refresh() {
+    await ensureOrganization()
+    await permissionSession.refresh()
+    await queryClient.invalidateQueries({ predicate: (query) => query.meta?.private === true && ["team", "organization"].includes(String(query.queryKey[0])) }, { throwOnError: true })
+  }
+})`)
+  }
   lines.push(
     `/** 查询作用域按实际身份${organization ? "与组织" : ""}隔离；服务端独立校验授权。 */\nexport const actor = () => ${identity ? (organization ? "organizationUser?.accountId === identityActor() ? organizationUser.id : null" : "identityActor()") : "null"}`
   )
+  if (organization)
+    lines.push(`/** 显式区分账号、团队和成员归属；创建者与 actor helper 不能代替数据所有者。 */
+export function currentDataOwnership() {
+  const accountId = identityActor()
+  if (!accountId || applicationScope.getSnapshot().blocked || !organizationUser || organizationUser.accountId !== accountId || organizationUser.organizationId !== organizationId) return null
+  return Object.freeze({ accountId, organizationId: organizationUser.organizationId, organizationUserId: organizationUser.id, revision: currentScope() })
+}`)
   for (const module of ["catalog", "orders", "audit"]) if (modules.has(module)) api(module)
   if (modules.has("wallet-payments")) api("wallet")
   if (organization) {
@@ -100,9 +122,9 @@ export async function ensureOrganization(signal?: AbortSignal) {
   acceptOrganization(context)
   if (changed) clearPrivateData()
 }
-/** 拥有者身份与管理权限分别复核，组织恢复页的豁免不延伸到管理。 */
+/** 前端只以有效权限码控制管理入口，拥有者保护由后端对象规则执行。 */
 export function canManageOrganization() {
-  return ${management ? '!applicationScope.getSnapshot().blocked && organizationUser !== null && organizationUser.accountId === identityActor() && organizationUser.role === "owner" && canAct("organization.manage")' : "false"}
+  return ${management ? '!applicationScope.getSnapshot().blocked && canAct("organization.manage")' : "false"}
 }
 /** 切换期间撤下私有正文；服务端未知结果权威重读，不用本地旧值伪装回滚。 */
 export const organizationService = {
@@ -137,7 +159,7 @@ export const organizationService = {
   }${
     management
       ? `,
-  /** 页面提交前与服务层共用 owner 判定，迟到结果不刷新新组织。 */
+  /** 页面提交前与服务层共用权限 code 判定，迟到结果不刷新新组织。 */
   async rename(id: string, name: string) {
     if (!canManageOrganization() || id !== organizationId) throw new Error("organization_denied")
     const accountId = identityActor()

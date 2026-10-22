@@ -4,10 +4,18 @@ import type { TestApplicationOptions as ApplicationOptions } from "./application
 import { resolveCapabilitySelection } from "../.agents/skills/web-compose-capabilities/scripts/capabilities.ts"
 import { HOME_SOURCE, runApplicationFixture } from "./application-wiring-fixture.ts"
 
-/** 所选用户只有基础会话，购买依赖闭包不附带组织、权限、注册或找回。 */
+/** 完整用户默认包含归属基线；独立会话与购买底层依赖仍可按操作复用。 */
 test("resolves only explicit operation dependencies", () => {
   const identity = resolveCapabilitySelection({ host: "web", modules: ["identity"] })
-  expect(identity.modules.map((item) => item.id)).toEqual(["identity"])
+  expect(identity.modules.map((item) => item.id).sort()).toEqual([
+    "identity",
+    "organization",
+    "permissions"
+  ])
+  expect(identity.resolved).toContain("identity.workspace")
+  expect(identity.resolved).toContain("organization.invite")
+  expect(identity.resolved).toContain("permissions.grant")
+  expect(identity.resolved).toContain("permissions.roles")
   const purchase = resolveCapabilitySelection({
     host: "extension",
     operations: ["orders.purchase"]

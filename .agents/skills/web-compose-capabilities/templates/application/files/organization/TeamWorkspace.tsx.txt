@@ -1,0 +1,77 @@
+import { Alert, Button, Stack } from "@mantine/core"
+import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
+import type { TeamApi } from "../../data/api/organization/teamContracts"
+import { OrganizationPage } from "./OrganizationPage"
+import { TeamInbox } from "./TeamInbox"
+import { TeamMembers } from "./TeamMembers"
+import { useTeamMutation } from "./useTeamMutation"
+
+/** 团队恢复页和管理页复用一个可信上下文；共享数据不会随成员退出被迁移。 */
+export function TeamWorkspace({
+  api,
+  scope,
+  isCurrent,
+  changed,
+  manage = false
+}: {
+  api: TeamApi
+  scope: number
+  isCurrent(): boolean
+  changed(): Promise<void>
+  manage?: boolean
+}) {
+  const { t, i18n } = useTranslation()
+  const query = useQuery({
+    queryKey: ["organization", scope, i18n.language],
+    meta: { private: true },
+    retry: false,
+    queryFn: ({ signal }) => api.read(signal),
+    staleTime: 10000
+  })
+  const current = query.data?.available.find((row) => row.id === query.data.current)
+  const mutation = useTeamMutation(isCurrent, async () => {
+    await query.refetch({ throwOnError: true })
+    await changed()
+  })
+  if (manage)
+    return current ? (
+      <TeamMembers
+        key={current.id}
+        api={api}
+        organizationId={current.id}
+        scope={scope}
+        isCurrent={isCurrent}
+      />
+    ) : null
+  return (
+    <Stack>
+      <OrganizationPage api={api} scope={scope} canSwitch changed={changed} />
+      {current?.user.permissions.includes("team.leave") && (
+        <Button
+          color="red"
+          variant="subtle"
+          disabled={mutation.disabled || !current.user.canRemove}
+          onClick={() => {
+            void mutation.run(() => api.remove(current.user))
+          }}
+        >
+          {t("teamLeave")}
+        </Button>
+      )}
+      {mutation.status === "unknown" && (
+        <Alert role="alert">
+          {t("teamUnknown")}
+          <Button
+            onClick={() => {
+              void mutation.verify()
+            }}
+          >
+            {t("teamVerify")}
+          </Button>
+        </Alert>
+      )}
+      <TeamInbox api={api} scope={scope} isCurrent={isCurrent} />
+    </Stack>
+  )
+}

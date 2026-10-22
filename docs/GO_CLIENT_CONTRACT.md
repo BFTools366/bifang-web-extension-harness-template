@@ -13,7 +13,29 @@
 | 验证码/找回 | 条件资产有接口和生命周期                           | 默认不挂载；本地 overlay 可接 SMTP TLS，或显式授权的 dev 注册 Mock，找回仍要求真实投递    |
 | GraphQL     | health、me                                         | 无客户、组织成员、角色等集合查询；按操作补 SDL/resolver，不能从基础 me 推断               |
 
-组织私有完整方案仍须满足本地既定的 Account + Organization + OrganizationUser 基线。当前 install-users 装配器在上游之上增加 owner 成员事务和 profile.organization_user；这是明确的 Workspace 扩展，原始 Go Harness 没有该实体。profile 返回的是自有默认组织，不是加入其他组织后的任意当前组织；当前组织权限必须另从真实成员及权限合同读取。
+上表描述固定上游快照，不代表本地扩展的全部能力。本地 install-users 在上游之上装配八表 RBAC、团队邀请/成员/角色/权限、GraphQL 查询和 REST 命令；数据归属及不变量的唯一来源是 [ACCOUNT_OWNERSHIP.md](ACCOUNT_OWNERSHIP.md)。profile 仍只返回账号与自有默认组织，当前工作团队从 teamContext 读取，不能混用。
+
+## 本地团队接口
+
+以下均为本地 overlay 的实际合同，原始快照和外部已有服务不自动具备。REST 前缀 /api/v1/auth/teams；全部需要有效 Bearer。ID 为字符串，字段为 camelCase，成功空结果沿用既有 empty 信封。
+
+| 操作                  | 方法 / 路径                              | JSON                                                          |
+| --------------------- | ---------------------------------------- | ------------------------------------------------------------- |
+| 切换团队              | POST /switch                             | organizationId                                                |
+| 团队改名              | PUT /name                                | organizationId, name                                          |
+| 定向邀请              | POST /invitations                        | organizationId, email；返回 team.invitation 对象及 id/version |
+| 接受 / 拒绝 / 撤销    | POST /invitations/accept、reject、revoke | invitationId, version                                         |
+| 本人退出 / 管理员移除 | POST /members/remove                     | organizationId, memberId, version                             |
+| 替换成员自定义角色    | PUT /members/roles                       | organizationId, memberId, version, roleIds                    |
+| 创建角色              | POST /roles                              | organizationId, code, name, codes                             |
+| 修改角色名称和权限    | PUT /roles                               | organizationId, roleId, version, name, codes                  |
+| 删除角色              | POST /roles/remove                       | organizationId, roleId, version                               |
+
+POST /graphql 使用标准 data/errors；实际 SDL 随服务生成在 internal/graphql/team.graphqls。teamContext 返回 current 和有效成员团队 available；teamMembers(organizationId,page,pageSize) 与 teamInvitations(organizationId?,page,pageSize) 返回 items/total，page 从 1 起、pageSize 1–100。未指定团队的邀请查询只读本人收到的邀请，指定团队则要求 team.manage。teamPermissions(organizationId,subjectId) 只返回当前账号在该团队真实成员的权限；teamPermissionCatalog(organizationId) 要求 team.manage，只返回操作者可授予的有效权限。错误码沿用 common.forbidden/conflict/bad.request 等既有稳定码，不暴露 SQL。
+
+teamRoles(organizationId,page,pageSize) 要求 team.manage，返回角色 items/total；角色字段 id/organizationId/code/name/protected/version/permissions。角色归团队，角色权限必须来自服务目录；创建、修改和分配角色不得授予操作者自己没有的权限，系统角色不可经客户端更改。
+
+成员投影含 id/accountId/organizationId/displayName/role/status/version/permissions/roleIds/canRemove/canAssignRoles；role 是兼容的拥有关系展示标记，不是前端授权依据，permissions 才是经 RBAC 计算的有效 code。canRemove/canAssignRoles 表达目标的对象保护，调用者还必须拥有动作权限。邀请投影含 id/organizationId/organizationName/accountId/status/version/expiresAt（Unix 秒）。成员状态 active/removed；查询只返回 active 成员。邀请状态 pending/accepted/rejected/revoked，过期 pending 在查询中投影为 expired。并发成员/角色变更和邀请续发增加各自版本；未知写结果先查询核对，禁止自动重放。
 
 ## 数据结构
 

@@ -70,6 +70,15 @@ export const APPLICATION_ASSETS: Record<string, Record<string, string>> = {
 }
 /** 只随具体操作装配的固定资产，不因模块启用而附带写入能力。 */
 const OPERATION_ASSETS: Record<string, Record<string, string>> = {
+  "identity.workspace": {
+    "src/data/api/organization/teamContracts.ts": "organization/teamContracts.ts.txt",
+    "src/data/api/organization/teamService.ts": "organization/teamService.ts.txt",
+    "src/features/organization/useTeamMutation.ts": "organization/useTeamMutation.ts.txt",
+    "src/features/organization/TeamInbox.tsx": "organization/TeamInbox.tsx.txt",
+    "src/features/organization/TeamMembers.tsx": "organization/TeamMembers.tsx.txt",
+    "src/features/organization/TeamRoles.tsx": "organization/TeamRoles.tsx.txt",
+    "src/features/organization/TeamWorkspace.tsx": "organization/TeamWorkspace.tsx.txt"
+  },
   "identity.register": {
     "src/data/api/identity/registration.ts": "identity/registration.ts.txt",
     "src/features/identity/RegistrationPage.tsx": "identity/RegistrationPage.tsx.txt",
@@ -205,6 +214,18 @@ export function applicationFiles(
     "wallet-payments.pay",
     "audit.read"
   ])
+  if (frontendOperations.includes("identity.workspace")) {
+    for (const operation of [
+      "identity.workspace",
+      "organization.members",
+      "organization.invite",
+      "organization.accept",
+      "organization.leave",
+      "permissions.roles",
+      "permissions.grant"
+    ])
+      supported.add(operation)
+  }
   if (
     frontendOperations.includes("identity.verification") &&
     !frontendOperations.includes("identity.register")

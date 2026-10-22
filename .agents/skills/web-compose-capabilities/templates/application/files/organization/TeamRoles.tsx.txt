@@ -1,0 +1,142 @@
+import { Button, Group, MultiSelect, Stack, Text, TextInput, Title } from "@mantine/core"
+import { useState } from "react"
+import { useTranslation } from "react-i18next"
+import type { TeamApi, TeamRole } from "../../data/api/organization/teamContracts"
+
+/** 单角色编辑只修改名字和权限码；系统角色的保护由服务决定，前端不以角色名授权。 */
+function RoleEditor({
+  api,
+  role,
+  permissions,
+  disabled,
+  run
+}: {
+  api: TeamApi
+  role: TeamRole
+  permissions: readonly string[]
+  disabled: boolean
+  run(action: () => Promise<void>): Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [name, setName] = useState(role.name),
+    [codes, setCodes] = useState([...role.permissions])
+  if (role.protected)
+    return (
+      <Text>
+        {role.name} · {t("teamSystemRole")}
+      </Text>
+    )
+  return (
+    <Stack gap="xs">
+      <Text>{role.code}</Text>
+      <TextInput
+        label={t("teamRoleName")}
+        value={name}
+        maxLength={60}
+        disabled={disabled}
+        onChange={(event) => setName(event.currentTarget.value)}
+      />
+      <MultiSelect
+        label={t("teamPermissions")}
+        data={[...permissions]}
+        value={codes}
+        onChange={setCodes}
+        disabled={disabled}
+      />
+      <Group>
+        <Button
+          disabled={disabled || !name.trim()}
+          onClick={() => {
+            void run(() => api.updateRole(role, name.trim(), codes))
+          }}
+        >
+          {t("teamSavePermissions")}
+        </Button>
+        <Button
+          color="red"
+          variant="subtle"
+          disabled={disabled}
+          onClick={() => {
+            void run(() => api.deleteRole(role))
+          }}
+        >
+          {t("teamDeleteRole")}
+        </Button>
+      </Group>
+    </Stack>
+  )
+}
+/** 角色管理与成员角色分配共用同一团队 Query 和 code 门禁，局部只保存编辑草稿。 */
+export function TeamRoles({
+  api,
+  organizationId,
+  roles,
+  permissions,
+  disabled,
+  run
+}: {
+  api: TeamApi
+  organizationId: string
+  roles: readonly TeamRole[]
+  permissions: readonly string[]
+  disabled: boolean
+  run(action: () => Promise<void>): Promise<void>
+}) {
+  const { t } = useTranslation()
+  const [code, setCode] = useState(""),
+    [name, setName] = useState(""),
+    [codes, setCodes] = useState<string[]>([])
+  return (
+    <Stack>
+      <Title order={2}>{t("teamRoles")}</Title>
+      {roles.map((role) => (
+        <RoleEditor
+          key={role.id + ":" + role.version}
+          api={api}
+          role={role}
+          permissions={permissions}
+          disabled={disabled}
+          run={run}
+        />
+      ))}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (code.trim() && name.trim())
+            void run(() => api.createRole(organizationId, code.trim(), name.trim(), codes))
+        }}
+      >
+        <Stack>
+          <TextInput
+            label={t("teamRoleCode")}
+            placeholder={t("teamRoleCodePlaceholder")}
+            value={code}
+            required
+            maxLength={64}
+            disabled={disabled}
+            onChange={(event) => setCode(event.currentTarget.value)}
+          />
+          <TextInput
+            label={t("teamRoleName")}
+            placeholder={t("teamRoleNamePlaceholder")}
+            value={name}
+            required
+            maxLength={60}
+            disabled={disabled}
+            onChange={(event) => setName(event.currentTarget.value)}
+          />
+          <MultiSelect
+            label={t("teamPermissions")}
+            data={[...permissions]}
+            value={codes}
+            onChange={setCodes}
+            disabled={disabled}
+          />
+          <Button type="submit" disabled={disabled || !code.trim() || !name.trim()}>
+            {t("teamCreateRole")}
+          </Button>
+        </Stack>
+      </form>
+    </Stack>
+  )
+}

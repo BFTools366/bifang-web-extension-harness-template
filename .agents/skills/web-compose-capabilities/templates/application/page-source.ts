@@ -18,6 +18,7 @@ export function applicationPageSource(
   const purchase = operations.includes("orders.purchase")
   const organization = operations.some((operation) => operation.startsWith("organization."))
   const management = operations.includes("organization.manage")
+  const workspace = operations.includes("identity.workspace")
   const imports = [
     "import { useSyncExternalStore" +
       (purchase || organization ? ", useState" : "") +
@@ -65,6 +66,11 @@ export function applicationPageSource(
       "import { organizationService" +
         (management ? ", canManageOrganization" : "") +
         ' } from "./runtime"'
+    )
+  if (workspace)
+    imports.push(
+      'import { TeamWorkspace } from "../organization/TeamWorkspace"',
+      'import { teamService } from "./runtime"'
     )
   if (registration)
     imports.push(
@@ -138,16 +144,25 @@ export function ForbiddenPage() {
     const module = page.module
     const component = page.component
     if (!module) continue
+    if (workspace && component === "OrganizationPage") {
+      lines.push(`/** 团队恢复与邀请接受是账号级入口，不要求团队业务权限。 */
+export function Organization() {
+  const scope = useScope()
+  const router = useRouter()
+  return <TeamWorkspace key={scope.revision} api={teamService} scope={scope.revision} isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && !applicationScope.getSnapshot().blocked} changed={async () => { await router.invalidate({ sync: true }) }} />
+}`)
+      continue
+    }
     const service = module === "organization" ? "organizationService" : serviceName(module) + "Api"
     if (component === "OrganizationManagementPage") {
       imports.push(
         'import { OrganizationManagementPage } from "../organization/OrganizationManagementPage"'
       )
-      lines.push(`/** 管理直达、持续权限与保存动作均要求当前组织拥有者。 */
+      lines.push(`/** 管理直达、持续权限与保存动作均按有效权限 code 判断。 */
 export function OrganizationManagement() {
   const scope = useScope()
   useSyncExternalStore(permissionSession.subscribe, permissionSession.getSnapshot, permissionSession.getSnapshot)
-  return canVisit("/organization/manage") ? <OrganizationManagementPage key={scope.revision} api={organizationService} scope={scope.revision} authorize={() => { if (!canVisit("/organization/manage")) throw new Error("organization_denied") }} isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && canManageOrganization()} /> : <ForbiddenPage />
+  return canVisit("/organization/manage") ? <> <OrganizationManagementPage key={scope.revision} api={organizationService} scope={scope.revision} authorize={() => { if (!canVisit("/organization/manage")) throw new Error("organization_denied") }} isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && canManageOrganization()} /> ${workspace ? '<TeamWorkspace key={"members:" + scope.revision} api={teamService} scope={scope.revision} manage isCurrent={() => applicationScope.getSnapshot().revision === scope.revision && canManageOrganization()} changed={async () => {}} />' : ""}</> : <ForbiddenPage />
 }`)
       continue
     }
@@ -181,6 +196,11 @@ export function ${name}() {
 }`)
   }
   // 组件导入与 runtime 导入去重，同时保持显式具名边界。
-  const source = [...new Set(imports)].join("\n") + "\n\n" + lines.join("\n") + "\n"
+  let source = [...new Set(imports)].join("\n") + "\n\n" + lines.join("\n") + "\n"
+  if (workspace)
+    source = source.replace(
+      " open={() => setSwitchState",
+      ' joining={<Menu.Item renderRoot={(props) => <Link {...props} to="/organization" preload={false} />}>{t("teamJoin")}</Menu.Item>} open={() => setSwitchState'
+    )
   return source
 }

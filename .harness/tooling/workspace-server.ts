@@ -199,7 +199,7 @@ export async function generateGoServer(
   /** 只复制普通模板文件，拒绝链接或特殊文件进入生成结果。 */
   async function copyDirectory(relative: string): Promise<void> {
     for (const entry of await readdir(path.join(seed, relative), { withFileTypes: true })) {
-      const file = path.join(relative, entry.name)
+      const file = path.posix.join(relative, entry.name)
       if (entry.isDirectory()) await copyDirectory(file)
       else if (entry.isFile()) {
         if (file === "README.md") continue

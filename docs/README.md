@@ -12,6 +12,7 @@
 | [`LOGGING.md`](LOGGING.md)                             | 设计日志、脱敏 Release 记录或扫描最终产物                            |
 | [`API.md`](API.md)                                     | 查阅基础 API 契约及 [功能模块映射与缺口](API.md#功能模块与-api-关联) |
 | [`DATA_ACCESS.md`](DATA_ACCESS.md)                     | 分页、HTTP/认证、数据访问或事件流变化                                |
+| [`ACCOUNT_OWNERSHIP.md`](ACCOUNT_OWNERSHIP.md)         | 账号、团队、成员、邀请、权限与业务数据归属                           |
 | [`RELEASE.md`](RELEASE.md)                             | 准备版本、候选或发布                                                 |
 | [`VERIFICATION.md`](VERIFICATION.md)                   | 完整验收或候选证据                                                   |
 | [`TECH_DEBT.md`](TECH_DEBT.md)                         | 记录当前范围外的已知限制                                             |

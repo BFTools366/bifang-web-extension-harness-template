@@ -221,6 +221,7 @@ export function requiredWorkspaceSourcePaths(context: UpgradeTargetContext) {
           ".harness/tooling/workspace-context.ts",
           "docs/WORKSPACE_TEMPLATE.md",
           "docs/GO_SERVICE.md",
+          "docs/ACCOUNT_OWNERSHIP.md",
           "docs/GO_CLIENT_CONTRACT.md"
         ].includes(source)
       )

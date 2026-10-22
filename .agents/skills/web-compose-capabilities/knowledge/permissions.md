@@ -6,7 +6,7 @@
 
 ## Go 服务基准
 
-[固定 Go 合同](../../../../docs/GO_CLIENT_CONTRACT.md) 当前没有角色、权限码、权限查询或 RBAC 数据结构。Token 仅证明账号身份及令牌版本，不含组织/成员权限；Account.status 只表示账号启用状态。下文角色与成员授权是明确选中操作后需要补建的合同，不能从 owner_id、role 名称或前端 catalog 生成授权。客户 CRM 与管理端账号 CRUD 同样未实现；先定义服务合同，再接前端，缺失权限默认拒绝。
+[固定 Go 上游](../../../../docs/GO_CLIENT_CONTRACT.md) 没有 RBAC；本地团队 overlay 已实现团队角色、角色权限、成员角色、权限目录和有效权限查询。规则统一见 [ACCOUNT_OWNERSHIP.md](../../../../docs/ACCOUNT_OWNERSHIP.md)。Token 只证明身份，所有成员（含 owner）每次经角色权限链计算有效 code；前端菜单、路由、元素和执行前只判断 code，不按角色名授权。CRM 与平台权限仍需独立合同，不能据此伪造。
 
 ## 能力与事实
 
@@ -23,7 +23,7 @@
 
 采用组织模型时，权限主体是 OrganizationUser.id，关联当前 Account 与 Organization；独立账号权限才使用 Account.id。缺失、错配、无有效成员关系时失败关闭。加入其他组织不会继承个人组织权限，平台角色与组织成员角色分别管理；“组织拥有者”还须校验 owner 关系，不能从“管理员”名称推断。
 
-同一 account + organizationUser + organization + revision 的刷新共享一次读取，使用内部 AbortController；单个导航取消只退出自己的等待，不能取消其他消费者。owner 变化终止旧读取并清除旧授权，迟到成功/失败不能授权或注销新 scope。切换权限未完成时不组合“新组织 + 旧权限”；恢复组织选择不依赖受限业务权限，管理页仍严格检查 owner 与权限。
+同一 account + organizationUser + organization + revision 的刷新共享一次读取，使用内部 AbortController；单个导航取消只退出自己的等待，不能取消其他消费者。会话所有者变化终止旧读取并清除旧授权，迟到成功/失败不能授权或注销新 scope。切换权限未完成时不组合“新组织 + 旧权限”；恢复组织选择不依赖受限业务权限，管理页仍严格检查有效权限 code 和当前 scope，不检查角色名称。
 
 ## 访问控制 SOP
 
