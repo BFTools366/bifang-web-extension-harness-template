@@ -6,7 +6,12 @@ import {
   recordUpgradeBaseline
 } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-core.ts"
 import { assertControlSnapshots } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-snapshot.ts"
-import { WORKSPACE_OWNERSHIP_RULES } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-workspace.ts"
+import {
+  WORKSPACE_OWNERSHIP_RULES,
+  missingWorkspaceOwnership
+} from "../.agents/skills/web-upgrade-harness/scripts/upgrade-workspace.ts"
+import { migrateOwnership } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-ownership-delta.ts"
+import type { OwnershipRule } from "../.agents/skills/web-upgrade-harness/scripts/upgrade-types.ts"
 import {
   git,
   planFor,
@@ -55,7 +60,8 @@ async function workspaceFixture(
   )
   for (const root of [fixture.target, fixture.candidate]) {
     await mkdir(path.join(root, ".harness/runtime"), { recursive: true })
-    await writeFile(path.join(root, ".harness/runtime/workspace.mjs"), "// runtime baseline\n")
+    for (const rule of WORKSPACE_OWNERSHIP_RULES)
+      await writeFile(path.join(root, rule.pattern), "// runtime baseline\n")
   }
   await git(fixture.target, ["add", "."])
   await git(fixture.target, ["commit", "-m", "test: workspace baseline"])
@@ -75,6 +81,49 @@ async function bootstrap(fixture: Awaited<ReturnType<typeof workspaceFixture>>) 
 }
 
 describe("Workspace Harness upgrade", () => {
+  /** 旧一项策略与缺失策略都能只读预演，授权后只追加新模块规则。 */
+  test.each([0, 1, 3])("兼容旧 Workspace 的 %i 项根规则迁移", async (count) => {
+    const fixture = await workspaceFixture()
+    const manifest = JSON.parse(await readFile(fixture.ownership, "utf8"))
+    if (count === 0) delete manifest.workspaceRules
+    else manifest.workspaceRules = WORKSPACE_OWNERSHIP_RULES.slice(0, count)
+    const original = JSON.stringify(manifest)
+    await writeFile(fixture.ownership, original)
+    const before = await readFile(path.join(fixture.target, "example_server/config.yaml"), "utf8")
+    const missing = missingWorkspaceOwnership(manifest.workspaceRules)
+    expect(missing).toEqual(WORKSPACE_OWNERSHIP_RULES.slice(count))
+    const preview = await migrateOwnership({ targetOwnershipPath: fixture.ownership })
+    expect(preview.written).toBe(false)
+    expect(preview.delta.workspaceMissing ?? []).toEqual(missing)
+    expect(await readFile(fixture.ownership, "utf8")).toBe(original)
+    const applied = await migrateOwnership({
+      targetOwnershipPath: fixture.ownership,
+      approval: "测试中批准精确根规则追加"
+    })
+    expect(applied.written).toBe(count !== 3)
+    const actual = JSON.parse(await readFile(fixture.ownership, "utf8"))
+    expect(actual.rules).toEqual(manifest.rules)
+    expect(actual.workspaceRules).toEqual(WORKSPACE_OWNERSHIP_RULES)
+    await expect(planFor(fixture)).resolves.toBeDefined()
+    expect(await readFile(path.join(fixture.target, "example_server/config.yaml"), "utf8")).toBe(
+      before
+    )
+  })
+
+  /** 兼容迁移不允许额外授权、顺序变化、重复或删弱权限。 */
+  test("拒绝不可信 Workspace 根规则迁移", () => {
+    const invalid: OwnershipRule[][] = [
+      [
+        ...WORKSPACE_OWNERSHIP_RULES,
+        { pattern: "example_server/**", mode: "managed", required: true }
+      ],
+      [...WORKSPACE_OWNERSHIP_RULES.slice(1, 2), ...WORKSPACE_OWNERSHIP_RULES.slice(0, 1)],
+      [...WORKSPACE_OWNERSHIP_RULES.slice(0, 1), ...WORKSPACE_OWNERSHIP_RULES.slice(0, 1)],
+      [{ pattern: ".harness/runtime/workspace.mjs", mode: "protected", required: true }]
+    ]
+    for (const rules of invalid)
+      expect(() => missingWorkspaceOwnership(rules)).toThrow(/workspaceRules/)
+  })
   /** 本地服务归属受同一根锁保护，升级不新增服务成员或改变地址。 */
   test("本地模式可记录并复读工程基线", async () => {
     const fixture = await workspaceFixture("web", "none")

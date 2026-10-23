@@ -25,6 +25,7 @@ export const HARNESS_ONLY_PATHS = [
   "tests/workspace.test.ts",
   "tests/workspace-runtime.test.ts",
   "tests/workspace-server.test.ts",
+  "tests/workspace-release.test.ts",
   "tests/creation-api-contract.test.ts",
   ".agents/skills/initialize-web-project",
   ".agents/skills/instantiate-project",

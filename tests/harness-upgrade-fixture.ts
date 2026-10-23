@@ -59,6 +59,10 @@ export async function writeProjectFiles(root: string, managed = "baseline\n"): P
   await writeFile(path.join(root, "README.md"), "# Project\n")
   await writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n')
   await writeFile(path.join(root, ".harness/tooling/comment-policy.ts"), managed)
+  await writeFile(
+    path.join(root, ".harness/tooling/router-browser.ts"),
+    "export const isServer = false\nexport const loadServerRoute = undefined\n"
+  )
 }
 
 /** 建立源、候选、目标与证据四个互不嵌套的根。 */

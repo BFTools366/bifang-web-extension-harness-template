@@ -59,13 +59,23 @@ export async function renderUpgradeCandidate(
   const localOwnership = await readBoundFileStable(target, ownershipRelative)
   if (!localOwnership.bytes) throw new Error("Target local ownership is missing")
   const beforeOwnership = JSON.parse(localOwnership.bytes.toString("utf8"))
-  const delta = computeOwnershipDelta(beforeOwnership)
+  const workspaceIdentity = await readBoundFileStable(
+    target,
+    ".harness/workspace.json",
+    undefined,
+    true
+  )
+  const delta = computeOwnershipDelta(beforeOwnership, workspaceIdentity.exists)
   if (delta.conflicts.length || delta.shadowed.length)
     throw new Error("Ownership requires conflict review")
   const proposed = {
     ...beforeOwnership,
     rules: [...beforeOwnership.rules, ...delta.missing],
-    workspaceRules: beforeOwnership.workspaceRules ?? [...WORKSPACE_OWNERSHIP_RULES]
+    ...(delta.workspaceMissing
+      ? {
+          workspaceRules: [...(beforeOwnership.workspaceRules ?? []), ...delta.workspaceMissing]
+        }
+      : {})
   }
   const ownership = bootstrapProposal
     ? { manifest: validateOwnershipManifest(proposed) }
@@ -98,7 +108,7 @@ export async function renderUpgradeCandidate(
         rootScope &&
         !relative.startsWith(".agents/skills/") &&
         !relative.startsWith("docs/") &&
-        relative !== ".harness/runtime/workspace.mjs" &&
+        !WORKSPACE_OWNERSHIP_RULES.some((rule) => rule.pattern === relative) &&
         !(relative.startsWith(".harness/tooling/") && ROOT_TOOLS.has(path.basename(relative)))
       )
         continue
@@ -191,6 +201,30 @@ export async function renderUpgradeCandidate(
     candidate: output,
     files: files.size,
     bootstrapProposal,
+    ...(context.workspace
+      ? {
+          manualReview: [
+            {
+              path: "package.json",
+              requirement:
+                "合并候选 release 与已选成员 release:<member> 脚本，并保留产品脚本和依赖。"
+            },
+            {
+              path: ".gitignore",
+              requirement: "保留既有内容，手工追加 /release/；此文件仍受保护，不自动覆盖。"
+            },
+            ...(context.workspace.members.some((member) => member.type === "server")
+              ? [
+                  {
+                    path: `${context.workspace.id}_server`,
+                    requirement:
+                      "服务代码与配置受保护；使用 release:server 前须另行迁移单文件配置及 cmd/release-config。"
+                  }
+                ]
+              : [])
+          ]
+        }
+      : {}),
     ...(bootstrapProposal
       ? { ownershipMigration: { before: beforeOwnership, after: proposed } }
       : {})

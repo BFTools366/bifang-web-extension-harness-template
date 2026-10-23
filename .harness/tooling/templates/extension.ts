@@ -72,6 +72,7 @@ void i18n.use(initReactI18next).init({
         ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.en)},
         notFoundTitle: "Page not found",
         notFoundDescription: "The requested page does not exist.",
+        backHome: "Back to home",
         buildVersion: "Build version: {{version}}",
         colorSchemeLabel: "Appearance",
         colorSchemeAuto: "System",
@@ -91,6 +92,7 @@ void i18n.use(initReactI18next).init({
         ...${JSON.stringify(HTTP_ERROR_TRANSLATIONS.zh)},
         notFoundTitle: "页面不存在",
         notFoundDescription: "你访问的页面不存在。",
+        backHome: "返回首页",
         buildVersion: "构建版本：{{version}}",
         colorSchemeLabel: "外观",
         colorSchemeAuto: "跟随系统",
@@ -311,8 +313,9 @@ test.each(["en", "zh"] as const)("recovers an unknown options hash in %s", async
     const router = createExtensionRouter("options")
     const view = render(<Providers><RouterProvider router={router} /></Providers>)
     const title = i18n.t("notFoundTitle")
+    const backHome = language === "en" ? "Back to home" : "返回首页"
     expect(await screen.findByRole("heading", { name: title, level: 1 })).toBeInTheDocument()
-    await user.click(screen.getByRole("link", { name: i18n.t("backHome") }))
+    await user.click(screen.getByRole("link", { name: backHome }))
     await waitFor(() => expect(screen.queryByRole("heading", { name: title })).not.toBeInTheDocument())
     expect(router.history.location.pathname).toBe("/")
     view.unmount()

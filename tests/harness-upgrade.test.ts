@@ -385,6 +385,38 @@ describe("three-way Harness upgrade", () => {
     }
   })
 
+  /** 新版所有权消费者依赖 Workspace 导出，不能按字母顺序先更新消费者。 */
+  test("updates Workspace export provider before its ownership consumer", async () => {
+    const fixture = await upgradeFixture()
+    const provider = ".agents/skills/web-upgrade-harness/scripts/upgrade-workspace.ts"
+    const consumer = ".agents/skills/web-upgrade-harness/scripts/upgrade-ownership-delta.ts"
+    for (const root of [fixture.candidate, fixture.target]) {
+      await mkdir(path.dirname(path.join(root, provider)), { recursive: true })
+      for (const file of [provider, consumer]) await writeFile(path.join(root, file), "baseline\n")
+    }
+    const bootstrapPlan = await persistPlan(fixture, "provider-bootstrap")
+    await recordUpgradeBaseline({
+      planPath: bootstrapPlan,
+      sourceVersion: "202609090101",
+      sourceCommit: fixture.sourceCommit,
+      bootstrap: true,
+      approval: "bootstrap-verified-baseline",
+      resolvedManual: []
+    })
+    for (const file of [provider, consumer])
+      await writeFile(path.join(fixture.candidate, file), `updated:${file}\n`)
+    const first = await persistPlan(fixture, "provider-first")
+    await expect(
+      applyUpgradePath({ planPath: first, path: consumer, approval: "apply-managed-changes" })
+    ).rejects.toThrow(/upgrade-workspace\.ts before/)
+    await applyUpgradePath({ planPath: first, path: provider, approval: "apply-managed-changes" })
+    const second = await persistPlan(fixture, "consumer-second")
+    await applyUpgradePath({ planPath: second, path: consumer, approval: "apply-managed-changes" })
+    expect(await readFile(path.join(fixture.target, consumer), "utf8")).toBe(
+      `updated:${consumer}\n`
+    )
+  })
+
   /** 验证 CLI 计划输出目录不能通过符号链接绕过真实目录检查。 */
   test("rejects a symlinked plan output ancestor", async (context) => {
     const fixture = await upgradeFixture()

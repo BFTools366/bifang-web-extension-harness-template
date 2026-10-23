@@ -1,7 +1,7 @@
 import type { OwnershipMode, UpgradeClassification } from "./upgrade-types.ts"
 
 /** 保存树扫描时明确排除的外部或最终产物目录。 */
-export const EXCLUDED_DIRECTORIES = new Set([".plasmo", "build", "dist", "node_modules"])
+export const EXCLUDED_DIRECTORIES = new Set([".plasmo", "build", "dist", "release", "node_modules"])
 
 /** 保存所有权合法值。 */
 export const OWNERSHIP_MODES = new Set<OwnershipMode>([
@@ -112,6 +112,7 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   "tests/workspace.test.ts": "tombstone",
   "tests/workspace-runtime.test.ts": "tombstone",
   "tests/workspace-server.test.ts": "tombstone",
+  "tests/workspace-release.test.ts": "tombstone",
   "tests/creation-api-contract.test.ts": "tombstone",
 
   ".agents/skills/design-taste-frontend/**": "protected",
@@ -157,6 +158,7 @@ export const MINIMUM_OWNERSHIP_RULES: Readonly<Record<string, OwnershipMode>> = 
   ".harness/tooling/brand.ts": "managed",
   ".harness/tooling/identity.ts": "managed",
   ".harness/tooling/extension-targets.ts": "managed",
+  ".harness/tooling/router-browser.ts": "managed",
   "locales/**": "protected",
   "tests/identity-localization.test.ts": "tombstone",
   "tests/identity-logo.test.ts": "tombstone",
@@ -531,6 +533,7 @@ export const REQUIRED_MANAGED_SOURCE_PATHS = [
   ".harness/tooling/files.ts",
   ".harness/tooling/identity.ts",
   ".harness/tooling/extension-targets.ts",
+  ".harness/tooling/router-browser.ts",
   ".harness/tooling/logo.ts",
   ".harness/tooling/project-memory.ts",
   ".harness/tooling/release.ts",

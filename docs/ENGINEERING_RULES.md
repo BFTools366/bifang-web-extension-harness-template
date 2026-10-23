@@ -32,7 +32,7 @@
 
 ### 2.3 Extension 单包职责
 
-- Plasmo 负责同一 Extension 单包的 Chrome MV3 与 Firefox MV2 开发与构建，React + TypeScript 负责 Popup、Options 和真实需要的其他扩展界面。`package.json.targets.default` 必须显式使用 browser context 并启用 `includeNodeModules`，最终浏览器 bundle 不得把 React、Mantine、Query 等运行时包保留为裸依赖映射。
+- Plasmo 负责同一 Extension 单包的 Chrome MV3 与 Firefox MV2 开发与构建，React + TypeScript 负责 Popup、Options 和真实需要的其他扩展界面。`package.json.targets.default` 必须显式使用 browser context 并启用 `includeNodeModules`，最终浏览器 bundle 不得把 React、Mantine、Query 等运行时包保留为裸依赖映射。Plasmo 另用精确 alias 将 @tanstack/router-core/isServer 映射到受管 .harness/tooling/router-browser.ts，固定浏览器合同，阻止 Node 条件回退开启 SSR。
 - Mantine 提供 UI；TanStack Router 在 Popup 与 Options 独立入口内管理页内导航，分别使用 memory 与 hash history，并以代码声明路由；TanStack Query 管理异步数据；Jotai 管理跨组件客户端状态；i18next 管理用户可见文案。Extension 不继承 Web 的文件路由生成器。
 - `$web-implement-list-view` 只适用 React Web，Extension Popup/Options 不为复用它安装图标或 DnD 依赖，也不继承 Web 列表路由状态契约；扩展中的重复项 UI 仍按当前 surface 和执行上下文实现。
 - 初始化生成的分页与 Ky HTTP 基础只属于当前执行上下文，不承诺 Popup、Options、content script 或 service worker 共享 sessionStorage、Token、continuation 或 401 single-flight。跨上下文所有者必须使用明确的消息/Storage 架构并进入权限与隐私评审。
@@ -139,6 +139,8 @@
 - 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Web 使用对应范围的 Playwright 或可用浏览器能力打开最终构建，验证品牌、构建版本、关键路由、核心成功路径与风险失败路径。
 - 当次 E2E、完整验收解析出的 smoke 或用户、产品、安全、渠道硬要求任一为 `required` 时，Extension 分别在隔离真实 Chrome/Firefox 中加载最终 MV3/MV2 构建，按批准范围验证 manifest、Plasmo 生成图标、构建版本、Popup、Options、必要权限及各浏览器真实 API 行为。
 - 未运行的浏览器、操作系统或渠道标记为 `Unverified`。开发服务器、Mock、占位和源码片段不能替代最终候选。
+
+Workspace 根 `pnpm release` / `release:<member>` 在成员门禁通过后，将同次产物归档到根 release/；格式、平台选择和逐成员原子替换的唯一合同见 [Workspace 发布归档](WORKSPACE_TEMPLATE.md#本地发布归档)。归档步骤不省略成员检查、不把 E2E 选择当执行证据；Server 本机 build 不等同 release。
 
 ### 6.3 非代码变更
 

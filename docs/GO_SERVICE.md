@@ -38,7 +38,7 @@ CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；E
 
 上游账号条件资产提供真实 SQLite 密码哈希、JWT、注册/登录/profile/refresh/logout/已登录改密；不是完整用户方案。完整用户模块需要同一注册事务创建账号、自有组织和 owner 成员，组织 ID 与成员授权主体分开。
 
-上游 logout 自增账号 token_version，会撤销该账号所有会话；refresh 没有单 refresh token 的轮换撤销语义。实施者需按需求明确该行为，不能在前端假设只退出当前设备或宣称 refresh 单次轮换。非开发环境必须拒绝公开默认 JWT 密钥，实际秘密由服务端环境注入。
+上游 logout 自增账号 token_version，会撤销该账号所有会话；refresh 没有单 refresh token 的轮换撤销语义。实施者需按需求明确该行为，不能在前端假设只退出当前设备或宣称 refresh 单次轮换。非开发环境必须拒绝公开默认 JWT 密钥，实际秘密由服务端配置文件或显式环境注入。
 
 自建邮箱注册默认启用验证码、发码入口及验证码表；仅基础登录不增加这些功能。原始快照不修改，本地 verification overlay 提供 SMTP TLS 与完整生命周期。没有邮件服务时 dev 默认模拟投递，随机码随开发回执返回并直接显示在当前注册表单，提示暂未接通邮件发送；账号创建和验证码校验仍由真实服务完成。接通 SMTP 时同时关闭 mock，真实回执省略 code，页面移除回显。非 dev 与找回拒绝 Mock；投递未知不自动重发，真实模式配置缺失明确失败。
 
@@ -46,7 +46,7 @@ CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；E
 
 领域变化运行相关非空 Go 测试；handler、装配、协议或持久化变化还需实际 HTTP 和临时数据库覆盖成功、鉴权/授权失败与恢复。验证注册/登录等流程时重启后再读取或登录，证明持久化；业务联调同时验证前端实际请求及错误反馈。测试替身不能代替真实服务连通证据。
 
-正式发布不照搬上游独立 Git/tag 流程，按根当前请求明确目标平台、配置、制品与部署责任；未测试平台标为 Unverified。根前端构建仍遵循各成员现有候选门禁。
+根 pnpm release:server 必须询问或复用明确目标平台，输出 release/server.zip；内容与命令见 [Workspace 归档合同](WORKSPACE_TEMPLATE.md#本地发布归档)。包内 config.yaml 仅合并源码 configs/config.yaml 与 configs/config-prod.yaml，不包含开发覆盖，不读取本机 APP_* 秘密。生产 jwt.secret 默认空，解压后填写或显式注入；数据库与日志路径相对运行 cwd。此命令只编译和归档，不创建部署或独立 Git/tag 流程；未测试平台标为 Unverified。根前端构建仍遵循各成员现有候选门禁。
 
 GraphQL 原始 generated.go 引导快照单独保存于资产 generated/（真实 gqlgen 输出）；装配时恢复目标原路径并替换身份，再按当前 SDL 生成，不能把该快照当成人工业务代码。具体顺序归 go-implement-graphql。上游 README 保留来源原文，其独立问卷、Mock、初始化命令和“生成物在原路径”陈述均由当前 Skills 合同取代。
 
@@ -65,7 +65,7 @@ GraphQL 原始 generated.go 引导快照单独保存于资产 generated/（真�
 
 外部 HTTP 适配器持有可复用且有总超时的 http.Client，用 NewRequestWithContext；非 2xx、超限响应、非法结构与网络失败区分处理。限制响应体大小并关闭 Body；重试只用于已确认可重试的操作，不重放未知写入。秘密只从服务端配置注入，不返回浏览器配置或日志。
 
-配置按默认值、配置文件与显式环境覆盖加载，并在进程资源启动前验证；开发与生产不得共享弱密钥；未接邮件时默认模拟投递仅允许 dev 注册，非 dev 启动校验拒绝。日志只包含稳定事件、请求关联和安全字段，错误响应使用已定义的错误码与服务端 i18n，支持 zh-CN/en-US；新增错误同步资源，禁止把内部错误、SQL 或秘密原文返回前端。
+配置文件拥有数据库、HTTP、JWT、日志、限流、CORS 与已启用邮件参数，代码只保留安全退级，不保存数据库地址或生产密钥。源码维护 configs/config.yaml、config-dev.yaml 和 config-prod.yaml；运行时优先读取 cwd 下 config.yaml，再回退到 configs/config.yaml，可用 -c 显式选择。基线缺失、不可读、损坏或必要字段缺失时拒绝启动，可选环境文件只允许不存在；先读取文件 app.env，再按显式 --env 与 APP_ENV 优先级选择环境。全部声明字段支持 APP_* 覆盖，即使 YAML 未写该字段。配置在进程资源启动前验证；开发与生产不得共享弱密钥；未接邮件时默认模拟投递仅允许 dev 注册，非 dev 启动校验拒绝。日志只包含稳定事件、请求关联和安全字段，错误响应使用已定义的错误码与服务端 i18n，支持 zh-CN/en-US；新增错误同步资源，禁止把内部错误、SQL 或秘密原文返回前端。
 
 并发工作必须有 context 取消、明确拥有者与退出等待；不在锁内阻塞 I/O，不持有请求 Context 启动失去归属的后台 goroutine。共享写状态与事务竞态需要相关 go test -race 证据，资源关闭遵守唯一归属。纯计算与领域不变量可独立于 HTTP/ORM 测试，不为单次调用预建通用框架。
 

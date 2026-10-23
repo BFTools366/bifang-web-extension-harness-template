@@ -6,10 +6,10 @@ export function workspacePackage(config: WorkspaceConfig, source: Record<string,
   if (config.members.some((member) => member.type !== "server"))
     scripts["prototype:check"] =
       "tsx .agents/skills/web-design-prototype/scripts/prototype-review.ts check"
-  for (const action of ["dev", "test", "typecheck", "lint", "build", "validate"])
+  for (const action of ["dev", "test", "typecheck", "lint", "build", "validate", "release"])
     scripts[action] = `node .harness/runtime/workspace.mjs ${action}`
   for (const member of config.members)
-    for (const action of ["dev", "test", "build"])
+    for (const action of ["dev", "test", "build", "release"])
       scripts[`${action}:${member.type}`] =
         `node .harness/runtime/workspace.mjs ${action} --member ${member.type}`
   const dependencies = source.devDependencies as Record<string, string>
@@ -39,7 +39,7 @@ export function workspaceDocuments(config: WorkspaceConfig): Map<string, string>
     ],
     [
       "README.md",
-      `# ${config.name}\n\n${members}\n\n从此 Workspace 根运行 \`pnpm dev\` 启动选中成员；\`pnpm dev:web\`、\`pnpm dev:extension\`、\`pnpm dev:server\` 只为存在成员生成。\`pnpm test\`、\`pnpm typecheck\`、\`pnpm lint\` 聚合适用成员；\`pnpm validate\` 校验工作区和成员。\`pnpm build -- --member <web|extension|server> --e2e=<enabled|disabled>\` 显式选择前端候选；Go build 为本地编译，发布仍走对应专用 Skill。\n\n${config.service.mode === "none" ? "服务来源：纯本地，不使用远端地址，不创建 Go 服务；三环境保持空地址。" : `服务来源：${config.service.mode}。开发 BaseURL：${config.service.developmentBaseUrl}。已有服务需核对真实契约；自建服务使用 Gin、SQLite 和统一 HTTP 协议。`}首次只生成工程基础，需求所选领域由对应 Skill 完成前端、后端与联调；不使用产品 Mock。\n\n根 package.json 包装成员命令；Go 依赖声明在服务端 go.mod/go.sum。仅根拥有 Git 和 pnpm lock。\n`
+      `# ${config.name}\n\n${members}\n\n从此 Workspace 根运行 \`pnpm dev\` 启动选中成员；\`pnpm dev:web\`、\`pnpm dev:extension\`、\`pnpm dev:server\` 只为存在成员生成。\`pnpm test\`、\`pnpm typecheck\`、\`pnpm lint\` 聚合适用成员；\`pnpm validate\` 校验工作区和成员。\`pnpm build -- --member <web|extension|server> --e2e=<enabled|disabled>\` 显式选择前端候选；Go build 为本地编译。发布打包从根运行 \`pnpm release\`，按需询问 Server 目标平台和本次 E2E；非交互示例：\`pnpm release -- ${config.members.some((member) => member.type === "server") ? "--platform=linux/amd64 " : ""}--e2e=disabled\`。单成员用 \`pnpm release:web\`、\`release:extension\` 或 \`release:server\`。输出为根 \`release/web.zip\`（解压为本成员目录）、\`extension.zip\`（chrome/ 与 firefox/）和 \`server.zip\`（目标平台二进制与 config.yaml），仅生成已选成员。详见 docs/WORKSPACE_TEMPLATE.md。\n\n${config.service.mode === "none" ? "服务来源：纯本地，不使用远端地址，不创建 Go 服务；三环境保持空地址。" : `服务来源：${config.service.mode}。开发 BaseURL：${config.service.developmentBaseUrl}。已有服务需核对真实契约；自建服务使用 Gin、SQLite 和统一 HTTP 协议。`}首次只生成工程基础，需求所选领域由对应 Skill 完成前端、后端与联调；不使用产品 Mock。\n\n根 package.json 包装成员命令；Go 依赖声明在服务端 go.mod/go.sum。仅根拥有 Git 和 pnpm lock。\n`
     ]
   ])
 }

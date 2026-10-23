@@ -6,8 +6,34 @@ import type { OwnershipManifest, OwnershipRule, UpgradeFileSnapshot } from "./up
 
 /** 保存 Workspace 根独有、不能传播进前端成员的最低工程规则。 */
 export const WORKSPACE_OWNERSHIP_RULES: readonly OwnershipRule[] = [
-  { pattern: ".harness/runtime/workspace.mjs", mode: "managed", required: true }
+  ...["workspace.mjs", "release.mjs", "archive.mjs"].map((name) => ({
+    pattern: `.harness/runtime/${name}`,
+    mode: "managed" as const,
+    required: true
+  }))
 ]
+
+/** 只给已知旧规则追加缺失项；未知、乱序、重复或扩大权限的规则必须人工审查。 */
+export function missingWorkspaceOwnership(
+  rules: readonly OwnershipRule[] | undefined
+): OwnershipRule[] {
+  if (rules === undefined) return [...WORKSPACE_OWNERSHIP_RULES]
+  if (
+    !Array.isArray(rules) ||
+    rules.length > WORKSPACE_OWNERSHIP_RULES.length ||
+    rules.some((rule, index) => {
+      const expected = WORKSPACE_OWNERSHIP_RULES[index]
+      return (
+        !rule ||
+        rule.pattern !== expected?.pattern ||
+        rule.mode !== "managed" ||
+        rule.required !== true
+      )
+    })
+  )
+    throw new Error("Workspace ownership conflicts with the exact reviewed workspaceRules")
+  return WORKSPACE_OWNERSHIP_RULES.slice(rules.length)
+}
 
 /** 描述被精确身份锁定的前端成员。 */
 export interface UpgradeFrontend {
@@ -54,10 +80,11 @@ export function validateWorkspaceOwnership(manifest: OwnershipManifest): void {
   const rules = manifest.workspaceRules
   if (
     !Array.isArray(rules) ||
-    rules.length !== 1 ||
-    rules[0]?.pattern !== ".harness/runtime/workspace.mjs" ||
-    rules[0]?.mode !== "managed" ||
-    rules[0]?.required !== true
+    rules.length !== WORKSPACE_OWNERSHIP_RULES.length ||
+    rules.some((rule, index) => {
+      const expected = WORKSPACE_OWNERSHIP_RULES[index]
+      return rule.pattern !== expected?.pattern || rule.mode !== "managed" || rule.required !== true
+    })
   )
     throw new Error("Workspace ownership requires the exact reviewed workspaceRules")
 }
@@ -229,10 +256,8 @@ export function requiredWorkspaceSourcePaths(context: UpgradeTargetContext) {
       )
         paths.push({ source, target: source })
     }
-    paths.push({
-      source: ".harness/runtime/workspace.mjs",
-      target: ".harness/runtime/workspace.mjs"
-    })
+    for (const rule of WORKSPACE_OWNERSHIP_RULES)
+      paths.push({ source: rule.pattern, target: rule.pattern })
   }
   for (const member of context.frontends) {
     for (const source of REQUIRED_MANAGED_SOURCE_PATHS)

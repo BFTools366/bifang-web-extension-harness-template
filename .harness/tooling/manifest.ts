@@ -150,6 +150,12 @@ export function buildProjectManifest(existing: PackageJson, config: ProjectConfi
 
   delete manifest.workspaces
   if (config.projectType === "extension") {
+    // Plasmo resolver-post 可能按 Node 条件回退；精确子路径固定到浏览器合同。
+    const aliases = existing.alias
+    manifest.alias = {
+      ...(aliases && typeof aliases === "object" && !Array.isArray(aliases) ? aliases : {}),
+      "@tanstack/router-core/isServer": "./.harness/tooling/router-browser.ts"
+    }
     // 强制 Parcel 按浏览器条件解析 TanStack Router 的 isServer 子路径。
     manifest["@parcel/resolver-default"] = { packageExports: true }
     manifest.targets = {

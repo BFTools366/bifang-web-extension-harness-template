@@ -7,9 +7,10 @@ import { lstat, readFile, readdir, realpath } from "node:fs/promises"
 import path from "node:path"
 import { parseEnv } from "node:util"
 import { URL, fileURLToPath, pathToFileURL } from "node:url"
+import { releaseWorkspace } from "./release.mjs"
 
 /** 使用 Node >=24 自带的 Fetch 与取消信号，不引入运行时依赖。 */
-const { fetch, AbortSignal } = globalThis
+const { fetch, AbortSignal, AbortController } = globalThis
 
 /** 仅解析受管 packages 清单，拒绝注释伪匹配、额外成员与重复声明。 */
 function pnpmMembers(policy) {
@@ -132,6 +133,7 @@ export async function readWorkspace(root) {
 
 /** 子进程只由当前编排器拥有，不接管其他本地服务。 */
 const children = new Map()
+const cancellation = new AbortController()
 let stopping = false
 
 /** 停止所属进程树，避免 Go 编译器或浏览器开发进程遗留。 */
@@ -217,6 +219,20 @@ async function waitHealthy(base, processDone, instance) {
 export async function runWorkspace(argv, root) {
   const config = await readWorkspace(root)
   const [action, ...rest] = argv
+  if (action === "release") {
+    await releaseWorkspace(
+      root,
+      config,
+      rest,
+      {
+        signal: cancellation.signal,
+        pnpm: (args, cwd) => pnpm(args, cwd).done,
+        go: (args, cwd, environment) => launch("go", args, cwd, environment).done
+      },
+      process.stdin.isTTY === true && process.stdout.isTTY === true
+    )
+    return
+  }
   const args = rest.filter((item) => item !== "--")
   const index = args.indexOf("--member")
   const target = index >= 0 ? args[index + 1] : undefined
@@ -297,6 +313,7 @@ if (executed) {
   for (const signal of ["SIGINT", "SIGTERM"])
     process.on(signal, () => {
       stopping = true
+      cancellation.abort(new Error("Workspace 操作已取消"))
       for (const child of children.keys()) stopChild(child)
       forceStop ??= setTimeout(() => {
         for (const child of children.keys()) stopChild(child, true)

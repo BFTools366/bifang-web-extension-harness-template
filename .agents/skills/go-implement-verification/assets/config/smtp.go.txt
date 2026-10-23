@@ -1,4 +1,4 @@
-// SMTP 统一接入 STARTTLS 或隐式 TLS 邮件服务，秘密只由环境变量注入。
+// SMTP 统一接入 STARTTLS 或隐式 TLS 邮件服务，参数从配置文件读取，秘密可由显式环境变量覆盖。
 type SMTP struct {
 	Host     string        `mapstructure:"host"`
 	Port     int           `mapstructure:"port"`

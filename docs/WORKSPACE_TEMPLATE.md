@@ -63,6 +63,20 @@ Agent 与 CLI 共享题库、条件、汇总和确认。每轮只问一个缺项
 
 编排器不经 Shell 拼接命令，始终设置成员 cwd，失败传播到根，并回收自己创建的进程树；不能清理其他进程。前端依赖依旧按成员 manifest 从根安装，不能使用全局 React/Vite/测试工具。Windows 从 pnpm 注入的实际入口调用 pnpm；Go 与独立 CLI 按全局工具策略处理。
 
+## 本地发布归档
+
+从 Workspace 根运行 `pnpm release`，只处理已登记成员；`pnpm release:web`、`pnpm release:extension`、`pnpm release:server` 只为对应成员生成。命令接受 `--member=web|extension|server`、`--platform=<os/arch>`、`--e2e=enabled|disabled`，也支持参数名与值分开。含 Server 的非交互示例（无 Server 时省略 --platform）：
+
+`pnpm release -- --platform=linux/amd64 --e2e=disabled`
+
+- `release/web.zip`：只归档本次通过成员 Release 门禁的 Vite dist 静态结果，顶层目录固定为 `<id>_web/`，不增加 dist 层。
+- `release/extension.zip`：先执行成员 package 的双目标完整门禁，再从本次 production 目录归档为 `chrome/`（MV3）和 `firefox/`（MV2），各目录直接包含 manifest.json 与完整扩展；不复用旧浏览器 ZIP。
+- `release/server.zip`：仅包含 `<id>_server`（Windows 为 .exe）与 `config.yaml`。执行真实 Go 测试、在本机导出生产配置，再用 GOOS/GOARCH 和 CGO_ENABLED=0 交叉编译。语言及 Swagger 资源已内嵌；不打包数据库、日志或开发配置。
+
+Server 必须先询问用户目标平台，不默认采用本机；已明确的平台参数复用。支持 linux、windows、darwin 各自 amd64/arm64。非交互缺少平台即在构建前失败。前端同一流程只解析一次 E2E，选择 enabled 后仍需委托精确产物验收，命令不会把选择本身报告为 E2E 通过。Server-only 不询问 E2E。
+
+逐成员成功后原子替换对应 ZIP，失败清理该成员暂存并保留其旧包；后续成员失败不会回滚前面已完成成员。其他 release 内容不删除；拒绝源或目标中的符号链接及特殊文件。release/ 被 Git 忽略。归档成功只证明本地制品已生成，发布平台的真实运行、浏览器和外部渠道仍按[发布门禁](RELEASE.md)取证；命令不上传或部署。
+
 ## 服务配置与真实数据
 
 自建服务默认仅监听 `127.0.0.1:8080`，SQLite 位于服务成员 `data/app.db`，不生成业务账号或演示数据。端口冲突必须报错，不自动接管已有端口或悄悄连接其他服务；需要改端口时同步服务监听、Workspace 开发 BaseURL 和前端配置。测试/正式地址和部署分别配置。

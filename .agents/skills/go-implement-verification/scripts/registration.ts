@@ -65,6 +65,13 @@ export function completeEmailRegistration(
       readFileSync(path.join(root, "config/defaults.go.txt"), "utf8")
   )
   change(
+    "configs/config.yaml",
+    "\nlog:\n",
+    "\n  # 邮件参数由配置文件维护；生产密码也可用 APP_VERIFICATION_SMTP_PASSWORD 覆盖。\n" +
+      '  smtp:\n    host: ""\n    port: 587\n    from: ""\n    username: ""\n    password: ""\n' +
+      "    tls_mode: starttls\n    timeout: 10s\n\nlog:\n"
+  )
+  change(
     "internal/model/models.go",
     "&OrganizationUser{}",
     "&OrganizationUser{}, &VerificationCode{}, &VerificationDeliveryState{}"

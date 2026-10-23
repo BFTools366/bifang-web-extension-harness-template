@@ -33,6 +33,13 @@ describe("terminal dual-browser Extension initialization", () => {
     const optionsEntry = await readFile(path.join(root, "src/options.tsx"), "utf8")
     const extensionRouter = await readFile(path.join(root, "src/extension-router.tsx"), "utf8")
     const extensionBrand = await readFile(path.join(root, "src/brand.ts"), "utf8")
+    const packageMetadata = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"))
+    expect(packageMetadata.alias["@tanstack/router-core/isServer"]).toBe(
+      "./.harness/tooling/router-browser.ts"
+    )
+    expect(await readFile(path.join(root, ".harness/tooling/router-browser.ts"), "utf8")).toContain(
+      "export const isServer = false"
+    )
     const i18n = await readFile(path.join(root, "src/i18n.ts"), "utf8")
     const language = await readFile(path.join(root, "src/i18n/language.ts"), "utf8")
     const httpClient = await readFile(path.join(root, "src/data/api/client/httpClient.ts"), "utf8")

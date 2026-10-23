@@ -184,7 +184,9 @@ export async function initializeWorkspace(
   }
   const server = workspace.members.find((item) => item.type === "server")
   if (server) await generateGoServer(root, server.directory, server.directory)
-  const runtime = await readFile(new URL("../runtime/workspace.mjs", import.meta.url), "utf8")
+  const runtimes = new Map<string, string>()
+  for (const name of ["workspace.mjs", "release.mjs", "archive.mjs"])
+    runtimes.set(name, await readFile(new URL(`../runtime/${name}`, import.meta.url), "utf8"))
   // 根仅保留协作所需规则和 Skills，创建器及源测试不进入终端工作区。
   const retained = new Set([
     ".agents",
@@ -210,7 +212,8 @@ export async function initializeWorkspace(
   }
   for (const [file, source] of rootTooling)
     await writeNew(path.join(root, ".harness/tooling", file), source)
-  await writeNew(path.join(root, ".harness/runtime/workspace.mjs"), runtime)
+  for (const [name, runtime] of runtimes)
+    await writeNew(path.join(root, ".harness/runtime", name), runtime)
   for (const [file, before, after] of [
     [
       "LICENSE.en.md",
@@ -233,9 +236,10 @@ export async function initializeWorkspace(
   await writeFile(policyPath, renderAgentPolicy(policy, options.agentPolicy))
   await appendFile(
     path.join(root, ".gitignore"),
-    server
-      ? `\n${server.directory}/data/\n${server.directory}/logs/\n${server.directory}/bin/\n${server.directory}/.harness-server-dev*\n`
-      : "\n"
+    "\n/release/\n" +
+      (server
+        ? `${server.directory}/data/\n${server.directory}/logs/\n${server.directory}/bin/\n${server.directory}/.harness-server-dev*\n`
+        : "")
   )
   await writeJsonNew(path.join(root, ".harness/workspace.json"), workspace)
   if (options.initialCreationAuthorization)

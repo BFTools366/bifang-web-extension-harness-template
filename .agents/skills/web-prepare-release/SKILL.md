@@ -1,11 +1,11 @@
 ---
 name: web-prepare-release
-description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 只处理 Vite dist，Extension 只处理 Chrome MV3 / Firefox MV2 zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。
+description: 为已验收的 Web Harness 或单 package 纯 TypeScript React Web、Plasmo Chrome MV3 / Firefox MV2 Extension 前端下游准备可追溯发布：Harness 绑定精确源码候选，Web 处理 Vite dist 及 Workspace web.zip，Extension 处理 Chrome MV3 / Firefox MV2 及 Workspace extension.zip。用于用户明确要求准备前端发布、检查发布就绪或整理候选元数据；按当前明确发布请求执行既有目的地与范围内的必要步骤，不重复确认。
 ---
 
 # Web Harness：准备前端发布
 
-Workspace 必须显式选择一个成员及产物；根保存 Git/依赖锁/策略，前端成员保存 projectType 与构建产物。Git 身份核对绑定 Workspace 根，成员目录必须精确登记，不能要求成员有独立 Git。根的 build 包装器进入选中前端既有候选链；服务端本机编译交 go-build-local，生产发布另按真实目的地合同。
+Workspace 可按当前明确范围选择已登记成员或全部已选成员，逐成员绑定产物；根保存 Git/依赖锁/策略，前端成员保存 projectType 与构建产物。Git 身份核对绑定 Workspace 根，成员目录必须精确登记，不能要求成员有独立 Git。根的 build 包装器进入选中前端既有候选链；服务端本机编译交 go-build-local，根 release:server 按 Workspace 合同询问平台并生成二进制加单份生产配置；生产部署另按真实目的地合同。
 
 只评估当前仓库的唯一候选种类；Harness 源不伪造应用产物，下游只处理 `.harness/project.json.projectType` 对应格式。
 
@@ -27,13 +27,13 @@ Workspace 必须显式选择一个成员及产物；根保存 Git/依赖锁/策�
 
 ### Web
 
-1. 只接受本次由逻辑 Release 与 `.env.production` 生成、且 `build:release` 自动通过 `pnpm release:inspect` 的已验收 Vite `dist/` 目录；不创建桌面包、浏览器扩展包或未声明的额外归档。
+1. 只接受本次由逻辑 Release 与 `.env.production` 生成、且 `build:release` 自动通过 `pnpm release:inspect` 的已验收 Vite `dist/` 目录；Workspace 使用根 pnpm release:web 收集为 release/web.zip，解压后顶层为项目名_web；旧单包仍按目录交付。
 2. 检查 HTML 入口、静态资源、版本、Logo/favicon、source map 策略和部署所需路由 fallback 说明。
 3. 记录目录内发布文件清单与 SHA-256；目录存在本身不代表当前或完整。
 
 ### Chrome / Firefox Extension
 
-1. 只接受本次 `pnpm package` 以逻辑 Release 与 `.env.production` 生成、并自动通过 `pnpm release:inspect` 的已验收 Chrome MV3 和 Firefox MV2 两个 zip；两者都绑定同一源码、版本及 Release profile，拒绝 unpacked 开发目录冒充发布 zip。
+1. 只接受本次 `pnpm package` 以逻辑 Release 与 `.env.production` 生成、并自动通过 `pnpm release:inspect` 的已验收 Chrome MV3 和 Firefox MV2 两个 zip；两者都绑定同一源码、版本及 Release profile；Workspace 通过根 pnpm release:extension 再从同次 production 目录收集为 release/extension.zip，内含 chrome/ 与 firefox/，拒绝开发目录和旧 ZIP 冒充本次归档。
 2. 检查 zip 可安全列出/解压，根 manifest 分别为 MV3/MV2，且由 Plasmo 按目标动态生成，名称、说明、版本、图标、permissions/host_permissions、入口和资源与批准范围一致。
 3. 逐个记录 zip 的 SHA-256、内容清单和适用的真实 Chrome/Firefox E2E/冒烟结果；重新打包即为新候选，必须重新验收。
 

@@ -73,6 +73,14 @@ describe("workspace creation", () => {
         const manifest = JSON.parse(await readFile(path.join(target, "package.json"), "utf8"))
         expect(manifest.scripts["dev:server"] !== undefined).toBe(expected.includes("server"))
         expect(manifest.dependencies).toBeUndefined()
+        expect(manifest.scripts.release).toBe("node .harness/runtime/workspace.mjs release")
+        for (const member of expected)
+          expect(manifest.scripts[`release:${member}`]).toBe(
+            `node .harness/runtime/workspace.mjs release --member ${member}`
+          )
+        expect(await readdir(path.join(target, ".harness/runtime"))).toEqual(
+          expect.arrayContaining(["workspace.mjs", "release.mjs", "archive.mjs"])
+        )
         const inheritedPolicy = await readFile(path.join(target, "pnpm-workspace.yaml"), "utf8")
         const sourcePolicy = await readFile(
           path.resolve(import.meta.dirname, "../pnpm-workspace.yaml"),
@@ -111,6 +119,9 @@ describe("workspace creation", () => {
             await validatePnpmBuildPolicy(directory, errors)
             expect(errors).toEqual([])
             expect(await readdir(directory)).not.toContain("pnpm-workspace.yaml")
+            expect(await readdir(path.join(directory, "tests"))).not.toContain(
+              "workspace-release.test.ts"
+            )
           }
         }
         expect(await readFile(path.join(target, ".gitattributes"), "utf8")).toContain("eol=lf")

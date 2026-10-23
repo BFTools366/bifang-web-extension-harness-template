@@ -269,6 +269,18 @@ export async function validateExtension(
   if (parcelResolver?.packageExports !== true) {
     errors.push("Extension Parcel resolver must enable packageExports")
   }
+  const aliases = manifest.alias
+  if (
+    !aliases ||
+    typeof aliases !== "object" ||
+    Array.isArray(aliases) ||
+    !("@tanstack/router-core/isServer" in aliases) ||
+    aliases["@tanstack/router-core/isServer"] !== "./.harness/tooling/router-browser.ts"
+  ) {
+    errors.push("Extension Router must alias isServer to the managed browser entry")
+  }
+  const routerBrowser = path.join(root, ".harness/tooling/router-browser.ts")
+  if (!(await pathExists(routerBrowser))) errors.push("Extension Router browser entry is missing")
   // 保存 shellPath 变量供当前逻辑使用。
   const shellPath = path.join(root, "src/ExtensionShell.tsx")
   if (await pathExists(shellPath)) {

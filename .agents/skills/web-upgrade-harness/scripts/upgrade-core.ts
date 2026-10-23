@@ -132,8 +132,10 @@ export async function applyUpgradePath(options: ApplyUpgradeOptions): Promise<Up
     if (ordinary.length > 0) {
       throw new Error("managed-self updates must run after all ordinary managed updates")
     }
-    // 保存稳定自更新队列，并强制 CLI runner 最后替换。
+    // Workspace 导出提供者先于消费者更新，CLI runner 始终最后替换。
     const runner = "/web-upgrade-harness/scripts/harness-upgrade.ts"
+    const provider = "/web-upgrade-harness/scripts/upgrade-workspace.ts"
+    const priority = (file: string) => (file.endsWith(provider) ? 0 : file.endsWith(runner) ? 2 : 1)
     const selfUpdates = plan.entries
       .filter(
         (candidate) =>
@@ -141,8 +143,8 @@ export async function applyUpgradePath(options: ApplyUpgradeOptions): Promise<Up
       )
       .map((candidate) => candidate.path)
       .sort((left, right) => {
-        const runnerOrder = Number(left.endsWith(runner)) - Number(right.endsWith(runner))
-        return runnerOrder === 0 ? left.localeCompare(right) : runnerOrder
+        const dependencyOrder = priority(left) - priority(right)
+        return dependencyOrder === 0 ? left.localeCompare(right) : dependencyOrder
       })
     if (selfUpdates[0] !== relativePath) {
       throw new Error(`managed-self update order requires ${selfUpdates[0]} before ${relativePath}`)

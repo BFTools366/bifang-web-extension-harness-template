@@ -88,6 +88,8 @@ Node.js、pnpm 与独立 CLI 工具全局安装或升级；React、Vite 等项�
 | `pnpm build -- --member <member> --e2e=enabled`  | 构建指定成员的正式产物并要求 E2E 验证；根 `build` 必须指定成员。       |
 | `pnpm build -- --member <member> --e2e=disabled` | 同上，不执行可选 E2E；适用的浏览器硬要求仍须满足。                     |
 
+Workspace 根还提供 `pnpm release` 与 `pnpm release:<member>`，将已选成员统一打包到 `release/web.zip`、`extension.zip`、`server.zip`。Server 打包前必须选择平台，例如 `pnpm release:server -- --platform=linux/amd64`；Web 解压为 `<id>_web/`，扩展包含 chrome/ 与 firefox/，Server 仅二进制和 config.yaml。详见 [归档合同](docs/WORKSPACE_TEMPLATE.md#本地发布归档)。
+
 以下命令在前端成员目录（如 `<id>_web/`、`<id>_extension/`）运行：
 
 | 命令                                    | 用途                                                        |

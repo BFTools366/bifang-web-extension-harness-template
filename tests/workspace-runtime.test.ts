@@ -12,10 +12,11 @@ async function runtimeFixture(
   const root = await realpath(await temporaryDirectory("workspace-runtime-"))
   const member = path.join(root, "example_web")
   await mkdir(path.join(root, ".harness/runtime"), { recursive: true })
-  await cp(
-    path.join(repositoryRoot, ".harness/runtime/workspace.mjs"),
-    path.join(root, ".harness/runtime/workspace.mjs")
-  )
+  for (const name of ["workspace.mjs", "release.mjs", "archive.mjs"])
+    await cp(
+      path.join(repositoryRoot, ".harness/runtime", name),
+      path.join(root, ".harness/runtime", name)
+    )
   await mkdir(path.join(member, ".harness"), { recursive: true })
   await mkdir(path.join(member, "src/data/api/client"), { recursive: true })
   await writeFile(

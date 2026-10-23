@@ -1,6 +1,14 @@
 import { readFile, readdir } from "node:fs/promises"
 import path from "node:path"
 import { writeNew } from "./files.ts"
+import {
+  adaptGoConfiguration,
+  GO_CONFIG_ENVIRONMENT,
+  GO_PRODUCTION_CONFIG,
+  GO_RELEASE_CONFIG,
+  GO_RELEASE_CONFIG_COMMAND
+} from "./templates/go-config.ts"
+import { GO_CONFIGURATION_TEST } from "./templates/go-config-test.ts"
 
 /** 真实响应日志回归，防止复用上游实现时记录原始 Token。 */
 const GO_LOGGER_TEST = String.raw`package middleware
@@ -238,18 +246,28 @@ export async function generateGoServer(
             source.slice(query)
         }
         if (file === "internal/middleware/logger.go") source = adaptGoLogger(source)
+        if (file === "internal/config/config.go") source = adaptGoConfiguration(source)
         await writeNew(path.join(workspaceRoot, directory, file), source)
       } else throw new Error(`Go 模板不能包含链接或特殊文件：${file}`)
     }
   }
   await copyDirectory("")
+  for (const [file, source] of [
+    ["configs/config-prod.yaml", GO_PRODUCTION_CONFIG],
+    ["internal/config/environment.go", GO_CONFIG_ENVIRONMENT],
+    ["internal/config/release_test.go", GO_CONFIGURATION_TEST],
+    ["internal/config/release.go", GO_RELEASE_CONFIG],
+    ["cmd/release-config/main.go", GO_RELEASE_CONFIG_COMMAND]
+  ] as const) {
+    await writeNew(path.join(workspaceRoot, directory, file), source.replaceAll("project_id", id))
+  }
   await writeNew(
     path.join(workspaceRoot, directory, "internal/middleware/logger_test.go"),
     GO_LOGGER_TEST.replaceAll("project_id", id)
   )
   await writeNew(
     path.join(workspaceRoot, directory, "README.md"),
-    `# ${id} 服务端\n\n从 Workspace 根运行 \`pnpm dev:server\` 或在此运行 \`go run ./cmd/server\`。Go >=1.26；Gin HTTP + GORM SQLite，数据在 data/app.db。中性基线只提供 GET /healthz 与 GET /api/v1/system/health-check；业务按独立领域 Skill 实现。测试：\`go test ./...\`。\n\n开发监听 127.0.0.1:8080；测试/生产地址和部署按真实环境配置。无演示业务数据、默认用户或验证码回显。配置、数据库、日志路径均相对此成员目录。\n`
+    `# ${id} 服务端\n\n从 Workspace 根运行 \`pnpm dev:server\` 或在此运行 \`go run ./cmd/server\`。Go >=1.26；Gin HTTP + GORM SQLite，数据在 data/app.db。中性基线只提供 GET /healthz 与 GET /api/v1/system/health-check；业务按独立领域 Skill 实现。测试：\`go test ./...\`。\n\n开发监听 127.0.0.1:8080；测试/生产地址和部署按真实环境配置。无演示业务数据、默认用户或验证码回显。源码配置在 configs/config.yaml，开发差异在 config-dev.yaml，生产差异在 config-prod.yaml；运行时优先读取当前目录 config.yaml，再读取 configs/config.yaml，-c 可指定文件，数据库和日志相对启动 cwd。数据库等参数由 YAML 维护，代码只保留安全退级。根运行 \`pnpm release:server -- --platform=linux/amd64\` 生成 release/server.zip；省略平台时必须交互选择。发布配置只合并源码 configs/config.yaml 与 configs/config-prod.yaml，忽略开发覆盖与本机 APP_*，包内只有二进制和一份 config.yaml。解压后在同目录启动，先填写生产 jwt.secret 或用 APP_JWT_SECRET 注入；实际配置在资源启动前校验。\n`
   )
   await writeNew(
     path.join(workspaceRoot, directory, "AGENTS.md"),

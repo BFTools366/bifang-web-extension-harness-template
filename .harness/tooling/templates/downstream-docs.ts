@@ -173,7 +173,7 @@ function releaseRules(config: ProjectConfig): string {
 
 - ${config.projectType === "web" ? "页面候选版本由构建时的上海时间 `YYMMDDHHMMSS` 生成；`package.json.version` 仅是包元数据。" : "根 `package.json.version` 的稳定 SemVer（`X.Y.Z`）是软件、页面与两目标 manifest 的同一版本事实；每段不超过 65535，三段不能全为零，构建和打包不自动递增。"}\`pnpm-lock.yaml\` 固定依赖解析。
 - 版本、源码提交、锁文件、构建产物和验证证据必须指向同一候选；构建后的行为或品牌修改会产生新候选。
-- 当前唯一发布产物是${artifact(config)}，不得用另一宿主或开发预览替代。
+- 当前成员构建候选是${artifact(config)}，不得用另一宿主或开发预览替代。Workspace 根通过 pnpm release:${config.projectType} 按根 docs/WORKSPACE_TEMPLATE.md 收集为 release/${config.projectType}.zip；Web 顶层是项目名_web，Extension 内含 chrome/ 与 firefox/，仍绑定同次已检查目录。
 
 ## 候选门禁
 

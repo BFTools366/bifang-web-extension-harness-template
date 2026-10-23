@@ -1,9 +1,11 @@
-import { readFile } from "node:fs/promises"
+import { lstat, readFile } from "node:fs/promises"
+import path from "node:path"
 import { writeJsonAtomic } from "../../../../.harness/tooling/files.ts"
 import { ownershipPatternsOverlap } from "./upgrade-glob.ts"
 import { MINIMUM_OWNERSHIP_RULES, MINIMUM_REQUIRED_OWNERSHIP_PATTERNS } from "./upgrade-policy.ts"
 import { validateOwnershipManifest } from "./upgrade-snapshot.ts"
 import type { OwnershipManifest, OwnershipMode, OwnershipRule } from "./upgrade-types.ts"
+import { missingWorkspaceOwnership } from "./upgrade-workspace.ts"
 
 /** 描述目标本地清单相对当前 helper 最低规则的精确差异。 */
 export interface OwnershipDelta {
@@ -13,6 +15,8 @@ export interface OwnershipDelta {
   conflicts: { pattern: string; expected: OwnershipMode; actual: OwnershipMode }[]
   /** 保存追加后会被目标既有前置规则遮蔽的缺失规则。 */
   shadowed: { pattern: string; by: string }[]
+  /** 只在 Workspace 或已有 Workspace 规则确需迁移时保存精确追加项。 */
+  workspaceMissing?: OwnershipRule[]
 }
 
 /** 保存迁移命令的结果；written 仅在获授权且无冲突时为 true。 */
@@ -37,9 +41,16 @@ function parseLocalManifest(value: unknown): OwnershipManifest {
 }
 
 /** 计算目标清单缺失、冲突与被遮蔽的最低规则；保持目标已有规则与顺序不变。 */
-export function computeOwnershipDelta(target: OwnershipManifest): OwnershipDelta {
+export function computeOwnershipDelta(
+  target: OwnershipManifest,
+  workspace = false
+): OwnershipDelta {
   const existing = new Map(target.rules.map((rule) => [rule.pattern, rule]))
   const delta: OwnershipDelta = { missing: [], conflicts: [], shadowed: [] }
+  if (workspace || target.workspaceRules !== undefined) {
+    const missing = missingWorkspaceOwnership(target.workspaceRules)
+    if (missing.length) delta.workspaceMissing = missing
+  }
   for (const [pattern, mode] of Object.entries(MINIMUM_OWNERSHIP_RULES)) {
     const current = existing.get(pattern)
     if (current !== undefined) {
@@ -67,11 +78,25 @@ export async function migrateOwnership(options: {
   approval?: string
 }): Promise<OwnershipMigration> {
   const target = parseLocalManifest(JSON.parse(await readFile(options.targetOwnershipPath, "utf8")))
-  const delta = computeOwnershipDelta(target)
+  const root = path.resolve(path.dirname(options.targetOwnershipPath), "../../../..")
+  const marker = await lstat(path.join(root, ".harness/workspace.json")).catch((error: unknown) => {
+    if (error && typeof error === "object" && "code" in error && error.code === "ENOENT")
+      return undefined
+    throw error
+  })
+  if (marker && (!marker.isFile() || marker.isSymbolicLink()))
+    throw new Error("Unsafe Workspace identity")
+  const delta = computeOwnershipDelta(target, marker !== undefined)
   const blocked = delta.conflicts.length > 0 || delta.shadowed.length > 0
-  if (options.approval === undefined || delta.missing.length === 0) return { delta, written: false }
+  if (
+    options.approval === undefined ||
+    (delta.missing.length === 0 && !delta.workspaceMissing?.length)
+  )
+    return { delta, written: false }
   if (blocked) throw new Error("Ownership delta has conflicts or shadowed rules; resolve manually")
   const merged: OwnershipManifest = { ...target, rules: [...target.rules, ...delta.missing] }
+  if (delta.workspaceMissing)
+    merged.workspaceRules = [...(target.workspaceRules ?? []), ...delta.workspaceMissing]
   // 合并结果必须通过当前 helper 的完整下限校验后才写入，证明增量补齐了全部最低规则。
   validateOwnershipManifest(merged)
   await writeJsonAtomic(options.targetOwnershipPath, merged)

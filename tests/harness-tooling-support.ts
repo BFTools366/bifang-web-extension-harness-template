@@ -122,6 +122,7 @@ async function seedTemplateRoot(): Promise<string> {
     "args.ts",
     "identity.ts",
     "extension-targets.ts",
+    "router-browser.ts",
     "files.ts",
     "logo.ts",
     "validate-brand.ts",

@@ -4,6 +4,12 @@
 
 本文件定义 Harness 模板和两类独立下游的版本、候选与发布门禁。它不保存当前 Harness 版本；当前值只见根 [`Version.md`](../Version.md)。
 
+## Workspace 发布包
+
+Workspace 的本地发布入口是根 `pnpm release` 或 `release:<member>`，只处理已登记成员，固定输出 `release/web.zip`、`release/extension.zip`、`release/server.zip`；完整目录与平台合同见 [Workspace 本地发布归档](WORKSPACE_TEMPLATE.md#本地发布归档)。Web 的受验收对象仍是本次 dist，归档顶层为 `<id>_web/`；Extension 同时检查本次 Chrome MV3 与 Firefox MV2 并收集为 chrome/、firefox/。归档不能代替成员现有的构建、内容检查和精确产物验收。Server 包只含目标平台二进制和合并后的生产 config.yaml，缺少平台先询问。
+
+下文“唯一候选”描述成员构建与验收对象；Workspace ZIP 是这些对象的交付归档。重打包后需绑定新字节与哈希，不能直接复用旧 ZIP 的证据。仅修改发布工具不形成产品发布。
+
 ## 1. 版本事实
 
 - Harness 使用上海时区 `YYYYMMDDHHMM` 时间版本，Git 标签建议为 `vYYYYMMDDHHMM`。

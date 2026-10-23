@@ -23,7 +23,7 @@ export async function startGoFixture(
       ...process.env,
       ...environment,
       GOTOOLCHAIN: "local",
-      APP_ENV: "dev",
+      APP_ENV: environment.APP_ENV ?? "dev",
       APP_SERVER_PORT: String(port)
     },
     stdio: "ignore"

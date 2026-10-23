@@ -68,6 +68,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   "tests/workspace.test.ts": "tombstone",
   "tests/workspace-runtime.test.ts": "tombstone",
   "tests/workspace-server.test.ts": "tombstone",
+  "tests/workspace-release.test.ts": "tombstone",
   "tests/creation-api-contract.test.ts": "tombstone",
 
   ".agents/skills/design-taste-frontend/**": "protected",
@@ -113,6 +114,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   ".harness/tooling/brand.ts": "managed",
   ".harness/tooling/identity.ts": "managed",
   ".harness/tooling/extension-targets.ts": "managed",
+  ".harness/tooling/router-browser.ts": "managed",
   "locales/**": "protected",
   "tests/identity-localization.test.ts": "tombstone",
   "tests/identity-logo.test.ts": "tombstone",

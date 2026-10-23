@@ -6,6 +6,16 @@
       "pattern": ".harness/runtime/workspace.mjs",
       "mode": "managed",
       "required": true
+    },
+    {
+      "pattern": ".harness/runtime/release.mjs",
+      "mode": "managed",
+      "required": true
+    },
+    {
+      "pattern": ".harness/runtime/archive.mjs",
+      "mode": "managed",
+      "required": true
     }
   ],
   "rules": [
@@ -202,6 +212,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/workspace-release.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/creation-api-contract.test.ts",
       "mode": "tombstone"
     },
@@ -376,6 +390,11 @@
     {
       "pattern": ".harness/tooling/extension-targets.ts",
       "mode": "managed"
+    },
+    {
+      "pattern": ".harness/tooling/router-browser.ts",
+      "mode": "managed",
+      "required": true
     },
     {
       "pattern": "locales/**",
