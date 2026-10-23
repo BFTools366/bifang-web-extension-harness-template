@@ -60,8 +60,8 @@ async function expectPrototypeWorkflowDistributed(root: string): Promise<void> {
   )
 }
 
-/** 验证两宿主仅隔离未配置的远端 API，本地能力仍真实实现且不要求地址。 */
-async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void> {
+/** 验证两宿主的产品远端读取失败关闭，本地功能与隔离测试边界保持明确。 */
+async function expectRealRemoteAndLocalBoundaryDocs(root: string): Promise<void> {
   const dataAccess = await readFile(path.join(root, "docs/DATA_ACCESS.md"), "utf8")
   const runtimeRules = await readFile(path.join(root, "docs/RUNTIME_CONFIGURATION.md"), "utf8")
   const implementationSkill = await readFile(
@@ -93,6 +93,9 @@ async function expectRemoteMockAndLocalBoundaryDocs(root: string): Promise<void>
     await readFile(path.join(root, "src/data/README.md"), "utf8")
   ]) {
     expect(source).toContain("本地能力直接真实实现，不要求 BaseURL")
+    expect(source).not.toMatch(
+      /(?:未配置|为空|空地址).{0,80}(?:进入 Mock|由 API 层 Mock 提供|仅 Mock 远端边界)/u
+    )
   }
   for (const relative of ["AGENTS.md", "src/data/api/README.md"]) {
     const source = await readFile(path.join(root, relative), "utf8")
@@ -241,7 +244,7 @@ describe("single-package Harness initialization", () => {
       await initializeProject({ ...resolved, skipInstall: true, skipGit: true })
       await expect(validateProject(root)).resolves.toContain(projectType)
       await expectPrototypeWorkflowDistributed(root)
-      await expectRemoteMockAndLocalBoundaryDocs(root)
+      await expectRealRemoteAndLocalBoundaryDocs(root)
       for (const profile of [undefined, "development", "test"] as const) {
         const configs = await validateEnvironmentFiles(root, profile)
         expect(configs.development.apiBaseUrl).toBe("")

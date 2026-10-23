@@ -14,12 +14,12 @@
 | --------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 注册      | 公开注册页 → 认证 API                                            | 服务原子建立 Account、自有 Organization、owner OrganizationUser；缺一不报成功。默认邮箱与密码，用户名和组织名由服务生成；自建服务默认邮箱验证，无邮件服务时开发回显。注册不签发 Token，页面成功后显式登录。 |
 | 登录/恢复 | 唯一身份 owner → 组织共享 Query → 权限 owner                     | 校验账号、自有组织、当前成员、当前组织及所需权限；缺失或加载失败先阻断恢复，不从本地镜像补造身份。                                                                                                          |
-| 账号资料  | 右上个人设置 → 全局账号 API/Query                                | 邮箱只读、修改全局昵称；/account/password 独立改密；资料归 Account，组织切换不改变账号。                                                                                                                    |
-| 邀请成员  | 侧栏组织管理 → 组织设置 → 成员区 → 组织邀请 API                  | 复核当前有效成员、可信动作权限 code 和 scope；邀请绑定目标组织和受邀账号，接受只授予基础成员角色，发送成功不等于成员已加入。                                                                                |
+| 账号资料  | 右上个人设置弹窗 → 全局账号 API/Query                            | 邮箱只读、修改全局昵称；改密使用独立弹窗。/account/settings 与 /account/password 兼容地址复用同一弹窗；资料归 Account，组织切换不改变账号。                                                                 |
+| 邀请成员  | 侧栏组织管理 → 成员管理 → 组织邀请 API                           | 复核当前有效成员、可信动作权限 code 和 scope；邀请绑定目标组织和受邀账号，接受只授予基础成员角色，发送成功不等于成员已加入。                                                                                |
 | 接受邀请  | 账号菜单 → 切换组织弹窗 → 本人邀请 → 当前账号有效邀请 → 成员 API | 原子新增目标组织成员，精确刷新组织/邀请列表；保留自有组织和当前工作组织，用户再显式切换。                                                                                                                   |
 | 切换组织  | 账号菜单切换组织 → 现有会话 owner → 组织/权限 Query              | 目标为已加入且有效成员；同目标 no-op。阻断旧正文和动作、关闭旧弹层，使旧请求/缓存/草稿失效；确认新成员、组织和权限后才恢复页面。                                                                            |
 
-Web 工作区保留工作台、组织管理分组与最下方设置；组织管理下设组织设置、成员管理、角色管理三个子菜单，管理子项按有效权限显示。账号菜单依次展示邮箱/昵称摘要、切换组织动作、个人设置、修改密码和退出登录，不再放组织管理或加入入口。顶部继续共享当前组织上下文；公开设置保持独立可返回页面。Extension 使用宿主紧凑导航保留相同层级，不增加 Web 侧栏或跨上下文会话。
+Web 工作区保留工作台、组织管理分组与最下方设置；组织管理下设组织设置、成员管理、角色管理三个子菜单，管理子项按有效权限显示。账号触发器只显示单一昵称或用户名，菜单不重复姓名、邮箱或组织信息，条目统一无图标；切换组织、个人设置和修改密码打开弹窗，末项为退出。组织上下文由业务正文和切换弹窗消费，Header 不展示组织信息；公开设置保持独立可返回页面。Extension 使用宿主紧凑导航保留相同层级，不增加 Web 侧栏或跨上下文会话。
 
 组织数据请求和 Query 必须区分 accountId、organizationId、organizationUserId 与当前代次，语言及参数按实际结果需要加入；Token 不进入 key。组织共享资源以 organizationId 作为租户边界，成员身份用于权限、成员私有范围及审计；服务端逐次校验对象归属，不能用前端切换或 actor 分区代替租户隔离。组织切换结果未知时恢复权威上下文，未确认前不回滚旧组织继续业务；明确拒绝且服务确认原会话未改变时才保留旧 scope。
 
@@ -33,16 +33,20 @@ Web 工作区保留工作台、组织管理分组与最下方设置；组织管�
 | 右上账号信息                              | 已生成单一账号触发器、统一无图标菜单及切换组织/资料/改密弹窗              | 已有服务提供可信 personalSettingsApi；不把公开偏好设置当账号资料                                              |
 | 组织管理邀请、账号加入组织                | identity.workspace 接真实组织合同、邀请、成员及 RBAC 角色链               | 已有外部服务提供等效可信合同；待接受不进入可切换集合                                                          |
 | 工作台、组织管理分组与底部设置的 Web 侧栏 | 组织设置、成员管理、角色管理三个子菜单；管理子项按 code 过滤              | 同一业务按当前组织切换数据，不拆“我的/我加入的”入口                                                           |
-| 组织共享数据按租户隔离                    | 当前相关订单、余额 Mock 使用 OrganizationUser.id 的 actor 分区            | 按领域合同区分组织共享与成员私有范围；补同组织共享、跨组织拒绝和切换迟到隔离回归，不能直接重解释旧 fixture 键 |
+| 组织共享数据按租户隔离                    | 产品使用真实 adapter；历史订单、余额测试 Mock 使用成员 actor 分区         | 按领域合同区分组织共享与成员私有范围；补同组织共享、跨组织拒绝和切换迟到隔离回归，不能直接重解释旧 fixture 键 |
 
 注册按实际选择装配，自建邮箱注册默认补齐验证；catalog 的基础登录依赖保持不变，已有服务遵循可信验证合同。下文记录当前可执行接口；选择器闭包及生成成功不能证明上表目标已完成。当前资产缺口统一跟踪于[技术债](../../../../../docs/TECH_DEBT.md)。
+
+## 列表模板的接线边界
+
+统一 ListSurface/ListTable/ListFooter、页码基础与账号／组织列表已经提供。catalog、orders、audit 的通用页面资产仍是读取呈现骨架：当前 list(signal) 返回数组，商品网格、订单及审计卡片不能证明已接通真实服务分页、总数或分类集合。采用这些页面时，实施入口必须按可信服务合同增量补齐查询与有界结果；React Web 列表同时调用 `$web-implement-list-view`，落实 Router 条件、page/pageSize、items/total、状态恢复和适用的统一表面／页脚。卡片形态可以保留，不为统一外观强改表格，也不在缺合同处发明接口或分页数据。Extension 采用对应 surface 的有界读取和统一 UI，不复用 Web-only Router 合同；单余额对象不强加列表分页。装配器返回文件或测试数组可渲染，均不代表这些领域的列表已交付。
 
 ## 当前装配器必需输入
 
 - selection：明确宿主及 modules、operations、recipe 三者之一；空 modules 只选择基础布局，实际首页仍必填。
 - homePageSource：按需求实现、导出 HomePage 的真实组件；主内容 landmark 由固定主界面提供。
-- dataMode：明确 adapter。Mock 提供测试账号及当前流程必要 fixture；真实模式为每个所选模块提供导出 api 的实现，不从 BaseURL 猜 endpoint。
-- 采用权限时，pagePermissions 与 actionPermissions 来自 PRD/可信服务，所有业务页面及写操作必须具有非空要求；/organization 和 organization.switch 是账号级成员关系恢复能力，不依赖组织业务权限，/organization/settings 不豁免；Mock 授权按 subjectId 与 organizationId 的上下文提供，默认空权限，不能从模块选择推导授权。
+- dataMode：产品装配只接受 adapter，为每个所选模块提供导出 api 的真实实现，不从 BaseURL 猜 endpoint。Mock 和必要 fixtures 只在隔离测试装配，不属于产品输入或运行模式。
+- 采用权限时，pagePermissions 与 actionPermissions 来自 PRD/可信服务，所有业务页面及写操作必须具有非空要求；/organization 和 organization.switch 是账号级成员关系恢复能力，不依赖组织业务权限，/organization/settings 不豁免。隔离测试的 Mock 授权按 subjectId 与 organizationId 提供，默认空权限；产品权限必须来自可信服务，不能从模块选择推导授权。
 - content 为可选内容适配：translations 只覆盖既有 zh/en 模板键；pageSources 只替换已选能力的固定组件，必须保留其 API、scope 和动作 props。来源与完整例子见 [提取合同](extraction.md)，不覆盖项目身份或既有产品实现。
 
 ## 当前装配器接线结果
@@ -67,7 +71,7 @@ Web 保留 Vite 与 TanStack 文件路由。Extension 每个入口有独立 Rout
 
 organization.switch 生成多组织账号弹窗和 /organization 恢复页；账号菜单的“切换组织”动作打开同一弹窗，只有一个候选时仍可打开且当前项禁用，同目标在服务层直接返回。organization.manage 额外要求权限能力、可信页面与动作要求，生成按权限 code 判断的管理页及 rename 接线，不检查角色名称；独立操作不自动启用切换、注册或邀请，真实管理 adapter 只需 OrganizationManagementApi 的 read + rename。完整 identity.workspace 另接真实组织、成员、邀请和角色 API。未选择 manage 时不存在管理页面、路由与 rename facade；完整账号基线生成真实个人设置，低层身份按所选操作装配。
 
-Web 管理页文件为 _application/organization_.settings.tsx，对应路由 ID /_application/organization_/manage，公共 URL /organization/settings，直接属于应用布局；/organization 不是提供 Outlet 的布局。两宿主回归分别编译并验证。
+Web 管理页文件为 _application/organization_.settings.tsx，对应路由 ID /_application/organization_/settings，公共 URL /organization/settings，直接属于应用布局；/organization 不是提供 Outlet 的布局。两宿主回归分别编译并验证。
 
 ## 完成核对
 

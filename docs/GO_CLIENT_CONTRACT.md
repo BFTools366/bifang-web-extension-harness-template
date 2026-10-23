@@ -17,13 +17,13 @@
 
 ## 本地个人设置
 
-完整 identity.workspace 提供独立 /account/settings 与 /account/password，不进入业务侧栏。账号菜单显示可信邮箱/昵称摘要、切换组织、个人设置、修改密码和退出；组织管理分组包含组织设置、成员管理、角色管理，各按读取码控制。详见 [Auth 标准](ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)。
+完整 identity.workspace 提供资料与改密弹窗，/account/settings 与 /account/password 作为兼容地址复用同一弹窗，不进入业务侧栏。账号触发器只显示单一昵称或用户名，菜单不重复身份摘要且统一无图标，切换组织、个人设置和修改密码打开弹窗，末项为退出；组织管理分组包含组织设置、成员管理、角色管理，各按读取码控制。详见 [Auth 标准](ACCOUNT_OWNERSHIP.md#前后端标准交互与权限表)。
 
 - GET /api/v1/auth/profile：权威读取当前账号、邮箱及昵称；组织切换不改变个人资料。
 - PATCH /api/v1/auth/profile：仅提交 nickname，trim 后 1–64 个字符；目标账号由认证上下文确定，不接受账号、邮箱或组织更改。成功返回 empty，客户端权威重读资料并刷新唯一 session；失败或未知不自动重放。
 - PUT /api/v1/auth/password：old_password、new_password；沿用原有新密码校验和并发规则。成功撤销全部旧 access/refresh，页面清本地会话并返回登录；未知结果通过重新登录核对。
 
-昵称 PATCH 是本地 overlay 新增合同，原始快照与已有外部服务不自动具备。前端 personalSettingsApi 复用当前 HTTP owner，不读取 Token；个人页不要求组织业务权限，与公开语言/外观 /settings 分开。
+昵称 PATCH 是本地 overlay 新增合同，原始快照与已有外部服务不自动具备。前端 personalSettingsApi 复用当前 HTTP owner，不读取 Token；资料与改密弹窗不要求组织业务权限，与公开语言/外观 /settings 分开。
 
 ## 本地组织接口
 

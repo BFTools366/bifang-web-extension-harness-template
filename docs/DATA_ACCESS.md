@@ -31,7 +31,7 @@ src/data/
   api/
     README.md
     client/                 # 已生成：Ky、认证上下文、错误与取消
-    <domain>/               # 按需：领域类型、REST、远端 API Mock 与响应映射
+    <domain>/               # 按需：领域类型、真实 REST/GraphQL adapter 与响应映射
     graphql/                # 按需：条件读取、列表、复杂查询、Codegen 文档与订阅 adapter
   storage/
     README.md
@@ -45,7 +45,7 @@ src/data/
 
 - `i18n/` 保留语言规范化、运行时切换与翻译资源；`pagination/` 保留分页状态机、hook 和控件；浏览器 Storage 访问通过 `data/storage/webStorage.ts`。外观偏好在 `data/storage/colorScheme.ts` 复用 Mantine manager，不重写其订阅和异常处理。
 - `features/` 拥有 Query key、缓存策略、交互编排与事件投影，调用数据层的领域函数。数据层不反向依赖 feature/route，不建立万能 repository、第二套 `services/` 或自动同步所有存储的总线。
-- 同一业务域的 REST、GraphQL 查询与 Mock 使用明确操作名和同一领域模型；传输 adapter 与生成文档放 `data/api/graphql/`，避免因协议不同复制两份业务判断。
+- 同一业务域的 REST、GraphQL 查询使用明确操作名和同一领域模型；测试替身仅用于隔离测试。传输 adapter 与生成文档放 `data/api/graphql/`，避免因协议不同复制两份业务判断。
 - 此结构适用于新生成项目。既有下游的 `src/**` 仍受升级保护，不能通过 ownership 规则自动搬迁产品源码；迁移需在对应下游授权范围内同步 imports、消费者与测试，保留原有 Storage key、格式和权限，再更新依赖该结构的 validator。
 
 ### 1.2 REST 与 GraphQL 分工

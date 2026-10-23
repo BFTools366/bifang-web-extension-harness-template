@@ -19,7 +19,7 @@ description: 在 Workspace 按具体操作完成用户生命周期、注册、�
 
 产品运行只用真实服务，禁止业务 Mock、默认演示账号或 fixtures。测试使用隔离数据库和测试替身可行；完成需真实 HTTP 证明核心成功、最高风险失败和数据持久化，核对前端实际请求及恢复。同步根 docs/api 的受影响契约和业务关联，返回实际路径、运行结果及未决外部条件。
 
-自建服务首次用户场景：先按 go-implement-service 的账号装配器完成 register/login/profile/logout/password.change 及 owner 成员事务，再把 [Go 身份 adapter](assets/go-identity-adapter.ts.txt) 放入对应前端 src/data/api/identity/adapter.ts；复用已有 session/Query/client，不能再写 fetch。已选 register 可由 applicationFiles 装配邮箱注册页、条件发码、路由及 i18n；完整基线包含 /account/settings：/account/settings 邮箱只读及昵称保存，/account/password 独立改密，已有服务按可信合同接线。验证取消、字段错误、注册后显式登录、已注册只重试登录及未知创建不重放。基础应用装配器仅支持既有基础操作；扩展操作由本 Skill 增量完成，不能仅把它写入 wiring.resolved 当作已实现。两前端同时选中时分别接入，后端只实现一次。若只加 refresh/改密则不重复安装账号模板；按现有 owner 增量挂载已选路由。资料必须含有效 Account、Organization、OrganizationUser；重启服务后重读一致，并证明退出使旧 access/refresh 失效。
+自建服务首次用户场景：先按 go-implement-service 的账号装配器完成 register/login/profile/logout/password.change 及 owner 成员事务，再把 [Go 身份 adapter](assets/go-identity-adapter.ts.txt) 放入对应前端 src/data/api/identity/adapter.ts；复用已有 session/Query/client，不能再写 fetch。已选 register 可由 applicationFiles 装配邮箱注册页、条件发码、路由及 i18n；完整账号核心包含资料与改密弹窗，邮箱只读、昵称可改；兼容 /account/settings 与 /account/password 地址复用同一弹窗，已有服务按可信合同接线。验证取消、字段错误、注册后显式登录、已注册只重试登录及未知创建不重放。基础应用装配器仅支持既有基础操作；扩展操作由本 Skill 增量完成，不能仅把它写入 wiring.resolved 当作已实现。两前端同时选中时分别接入，后端只实现一次。若只加 refresh/改密则不重复安装账号模板；按现有 owner 增量挂载已选路由。资料必须含有效 Account、Organization、OrganizationUser；重启服务后重读一致，并证明退出使旧 access/refresh 失效。
 
 成员范围严格来自 Workspace：纯 Server 只完成后端、接口及实际 HTTP/持久化验证，不生成前端或索要 UI 表单；存在所选前端成员时完成这些成员的真实消费端与联调。
 

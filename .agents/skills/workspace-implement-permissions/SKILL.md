@@ -9,7 +9,7 @@ description: 在 Workspace 按具体操作完成角色维护、服务端授权�
 
 已有服务：核对 BaseURL、endpoint/SDL、字段、认证、授权、错误及恢复语义，仅实现消费侧，不擅自扩张服务端写入。自建服务：调用 go-implement-service 与 go-implement-persistence，在 _server 实现该领域，再按 web-implement-change 接齐真实 typed adapter、Query、页面和错误恢复；不要求用户单独填写 Go 表单。
 
-固定 Go 上游没有 RBAC；本地团队 overlay 已有 OrganizationRole、RolePermission、OrganizationUserRole、Permission 与真实查询/写入接口，见 [Go 客户端合同](../../../docs/GO_CLIENT_CONTRACT.md)。完整账号用 identity.workspace 装配，所有成员含 owner 的权限都通过角色链计算，不保留成员直接授权旁路。前端页面、菜单、按钮和执行前只判断有效 code，不判断角色名称；后端再次执行 RBAC、团队及对象归属校验。系统角色、成员私有边界及保留管理权限以 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md) 为准。新增领域先在服务声明权限目录，再在真实业务事务内授权。
+固定 Go 上游没有 RBAC；本地团队 overlay 已有 OrganizationRole、RolePermission、OrganizationUserRole、Permission 与真实查询/写入接口，见 [Go 客户端合同](../../../docs/GO_CLIENT_CONTRACT.md)。完整协作使用 identity.workspace 装配；明确收敛协作时按账号核心操作复用同一权限 owner，不恢复已取消的成员或角色维护入口。所有成员含 owner 的权限都通过角色链计算，不保留成员直接授权旁路。前端页面、菜单、按钮和执行前只判断有效 code，不判断角色名称；后端再次执行 RBAC、团队及对象归属校验。系统角色、成员私有边界及保留管理权限以 [ACCOUNT_OWNERSHIP.md](../../../docs/ACCOUNT_OWNERSHIP.md) 为准。新增领域先在服务声明权限目录，再在真实业务事务内授权。
 
 服务端在每个敏感读取和写入校验主体、组织、权限码、资源范围；前端路由、导航、页面、元素与提交前复用同一合同。缺失/未加载/撤销默认拒绝；403 保留有效身份。防止删除最后 owner/admin、权限提升与旧组织查询泄漏，撤权后取消私有请求并精确失效缓存。
 

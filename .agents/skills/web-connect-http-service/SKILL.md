@@ -8,7 +8,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 ## 触发与范围
 
 - 仅用于已初始化且 `projectType=web|extension` 的下游；先读取 `.harness/project.json`。Harness 源不接收、分析或记录产品地址、endpoint 或凭据，交回调用方执行源范围门禁。
-- 当前授权明确包含真实服务接入或 API Mock 到 HTTP 的迁移时使用。初始化、只填写 BaseURL、继续 Mock 开发或纯 UI 修改不自动触发。
+- 当前授权明确包含真实服务接入或遗留 API Mock 到 HTTP 的迁移时使用。初始化、只填写 BaseURL、隔离测试或纯 UI 修改不自动触发；本条不允许新产品把未配置的远端操作退回 Mock。
 - 本 Skill 拥有批准范围内有限 REST/GraphQL 请求的域 API 迁移；产品范围、UI/Router 呈现和候选验收继续由调用方负责。
 - 本地能力直接真实实现，不要求 BaseURL，也不属于本 Skill 的 Mock 迁移范围；混合流程仅接入真实依赖远端 API 的操作。
 
