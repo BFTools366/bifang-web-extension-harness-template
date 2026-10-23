@@ -4,7 +4,12 @@ import { fileURLToPath } from "node:url"
 import { format } from "prettier"
 import { recommendedAgentPolicy } from "./agent-policy.ts"
 import { prepareDownstreamFinalization } from "./finalize.ts"
-import { workspaceDocuments, workspacePackage } from "./workspace-documents.ts"
+import {
+  workspaceDocuments,
+  workspacePackage,
+  workspaceDocumentReferences,
+  WORKSPACE_REFERENCE_DOCUMENTS
+} from "./workspace-documents.ts"
 import { buildProjectManifest } from "./manifest.ts"
 import { webFiles } from "./templates/web.ts"
 import { extensionFiles } from "./templates/extension.ts"
@@ -122,8 +127,12 @@ export async function renderUpgradeCandidate(
       const destination = prefix ? `${prefix}/${relative}` : relative
       if (!allowed(destination)) continue
       if (inventory.unsafe.has(relative)) throw new Error(`Unsafe source projection: ${relative}`)
+      const bytes = await readBoundFile(source, relative, snapshot, "Source projection")
       files.set(destination, {
-        bytes: await readBoundFile(source, relative, snapshot, "Source projection"),
+        bytes:
+          rootScope && WORKSPACE_REFERENCE_DOCUMENTS.includes(relative)
+            ? Buffer.from(workspaceDocumentReferences(bytes.toString("utf8")))
+            : bytes,
         mode: snapshot.mode
       })
     }
@@ -204,6 +213,15 @@ export async function renderUpgradeCandidate(
     ...(context.workspace
       ? {
           manualReview: [
+            ...[
+              "docs/HARNESS_ENGINEERING.md",
+              "docs/harness_engineering",
+              "docs/TS_WEB_TEMPLATE.md"
+            ].map((relative) => ({
+              path: relative,
+              requirement:
+                "旧创建器可能遗留源专属文档；存在时逐项审查并明确批准清理，本地改写内容另行保存。规划器仍阻断残留，提案不自动删除。"
+            })),
             {
               path: "package.json",
               requirement:

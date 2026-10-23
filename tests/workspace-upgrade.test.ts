@@ -81,6 +81,28 @@ async function bootstrap(fixture: Awaited<ReturnType<typeof workspaceFixture>>) 
 }
 
 describe("Workspace Harness upgrade", () => {
+  /** 旧创建器的源文档残留必须先明确清理，不能由升级静默恢复或覆盖。 */
+  test("旧 Workspace 源文档残留清理前阻断，清理后恢复规划", async () => {
+    const fixture = await workspaceFixture()
+    const legacy = path.join(fixture.target, "docs/TS_WEB_TEMPLATE.md")
+    await mkdir(path.dirname(legacy), { recursive: true })
+    await writeFile(legacy, "legacy source document\n")
+    const blocked = await planFor(fixture)
+    expect(blocked.entries.find((entry) => entry.path === "docs/TS_WEB_TEMPLATE.md")).toMatchObject(
+      {
+        ownership: "tombstone",
+        classification: "blocked"
+      }
+    )
+    expect(await readFile(legacy, "utf8")).toBe("legacy source document\n")
+    // 模拟隔离 fixture 已获批准的精确清理；真实用户工程必须先审查本地改写。
+    await rm(legacy)
+    expect((await planFor(fixture)).problems).toEqual([])
+    expect(await readFile(path.join(fixture.target, "example_server/config.yaml"), "utf8")).toBe(
+      "private provider config\n"
+    )
+  })
+
   /** 旧一项策略与缺失策略都能只读预演，授权后只追加新模块规则。 */
   test.each([0, 1, 3])("兼容旧 Workspace 的 %i 项根规则迁移", async (count) => {
     const fixture = await workspaceFixture()

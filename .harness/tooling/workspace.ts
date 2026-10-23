@@ -15,7 +15,12 @@ import type { InitOptions, ProjectConfig } from "./types.ts"
 import { parseServerMode, type WorkspaceMemberType } from "./workspace-selection.ts"
 import { generateGoServer } from "./workspace-server.ts"
 import { GO_TRANSPORT_SOURCE, GO_HEALTH_SOURCE } from "./workspace-http.ts"
-import { workspaceDocuments, workspacePackage } from "./workspace-documents.ts"
+import {
+  workspaceDocuments,
+  workspacePackage,
+  workspaceDocumentReferences,
+  WORKSPACE_REFERENCE_DOCUMENTS
+} from "./workspace-documents.ts"
 import { validateBaseUrls } from "./environment.ts"
 import { httpUiTest } from "./templates/http-ui-test.ts"
 
@@ -201,6 +206,9 @@ export async function initializeWorkspace(
   for (const relative of [
     ".agents/skills/web-instantiate-project",
     ".agents/skills/web-curate-harness-memory",
+    "docs/HARNESS_ENGINEERING.md",
+    "docs/harness_engineering",
+    "docs/TS_WEB_TEMPLATE.md",
     "docs/adr",
     "docs/product_spec",
     "docs/project_status",
@@ -209,6 +217,10 @@ export async function initializeWorkspace(
     "docs/verification"
   ]) {
     await rm(path.join(root, relative), { recursive: true, force: true })
+  }
+  for (const relative of WORKSPACE_REFERENCE_DOCUMENTS) {
+    const file = path.join(root, relative)
+    await writeAtomic(file, workspaceDocumentReferences(await readFile(file, "utf8")))
   }
   for (const [file, source] of rootTooling)
     await writeNew(path.join(root, ".harness/tooling", file), source)

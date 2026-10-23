@@ -88,6 +88,21 @@ describe("workspace creation", () => {
         )
         expect(inheritedPolicy.endsWith(sourcePolicy)).toBe(true)
         expect(await readdir(path.join(target, ".harness"))).not.toContain("project.json")
+        for (const sourceDocument of [
+          "HARNESS_ENGINEERING.md",
+          "harness_engineering",
+          "TS_WEB_TEMPLATE.md"
+        ])
+          expect(await readdir(path.join(target, "docs"))).not.toContain(sourceDocument)
+        for (const commonDocument of [
+          "ENGINEERING_RULES.md",
+          "RUNTIME_CONFIGURATION.md",
+          "RELEASE.md"
+        ]) {
+          const contents = await readFile(path.join(target, "docs", commonDocument), "utf8")
+          expect(contents).not.toContain("](TS_WEB_TEMPLATE.md)")
+          expect(contents).not.toContain("](../Version.md)")
+        }
         for (const member of expected) {
           const directory = path.join(target, `example_${member}`)
           expect(await readdir(directory)).not.toContain(".git")

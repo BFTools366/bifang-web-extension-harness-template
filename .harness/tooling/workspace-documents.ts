@@ -1,5 +1,27 @@
 import type { WorkspaceConfig } from "./workspace.ts"
 
+/** 根共用规范需要移除源专属文档引用，前端成员仍使用各自的完整规范。 */
+export const WORKSPACE_REFERENCE_DOCUMENTS = [
+  "docs/ENGINEERING_RULES.md",
+  "docs/RUNTIME_CONFIGURATION.md",
+  "docs/RELEASE.md"
+]
+
+/** 只适配根共用文档中已退役的源链接，不套用某一个前端宿主的全文模板。 */
+export function workspaceDocumentReferences(contents: string): string {
+  return contents
+    .replace(
+      /\[`TS_WEB_TEMPLATE\.md`\]\(TS_WEB_TEMPLATE\.md\)(?: §[25])?/gu,
+      "[Workspace 规范](WORKSPACE_TEMPLATE.md)"
+    )
+    .replace(/^\| `docs\/(?:TS_WEB_TEMPLATE|HARNESS_ENGINEERING)\.md`[^\n]*\n/gmu, "")
+    .replace(
+      "本文件定义 Harness 模板和两类独立下游的版本、候选与发布门禁。它不保存当前 Harness 版本；当前值只见根 [`Version.md`](../Version.md)。",
+      "本文件保留共用发布门禁；Workspace 使用本文的成员发布规则。各前端版本事实与宿主规范在对应成员内维护，根不维护源 Harness 的 Version.md。"
+    )
+    .replaceAll("[`Version.md`](../Version.md)", "源 Harness 版本事实")
+}
+
 /** 统一创建与升级时的根命令及工具依赖，不携带产品依赖。 */
 export function workspacePackage(config: WorkspaceConfig, source: Record<string, unknown>) {
   const scripts: Record<string, string> = {}

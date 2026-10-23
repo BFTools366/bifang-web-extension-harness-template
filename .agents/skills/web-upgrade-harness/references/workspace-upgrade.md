@@ -21,6 +21,8 @@
 
 发布工具升级需要同时补齐三个根 runtime，并在根 package.json 合并 release/release:<member> 脚本及 /release/ 忽略规则。既有 Go 成员仍受保护：本次模板新增的配置加载与 cmd/release-config 不会被工程升级自动写入；使用 release:server 前需在明确授权的服务变更中迁移配置合同。缺少导出工具时不得把旧开发配置当成生产包。
 
+旧 Workspace 创建器可能在根遗留 docs/HARNESS_ENGINEERING.md、docs/harness_engineering/ 和 docs/TS_WEB_TEMPLATE.md；提案列出这三类精确清理项，规划器仍以 tombstone 阻断。逐项审查原始来源和本地改写，明确批准后才清理；有用户改写时先保存，不自动删除。根共用规范随候选合并更新引用，避免继续链接源专属文档；前端成员保留自己的宿主规范。
+
 ## 纯工程候选
 
 已验证且 clean 的源在源根执行真实命令：
