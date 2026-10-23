@@ -52,7 +52,7 @@ Bifang Web Harness Template 是用于创建和维护 Web、Extension 与 Go 服�
 
 Logo、品牌色和身份本地化可一并提供。Agent 优先生成并展示需求唯一适配的品牌方向并自动选定；等价方向或审美分歧才展示候选并推荐；已有选定正式 Logo 则直接沿用。离线候选入口见[品牌 Skill](.agents/skills/web-prepare-brand-identity/SKILL.md)，纯 CLI 直接省略 Logo 时保留单图确定性生成。名称、说明与品牌同步规则见[初始化契约](docs/TS_WEB_TEMPLATE.md#3-项目身份与品牌事实)。
 
-创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。已有服务须提供开发 BaseURL；选择自建服务时创建并连接本地 Go，测试和正式地址可后续配置；正式发布前补齐 HTTPS 正式地址。创建需求可先只读分析，原文随事务保存到新项目 `docs/requirements/source.txt`；完整范围确认在下游 PRD 中复用，endpoint 与凭据按对应门禁处理，不要求重贴需求。
+创建时的服务配置遵循[源范围门禁](AGENTS.md#启动门禁)与[初始化表单](.agents/skills/web-instantiate-project/references/initialization-form.md#可选输入与后续配置)。已有服务须提供开发 BaseURL；选择自建服务时创建并连接本地 Go，测试和正式地址可后续配置；正式发布前按[运行配置](docs/RUNTIME_CONFIGURATION.md#42-自建服务首次发布的本机地址)补齐地址：自建服务首次空地址从生产配置推导本机地址并提示确认，其他远端使用 HTTPS。创建需求可先只读分析，原文随事务保存到新项目 `docs/requirements/source.txt`；完整范围确认在下游 PRD 中复用，endpoint 与凭据按对应门禁处理，不要求重贴需求。
 
 ### 创建后会得到什么
 

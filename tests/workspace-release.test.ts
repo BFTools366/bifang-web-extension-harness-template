@@ -2,7 +2,18 @@ import { execFile } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import { setTimeout } from "node:timers/promises"
 import { promisify } from "node:util"
-import { cp, mkdir, readFile, readdir, realpath, stat, symlink, writeFile } from "node:fs/promises"
+import {
+  cp,
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  stat,
+  symlink,
+  writeFile
+} from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 import { describe, expect, test } from "vitest"
@@ -74,6 +85,7 @@ import path from 'node:path';
 const kind=path.basename(process.cwd()).endsWith('_web')?'web':'extension';
 await appendFile('../commands.jsonl',JSON.stringify({kind,args:process.argv.slice(2)})+'\\n');
 if(process.env.FAIL_TARGET===kind)process.exit(2);
+if(process.env.CHANGE_SERVER_CONFIG)await writeFile('../example_server/configs/config-prod.yaml','server:\\n  port: 8133\\n');
 if(kind==='web'){
  await mkdir('dist/empty',{recursive:true}); await writeFile('dist/index.html','<html>release</html>');
  await writeFile('dist/图片.bin',new Uint8Array([0,255,34,88]));
@@ -96,6 +108,23 @@ function release(root: string, pnpm: string, args: string[], env: Record<string,
   })
 }
 
+/** 为发布编排测试生成真实生产配置导出器，前端构建仍使用明确的编排替身。 */
+async function serverFixture(types = ["web", "extension", "server"]) {
+  const result = await fixture(types)
+  await cp(
+    path.join(repositoryRoot, ".agents/skills/go-implement-service/assets/go-service"),
+    path.join(result.root, ".agents/skills/go-implement-service/assets/go-service"),
+    { recursive: true }
+  )
+  await rm(path.join(result.root, "example_server"), { recursive: true })
+  await generateGoServer(result.root, "example_server", "example_server")
+  await writeFile(
+    path.join(result.root, "example_server/configs/config-prod.yaml"),
+    "app:\n  env: prod\nserver:\n  host: 0.0.0.0\n  port: 8123\n  mode: release\n"
+  )
+  return result
+}
+
 /** 用 Go 标准库独立解压并校验 CRC、目录和权限，不依赖归档实现自身读取。 */
 async function inspectZip(root: string, file: string, extract = "") {
   const helper = path.join(root, "inspect.go")
@@ -115,6 +144,194 @@ func main(){r,e:=zip.OpenReader(os.Args[1]);if e!=nil{panic(e)};defer r.Close();
 }
 
 describe("Workspace ZIP 发布", () => {
+  /** 首次缺地址必须得到明确确认，生产端口优先，既有 ZIP 和其他配置不被重置。 */
+  test("首次本机地址建议确认后持久化，后续沿用已有值", async () => {
+    const { root, pnpm } = await serverFixture()
+    const web = path.join(root, "example_web/.env.production")
+    const extension = path.join(root, "example_extension/.env.production")
+    const original =
+      "# retain comment\r\nVITE_APP_ENV=release\r\nVITE_API_BASE_URL=\r\nVITE_LOG_LEVEL=error\r\nVITE_REQUEST_TIMEOUT_MS=17000\r\n"
+    await writeFile(web, original)
+    await mkdir(path.join(root, "release"))
+    await writeFile(path.join(root, "release/web.zip"), "previous")
+    await expect(
+      release(root, pnpm, ["--member=web", "--e2e=disabled"], { APP_SERVER_PORT: "9999" })
+    ).rejects.toThrow(/--confirm-local-base-url=http:\/\/127\.0\.0\.1:8123/)
+    await expect(
+      release(root, pnpm, [
+        "--member=web",
+        "--e2e=disabled",
+        "--confirm-local-base-url=http://127.0.0.1:8080"
+      ])
+    ).rejects.toThrow(/确认不匹配/)
+    expect(await readFile(web, "utf8")).toBe(original)
+    expect(await readFile(path.join(root, "release/web.zip"), "utf8")).toBe("previous")
+    expect(await readdir(path.join(root, "release"))).toEqual(["web.zip"])
+
+    const runtime = pathToFileURL(path.join(root, ".harness/runtime/release.mjs")).href
+    const workspace = pathToFileURL(path.join(root, ".harness/runtime/workspace.mjs")).href
+    const code = `import {prepareReleaseBaseUrl} from ${JSON.stringify(runtime)};
+import {readWorkspace} from ${JSON.stringify(workspace)};
+import {execFile} from 'node:child_process'; import {promisify} from 'node:util';
+const root=process.cwd(),config=await readWorkspace(root);
+await prepareReleaseBaseUrl(root,config,config.members,{},
+{go:async(args,cwd,env)=>{await promisify(execFile)('go',args,{cwd,env});}},true);`
+    for (const answer of ["n\n", "\n"]) {
+      const running = execute(process.execPath, ["--input-type=module", "-e", code], {
+        cwd: root,
+        timeout: 30_000
+      })
+      running.child.stdin?.end(answer)
+      await expect(running).rejects.toThrow(/未获确认/)
+      expect(await readFile(web, "utf8")).toBe(original)
+      expect(await readFile(extension, "utf8")).toBe("")
+    }
+    const cancelled =
+      `import {readFileSync} from 'node:fs';\n` +
+      code
+        .replace(
+          "config.members,{},",
+          "config.members,{confirmLocalBaseUrl:'http://127.0.0.1:8123'},"
+        )
+        .replace(
+          "{go:async",
+          "{signal:{throwIfAborted(){if(readFileSync('example_web/.env.production','utf8').includes('http://127.0.0.1:8123'))throw new Error('test cancellation');}},go:async"
+        )
+        .replace("}},true);", "}},false);")
+    await expect(
+      execute(process.execPath, ["--input-type=module", "-e", cancelled], {
+        cwd: root,
+        timeout: 30_000
+      })
+    ).rejects.toThrow(/test cancellation/)
+    expect(await readFile(web, "utf8")).toBe(original)
+    expect(await readFile(extension, "utf8")).toBe("")
+    expect(
+      (await readdir(path.dirname(web))).some((file) => file.startsWith(".harness-release-"))
+    ).toBe(false)
+    const running = execute(process.execPath, ["--input-type=module", "-e", code], {
+      cwd: root,
+      timeout: 30_000
+    })
+    running.child.stdin?.end("y\n")
+    expect((await running).stdout).toContain("http://127.0.0.1:8123")
+    expect(await readFile(web, "utf8")).toBe(
+      original.replace("VITE_API_BASE_URL=", "VITE_API_BASE_URL=http://127.0.0.1:8123")
+    )
+    expect(await readFile(extension, "utf8")).toBe(
+      "PLASMO_PUBLIC_API_BASE_URL=http://127.0.0.1:8123\n"
+    )
+    // 现有值无需再次调用导出器，且只发布所选前端。
+    await rename(
+      path.join(root, "example_server/cmd/release-config"),
+      path.join(root, "example_server/cmd/disabled-exporter")
+    )
+    await release(root, pnpm, ["--member=web", "--e2e=disabled"])
+    expect(await readFile(extension, "utf8")).toBe(
+      "PLASMO_PUBLIC_API_BASE_URL=http://127.0.0.1:8123\n"
+    )
+    expect(Object.keys(await inspectZip(root, path.join(root, "release/web.zip")))).toContain(
+      "example_web/index.html"
+    )
+  }, 90_000)
+
+  /** 地址导出只支持真实 HTTP 回环监听，严格验证生产端口且不覆盖已有输出。 */
+  test("Go 地址导出覆盖 IPv4、IPv6、默认端口和非法监听", async () => {
+    const { root } = await serverFixture(["server"])
+    const cwd = path.join(root, "example_server")
+    await writeFile(
+      path.join(cwd, "cmd/release-config/main_test.go"),
+      `package main
+import("os";"path/filepath";"testing")
+func TestLocalAddress(t *testing.T){
+ for _,c:=range []struct{host,port,want string}{
+  {"0.0.0.0","8123","http://127.0.0.1:8123\\n"},
+  {"127.0.0.1","80","http://127.0.0.1:80\\n"},
+  {"localhost","8081","http://127.0.0.1:8081\\n"},
+  {"[::]","8124","http://[::1]:8124\\n"},
+  {"[::1]","8125","http://[::1]:8125\\n"},
+  {"127.0.0.1","0",""},{"127.0.0.1","65536",""},
+  {"127.0.0.1","8.5",""},{"127.0.0.1","true",""},
+  {"192.168.1.2","8123",""},{"::","8123",""},
+ }{
+  directory:=t.TempDir(); configuration:=filepath.Join(directory,"config.yaml"); output:=filepath.Join(directory,"url.txt")
+  if err:=os.WriteFile(configuration,[]byte("server:\\n  host: \\""+c.host+"\\"\\n  port: "+c.port+"\\n"),0600);err!=nil{t.Fatal(err)}
+  err:=writeLocalBaseURL(configuration,output)
+  if c.want==""{if err==nil{t.Fatal("invalid listener accepted")};continue}
+  if err!=nil{t.Fatal(err)}; actual,err:=os.ReadFile(output);if err!=nil||string(actual)!=c.want{t.Fatalf("unexpected URL: %q %v",actual,err)}
+  if err:=writeLocalBaseURL(configuration,output);err==nil{t.Fatal("existing URL overwritten")}
+ }
+}
+`
+    )
+    await execute("go", ["test", "./cmd/release-config"], {
+      cwd,
+      env: { ...process.env, GOOS: "", GOARCH: "", CGO_ENABLED: "0", APP_SERVER_PORT: "9999" },
+      timeout: 60_000
+    })
+  }, 90_000)
+
+  /** 非交互确认绑定到实际生产地址；已有值、进程覆盖和无服务项目不被自动替换。 */
+  test("非交互显式确认只补选中空地址，且校验旧导出器与生产监听", async () => {
+    const { root, pnpm } = await serverFixture()
+    const web = path.join(root, "example_web/.env.production")
+    const extension = path.join(root, "example_extension/.env.production")
+    await writeFile(extension, "PLASMO_PUBLIC_API_BASE_URL=https://kept.example.com\n")
+    await release(root, pnpm, ["--member=web", "--e2e=disabled"], {
+      VITE_API_BASE_URL: "https://explicit.example.com"
+    })
+    expect(await readFile(web, "utf8")).toBe("")
+    await expect(
+      release(root, pnpm, ["--member=web", "--e2e=disabled"], { VITE_API_BASE_URL: "" })
+    ).rejects.toThrow(/移除空的进程覆盖/)
+    await release(root, pnpm, [
+      "--member=web",
+      "--e2e=disabled",
+      "--confirm-local-base-url=http://127.0.0.1:8123"
+    ])
+    expect(await readFile(web, "utf8")).toBe("VITE_API_BASE_URL=http://127.0.0.1:8123\n")
+    expect(await readFile(extension, "utf8")).toBe(
+      "PLASMO_PUBLIC_API_BASE_URL=https://kept.example.com\n"
+    )
+    await writeFile(web, "")
+    const command = path.join(root, "example_server/cmd/release-config/main.go")
+    const source = await readFile(command, "utf8")
+    await writeFile(
+      command,
+      source.replace(
+        'flag.String("local-base-url-output"',
+        'flag.String("old-local-base-url-output"'
+      )
+    )
+    await expect(release(root, pnpm, ["--member=web", "--e2e=disabled"])).rejects.toThrow(
+      /新版地址导出接口/
+    )
+    await writeFile(command, source)
+    await writeFile(
+      path.join(root, "example_server/configs/config-prod.yaml"),
+      "server:\n  port: 0\n"
+    )
+    await expect(release(root, pnpm, ["--member=web", "--e2e=disabled"])).rejects.toThrow(
+      /server.port/
+    )
+    expect(await readFile(web, "utf8")).toBe("")
+    const previousArchive = await readFile(path.join(root, "release/web.zip"))
+    await writeFile(
+      path.join(root, "example_server/configs/config-prod.yaml"),
+      "server:\n  host: 127.0.0.1\n  port: 8123\n"
+    )
+    await expect(
+      release(
+        root,
+        pnpm,
+        ["--member=web", "--e2e=disabled", "--confirm-local-base-url=http://127.0.0.1:8123"],
+        { CHANGE_SERVER_CONFIG: "1" }
+      )
+    ).rejects.toThrow(/发布配置已变化/)
+    expect(await readFile(path.join(root, "release/web.zip"))).toEqual(previousArchive)
+    expect(await readdir(path.join(root, "release"))).toEqual(["web.zip"])
+  }, 90_000)
+
   /** 两个前端归档都读取本次目录，保留资源和空目录，不嵌套 dist 或旧 ZIP。 */
   test("Web 解压目录使用成员名，Extension 同时包含 Chrome 与 Firefox", async () => {
     const { root, pnpm } = await fixture()

@@ -33,7 +33,7 @@ export function adaptGoConfiguration(source: string): string {
 }
 
 /** 先读配置环境，再合并可选 profile；同目录发布配置优先于开发目录。 */
-const GO_CONFIG_LOAD = `func Load(path string, env string) (*Config, error) {
+export const GO_CONFIG_LOAD = `func Load(path string, env string) (*Config, error) {
     if strings.TrimSpace(path) == "" {
         path = "config.yaml"
         if _, err := os.Stat(path); errors.Is(err, fs.ErrNotExist) {
@@ -118,8 +118,12 @@ func WriteRelease(output string) error {
     instance := viper.New()
     // 两个来源均为发布合同的一部分；缺失时不能把开发配置冒充生产配置。
     for _, file := range []string{"configs/config.yaml", "configs/config-prod.yaml"} {
-        if _, err := os.Stat(file); err != nil { return fmt.Errorf("config: 发布配置缺失: %w", err) }
-        if err := readInto(instance, file); err != nil { return err }
+        info, err := os.Lstat(file)
+        if err != nil { return fmt.Errorf("config: 发布配置缺失: %w", err) }
+        if !info.Mode().IsRegular() { return errors.New("config: 发布配置必须是普通文件") }
+        // 不复用目标可能定制过的 readInto，确保只读取这两份 YAML。
+        instance.SetConfigFile(file)
+        if err := instance.MergeInConfig(); err != nil { return fmt.Errorf("config: 无法读取发布配置: %w", err) }
     }
     instance.Set("app.env", "prod")
     // 部署环境秘密可在解压后编辑 config.yaml 或通过显式 APP_* 覆盖注入。
@@ -134,22 +138,43 @@ func WriteRelease(output string) error {
 }
 `
 
-/** 配置导出工具在本机执行，目标平台的 Server 只负责实际运行。 */
-export const GO_RELEASE_CONFIG_COMMAND = `package main
+/** 独立命令复用纯 YAML 实现，不导入业务 config 包，避免触发目标自定义 init。 */
+export const GO_RELEASE_CONFIG_COMMAND =
+  GO_RELEASE_CONFIG.replace("package config", "package main").replace(
+    '"errors"',
+    '"errors"\n    "flag"\n    "net"\n    "strconv"\n    "strings"'
+  ) +
+  `
+// writeLocalBaseURL 只读取刚导出的生产配置，输出可供本机浏览器使用的回环地址。
+func writeLocalBaseURL(configuration string, output string) error {
+    instance := viper.New()
+    instance.SetConfigFile(configuration)
+    if err := instance.ReadInConfig(); err != nil { return err }
+    port, err := strconv.Atoi(instance.GetString("server.port"))
+    if err != nil || port < 1 || port > 65535 { return errors.New("config: server.port 必须为 1..65535 的整数") }
+    host := strings.TrimSpace(instance.GetString("server.host"))
+    switch host {
+    case "", "0.0.0.0", "127.0.0.1", "localhost": host = "127.0.0.1"
+    case "[::]", "[::1]": host = "::1"
+    default: return errors.New("config: 无法从非回环监听推导本机地址，请明确配置正式 BaseURL 或调整 server.host")
+    }
+    file, err := os.OpenFile(output, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+    if err != nil { return err }
+    _, writeErr := file.WriteString("http://" + net.JoinHostPort(host, strconv.Itoa(port)) + "\\n")
+    closeErr := file.Close()
+    return errors.Join(writeErr, closeErr)
+}
 
-import (
-    "flag"
-    "fmt"
-    "os"
-    "project_id/internal/config"
-)
-
-// main 仅生成单份生产配置，不连接数据库、监听端口或读取环境秘密。
+// main 仅生成单份生产配置与可选公开地址，不连接数据库、监听端口或读取环境秘密。
 func main() {
     output := flag.String("output", "", "输出配置路径")
+    localBaseURL := flag.String("local-base-url-output", "", "可选：输出生产配置的本机回环地址")
     flag.Parse()
-    if *output == "" { fmt.Fprintln(os.Stderr, "必须提供 --output"); os.Exit(1) }
-    if err := config.WriteRelease(*output); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+    if *output == "" || flag.NArg() != 0 { fmt.Fprintln(os.Stderr, "必须提供 --output，且不接受位置参数"); os.Exit(1) }
+    if err := WriteRelease(*output); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+    if *localBaseURL != "" {
+        if err := writeLocalBaseURL(*output, *localBaseURL); err != nil { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+    }
 }
 `
 

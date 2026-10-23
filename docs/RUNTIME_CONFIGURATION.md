@@ -1,6 +1,6 @@
 # 运行配置与环境
 
-明确 service.mode=none 的纯本地 Workspace 不使用远端地址：三环境均为空，生成的环境合同拒绝额外远端配置；工具验证必须核对根身份、成员登记及服务归属后才允许 Release 空地址。existing/create 与旧独立项目继续要求正式 HTTPS 地址。升级保持这一合同。
+明确 service.mode=none 的纯本地 Workspace 不使用远端地址：三环境均为空，生成的环境合同拒绝额外远端配置；工具验证必须核对根身份、成员登记及服务归属后才允许 Release 空地址。其他项目的正式地址必须非空，远端使用 HTTPS；本机回环可使用 HTTP。升级保持这一合同。
 
 本文档是 Bifang Web Harness Template 及其生成下游在运行配置、环境文件、字段校验和命令映射方面的唯一详细事实来源。每个项目固定维护 `development`、`test`、`release` 三个逻辑环境；缺少任何一份配置或必填字段时，验证、测试或构建必须失败。
 
@@ -32,7 +32,7 @@
 ## 3. 字段与校验
 
 - `APP_ENV` 必须与文件代表的逻辑环境完全一致，只接受 `development`、`test`、`release`。
-- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置；该服务的数据流向详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、查询参数或片段；末尾 `/` 在解析时规范化。已填 `release` 地址始终必须使用 `https`，正式发布前及活动 Release 校验必须非空。
+- `API_BASE_URL` 初始化和日常文件校验允许留空，表示未配置；该服务的数据流向详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1，不猜测地址。已填值必须是绝对 `http`/`https` URL，不得包含用户名、密码、查询参数或片段；末尾 `/` 在解析时规范化。`release` 远端地址使用 `https`；仅 `127.0.0.1`、`localhost`、`[::1]` 允许 HTTP，正式发布前及活动 Release 校验必须非空。
 - `LOG_LEVEL` 只接受 `debug`、`info`、`warn`、`error`；`release` 只接受 `warn` 或 `error`。
 - `REQUEST_TIMEOUT_MS` 必须是 `1000`–`120000` 的正整数；初始化默认写入 `10000`。
 
@@ -49,15 +49,23 @@ pnpm instantiate -- /absolute/path --type web \
   --name "示例 Web" --english-name "Example Web" --policy-mode 预设
 ```
 
-命令形态为 `pnpm instantiate -- <parent-outside-harness> ...`。交互式创建按依赖顺序逐项引导尚未明确的基础字段，Agent 设置直接采用默认预设；仅主动自定义时每轮询问一个缺失或非法字段，并给可靠建议默认值；不为 Release endpoint 猜测默认值，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
+命令形态为 `pnpm instantiate -- <parent-outside-harness> ...`。交互式创建按依赖顺序逐项引导尚未明确的基础字段，Agent 设置直接采用默认预设；仅主动自定义时每轮询问一个缺失或非法字段，并给可靠建议默认值；创建时不推导 Release endpoint，也不提前询问 E2E。URL、颜色、Logo、路径、源内目标或其他预检失败必须发生在目标或 sibling staging 写入前；已有任一受管环境文件也视为冲突，不得覆盖。源 Harness 不提供 `pnpm harness:init`，`pnpm harness init` 明确拒绝；底层 initializer 只由 `instantiate` 在目标同级 sibling staging 中内部调用。
 
 初始化器为当前唯一宿主生成并直接校验三份配置、类型化 schema、运行时 adapter、非空测试与统一 logger。它还生成只读取 `APP_CONFIG` 的Ky HTTP 基础 client，但不生成真实 endpoint 或请求调用，Ky 声明为运行时依赖，其他传输或协议依赖按需加入。语言、分页、continuation 与认证 Token 是运行时状态，不得加入公开环境文件；其存储和安全边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md)。创建期不执行最终构建；后续 `pnpm build` 仍在其他门禁之前重新验证三份文件与活动 Release profile。
 
 ### 4.1 用户要求真实联网时的 BaseURL 收集
 
-只有用户明确提出需要真实联网时，才在已初始化下游收集相关地址：先读取三份受管配置并复用有效值，再按工程规则“渐进式交互引导”逐项补问本次操作依赖的环境与服务 BaseURL/target。每轮优先一个阻断问题，不要求一次提供 development、test、release 的全部地址。用户已明确提供的值不重复询问；暂不使用的环境或服务可继续留空或待定，不编造默认地址，正式发布仍须补齐 HTTPS 正式地址。
+只有用户明确提出需要真实联网时，才在已初始化下游收集相关地址：先读取三份受管配置并复用有效值，再按工程规则“渐进式交互引导”逐项补问本次操作依赖的环境与服务 BaseURL/target。每轮优先一个阻断问题，不要求一次提供 development、test、release 的全部地址。用户已明确提供的值不重复询问；暂不使用的环境或服务可继续留空或待定。自建服务首次发布的空地址按下节从生产配置推导并确认；其他远端地址由用户提供。
 
 按当前唯一宿主前缀写入对应 `.env.development`、`.env.test`、`.env.production` 并校验。多个服务只在确有消费者时扩展类型化只读 target registry、对应 schema 与环境键白名单，不临时绕过未知公开键门禁。业务代码继续只读 `APP_CONFIG`。地址配置通过后，按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §3.1 迁移对应 API；仅填写地址不代表已经迁移或验证服务可达。Web CORS、认证以及 Extension 最小网络权限继续按实际集成处理。
+
+### 4.2 自建服务首次发布的本机地址
+
+Workspace 根 `pnpm release` / `release:web` / `release:extension` 在所选前端正式地址为空、且 `service.mode=create` 时，使用独立 Go 导出器合并基线与生产 YAML，从实际 `server.host/port` 提出本机回环 HTTP 地址。通配/IPv4 回环使用 `127.0.0.1`，IPv6 通配/回环使用 `[::1]`；端口必须在生产配置中存在且合法，不用开发地址、宿主环境覆盖或猜测端口。定制监听或 HTTPS 反代应明确填写正式地址。
+
+命令先展示建议及将写入的文件，只有明确同意后才补齐选中成员的 `.env.production`；空回答、拒绝或取消不写入。已填值和非空进程覆盖保持优先，后续发布沿用已有值。非交互首次运行会报告建议并停止，确认后可传 `--confirm-local-base-url=<实际建议地址>`；值不匹配仍停止。已确认的配置在之后构建失败时继续保留，原 ZIP 按归档规则保护。
+
+回环地址只适用于浏览器和解压后的 Server 在同一机器；不同机器、代理、Web CORS 与 Extension 网络权限仍需按真实部署配置。`existing` 服务没有可推导的打包 Server，不自动设置；`none` 继续保持三环境空地址。旧下游需同时迁移导出器地址接口、工具校验与浏览器 schema，见升级 Skill 的 [Go 发布迁移](../.agents/skills/web-upgrade-harness/references/go-release-migration.md)。
 
 ## 5. 验证与命令
 
@@ -70,7 +78,7 @@ pnpm env:validate --profile release
 
 不带 `--profile` 时只读取并校验全部三份受管文件，允许地址留空，不读取进程环境作为覆盖。指定 profile 时仍先校验三份文件，然后只允许当前进程用该宿主的四个可配置公开键覆盖所选 profile；例如 Web 只接受 `VITE_APP_ENV`、`VITE_API_BASE_URL`、`VITE_LOG_LEVEL`、`VITE_REQUEST_TIMEOUT_MS`。Extension 对应接受四个 `PLASMO_PUBLIC_` 键。受管文件或环境校验进程中出现与当前宿主前缀匹配但未声明的公开键时直接失败；覆盖后仍执行相同 Schema 校验。构建编排器随后只向宿主生产构建子进程注入只读的 `VITE_BUILD_VERSION` 或 `PLASMO_PUBLIC_BUILD_VERSION`，该值不属于可配置 profile、不得写入 `.env*`；页面通过 `src/buildVersion.ts` 读取并展示该值，`release:inspect` 使用同一 `HARNESS_BUILD_VERSION` 验证候选命中。
 
-`--profile release` 在应用合法进程覆盖后要求正式地址非空且 HTTPS；最终构建和 `release:inspect` 均消费此门禁。生成的运行时 schema 允许 development/test 地址为空，Release 运行时拒绝空地址。真实 HTTP client 在地址未配置时于 Fetch 前报错，禁止相对请求或猜测地址。所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
+`--profile release` 在应用合法进程覆盖后要求正式地址非空，远端 HTTPS、本机回环允许 HTTP；最终构建和 `release:inspect` 均消费此门禁。生成的运行时 schema 允许 development/test 地址为空，Release 运行时拒绝空地址。真实 HTTP client 在地址未配置时于 Fetch 前报错，禁止相对请求或猜测地址。所有验证路径都拒绝上述五种隐式环境文件。`pnpm harness validate` 校验三份配置与脚本契约；Vitest 从 `.env.test` 提供测试运行时公开值；最终构建在任何静态、类型或全量测试门禁之前显式执行 `pnpm env:validate --profile release`。
 
 - `pnpm dev` 固定使用 `.env.development`，但普通开发不为预探测重复执行独立环境命令；出现配置错误时按故障诊断处理。
 - `pnpm test` 与 `pnpm test:related` 固定使用 `.env.test` 提供的测试运行时值。

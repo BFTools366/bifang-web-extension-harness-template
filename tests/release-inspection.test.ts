@@ -232,9 +232,9 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
     )
   })
 
-  /** 验证正式扫描允许开发和测试地址留空，但不会放过缺失或不安全的正式地址。 */
+  /** 正式扫描接受本机 HTTP，仍拒绝空地址、远端 HTTP 与有凭据的回环 URL。 */
   test.each(["web", "extension"] as const)(
-    "requires a configured HTTPS release API for %s",
+    "requires a configured HTTPS or loopback release API for %s",
     async (projectType) => {
       const { root } = await createFixture(
         { development: "", test: "", release: "https://api.example.com" },
@@ -244,12 +244,32 @@ describe("release URL inspection", /* 执行 当前声明 函数的处理逻辑�
       await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({
         files: projectType === "web" ? 1 : 10
       })
-      for (const release of ["", "http://api.example.com"]) {
+      for (const release of [
+        "http://127.0.0.1:8123",
+        "http://localhost:8123",
+        "http://[::1]:8123"
+      ]) {
         await writeFile(
           path.join(root, ".env.production"),
           environmentFile("release", release, projectType)
         )
-        await expect(inspectReleaseArtifact(root)).rejects.toThrow(/Release API_BASE_URL/)
+        await expect(inspectReleaseArtifact(root)).resolves.toMatchObject({
+          files: projectType === "web" ? 1 : 10
+        })
+      }
+      for (const release of [
+        "",
+        "http://api.example.com",
+        "http://localhost.evil.invalid",
+        "http://192.168.1.2:8123",
+        "http://user@127.0.0.1:8123",
+        "http://127.0.0.1:8123?token=x"
+      ]) {
+        await writeFile(
+          path.join(root, ".env.production"),
+          environmentFile("release", release, projectType)
+        )
+        await expect(inspectReleaseArtifact(root)).rejects.toThrow(/API_BASE_URL/)
       }
     }
   )

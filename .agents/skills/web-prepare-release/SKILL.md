@@ -9,6 +9,8 @@ Workspace 可按当前明确范围选择已登记成员或全部已选成员，�
 
 只评估当前仓库的唯一候选种类；Harness 源不伪造应用产物，下游只处理 `.harness/project.json.projectType` 对应格式。
 
+自建 Server 的首次空正式 BaseURL 必须先走根 release 的生产配置推导与用户确认，不能直接用开发端口填入，也不能让 Agent 自行代答确认参数。复用已确认地址；旧下游的 exporter 与浏览器 schema 迁移交升级 Skill，规则见 [运行配置](../../../docs/RUNTIME_CONFIGURATION.md#42-自建服务首次发布的本机地址)。确认引起配置字节变化后重新绑定源码与构建候选。
+
 ## 准入
 
 1. 识别仓库：下游读取 `.harness/project.json`；源 Harness 读取 `Version.md` 且确认不存在该项目文件。再读取 `package.json`、锁文件、发布规则、最新相关 Product Spec、Changelog 和 Verification。
@@ -22,7 +24,7 @@ Workspace 可按当前明确范围选择已登记成员或全部已选成员，�
 ### Harness 源
 
 1. 候选是绑定到 `Version.md`、源码提交和 lockfile 的源树；根没有应用 `build` 门禁，也不自行发明 zip、npm 发布包或另一种归档。
-2. 要求 `pnpm validate:harness` 及根级适用门禁通过，并复核 `$web-verify-delivery` 已在两个隔离目录验证允许初始化三地址留空、正式构建前补齐 HTTPS 正式地址的 Web/Extension 输出、每个下游唯一 Release 构建，以及 `build:release`/Extension `package` 自动通过 `pnpm release:inspect`；development/test 不生成候选。
+2. 要求 `pnpm validate:harness` 及根级适用门禁通过，并复核 `$web-verify-delivery` 已在两个隔离目录验证允许初始化三地址留空、正式构建前按运行配置合同补齐正式地址的 Web/Extension 输出、每个下游唯一 Release 构建，以及 `build:release`/Extension `package` 自动通过 `pnpm release:inspect`；development/test 不生成候选。
 3. 记录精确提交、版本、锁文件状态和生成候选证据；当前明确发布请求覆盖的既有渠道步骤沿用授权；新增归档格式、注册表或托管 Release 渠道才补充授权。
 
 ### Web

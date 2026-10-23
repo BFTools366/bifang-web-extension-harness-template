@@ -231,7 +231,9 @@ export function requiredWorkspaceSourcePaths(context: UpgradeTargetContext) {
   const paths: { source: string; target: string }[] = []
   const selfPaths = [
     ".agents/skills/web-upgrade-harness/scripts/upgrade-workspace.ts",
-    ".agents/skills/web-upgrade-harness/references/workspace-upgrade.md"
+    ".agents/skills/web-upgrade-harness/references/workspace-upgrade.md",
+    ".agents/skills/web-upgrade-harness/scripts/prepare-go-release.ts",
+    ".agents/skills/web-upgrade-harness/references/go-release-migration.md"
   ]
   for (const prefix of context.workspace
     ? ["", ...context.frontends.map((member) => member.directory)]

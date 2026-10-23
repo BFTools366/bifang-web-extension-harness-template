@@ -206,7 +206,7 @@ function runtimeConfiguration(config: ProjectConfig): string {
 ## 字段与边界
 
 - \`${prefix}APP_ENV\`：必须与文件的逻辑环境一致。
-- \`${prefix}API_BASE_URL\`：初始化和日常文件校验允许留空；已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS。正式发布前及活动 Release 校验必须补齐正式地址。
+- \`${prefix}API_BASE_URL\`：初始化和日常文件校验允许留空；已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式远端地址只接受 HTTPS，本机回环（127.0.0.1、localhost、[::1]）允许 HTTP。正式发布前及活动 Release 校验必须补齐正式地址；自建服务首次空地址由 Workspace 根 release 从生产配置推导并提示确认，详见根 docs/WORKSPACE_TEMPLATE.md。
 - \`${prefix}LOG_LEVEL\`：只接受 \`debug|info|warn|error\`，Release 只接受 \`warn|error\`。
 - \`${prefix}REQUEST_TIMEOUT_MS\`：\`1000\`–\`120000\` 的正整数。
 
@@ -220,16 +220,22 @@ function runtimeConfiguration(config: ProjectConfig): string {
 
 ## 用户要求真实联网时
 
-先读取三份受管配置并复用有效值，再按工程规则“渐进式交互引导”逐项补问本次操作依赖的环境与服务 BaseURL/target，每轮优先一个阻断问题，不要求一次提供全部环境。用户已提供的值不重复询问；暂不使用的环境或服务可留空或待定，不编造默认地址，正式发布仍须补齐 HTTPS 正式地址。纯本地功能不收集远端地址；真实远端操作按当前服务归属补齐本次依赖的配置，测试替身不代表服务已经接通。
+先读取三份受管配置并复用有效值，再按工程规则“渐进式交互引导”逐项补问本次操作依赖的环境与服务 BaseURL/target，每轮优先一个阻断问题，不要求一次提供全部环境。用户已提供的值不重复询问；暂不使用的环境或服务可留空或待定，自建服务首次发布空地址按根 Workspace 发布流程推导并确认；其他远端正式地址需用户提供 HTTPS。纯本地功能不收集远端地址；真实远端操作按当前服务归属补齐本次依赖的配置，测试替身不代表服务已经接通。
 
 使用当前宿主的 \`${prefix}\` 前缀更新对应受管环境文件并校验；多服务仅在确有消费者时扩展类型化只读 target registry、schema 与公开键白名单。配置通过后按 \`docs/DATA_ACCESS.md\` §3.1 迁移对应 API；仅填写地址不代表服务已接通。Web CORS、认证和 Extension 网络权限按真实消费者单独处理。
 
 \`.env\`、\`.env.local\` 与三种 \`.env.*.local\` 会造成构建器静默覆盖，项目门禁明确拒绝其存在。选定 profile 只允许当前进程覆盖上述四个已声明键；未知 \`${prefix}*\` 键拒绝。development/test 只服务运行与测试，不允许生成最终候选；所有本机、CI 或其他平台的产物构建都固定使用逻辑 \`release\` 和 \`.env.production\`。
 
+## 4.2 自建服务首次发布的本机地址
+
+在已登记自建 Server 的 Workspace 根发布所选前端时，空的正式 BaseURL 会从合并后的生产 server.host/port 推导为本机回环 HTTP 地址并提示确认。仅在用户明确同意后补齐空配置，已有地址保持优先；非交互先查看实际建议，再传 \`--confirm-local-base-url=<实际建议地址>\`。没有确认不构建或替换 ZIP；确认后后续构建失败仍保留已选择的地址。
+
+本机地址只适用于浏览器与 Server 同机；其他部署请配置正式 HTTPS 地址及真实 CORS/Extension 网络权限。existing 服务不自动推导，none 保持空地址。旧下游需同时局部迁移 exporter 地址接口与浏览器 schema，保留自定义字段、校验及已有配置，不能只替换构建工具。
+
 ## 命令
 
 - \`pnpm env:validate\`：校验三份文件，允许 API 地址留空。
-- \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖；Release profile 要求正式地址非空且 HTTPS。
+- \`pnpm env:validate --profile development|test|release\`：校验全部文件，并验证选定 profile 的进程覆盖；Release profile 要求正式地址非空，远端 HTTPS、本机回环允许 HTTP。
 - \`pnpm build\`：\`pnpm build:release\` 的唯一产物入口；复用本次发布已明确的 E2E 选择，非交互入口传 \`--e2e=enabled|disabled\`，构建前运行完整环境、Harness、格式、lint、类型和全量单元测试门禁，注入${buildVersionSource(config)}页面版本后自动运行 \`pnpm release:inspect\`。
 
 Node.js、pnpm 与按需使用的${config.projectType === "web" ? " Chrome" : " Chrome/Firefox"} 的工具链探测不同于上述运行配置校验。本项目已经完成首次初始化；普通开发、构建、新会话或 Agent 切换不预探测，只有真实命令报出疑似环境错误后才按 [\`$web-check-development-environment\`](../.agents/skills/web-check-development-environment/SKILL.md) 诊断相关组件。

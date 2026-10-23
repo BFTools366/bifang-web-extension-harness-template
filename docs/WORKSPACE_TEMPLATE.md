@@ -1,6 +1,6 @@
 # Workspace 创建与全栈协作
 
-显式纯本地模式使用 --server none：只生成所选前端，不创建 Go、健康检查或 Go 传输，不要求服务地址或接口文档。三环境地址保持空，正式环境仅在精确登记的 none 成员中允许空地址；远端项目仍执行 HTTPS 及非空门禁。原地升级保持 none，不更改服务归属。修改服务模式时旧地址和接口文档失效，避免预览与执行使用不同服务。
+显式纯本地模式使用 --server none：只生成所选前端，不创建 Go、健康检查或 Go 传输，不要求服务地址或接口文档。三环境地址保持空，正式环境仅在精确登记的 none 成员中允许空地址；服务项目仍执行非空门禁，远端使用 HTTPS、本机回环允许 HTTP。原地升级保持 none，不更改服务归属。修改服务模式时旧地址和接口文档失效，避免预览与执行使用不同服务。
 
 此文是工作区拓扑、服务归属和跨成员协作的唯一事实源，取代旧规则中“一个下游只能是平铺前端单包”的限制。成员内部仍独立保持 React Web、Plasmo 双浏览器扩展或 Go 服务的技术边界。
 
@@ -65,7 +65,7 @@ Agent 与 CLI 共享题库、条件、汇总和确认。每轮只问一个缺项
 
 ## 本地发布归档
 
-从 Workspace 根运行 `pnpm release`，只处理已登记成员；`pnpm release:web`、`pnpm release:extension`、`pnpm release:server` 只为对应成员生成。命令接受 `--member=web|extension|server`、`--platform=<os/arch>`、`--e2e=enabled|disabled`，也支持参数名与值分开。含 Server 的非交互示例（无 Server 时省略 --platform）：
+从 Workspace 根运行 `pnpm release`，只处理已登记成员；`pnpm release:web`、`pnpm release:extension`、`pnpm release:server` 只为对应成员生成。命令接受 `--member=web|extension|server`、`--platform=<os/arch>`、`--e2e=enabled|disabled`、`--confirm-local-base-url=<实际建议地址>`，也支持参数名与值分开。含 Server 的非交互示例（无 Server 时省略 --platform）：
 
 `pnpm release -- --platform=linux/amd64 --e2e=disabled`
 
@@ -74,6 +74,8 @@ Agent 与 CLI 共享题库、条件、汇总和确认。每轮只问一个缺项
 - `release/server.zip`：仅包含 `<id>_server`（Windows 为 .exe）与 `config.yaml`。执行真实 Go 测试、在本机导出生产配置，再用 GOOS/GOARCH 和 CGO_ENABLED=0 交叉编译。语言及 Swagger 资源已内嵌；不打包数据库、日志或开发配置。
 
 Server 必须先询问用户目标平台，不默认采用本机；已明确的平台参数复用。支持 linux、windows、darwin 各自 amd64/arm64。非交互缺少平台即在构建前失败。前端同一流程只解析一次 E2E，选择 enabled 后仍需委托精确产物验收，命令不会把选择本身报告为 E2E 通过。Server-only 不询问 E2E。
+
+自建服务的所选前端首次未填正式 BaseURL 时，先从实际生产配置推导本机回环地址并提示用户确认，再写入空的 `.env.production`，已有值保持不变。非交互先查看建议，再传 `--confirm-local-base-url=<实际建议地址>`；未确认前不构建或替换 ZIP。只打包 Server 不填写前端地址，已有服务及 none 模式不自动推导。完整地址、同机使用和升级约束见 [首次发布本机地址](RUNTIME_CONFIGURATION.md#42-自建服务首次发布的本机地址)。
 
 逐成员成功后原子替换对应 ZIP，失败清理该成员暂存并保留其旧包；后续成员失败不会回滚前面已完成成员。其他 release 内容不删除；拒绝源或目标中的符号链接及特殊文件。release/ 被 Git 忽略。归档成功只证明本地制品已生成，发布平台的真实运行、浏览器和外部渠道仍按[发布门禁](RELEASE.md)取证；命令不上传或部署。
 

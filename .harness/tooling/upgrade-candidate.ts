@@ -236,7 +236,7 @@ export async function renderUpgradeCandidate(
                   {
                     path: `${context.workspace.id}_server`,
                     requirement:
-                      "服务代码与配置受保护；使用 release:server 前须另行迁移单文件配置及 cmd/release-config。"
+                      "服务代码与配置受保护；按 web-upgrade-harness/references/go-release-migration.md 独立预演，保留已有配置与业务，补齐缺失发布工具并验证 release:server。"
                   }
                 ]
               : [])

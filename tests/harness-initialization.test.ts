@@ -279,6 +279,12 @@ describe("single-package Harness initialization", () => {
       for (const apiBaseUrl of [undefined, "", "http://api.example.com"]) {
         assert.throws(() => createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" }));
       }
+      for (const apiBaseUrl of ["http://127.0.0.1:8123", "http://localhost:8123", "http://[::1]:8123"]) {
+        assert.equal(createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" }).apiBaseUrl, apiBaseUrl);
+      }
+      for (const apiBaseUrl of ["http://localhost.evil.invalid", "http://192.168.1.2:8123", "http://127.0.0.1:8123?token=x", "http://user@localhost:8123", "http://localhost:8123#x"]) {
+        assert.throws(() => createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" }));
+      }
     `
       ])
     }

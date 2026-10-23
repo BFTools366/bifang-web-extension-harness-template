@@ -54,14 +54,14 @@ GraphQL 原始 generated.go 引导快照单独保存于资产 generated/（真�
 
 ## 上游能力归属与日常开发
 
-| 上游职责                                                                | 本 Workspace 中的归属                                            |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| implement-change、add-http-adapter、refactor-code、extract-i18n-strings | go-implement-service，按需委托底层 Skill；不重新定义产品         |
-| Go 初始化与改名                                                         | 唯一 Workspace 创建器与固定成员命名，不分发独立 Go 问卷          |
-| product、plan、Task、Git、历史与策略                                    | 复用根对应已有流程，不创建第二份生命周期                         |
-| build-local、测试与真实接口走查                                         | go-build-local、go-test-service                                  |
-| release、版本、候选及收集                                               | 按根明确发布请求绑定服务成员、平台与产物；本机编译不冒充正式发布 |
-| Harness 升级                                                            | 既有独立单包升级维持原范围，Workspace 迁移须另行实施合同         |
+| 上游职责                                                                | 本 Workspace 中的归属                                                                             |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| implement-change、add-http-adapter、refactor-code、extract-i18n-strings | go-implement-service，按需委托底层 Skill；不重新定义产品                                          |
+| Go 初始化与改名                                                         | 唯一 Workspace 创建器与固定成员命名，不分发独立 Go 问卷                                           |
+| product、plan、Task、Git、历史与策略                                    | 复用根对应已有流程，不创建第二份生命周期                                                          |
+| build-local、测试与真实接口走查                                         | go-build-local、go-test-service                                                                   |
+| release、版本、候选及收集                                               | 按根明确发布请求绑定服务成员、平台与产物；本机编译不冒充正式发布                                  |
+| Harness 升级                                                            | 工程 planner 保护 Go；需要 Server 打包时按升级 Skill 的独立迁移分支保留配置与业务、补齐工具并验证 |
 
 外部 HTTP 适配器持有可复用且有总超时的 http.Client，用 NewRequestWithContext；非 2xx、超限响应、非法结构与网络失败区分处理。限制响应体大小并关闭 Body；重试只用于已确认可重试的操作，不重放未知写入。秘密只从服务端配置注入，不返回浏览器配置或日志。
 

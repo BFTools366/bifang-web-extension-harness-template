@@ -69,6 +69,7 @@ export const REQUIRED_UPGRADE_RULES: Readonly<Record<string, OwnershipMode>> = {
   "tests/workspace-runtime.test.ts": "tombstone",
   "tests/workspace-server.test.ts": "tombstone",
   "tests/workspace-release.test.ts": "tombstone",
+  "tests/go-release-migration.test.ts": "tombstone",
   "tests/creation-api-contract.test.ts": "tombstone",
 
   ".agents/skills/design-taste-frontend/**": "protected",

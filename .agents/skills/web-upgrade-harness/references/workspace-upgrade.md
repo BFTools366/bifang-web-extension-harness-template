@@ -19,7 +19,9 @@
 - Go 成员强制保护，不能由额外规则改为 managed。目标扫描在进入 Go、业务、品牌、项目记录目录前剪枝；秘密 `.env` 与 `.env*.local` 只登记存在、拒绝读内容并阻断规划。公开三环境文件保持 conditional，但本次渲染器不复制目标环境值。
 - 产品源码、测试、实际业务、运行配置、Go 依赖与数据不进入工程候选。仅更新 Go Skill 和模板资源不改变已有服务功能；需要业务迁移时另按真实契约实施。
 
-发布工具升级需要同时补齐三个根 runtime，并在根 package.json 合并 release/release:<member> 脚本及 /release/ 忽略规则。既有 Go 成员仍受保护：本次模板新增的配置加载与 cmd/release-config 不会被工程升级自动写入；使用 release:server 前需在明确授权的服务变更中迁移配置合同。缺少导出工具时不得把旧开发配置当成生产包。
+发布工具升级需要同时补齐三个根 runtime，并在根 package.json 合并 release/release:<member> 脚本及 /release/ 忽略规则。既有 Go 成员仍受保护；需要接入 release:server 时必须完成 [已有 Go 服务发布迁移](go-release-migration.md)，复用本轮配置迁移授权，先生成独立外部提案，再补齐缺失 cmd/release-config 等工具、局部合并加载器并保留配置与业务。缺少导出工具时不得把旧开发配置当成生产包，也不得仅提示“另行迁移”就将包含 Server 打包要求的升级宣告完成。
+
+首次空 BaseURL 功能还要求 exporter 支持公开本机地址导出，以及受保护前端 schema 局部合并回环 HTTP 例外；按上述迁移资料的“首次发布的本机 BaseURL 兼容”处理，保留已有正式地址与自定义校验。只升级受管工具而遗漏浏览器 schema 会使旧产品启动失败，不能据此宣告兼容。
 
 旧 Workspace 创建器可能在根遗留 docs/HARNESS_ENGINEERING.md、docs/harness_engineering/ 和 docs/TS_WEB_TEMPLATE.md；提案列出这三类精确清理项，规划器仍以 tombstone 阻断。逐项审查原始来源和本地改写，明确批准后才清理；有用户改写时先保存，不自动删除。根共用规范随候选合并更新引用，避免继续链接源专属文档；前端成员保留自己的宿主规范。
 

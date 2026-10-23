@@ -46,7 +46,7 @@ pnpm instantiate -- /absolute/path --type extension --server create \
 - Agent 设置默认采用预设，聊天和 CLI 均不再询问策略模式，`--policy-mode` 可省略，汇总记录“默认预设”。主动提供单项策略时沿用为自定义；显式自定义仍逐项补齐，非交互须提供五项合法值。显式预设不能混入单项覆盖，最终创建确认保持不变。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
 - `--identity-i18n` 接受 §3.1 的 JSON 字符串；默认语言与名称/说明翻译保存在 `.harness/project.json`，UI 和 manifest 都消费同一事实。
-- `--development-base-url` 在已有服务时必填；自建服务由创建器使用 `http://127.0.0.1:8080`。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式地址只接受 HTTPS；正式发布前及活动 Release 校验必须补齐正式地址。
+- `--development-base-url` 在已有服务时必填；自建服务由创建器使用 `http://127.0.0.1:8080`。`--test-base-url` 与 `--release-base-url` 无需初始化时填写，也接受主动提供；未配值写为空字符串，禁止猜测地址。已填值必须是无凭据、query 或 fragment 的绝对 HTTP(S) URL，正式远端地址只接受 HTTPS，本机回环允许 HTTP；正式发布前及活动 Release 校验必须补齐地址，自建服务的首次空地址按 Workspace 发布合同推导并确认。
 - 确认来源不作为表单字段；`confirmed_by` 自动记录“当前用户”，可选 `--confirmed-by` 只用于复用已明确来源。`confirmed_at` 记录最终收齐时间。
 - `--logo` 可选，指向用户授权读取的本地图像；缺省时根据项目身份和品牌色确定性生成。
 - `--brand-color` 可选，使用 `#RRGGBB`；缺省为 `#4C6EF5`。例如追加 `--logo /absolute/path/logo.png --brand-color "#3B82F6"`。
@@ -442,7 +442,7 @@ pnpm harness validate
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。
-5. 三份环境文件齐全且宿主前缀正确，`APP_CONFIG` 和 logger 测试非空；初始化器直接验证全部环境，Release 配置使用 HTTPS 且日志最低级别为 `warn`。后续 `pnpm env:validate` 与最终构建仍独立复核该契约。
+5. 三份环境文件齐全且宿主前缀正确，`APP_CONFIG` 和 logger 测试非空；初始化器直接验证全部环境，Release 远端配置使用 HTTPS、本机回环允许 HTTP，日志最低级别为 `warn`。后续 `pnpm env:validate` 与最终构建仍独立复核该契约。
 6. `src/pagination/`、`src/data/api/client/`、语言持久化和对应非空测试齐全；validator 锁定文件、接线与关键安全结构锚点，非空行为测试锁定 page/pageSize 状态机、三个 header、内存 Token/continuation、revision、`ApiError` 与 single-flight 401 语义。package manifest 声明 Ky 运行时依赖而不预装 Axios，Extension manifest 仍无预置权限。
 7. 基线没有业务 endpoint、虚构登录 route、refresh/replay、Cookie 策略或对静态页面的假分页接线；真实 CORS、登录导航和 Extension 跨上下文/远端访问明确保持 `Unverified`，直到产品实现并完成相应门禁。
 8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；公开 CLI 不提供跳过安装入口，内部单元测试注入跳过状态时必须明确断言安装未执行。

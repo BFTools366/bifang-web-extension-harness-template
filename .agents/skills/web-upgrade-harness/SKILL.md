@@ -7,6 +7,8 @@ description: 在已实例化的 Workspace 或旧独立 React Web、Plasmo Chrome
 
 支持旧独立前端及已登记 Workspace 的原地工程升级。Workspace 必须从唯一 Git 根执行，统一根所有权与基线，按原成员路径投影前端工程层；Go 服务、产品、身份、配置、品牌和数据保持保护。先读取 [Workspace 升级合同](references/workspace-upgrade.md)，不增加成员或迁移目录。
 
+旧 Workspace 的自建 Go 服务需要接入根发布工具时，进入 [已有 Go 服务发布迁移](references/go-release-migration.md)：先用 `scripts/prepare-go-release.ts` 生成源外提案，再补缺失工具、按函数合并加载器并保留配置和业务代码，实际验证 Server ZIP 与隔离启动。复用本轮已经给出的迁移授权；工程 planner 仍保护整个 Go 目录，不以重新生成服务或放宽所有权代替迁移。
+
 通过“冻结事实 → 渲染候选 → 三方计划 → 路径级批准 → 重规划 → 目标验证 → 记录基线”升级终端前端项目。生产所有权清单和 TypeScript helper 必须精确位于目标仓库内本 Skill 的 `references/ownership-manifest.json` 与 `scripts/harness-upgrade.ts`；另一个仓库的 helper 或清单不得替目标授权，不得用临时脚本或弱化清单代替。
 
 ## 预演委托与写入边界
@@ -47,7 +49,7 @@ pnpm exec tsx .agents/skills/web-upgrade-harness/scripts/harness-upgrade.ts appl
 
 helper 会重新绑定 source、候选、目标、Git 状态、目标仓库内的清单和 lock；任何漂移或任一 `blocked` 项都会在写入前停止。它从已绑定的候选或目标根开始，逐级拒绝符号链接并绑定真实目录身份，只在最终稳定目录中原子替换这个已存在普通文件；替换前复验目标，并 fsync 新文件与父目录。不新增、不删除、不合并 mixed，也不提交。
 
-每次写入后必须委托 `$web-preview-harness-upgrade` 创建新的 plan 文件。`managed-self` 只有普通 managed 更新全部完成后才应用，新增的 `managed-self add` helper 必须先经逐路径批准手工补齐并重规划，否则自更新被阻断，保证下一轮目标 CLI 可启动；不能提前删除仍被旧入口引用的 helper。多个自更新按路径稳定顺序逐个执行，`scripts/harness-upgrade.ts` 最后。经用户逐路径批准的 `add`、`manual_add`、`delete`、`manual_merge`、`collision` 和 bootstrap 冲突收敛使用 `apply_patch` 手工完成；保留产品值与本地决定，随后重规划。不得整文件覆盖 mixed/protected 内容。
+每次写入后必须委托 `$web-preview-harness-upgrade` 创建新的 plan 文件。`managed-self` 只有普通 managed 更新全部完成后才应用，新增的 `managed-self add` helper 必须先经逐路径批准手工补齐并重规划，否则自更新被阻断，保证下一轮目标 CLI 可启动；不能提前删除仍被旧入口引用的 helper。多个自更新先更新导出提供者，再按稳定顺序更新消费者，`scripts/harness-upgrade.ts` 最后。经用户逐路径批准的 `add`、`manual_add`、`delete`、`manual_merge`、`collision` 和 bootstrap 冲突收敛使用 `apply_patch` 手工完成；保留产品值与本地决定，随后重规划。Go 发布迁移使用上述独立分支的函数级合并，不整文件覆盖 mixed/protected 内容。
 
 ## 验证与记录
 

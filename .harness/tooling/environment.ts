@@ -89,8 +89,10 @@ function normalizeBaseUrl(
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("API_BASE_URL must use http or https")
   }
-  if (environment === "release" && url.protocol !== "https:") {
-    throw new Error("Release API_BASE_URL must use https")
+  // 仅允许浏览器与 Server 同机时使用 HTTP；远端仍要求 HTTPS。
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+  if (environment === "release" && url.protocol !== "https:" && !loopback) {
+    throw new Error("Release API_BASE_URL must use https (loopback HTTP is allowed)")
   }
   if (url.username !== "" || url.password !== "") {
     throw new Error("API_BASE_URL must not contain credentials")

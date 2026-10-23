@@ -216,6 +216,10 @@
       "mode": "tombstone"
     },
     {
+      "pattern": "tests/go-release-migration.test.ts",
+      "mode": "tombstone"
+    },
+    {
       "pattern": "tests/creation-api-contract.test.ts",
       "mode": "tombstone"
     },

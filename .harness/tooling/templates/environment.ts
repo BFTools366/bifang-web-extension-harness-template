@@ -44,8 +44,10 @@ function normalizeBaseUrl(value: string | undefined, environment: ApplicationEnv
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new Error("API_BASE_URL must use http or https")
   }
-  if (environment === "release" && url.protocol !== "https:") {
-    throw new Error("Release API_BASE_URL must use https")
+  // 仅允许浏览器与 Server 同机时使用 HTTP；远端仍要求 HTTPS。
+  const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)
+  if (environment === "release" && url.protocol !== "https:" && !loopback) {
+    throw new Error("Release API_BASE_URL must use https (loopback HTTP is allowed)")
   }
   if (url.username !== "" || url.password !== "") {
     throw new Error("API_BASE_URL must not contain credentials")
@@ -136,12 +138,18 @@ const ENVIRONMENT_TEST = `import { describe, expect, test } from "vitest"
 import { createAppConfig } from "./environment.schema"
 
 describe("application environment", () => {
-  /** 验证开发和测试允许未配置 API，正式运行始终拒绝空地址及 HTTP。 */
+  /** 正式运行拒绝空地址及远端 HTTP，允许明确配置的本机回环 HTTP。 */
   test("allows deferred APIs only outside release runtime", () => {
     for (const appEnv of ["development", "test"]) {
       expect(createAppConfig({ appEnv, apiBaseUrl: "", logLevel: "info", requestTimeoutMs: "10000" }).apiBaseUrl).toBe("")
     }
     for (const apiBaseUrl of [undefined, "", "http://api.example.com"]) {
+      expect(() => createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" })).toThrow()
+    }
+    for (const apiBaseUrl of ["http://127.0.0.1:8123", "http://localhost:8123", "http://[::1]:8123"]) {
+      expect(createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" }).apiBaseUrl).toBe(apiBaseUrl)
+    }
+    for (const apiBaseUrl of ["http://localhost.example.com", "http://192.168.1.2:8123", "http://127.0.0.1:8123?token=x", "http://user@localhost:8123"]) {
       expect(() => createAppConfig({ appEnv: "release", apiBaseUrl, logLevel: "warn", requestTimeoutMs: "10000" })).toThrow()
     }
   })

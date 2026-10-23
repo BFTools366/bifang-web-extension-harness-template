@@ -1,7 +1,10 @@
 import process from "node:process"
 import { stdin, stdout } from "node:process"
 import { createInterface } from "node:readline/promises"
-import { lstat, mkdir, mkdtemp, rename, rm } from "node:fs/promises"
+import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { parseEnv } from "node:util"
+import { URL } from "node:url"
 import path from "node:path"
 import { archiveEntries, writeZip } from "./archive.mjs"
 
@@ -14,7 +17,7 @@ export const SERVER_PLATFORMS = [
   "darwin/arm64"
 ]
 
-/** 发布参数只接受一个成员、一次平台和一次 E2E 选择，拒绝静默忽略拼写错误。 */
+/** 发布参数拒绝重复与未知字段，本机地址确认必须显式绑定到推导出的地址。 */
 export function parseReleaseArguments(argv) {
   const result = {}
   const args = argv.filter((item) => item !== "--")
@@ -26,7 +29,8 @@ export function parseReleaseArguments(argv) {
     const names = new Map([
       ["--member", "member"],
       ["--platform", "platform"],
-      ["--e2e", "e2e"]
+      ["--e2e", "e2e"],
+      ["--confirm-local-base-url", "confirmLocalBaseUrl"]
     ])
     const name = names.get(key)
     if (!name || !value || value.startsWith("--") || result[name] !== undefined)
@@ -110,6 +114,197 @@ export async function frontendEntries(root, member) {
   return entries
 }
 
+/** 在构建机执行纯 YAML 导出，避免目标平台或宿主 APP_* 环境改变地址推导。 */
+function hostGoEnvironment() {
+  return {
+    ...process.env,
+    CGO_ENABLED: "0",
+    GOOS: process.platform === "win32" ? "windows" : process.platform,
+    GOARCH: process.arch === "x64" ? "amd64" : process.arch
+  }
+}
+
+/** 只有用户实际输入同意才采用建议；取消、空回答和中断均保持原配置。 */
+async function confirmBaseUrl(message, signal) {
+  const terminal = createInterface({ input: stdin, output: stdout })
+  try {
+    return /^(y|yes|是)$/iu.test((await terminal.question(message, { signal })).trim())
+  } finally {
+    terminal.close()
+  }
+}
+
+/** 配置确认和实际打包共用同一输入快照，漂移时停止而不替换下一份 ZIP。 */
+async function verifyReleaseInputs(sources = []) {
+  for (const source of sources) {
+    await safePath(source.file)
+    if ((await readFile(source.file, "utf8")) !== source.contents)
+      throw new Error("发布配置已变化，请重新发布并确认。")
+  }
+}
+
+/** 先暂存全部环境文件；提交失败或取消时，仅恢复仍属于本次写入的内容。 */
+async function writeConfirmedBaseUrl(pending, suggestion, signal) {
+  const staged = []
+  const committed = []
+  try {
+    for (const item of pending) {
+      const ending = item.contents.includes("\r\n") ? "\r\n" : "\n"
+      const assignment = `${item.key}=${suggestion}`
+      const contents = item.pattern.test(item.contents)
+        ? item.contents.replace(item.pattern, assignment)
+        : item.contents +
+          (item.contents && !item.contents.endsWith("\n") ? ending : "") +
+          assignment +
+          ending
+      const directory = await mkdtemp(path.join(path.dirname(item.file), ".harness-release-"))
+      const update = {
+        ...item,
+        contents,
+        original: item.contents,
+        directory,
+        temporary: path.join(directory, "production.env")
+      }
+      staged.push(update)
+      await writeFile(update.temporary, contents, {
+        flag: "wx",
+        mode: (await lstat(item.file)).mode & 0o777
+      })
+    }
+    await verifyReleaseInputs(pending)
+    for (const item of staged) {
+      signal?.throwIfAborted()
+      await rename(item.temporary, item.file)
+      committed.push(item)
+    }
+    signal?.throwIfAborted()
+  } catch (error) {
+    const failures = []
+    for (const item of committed.reverse()) {
+      try {
+        await safePath(item.file)
+        if ((await readFile(item.file, "utf8")) !== item.contents)
+          throw new Error(`配置已被其他操作修改，未回写：${item.file}`, { cause: error })
+        await writeFile(item.temporary, item.original, {
+          flag: "wx",
+          mode: (await lstat(item.file)).mode & 0o777
+        })
+        await rename(item.temporary, item.file)
+      } catch (failure) {
+        failures.push(failure)
+      }
+    }
+    if (failures.length)
+      throw new AggregateError(
+        [error, ...failures],
+        "配置写入失败且部分恢复失败，请核对前端正式配置。",
+        { cause: error }
+      )
+    throw error
+  } finally {
+    for (const item of staged) await rm(item.directory, { recursive: true, force: true })
+  }
+}
+
+/** 自建服务首次发布空地址时先展示真实生产端口，确认后仅补齐选中前端的空配置。 */
+export async function prepareReleaseBaseUrl(
+  root,
+  config,
+  members,
+  args,
+  commands,
+  interactive,
+  confirm = confirmBaseUrl
+) {
+  if (config.service.mode !== "create") return
+  const pending = []
+  for (const member of members.filter((item) => item.type !== "server")) {
+    const key = `${member.type === "web" ? "VITE" : "PLASMO_PUBLIC"}_API_BASE_URL`
+    const file = path.join(root, member.directory, ".env.production")
+    await safePath(file)
+    const contents = await readFile(file, "utf8")
+    if (process.env[key] !== undefined) {
+      if (!process.env[key].trim()) throw new Error(`请移除空的进程覆盖 ${key} 后再确认本机地址。`)
+      continue
+    }
+    if ((parseEnv(contents)[key] ?? "").trim()) continue
+    const pattern = new RegExp(`^(?:export[ \\t]+)?${key}[ \\t]*=.*$`, "gm")
+    if ([...contents.matchAll(pattern)].length > 1)
+      throw new Error(`${file} 中 ${key} 重复，请先合并配置。`)
+    pending.push({ file, contents, key, pattern })
+  }
+  if (!pending.length) return
+  const server = config.members.find((item) => item.type === "server")
+  if (!server) throw new Error("自建服务缺少已登记 Server")
+  const cwd = path.join(root, server.directory)
+  const sources = []
+  for (const relative of [
+    "configs/config.yaml",
+    "configs/config-prod.yaml",
+    "cmd/release-config/main.go"
+  ]) {
+    const file = path.join(cwd, relative)
+    await safePath(file)
+    sources.push({ file, contents: await readFile(file, "utf8") })
+  }
+  const stage = await mkdtemp(path.join(tmpdir(), "harness-release-base-url-"))
+  let suggestion
+  try {
+    const output = path.join(stage, "base-url.txt")
+    try {
+      await commands.go(
+        [
+          "run",
+          "./cmd/release-config",
+          "--output",
+          path.join(stage, "config.yaml"),
+          "--local-base-url-output",
+          output
+        ],
+        cwd,
+        hostGoEnvironment()
+      )
+    } catch (error) {
+      throw new Error(
+        "无法推导生产服务本机地址；检查生产监听配置，并按 $web-upgrade-harness 的 Go 发布迁移流程合并新版地址导出接口。",
+        { cause: error }
+      )
+    }
+    await safePath(output)
+    suggestion = (await readFile(output, "utf8")).trim()
+    const url = new URL(suggestion)
+    if (
+      !/^http:\/\/(?:127\.0\.0\.1|\[::1\]):[1-9]\d{0,4}$/u.test(suggestion) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== "/"
+    )
+      throw new Error("Server 导出的本机地址无效")
+  } finally {
+    await rm(stage, { recursive: true, force: true })
+  }
+  commands.signal?.throwIfAborted()
+  const message = `首次发布 BaseURL 未填写，建议采用打包 Server 的本机地址 ${suggestion}。仅适用于浏览器与 Server 在同一台机器；其他部署请填写正式 HTTPS 地址。确认写入 ${pending.map((item) => path.relative(root, item.file)).join("、")}？[y/N] `
+  if (args.confirmLocalBaseUrl !== undefined) {
+    if (args.confirmLocalBaseUrl !== suggestion)
+      throw new Error(`本机地址确认不匹配：实际建议为 ${suggestion}，配置未修改。`)
+    stdout.write(`已显式确认本机 BaseURL：${suggestion}\n`)
+  } else if (!interactive) {
+    throw new Error(
+      `${message}\n非交互运行请先确认，再传 --confirm-local-base-url=${suggestion}；配置未修改。`
+    )
+  } else if (!(await confirm(message, commands.signal))) {
+    throw new Error("本机 BaseURL 未获确认，发布取消；配置与既有发布包未修改。")
+  }
+  commands.signal?.throwIfAborted()
+  // 等待用户期间配置可能被编辑；先复核全部输入，再进行任何持久写入。
+  await verifyReleaseInputs([...sources, ...pending])
+  await writeConfirmedBaseUrl(pending, suggestion, commands.signal)
+  return sources
+}
+
 /** 复用成员构建门禁并逐个原子发布 ZIP；本地打包不会执行上传、部署或商店发布。 */
 export async function releaseWorkspace(root, config, argv, commands, interactive) {
   const args = parseReleaseArguments(argv)
@@ -122,17 +317,29 @@ export async function releaseWorkspace(root, config, argv, commands, interactive
       try {
         await safePath(path.join(root, member.directory, file))
       } catch (error) {
-        throw new Error(`Server 发布配置合同未就绪：${file}；既有服务须先迁移配置与导出工具。`, {
-          cause: error
-        })
+        throw new Error(
+          `Server 发布配置合同未就绪：${file}；按 $web-upgrade-harness 的 Go 发布迁移流程保留现有配置并补齐导出工具。`,
+          {
+            cause: error
+          }
+        )
       }
     }
   }
+  const baseUrlSources = await prepareReleaseBaseUrl(
+    root,
+    config,
+    members,
+    args,
+    commands,
+    interactive
+  )
   const directory = path.join(root, "release")
   await safePath(directory, true, true)
   await mkdir(directory, { recursive: true })
   await safePath(directory, true)
   for (const member of members) {
+    await verifyReleaseInputs(baseUrlSources)
     const destination = path.join(directory, `${member.type}.zip`)
     await safePath(destination, false, true)
     const stage = await mkdtemp(path.join(directory, `.${member.type}-`))
@@ -144,12 +351,7 @@ export async function releaseWorkspace(root, config, argv, commands, interactive
         const binaryName = member.directory + (goos === "windows" ? ".exe" : "")
         const binary = path.join(stage, binaryName)
         const configuration = path.join(stage, "config.yaml")
-        const host = {
-          ...process.env,
-          CGO_ENABLED: "0",
-          GOOS: process.platform === "win32" ? "windows" : process.platform,
-          GOARCH: process.arch === "x64" ? "amd64" : process.arch
-        }
+        const host = hostGoEnvironment()
         await commands.go(["test", "./..."], cwd, host)
         await commands.go(["run", "./cmd/release-config", "--output", configuration], cwd, host)
         await commands.go(["build", "-trimpath", "-o", binary, "./cmd/server"], cwd, {
@@ -172,6 +374,7 @@ export async function releaseWorkspace(root, config, argv, commands, interactive
       }
       const archive = path.join(stage, `${member.type}.zip`)
       await writeZip(archive, entries, commands.signal)
+      await verifyReleaseInputs(baseUrlSources)
       await safePath(destination, false, true)
       commands.signal?.throwIfAborted()
       await rename(archive, destination)
