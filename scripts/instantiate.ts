@@ -176,7 +176,13 @@ export async function runInstantiateCli(
   await validateParentAccess(parentRoot)
   const canonicalSourceRoot = await realpath(sourceRoot)
   const canonicalTargetRoot = await canonicalizeProspectiveTarget(targetRoot)
-  await preflightConfirmedTarget(targetRoot, canonicalTargetRoot, canonicalSourceRoot, init.id)
+  await preflightConfirmedTarget(
+    targetRoot,
+    canonicalTargetRoot,
+    canonicalSourceRoot,
+    init.id,
+    sourceRoot
+  )
   const needsPathConfirmation = !path.isAbsolute(rawParentRoot)
   if (needsPathConfirmation && !interactive && !runtime.confirm) {
     throw new Error(
@@ -249,6 +255,7 @@ export async function runInstantiateCli(
   })
   const output = runtime.output ?? console.log
   output(`工程事务完成（ENGINEERING_READY），已创建 Workspace：${targetRoot}`)
+  output("Git：未启用；未配置用户名、邮箱或创建提交。需要时可在成功下游另行明确执行。")
   output(
     requirements === undefined
       ? "工程事务完成（ENGINEERING_READY）。下一步：在新项目澄清或复用真实首版范围，再继续 PRD → 固定设计原型 → 页面功能接线 → 开发走查；工程成功不是完整创建完成。"

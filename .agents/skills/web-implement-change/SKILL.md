@@ -13,23 +13,23 @@ description: 在 Web Harness 或其单 package 纯 TypeScript React Web、Plasmo
 
 1. 先判断本轮需求与设计影响，再实现当前授权范围。多步骤、多模块、中等风险或 Agent 偏好本身不创建 Work Plan、全仓检查、构建、冒烟或 E2E；安全/隐私、Extension 权限、不可逆数据、生产/付费/凭据副作用、对外兼容契约和正式发布分别进入解决该风险所需的专用门禁。
    结果超出当前固定 Task 边界时，先由 Task 管理完成必要创建/绑定；同一结果的测试、review 与同范围修复留在原 Task，不为多步骤拆分。
-2. 先识别仓库：存在 `.harness/workspace.json` 时读取根成员和服务归属，跨成员业务委托 `$workspace-implement-feature`；存在 `.harness/project.json` 时是前端成员或旧单包下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则、Git 根/分支/状态和受影响代码；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
-3. 确认 Git 顶层目录等于旧独立项目根；已登记 Workspace 成员则核对 Git 顶层等于 Workspace 根、当前 cwd 为被选成员并遵守写入范围，先检查 diff 并保留用户修改；重叠无法安全处理时停止。实际左侧 Task 在首次写入前由 `$web-manage-user-tasks` 核对精确身份、项目、非 pinned、cwd、环境与基线；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入，绑定异常先修复原 Task，不代做。
+2. 先按规范路径和工程身份识别工作区：存在 `.harness/workspace.json` 时读取根成员和服务归属，跨成员业务委托 `$workspace-implement-feature`；存在 `.harness/project.json` 时是前端成员或旧单包下游；否则仅在根 manifest 暴露源专用 `instantiate` 入口时按 Harness 源处理。读取 Agent Policy、工程规则和受影响代码；已有 Git 时再核对根/分支/状态；创建入口与终端化硬约束直接遵循根 `AGENTS.md`，不在本 Skill 重写全文。只在相关时读取 Product Spec、活动 Work Plan、ADR、Verification 或技术债。
+3. 先核对规范工程根、成员登记、当前 cwd 和写入范围，读取文件现状保护已有修改；已有 Git 时再确认顶层等于独立项目根或 Workspace 根并检查 diff。无 Git 仍继续实施，不补建仓库或询问身份；重叠无法安全处理时停止。实际左侧 Task 在首次写入前由 `$web-manage-user-tasks` 核对精确身份、项目、非 pinned、cwd、环境与基线；只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入，绑定异常先修复原 Task，不代做。
 4. 只有实际创建新下游时调用一次 `$web-check-development-environment`；普通代码、测试、lint、typecheck、最终 Release 构建、新会话或 Agent 切换都直接执行，不做环境预探测。命令已失败且错误明确指向工具链/宿主/Chrome 环境时才调用该 Skill 诊断相关组件；纯文档/元数据任务跳过。
 5. 默认单 Agent 实施。只有用户当前请求明确要求并行、`parallel_worktree_subagents: enabled`、存在至少两个写入所有权不重叠的单元且 Git 基线干净已提交时才调用 `$web-run-parallel-worktrees`；任何一项缺失都保持单 Agent。
-6. 下游新产品、新页面、需求变更影响页面或用户流程，以及用户明确要求改变设计、视觉、布局、风格、主题或交互时，必须先调用 `$web-design-prototype`；不能按改动行数或“范围清楚”降为小修复。产品范围、业务规则或验收变化先委托 `$web-define-product` 更新唯一 PRD；纯视觉变更直接复用有效 PRD，设计 Skill 拥有原型修订。生成一个桌面端可交互 HTML 原型，自查并展示可打开预览与最短试用路径；展示后等待用户反馈，不得先改产品代码。普通开发授权、需求批准或旧原型登记不能代替本轮设计反馈；只有用户明确跳过本次预览，或符合设计 Skill 的一次性首版授权合同，才按对应分支继续。实施前读取当前 `docs/prototypes/<scope>/review.json`，运行 `pnpm prototype:check <scope> <设计请求来源>`；只对已批准且覆盖本轮设计的记录放行。无设计变化且既有批准仍覆盖当前范围时可复用；新增设计要求必须重新登记，不能先拿旧 check 通过当许可。纯逻辑修复、文案纠错及恢复既有已确认设计的缺陷可直接实施；Harness 自身维护不生成产品原型。
+6. 下游新产品、新页面、需求变更影响页面或用户流程，以及用户明确要求改变设计、视觉、布局、风格、主题或交互时，必须先调用 `$web-design-prototype`；不能按改动行数或“范围清楚”降为小修复。产品范围、业务规则或验收变化先委托 `$web-define-product` 更新唯一 PRD；纯视觉变更直接复用有效 PRD，设计 Skill 拥有原型修订。生成一个桌面端可交互 HTML 原型，自查并展示可打开预览与最短试用路径；展示后等待用户反馈，不得先改产品代码。普通开发授权、需求批准或旧原型登记不能代替本轮设计反馈；初始化首版必须取得展示后的新用户明确确认，不能复用创建确认或跳过；后续变更的明确跳过仅按设计 Skill 的条件继续。实施前读取当前 `docs/prototypes/<scope>/review.json`，运行 `pnpm prototype:check <scope> <设计请求来源>`；只对已批准且覆盖本轮设计的记录放行。无设计变化且既有批准仍覆盖当前范围时可复用；新增设计要求必须重新登记，不能先拿旧 check 通过当许可。纯逻辑修复、文案纠错及恢复既有已确认设计的缺陷可直接实施；Harness 自身维护不生成产品原型。
 7. 没有活动计划时实现最小完整行为；存在由独立事件触发的活动计划时选择依赖已满足的首个非 `done` Todo，标记 `in_progress`，通过必需检查后才标记 `done`。
 
 真实页面与业务代码、模板装配和相关测试归本 Skill；身份会话状态机实施按事件委托 `$web-implement-auth-session`，模板装配在当前授权范围内完成；需求语义与 PRD 归需求定义，能力判据与资源选择归功能组合，实际原型归设计。按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
 ## 实现边界
 
-1. 前端成员只修改自身 `.harness/project.json` 声明的唯一宿主；根 Workspace 按显式需求组合成员并拥有唯一策略、Git 与 PRD，拓扑遵守 `docs/WORKSPACE_TEMPLATE.md`；不跨成员导入产品源码或恢复工程派生入口。
+1. 前端成员只修改自身 `.harness/project.json` 声明的唯一宿主；根 Workspace 按显式需求组合成员并拥有唯一策略与 PRD，Git 启用时只归根管理，拓扑遵守 `docs/WORKSPACE_TEMPLATE.md`；不跨成员导入产品源码或恢复工程派生入口。
 2. 按功能内聚组织 TypeScript：
    - 文件结构与模块边界遵循 `docs/ENGINEERING_RULES.md` 的“文件结构与模块依赖”（源 §3.2）：按功能或工具职责拆解，保持单一职责、单向无环依赖和明确公共契约；不以行数达标代替结构判断。
    - React 组件拥有展示、表单输入和局部交互；可复用 feature hook/service 拥有该功能的请求、缓存、持久化和协调。
    - TanStack Query 统一管理 REST/GraphQL 有限读取的请求前缓存与远端/异步服务状态；feature 共享 Query options 和当前上下文 QueryClient，缓存已校验领域数据，Ky/client 不建结果缓存。新鲜度与入口按 `docs/DATA_ACCESS.md` §2.7；Jotai 只管理确需跨组件共享的客户端交互状态，不镜像 Query 数据。
-   - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一在 `src/data/`；存储访问经 `data/storage/`，REST 无查询条件的单对象读取与主交互、GraphQL 强制带查询条件的读取和列表查询及复杂查询/订阅与 Dexie 的 IndexedDB 边界按 `docs/DATA_ACCESS.md` §1.1–1.3 执行。
+   - API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一在 `src/data/`；存储访问经 `data/storage/`，GraphQL 仅列表查询与其他带业务查询条件的 GET 类读取、其余请求全部 RESTful，以及 Dexie 的 IndexedDB 边界按 `docs/DATA_ACCESS.md` §1.1–1.3 执行。
    - 业务判断放在最靠近真实功能且可单测的模块，不塞进 JSX、通用 `utils` 或无领域含义的 manager。
 3. 主题、页面、Popup、Options、布局、组件、交互状态、响应式或 UI 无障碍变化先读取 `docs/MANTINE_UI_GUIDELINES.md`，复用 Mantine theme、语义令牌和当前宿主模式，不散落品牌常量、不建立第二套基础组件系统。`projectType=web` 的列表页、数据表格、后台列表或搜索结果还必须调用 `$web-implement-list-view`；Extension Popup/Options 不调用该 Skill。
 4. Web 使用 Vite/React 的既有路由与页面约定，不替换 Mantine、TanStack Router/Query、Jotai 或 i18next 技术基线。路由布局、正文插槽、稳定 shell 与类型化 Link 组合按 UI 规范；路由目录只放生产路由，不使用测试后缀命名业务页。源码可读性与类型化组合按工程规则，不以断言或压缩格式规避合同。

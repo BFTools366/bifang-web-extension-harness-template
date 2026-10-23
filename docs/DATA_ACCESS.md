@@ -6,18 +6,18 @@
 
 ## 1. 选型结论
 
-| 能力                             | 默认选型                                                     | 何时改选                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| 统一集合分页                     | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态  | 真实接口使用 cursor/offset 时由域 service 映射；Web 路由列表按 §2.5 改用 Router 运行时 owner，但仍复用同一内部契约 |
-| 基础 HTTP                        | 生成的类型化 Ky HTTP client factory                          | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                 |
-| 请求前缓存与有限查询状态         | `@tanstack/react-query`，REST / GraphQL 复用同一 QueryClient | feature 声明 key 与新鲜度，Ky 只负责实际传输；本地偏好和 IndexedDB 领域数据保持独立所有权                          |
-| 无可靠 OpenAPI 契约的 REST       | 生成的 Ky HTTP 基础                                          | 统一复用请求上下文；已有必须保留的 Axios 生态或 Ky/Fetch 无法满足的能力才使用 `axios`                              |
-| 有可靠 OpenAPI 契约的 REST       | `openapi-typescript` + 受管 Ky 领域 adapter                  | 已有可靠 `openapi-fetch` 消费者且迁移无收益时保留协议 adapter，不复制请求上下文；运行时仍校验外部响应              |
-| GraphQL 条件读取、列表及复杂查询 | `graphql-request` + `@graphql-codegen/client-preset` + Query | 带查询条件的网络请求及远端列表必须使用 GraphQL；Apollo 缓存所有权仍须明确批准例外                                  |
-| 简单 SSE                         | 浏览器原生 `EventSource`                                     | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                               |
-| Fetch 风格 SSE 备选              | `@microsoft/fetch-event-source`                              | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                        |
-| 多来源持续事件编排               | RxJS（按需）                                                 | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                       |
-| 安全关键/外部响应的运行时校验    | `zod` 将 `unknown` 响应收窄为业务类型                        | 已有等价运行时校验器时复用；`openapi-fetch` 的静态类型本身不能验证运行时响应                                       |
+| 能力                          | 默认选型                                                     | 何时改选                                                                                                                 |
+| ----------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| 统一集合分页                  | 生成的 1-based `page`/`pageSize` 契约与 sessionStorage 状态  | 真实接口使用 cursor/offset 时由域 service 映射；Web 路由列表按 §2.5 改用 Router 运行时 owner，但仍复用同一内部契约       |
+| 基础 HTTP                     | 生成的类型化 Ky HTTP client factory                          | 保持 header、并发 revision、错误与 401 语义不变；初始化阶段不生成任何业务 endpoint                                       |
+| 请求前缓存与有限查询状态      | `@tanstack/react-query`，REST / GraphQL 复用同一 QueryClient | feature 声明 key 与新鲜度，Ky 只负责实际传输；本地偏好和 IndexedDB 领域数据保持独立所有权                                |
+| 无可靠 OpenAPI 契约的 REST    | 生成的 Ky HTTP 基础                                          | 统一复用请求上下文；已有必须保留的 Axios 生态或 Ky/Fetch 无法满足的能力才使用 `axios`                                    |
+| 有可靠 OpenAPI 契约的 REST    | `openapi-typescript` + 受管 Ky 领域 adapter                  | 已有可靠 `openapi-fetch` 消费者且迁移无收益时保留协议 adapter，不复制请求上下文；运行时仍校验外部响应                    |
+| GraphQL 列表及条件 GET 类读取 | `graphql-request` + `@graphql-codegen/client-preset` + Query | 仅远端列表查询或其他带业务查询条件的 GET 类读取必须使用 GraphQL，其余请求使用 RESTful；Apollo 缓存所有权仍须明确批准例外 |
+| 简单 SSE                      | 浏览器原生 `EventSource`                                     | 需要自定义 headers、POST/body、可控重连或 async iterator 时使用 `eventsource-client`                                     |
+| Fetch 风格 SSE 备选           | `@microsoft/fetch-event-source`                              | 其回调/页面可见性生命周期模型比 `eventsource-client` 更贴合既有实现时采用；它不是模板默认值                              |
+| 多来源持续事件编排            | RxJS（按需）                                                 | 只有组合、切换、节流、取消或共享底层订阅等真实时序复杂度时采用；简单事件继续使用宿主原生机制                             |
+| 安全关键/外部响应的运行时校验 | `zod` 将 `unknown` 响应收窄为业务类型                        | 已有等价运行时校验器时复用；`openapi-fetch` 的静态类型本身不能验证运行时响应                                             |
 
 Ky HTTP、分页和语言基础是生成项目的固定源码与测试，`ky` 声明在运行时 dependencies 中。OpenAPI、GraphQL、SSE、RxJS 与 `zod` 仍是按真实消费者加入的可选集成；实际安装时选择与当前 Node.js、TypeScript、浏览器基线兼容的稳定版本，并由 `pnpm-lock.yaml` 固定解析结果，不在长期文档中写死易过期的包版本。
 
@@ -32,7 +32,7 @@ src/data/
     README.md
     client/                 # 已生成：Ky、认证上下文、错误与取消
     <domain>/               # 按需：领域类型、真实 REST/GraphQL adapter 与响应映射
-    graphql/                # 按需：条件读取、列表、复杂查询、Codegen 文档与订阅 adapter
+    graphql/                # 按需：列表、条件 GET 类读取与 Codegen 文档
   storage/
     README.md
     webStorage.ts           # 已生成：LocalStorage / SessionStorage 原生入口
@@ -50,25 +50,25 @@ src/data/
 
 ### 1.2 REST 与 GraphQL 分工
 
-| 场景                                                                 | 责任                  | 传输与状态                                                                        |
-| -------------------------------------------------------------------- | --------------------- | --------------------------------------------------------------------------------- |
-| 无查询条件的单对象读取、创建/修改/删除、登录登出、上传及主要业务动作 | REST 为主入口         | 受管 Ky client；Query 管读取与 mutation 缓存生命周期                              |
-| 带查询条件的远端读取，包括单对象、数量与存在性判断                   | GraphQL Query，强制   | 条件按可信 Schema 经类型化 variables 传递；与条件承载位置及返回形状无关           |
-| 远端列表、集合、搜索、筛选、排序及分页读取                           | GraphQL Query，强约定 | 条件、排序与分页按可信 Schema 经 variables/参数传递；Query 统一缓存               |
-| 多实体关联、聚合、按需字段裁剪等复杂读取                             | GraphQL Query         | `graphql-request` + Codegen，HTTP adapter 复用受管 Ky 请求上下文                  |
-| 服务端向客户端连续推送数据变化                                       | GraphQL Subscription  | 按服务端协议选 `graphql-ws` 或 `graphql-sse`；feature 管订阅生命周期和 Query 投影 |
+| 场景                                                                   | 责任                | 传输与状态                                                            |
+| ---------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------- |
+| 远端列表、集合、搜索、筛选、排序及分页查询                             | GraphQL Query，强制 | 首次无筛选的列表也适用；可信 Schema、类型化 variables 与 Query 缓存   |
+| 其他带业务查询条件的 GET 类读取，包括条件查单对象、数量或存在性        | GraphQL Query，强制 | 按读取语义判断；条件由可信 Schema 的类型化 variables 承载             |
+| 无查询条件的读取、按路径 ID 定位的单对象详情、当前账号/上下文/权限快照 | RESTful，强制       | 受管 Ky client；Query 管有限读取的缓存生命周期                        |
+| 创建、修改、删除、登录、登出及其他业务动作、文件上传/下载              | RESTful，强制       | 按动作使用真实 method/path/body；写入输入和资源 ID 不属于读取查询条件 |
+| 关联、聚合或字段裁剪等复杂读取                                         | 按上述操作语义分类  | 复杂度本身不触发 GraphQL；不属于列表或条件 GET 类读取时使用 RESTful   |
 
-默认写操作全部走 REST，不为同一业务动作再建立 GraphQL Mutation。已有服务只能提供 Mutation 时，按明确的真实契约记录例外、幂等和缓存所有者，不能悄悄改变默认分工。复杂查询的传输 POST 不代表业务写入，其安全重试必须按 operation 语义判断。REST 读取和 GraphQL 查询访问相同实体时，feature 明确缓存键、失效与投影关系，避免维护无法对账的副本。
+GraphQL 仅用于上表中的 Query；其余请求全部使用 RESTful，不新增 GraphQL Mutation 或 Subscription。GET 类指无副作用、用于取回结果的业务读取，不取决于最终传输方法：GraphQL 经 POST 发送仍是读取；写操作即使携带筛选、版本、幂等键也仍走 RESTful。REST 与 GraphQL 访问相同实体时，feature 明确缓存键、失效与投影关系。
 
 #### 列表查询协议强约定
 
-- **带查询条件的网络请求必须使用 GraphQL Query**，这是 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 的硬规则，接口设计、接入与文档导出均须遵守，Web、Extension 与配套 Go 服务一致。查询条件包括字段查找、搜索、筛选、范围、排序与分页；即使只返回单对象、数量或布尔值也不能改走 REST。按条件是否用于选择或约束远端读取结果判断，不以 GET/POST、URL query、路径或请求体等承载方式规避；写操作的业务输入、认证/追踪请求头以及纯客户端本地处理不因此变成条件读取。条件必须按可信 Schema 通过类型化 variables 传递，不拼接用户输入到 GraphQL 文本；缺少可信契约时真实接入保持阻断，已有 REST 条件读取如实标记不符合规则，迁移须在已授权实施范围内完成。
+- **仅远端列表查询，或其他带业务查询条件的 GET 类读取，必须使用 GraphQL Query；其余请求全部使用 RESTful**。这是 [`ENGINEERING_RULES.md`](ENGINEERING_RULES.md) 的硬规则，接口设计、接入与文档导出均须遵守，Web、Extension 与配套 Go 服务一致。查询条件包括字段查找、搜索、筛选、范围、排序与分页；其他条件读取即使只返回单对象、数量或布尔值也适用。认证/追踪信息、资源身份与作用域、写操作的输入及纯客户端处理不属于查询条件；按路径 ID 读取详情仍是 REST。按实际业务语义分类，不能把搜索条件改放路径/请求体或换成 POST 绕过；也不能因请求含参数便误判写操作。缺少可信契约时接入保持阻断，不造 endpoint 或 Schema。
 - **远端列表查询必须使用 GraphQL**，接口设计、Mock 协议设计、接入与文档导出均适用，Web 与 Extension 一致。列表包括独立获取集合、搜索结果、筛选/排序/分页结果、树与候选项；首次无筛选、固定列表或数据量小也不能改走 REST。按操作的业务用途判断，不从 GET/POST、函数名或 JSON 中出现数组机械推断。
 - 列表实际需要的条件、排序与分页必须有真实 Schema 或明确标注的设计 SDL/variables；遵循实际参数、输入类型、可空性和分页方式，不拼接用户条件到查询字符串，不补造服务已支持的筛选字段。尚无可信 GraphQL 契约时，设计阶段可在授权范围内提出待确认建议；真实接入保持阻断，不借用 REST 列表绕过。
 - 单对象详情内的子数组、写操作返回的结果集合以及纯客户端本地集合处理，不因此成为远端列表查询；不为本地列表虚构 GraphQL 服务。服务端查询库、TanStack Query 缓存与 HTTP POST 都不能单独证明采用 GraphQL，必须核对实际 operation 与 Schema。
-- 已有 REST 列表实现或已采用 REST 列表契约按事实保留，明确登记为**不符合列表协议强约定**；导出不能改写成已实现 GraphQL、隐藏该操作或把新 GraphQL 设计建议当作迁移完成。此类材料可作为差异/迁移评审文档保存，但协议检查失败，不能宣布本轮导出符合规范。迁移只在获得实现范围授权与可信 GraphQL 契约后执行；既有服务限制不构成自动例外。
+- 已有 REST 列表/条件 GET 类读取，或把其余请求放在 GraphQL 的实现与已采用契约，均按事实保留并登记为**不符合接口协议分工**；不改写来源、隐藏操作或把设计建议当成迁移完成。差异材料可保存，但协议检查失败，不能宣布符合规范。迁移只在获得实施授权与可信目标契约后执行；既有服务限制不构成自动例外。
 
-推送指客户端主动订阅后的服务端事件，不等同于浏览器 Push API、离线通知或自动双向同步。GraphQL 本身不提供传输实现：Ky 处理 HTTP，不承担 WebSocket；`graphql-request` 处理有限请求，不承担长期订阅。服务端没有 Subscription schema 与协议时，不能从查询接口推断支持推送。当前 [`API.md`](API.md) 的参考契约只定义只读 GraphQL 查询，没有订阅契约；采用时须保持这项事实。
+持续推送不是有限 GET 类查询，不因携带过滤参数改为 GraphQL Query；新建服务使用可信 REST 端点的 SSE 等 HTTP 流式合同，宿主本地消息按宿主协议处理。既有 GraphQL Subscription 仅作为来源差异核对，按上述分工登记不符合项，不据此启用新订阅。当前 [`API.md`](API.md) 没有订阅契约。
 
 ### 1.3 存储机制与选型
 
@@ -171,7 +171,7 @@ React 项目使用已声明的 `@tanstack/react-query`。REST 读取与 GraphQL 
 - 既有 `fetchQuery` 仍可兼容相同的新鲜度读取，但当前固定版本已标记弃用。`ensureQueryData` 默认有缓存就返回，即使已过期；`revalidateIfStale: true` 只在后台刷新。只有明确允许旧值优先时才采用该语义，不能将其当作等待最新数据的门禁。
 - 预取复用同组 options 与同一实例，当前版本可提前调用 `queryClient.query(options)` 并处理 Promise；组件随后消费同一缓存。现有 QueryCache 仍反馈最终失败，吞掉 Promise 不会关闭全局反馈；需要无提示的可选预取时，先定义并验证其与实际读取的错误归属。Router 预加载应让 Query 决定新鲜度，例如对应路由设置 `staleTime: 0`、`preloadStaleTime: 0`，loader 不返回远端结果副本。
 - Query 缓存解析、运行时校验后的领域结果；不缓存 `Response`、Stream 或可消耗的 body。key 覆盖 target、操作/数据形状、参数、语言与非敏感会话 scope，不放 Token。REST 与 GraphQL 只有形状和语义都一致才共用 key；同一 QueryClient 不等于不同操作强行共用 key。
-- REST 写操作使用 mutation，成功后精确更新/失效读取缓存；GraphQL Subscription 连接由 feature 管理，校验事件后投影到这份缓存。LocalStorage 偏好、SessionStorage 恢复和 Dexie 本地领域数据仍按 §1.3 访问，不自动变成 Query 结果的持久副本；浏览器 HTTP 缓存仍遵守 §3.4。
+- REST 写操作使用 mutation，成功后精确更新/失效读取缓存；REST SSE 等持续事件连接由 feature 管理，校验事件后投影到这份缓存。LocalStorage 偏好、SessionStorage 恢复和 Dexie 本地领域数据仍按 §1.3 访问，不自动变成 Query 结果的持久副本；浏览器 HTTP 缓存仍遵守 §3.4。
 - Extension 每个 Popup、Options、content script 或 Worker 执行上下文拥有独立内存和生命周期；统一缓存策略不承诺跨上下文共享、重开 Popup 或 Worker 回收后恢复。跨上下文需求按真实消息/Storage 合同另行设计。
 
 生成回归在两种宿主的实际 QueryClient 与 Ky 上证明：fresh 命中不再传输、同 key 并发去重、组件复用预先读取的领域数据、过期/失效后重新读取，以及语言/scope 隔离。真实业务继续按 §2.6 覆盖 mutation 与订阅投影。
@@ -303,7 +303,7 @@ Axios 不是新项目默认值。只有现有业务已经依赖其 interceptors�
 
 默认使用 `graphql-request` 发起最小 GraphQL 请求，并使用 GraphQL Code Generator 的 `client` preset 生成 `TypedDocumentNode`/类型化文档；请求前缓存统一归 TanStack Query。运行时依赖通常包括 `graphql` 与 `graphql-request`，生成期依赖包括 `@graphql-codegen/cli` 和 `@graphql-codegen/client-preset`；只有首次真实 GraphQL 功能落地时才安装。
 
-- GraphQL Query 在 feature 层交给 TanStack Query 管理查询、取消与失效；写操作默认走 REST。`queryFn` 将 `AbortSignal` 传到实际请求，不建立另一份全局 GraphQL 缓存；长期 Subscription 不放入永不完成的 `queryFn`。
+- 仅符合 §1.2 的 GraphQL Query 在 feature 层交给 TanStack Query 管理查询、取消与失效；其余请求走 RESTful。`queryFn` 将 `AbortSignal` 传到实际请求，不建立另一份全局 GraphQL 缓存，持续事件流不放入永不完成的 `queryFn`。
 - 为 `graphql-request` 注入受管 custom Fetch adapter。adapter 先将其 URL/Request 输入与当前编译期 target registry 核对，映射到生成 HTTP client 接受的相对路径，再复用三个 header、超时、Token revision、401 single-flight、错误归一化与日志脱敏。直接调用未受管的全局 `fetch` 会绕开这条边界。
 - Codegen 文档提供静态类型；GraphQL `errors`、`data`、安全关键字段与外部响应仍需按真实 schema 和信任边界做运行时校验。
 
@@ -329,12 +329,11 @@ Apollo 不属于当前统一缓存默认组合。只有真实需求证明 Query 
 
 ### 4.5 Subscription 推送
 
-- 先确认真实 Subscription schema、endpoint、认证握手、事件字段与版本/恢复契约。WebSocket 使用 `graphql-ws` 的 `graphql-transport-ws` 协议；服务端采用 GraphQL over SSE 时使用 `graphql-sse`。旧 `subscriptions-transport-ws` 的 `graphql-ws` 子协议与前者不同，不可混用，也不同时安装两个无消费者的 client。
-- 浏览器 WebSocket 不能任意设置 HTTP headers；不得声称 Ky 的三个 header 拦截器会自动作用于握手。按服务端已批准协议将动态认证信息送入 `connectionParams`，或采用明确 Cookie 策略；不把 Token 放入 URL/日志，不擅自将 continuation 作为认证信息。
-- 订阅 adapter 放在 `data/api/graphql/`，只暴露类型化事件和幂等 dispose/取消；feature hook/service 拥有启停、连接状态、重连上限、退避与 jitter。在卸载、target/scope 变更、登出、权限撤销和认证 revision 变化时关闭旧连接，拒绝旧会话迟到事件；重连与认证失败只有一个 owner，401/403 或确定性协议错误不能无限重试。
-- 外部事件先做运行时校验，再按 eventId/实体版本拒绝重复与乱序。只有完整且可判定更新的事件才能 `setQueryData`，其他事件只失效精确 Query。初始快照与订阅之间的窗口通过服务端 cursor/sequence、缓冲对账或重取快照解决，不能假定连接后绝不漏事件。
-- 两种 Extension 后台生命周期差异继续适用：不承诺 MV3 service worker 永久保持连接；跨 Popup/Options/后台的共享推送须先定义唯一连接所有者、消息与恢复策略。
-- 首次真实接入测试成功推送、partial/error payload、取消与最后一个消费者退出、重复/乱序、断线恢复、认证轮换和晚到事件；WebSocket 或 SSE 必须验证与服务端协议匹配，Mock 订阅不证明真实推送可达。
+本节仅供核对既有外部协议与迁移风险，不授权新增或接入 GraphQL Subscription。按 §1.2 如实登记协议不符合项；新推送接口采用 REST SSE，不能直接把已有 WebSocket 地址改成 HTTP 地址。
+
+- 核对来源的 Subscription schema、endpoint、认证握手、事件字段、游标与恢复契约，区分实际采用的 graphql-ws 或 graphql-sse 等协议；不安装无消费者的订阅依赖。
+- 差异评审覆盖身份/作用域切换、认证轮换、旧事件拒绝、连接取消与清理、重连上限、重复/乱序及快照窗口。浏览器 WebSocket 不能任意设置 HTTP headers，Ky 拦截器不自动作用于握手。
+- 记录现有连接拥有者、Query 投影与 Extension 生命周期限制。迁移须有已授权的目标 REST SSE 合同及对应验证，缺项保持阻断；来源 Mock 不证明真实推送可达。
 
 ## 5. Server-Sent Events
 

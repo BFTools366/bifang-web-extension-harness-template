@@ -127,79 +127,158 @@ describe("single desktop prototype workflow", () => {
     await expect(review(root)).rejects.toThrow(/待预览或用户反馈/)
   })
 
-  /** 首版凭据绑定真实工程实例与七项范围，并且只能消费一次评审。 */
-  test("initial creation authorization is scoped and single use", async () => {
+  /** 创建范围确认、旧消费/关闭记录和改换 scope 都不能代替初次原型确认。 */
+  test("initial creation requires preview followed by new user approval", async () => {
     const root = await fixture()
     const config = JSON.parse(await readFile(path.join(root, ".harness/project.json"), "utf8"))
-    const initialPrototype = "docs/prototypes/initial-create/v1/prototype.html"
-    await mkdir(path.dirname(path.join(root, initialPrototype)), { recursive: true })
-    await writeFile(path.join(root, initialPrototype), "<html><title>首版原型</title></html>")
-    const scope = {
-      users: "个人",
-      home: "首页",
-      pages: "首页",
-      operations: "编辑",
-      design: "单页",
-      data: "内存",
-      acceptance: "编辑显示"
+    const authorization = {
+      revision: "a".repeat(64),
+      source: requestSource,
+      scope: { design: "单页" }
     }
-    const revision = "a".repeat(64)
-    await writeFile(
-      path.join(root, prd),
-      `状态：Approved\n创建确认：${revision}\n创建范围：${JSON.stringify(scope)}\n`
-    )
     const receiptPath = path.join(root, ".harness/initial-creation.json")
-    const receipt = {
-      schemaVersion: 1,
-      projectId: config.id,
-      projectType: config.projectType,
-      initializedAt: config.initializedAt,
-      authorization: { revision, source: requestSource, scope }
-    }
-    await writeFile(receiptPath, JSON.stringify(receipt))
-    const pending = await prepare(root, [initialPrototype], "initial-create")
-    await expect(
-      runPrototypeReview(["initial-create", "initial-create", pending.reviewHash], root)
-    ).rejects.toThrow(/先展示/)
-    await runPrototypeReview(
-      ["present", "initial-create", pending.reviewHash, "助手展示首版"],
-      root
-    )
     await writeFile(
       receiptPath,
       JSON.stringify({
-        ...receipt,
-        authorization: { ...receipt.authorization, scope: { ...scope, design: "不同设计" } }
+        schemaVersion: 1,
+        projectId: config.id,
+        projectType: config.projectType,
+        initializedAt: config.initializedAt,
+        prototypeApprovalRequired: true,
+        authorization,
+        consumedReviewHash: "b".repeat(64),
+        closedByReviewHash: "b".repeat(64)
       })
     )
+    const pending = await prepare(root)
     await expect(
-      runPrototypeReview(["initial-create", "initial-create", pending.reviewHash], root)
-    ).rejects.toThrow(/范围.*不匹配/)
-    await writeFile(receiptPath, JSON.stringify(receipt))
-    await runPrototypeReview(["initial-create", "initial-create", pending.reviewHash], root)
-    expect(
-      (await runPrototypeReview(["check", "initial-create", requestSource], root)).approval?.mode
-    ).toBe("initial-create")
-    const renewed = await prepare(root, [initialPrototype], "initial-create")
-    await runPrototypeReview(["present", "initial-create", renewed.reviewHash, "第二次展示"], root)
+      runPrototypeReview(["initial-create", "settings", pending.reviewHash], root)
+    ).rejects.toThrow(/不能代替原型确认/)
     await expect(
-      runPrototypeReview(["initial-create", "initial-create", renewed.reviewHash], root)
-    ).rejects.toThrow(/不能用于后续改版/)
+      review(root, "waive", pending.reviewHash, "跳过本次预览并直接实施", "用户消息")
+    ).rejects.toThrow(/首版原型必须展示/)
+    await expect(review(root)).rejects.toThrow(/待预览或用户反馈/)
+    await review(root, "present", pending.reviewHash, "助手展示首版")
+    await expect(review(root)).rejects.toThrow(/待预览或用户反馈/)
     await expect(
-      runPrototypeReview(["check", "initial-create", requestSource], root)
-    ).rejects.toThrow(/待预览或用户反馈/)
+      review(root, "waive", pending.reviewHash, "跳过本次预览并直接实施", "用户消息")
+    ).rejects.toThrow(/首版原型必须展示/)
+    await expect(
+      review(root, "approve", pending.reviewHash, "确认", requestSource)
+    ).rejects.toThrow(/新用户回复/)
+    await review(root, "approve", pending.reviewHash, "确认", "用户展示后新确认")
+    expect((await review(root)).approval?.mode).toBe("preview")
+    const receipt = JSON.parse(await readFile(receiptPath, "utf8"))
+    expect(receipt.authorization).toEqual(authorization)
+    expect(receipt.prototypeApproval).toEqual({ scope: "settings", reviewHash: pending.reviewHash })
+    const later = await prepare(root)
+    await review(root, "waive", later.reviewHash, "跳过本次预览并直接实施", "用户另一次明确跳过")
+    expect((await review(root)).approval?.mode).toBe("waiver")
   })
 
-  /** 普通设计批准后未使用的首版凭据也关闭，不能遗留给之后的改版。 */
-  test("normal approval closes unused initial creation authorization", async () => {
+  /** 旧自动批准及首版豁免记录，即使哈希和旧消费记录仍在，也不能通过开发门禁。 */
+  test.each(["initial-create", "waiver"])(
+    "rejects legacy initial approval mode %s",
+    async (mode) => {
+      const root = await fixture()
+      await prepare(root)
+      const approved = await approveCurrent(root)
+      const config = JSON.parse(await readFile(path.join(root, ".harness/project.json"), "utf8"))
+      await writeFile(
+        path.join(root, ".harness/initial-creation.json"),
+        JSON.stringify({
+          schemaVersion: 1,
+          projectId: config.id,
+          projectType: config.projectType,
+          initializedAt: config.initializedAt,
+          consumedReviewHash: approved.reviewHash,
+          closedByReviewHash: approved.reviewHash
+        })
+      )
+      await writeFile(
+        path.join(root, record),
+        JSON.stringify({
+          ...approved,
+          approval: {
+            mode,
+            source: requestSource,
+            answer: mode === "waiver" ? "跳过本次预览并直接实施" : "复用完整创建确认"
+          }
+        })
+      )
+      await expect(review(root)).rejects.toThrow(/不能代替原型|首版原型必须展示/)
+    }
+  )
+
+  /** 损坏或异实例的范围凭据在写入批准前失败，不能留下可用的设计批准。 */
+  test.each([null, false, {}, { scope: "settings", reviewHash: "bad-hash" }, "wrong-project"])(
+    "rejects invalid initial confirmation state before approving %#",
+    async (invalid) => {
+      const root = await fixture()
+      const pending = await prepare(root)
+      await review(root, "present", pending.reviewHash, "助手展示当前设计")
+      const config = JSON.parse(await readFile(path.join(root, ".harness/project.json"), "utf8"))
+      const receiptPath = path.join(root, ".harness/initial-creation.json")
+      const receipt = {
+        schemaVersion: 1,
+        projectId: config.id,
+        projectType: config.projectType,
+        initializedAt: config.initializedAt,
+        prototypeApprovalRequired: true
+      }
+      await writeFile(
+        receiptPath,
+        JSON.stringify(
+          invalid === "wrong-project"
+            ? { ...receipt, projectId: "another-project" }
+            : { ...receipt, prototypeApproval: invalid }
+        )
+      )
+      await expect(
+        review(root, "approve", pending.reviewHash, "确认", "用户新设计确认")
+      ).rejects.toThrow()
+      const stored = JSON.parse(await readFile(path.join(root, record), "utf8"))
+      expect(stored.state).toBe("awaiting-feedback")
+      expect(stored.approval).toBeUndefined()
+      await writeFile(receiptPath, JSON.stringify(receipt))
+      await expect(review(root)).rejects.toThrow(/待预览或用户反馈/)
+    }
+  )
+
+  /** 首次真实确认后，同一稳定 scope 的后续修订仍允许用户明确要求的豁免。 */
+  test("allows an explicit waiver for a later initial-create revision", async () => {
     const root = await fixture()
-    const receiptPath = path.join(root, ".harness/initial-creation.json")
-    await writeFile(receiptPath, JSON.stringify({ schemaVersion: 1 }))
-    await prepare(root)
-    const approved = await approveCurrent(root)
-    expect(JSON.parse(await readFile(receiptPath, "utf8")).closedByReviewHash).toBe(
-      approved.reviewHash
+    const config = JSON.parse(await readFile(path.join(root, ".harness/project.json"), "utf8"))
+    await writeFile(
+      path.join(root, ".harness/initial-creation.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        projectId: config.id,
+        projectType: config.projectType,
+        initializedAt: config.initializedAt,
+        prototypeApprovalRequired: true
+      })
     )
+    const firstPath = "docs/prototypes/initial-create/v1/prototype.html"
+    const nextPath = "docs/prototypes/initial-create/v2/prototype.html"
+    for (const file of [firstPath, nextPath]) {
+      await mkdir(path.dirname(path.join(root, file)), { recursive: true })
+      await writeFile(path.join(root, file), "<html>单一桌面原型</html>")
+    }
+    const first = await prepare(root, [firstPath], "initial-create")
+    await runPrototypeReview(["present", "initial-create", first.reviewHash, "助手首次展示"], root)
+    await runPrototypeReview(
+      ["approve", "initial-create", first.reviewHash, "确认", "用户首次确认"],
+      root
+    )
+    const later = await prepare(root, [nextPath], "initial-create")
+    await runPrototypeReview(
+      ["waive", "initial-create", later.reviewHash, "跳过本次预览并直接实施", "用户后续明确跳过"],
+      root
+    )
+    expect(
+      (await runPrototypeReview(["check", "initial-create", requestSource], root)).approval?.mode
+    ).toBe("waiver")
   })
 
   /** 草稿、正文示例、重复及冲突状态不能替代需求确认。 */

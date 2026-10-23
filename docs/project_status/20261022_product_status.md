@@ -1,6 +1,6 @@
 # 2026-10-22 产品状态
 
-状态：Workspace Harness 的当前范围与协作合同由[产品规格](../product_spec/20261022_product_spec.md)和[架构决策](../adr/20261022_ADR.md)维护；已记录的版本与发布状态以 [Version.md](../../Version.md) 为准。本文件不将当前未提交修改视为已发布。
+状态：Workspace Harness 的当前范围与协作合同由[产品规格](../product_spec/20261022_product_spec.md)和[架构决策](../adr/20261023_ADR.md)维护；已记录的版本与发布状态以 [Version.md](../../Version.md) 为准。本文件不将当前未提交修改视为已发布。
 
 ## 当前工程范围
 

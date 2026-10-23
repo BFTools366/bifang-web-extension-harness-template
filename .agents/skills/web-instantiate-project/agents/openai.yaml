@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：实例化前端项目"
-  short_description: "一次确认首版范围，创建工程后在下游完成固定设计、页面功能与开发验证"
-  default_prompt: "使用 $web-instantiate-project 复用实际需求并确认完整范围，委托需求与能力分析，创建源外工程后继续在下游完成固定设计、代码接线及首版验证。"
+  short_description: "先需求再明确选宿主，原型确认后进行首版前后端开发与测试"
+  default_prompt: "使用 $web-instantiate-project 先复用或尝试收集需求，再由用户明确选择 Web / Extension；后续按需求自动处理或推荐，在源外创建工程并展示原型，等待用户明确确认后才进行前后端业务开发与测试。"

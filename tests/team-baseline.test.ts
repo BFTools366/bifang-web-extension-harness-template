@@ -123,6 +123,7 @@ test("mutual membership keeps ownership and rejects cross-team authority", async
   await user.click(within(createDialog).getByRole("button", { name: "Create role" }))
   expect(await screen.findByText("reviewer")).toBeInTheDocument()
   expect((await teams.roles(org, 1, 100)).items).toHaveLength(3)
+  await waitFor(() => expect(within(screen.getByRole("row", { name: /Reviewers/ })).getByRole("button", { name: "Configure permissions" })).toBeEnabled())
   await user.click(within(await screen.findByRole("row", { name: /Reviewers/ })).getByRole("button", { name: "Configure permissions" }))
   let editor = await screen.findByRole("dialog")
   const invitePermission = await within(editor).findByRole("checkbox", { name: "Invite members" })
@@ -141,6 +142,7 @@ test("mutual membership keeps ownership and rejects cross-team authority", async
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   expect(update).toHaveBeenCalledTimes(1)
   update.mockRestore()
+  await waitFor(() => expect(within(screen.getByRole("row", { name: /Reviewers/ })).getByRole("button", { name: "Configure permissions" })).toBeEnabled())
   await user.click(within(await screen.findByRole("row", { name: /Reviewers/ })).getByRole("button", { name: "Configure permissions" }))
   editor = await screen.findByRole("dialog")
   await user.click(await within(editor).findByRole("checkbox", { name: "Invite members" }))
@@ -399,17 +401,44 @@ test("core account keeps ownership and settings without collaboration", async ()
     })
     expect(login.status).toBe(200)
     const account = await login.json()
-    const context = await fetch(restarted.url + "/graphql", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + account.data.token.access_token
-      },
-      body: JSON.stringify({ query: "{ teamContext { current available { id user { role } } } }" })
-    })
+    const headers = { Authorization: "Bearer " + account.data.token.access_token }
+    const context = await fetch(restarted.url + "/api/v1/auth/teams/context", { headers })
+    expect(context.status).toBe(200)
+    expect(context.headers.get("Cache-Control")).toBe("no-store")
     const data = await context.json()
-    expect(data.errors).toBeUndefined()
-    expect(data.data.teamContext.available).toHaveLength(1)
+    expect(data.model).toBe("team.context")
+    expect(data.data.available).toHaveLength(1)
+    expect((await fetch(restarted.url + "/api/v1/auth/teams/context")).status).toBe(401)
+    const membership = data.data.available[0]
+    const permissionsPath = `${restarted.url}/api/v1/auth/teams/${membership.id}/members/${membership.user.id}/permissions`
+    const permissions = await fetch(permissionsPath, { headers })
+    expect(permissions.status).toBe(200)
+    expect(permissions.headers.get("Cache-Control")).toBe("no-store")
+    expect(await permissions.json()).toMatchObject({
+      model: "team.permissions",
+      data: { permissions: membership.user.permissions }
+    })
+    expect(
+      (
+        await fetch(permissionsPath.replace(`/members/${membership.user.id}/`, "/members/1/"), {
+          headers
+        })
+      ).status
+    ).toBe(403)
+    for (const query of [
+      "{ health { available } }",
+      "{ me { account { id } } }",
+      "{ teamContext { current } }",
+      `{ teamPermissions(organizationId: "${membership.id}", subjectId: "${membership.user.id}") }`
+    ]) {
+      const response = await fetch(restarted.url + "/graphql", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ query })
+      })
+      expect(response.status).toBe(422)
+      expect((await response.json()).errors).toHaveLength(1)
+    }
   } catch (error) {
     const output = error as { stdout?: string; stderr?: string }
     throw new Error(

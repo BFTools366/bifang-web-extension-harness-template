@@ -179,6 +179,17 @@ async function query(
   }
   return object(result.data)[field]
 }
+/** REST 快照复用受管查询入口并校验 model/data 信封，子数组不改变接口语义。 */
+async function snapshot(endpoint: string, model: string, signal?: AbortSignal): Promise<unknown> {
+  const response = await requestHttpQuery("api/v1/auth/teams/" + endpoint, {
+    method: "GET",
+    cache: "no-store",
+    signal
+  })
+  const result = object(await response.json())
+  if (result.model !== model || typeof result.request_id !== "string") return invalid()
+  return result.data
+}
 /** REST 写入不自动重放；未知结果由页面只读核对。 */
 async function command(
   endpoint: string,
@@ -202,14 +213,7 @@ async function command(
 export const api: TeamApi = {
   /** 当前选择由服务端账号偏好恢复，本地不维护竞争选择。 */
   async read(signal): Promise<TeamContext> {
-    const result = object(
-      await query(
-        "teamContext",
-        "query TeamContext { teamContext { current available { id name ownerAccountId user { id accountId organizationId displayName role status version permissions roleIds roleNames canRemove canAssignRoles } } } }",
-        {},
-        signal
-      )
-    )
+    const result = object(await snapshot("context", "team.context", signal))
     if (
       !Array.isArray(result.available) ||
       result.available.length < 1 ||
@@ -366,18 +370,18 @@ export const api: TeamApi = {
       signal
     )
 }
-/** 权限 adapter 复用同一查询协议；服务逐次绑定账号、团队与成员主体。 */
+/** 权限快照按路径 ID 走 REST，服务逐次绑定账号、团队与成员主体。 */
 export async function readTeamPermissions(
   organizationId: string,
   subjectId: string,
   signal?: AbortSignal
 ): Promise<readonly string[]> {
-  return codes(
-    await query(
-      "teamPermissions",
-      "query TeamPermissions($org:ID!,$subject:ID!) { teamPermissions(organizationId:$org,subjectId:$subject) }",
-      { org: id(organizationId), subject: id(subjectId) },
+  const result = object(
+    await snapshot(
+      `${id(organizationId)}/members/${id(subjectId)}/permissions`,
+      "team.permissions",
       signal
     )
   )
+  return codes(result.permissions)
 }

@@ -20,7 +20,7 @@ description: 按 Web Harness 或已初始化下游的项目策略管理 Codex �
 2. 新建前完整枚举同一宿主、同一精确项目当前与逐页归档 Task 的有效编号，从最大有效序号加一，不回填、不重复；枚举不可靠时不猜号。恢复原 Task 保留编号、Task key 和单一结果；长时间中断后也先核对清单，不新建替代结果。
 3. 用户已记录的 `task_worktrees: enabled` 使用独立 Worktree，`disabled` 使用绑定项目的 Local；不为此新增策略 Schema 字段。没有该选择时沿用当前项目明文默认，不猜应用开关。未指定 ref 时，Git Worktree 冻结默认分支 OID，Git Local 冻结保存项目当前分支与 HEAD；显式 ref 不匹配时按已有授权处理，不偷偷切换。按项目与用户当前规则冻结 Local/Worktree 环境、精确起始 ref/OID、允许与禁止范围、完成条件和来源。使用策略中的描述模板填真实事实；仅在已授权创建边界内调用一次 create_thread，显式绑定所属 project，不置顶。
 4. 只返回 `clientThreadId` 或无法取得真实 `threadId` 时保持零写入；SETUP_PENDING 保留已分配并等待原操作完成，不重建、伪称 Ready 或用 plan/Subagent 代做。工具缺失或返回字段不足就保留证据并报告，不伪造能力。
-5. 取得真实 id 后复读精确项目、非 pinned、标题、cwd 与 ready 状态。Git Worktree 环境在保存项目与 Task 工作区核对 `git rev-parse --path-format=absolute --git-common-dir`，再核对 `git worktree list --porcelain`、起始 HEAD/OID 与既有登记；Git Local 环境核对 cwd 等于保存项目完整路径、Git 顶层/common-dir、冻结分支/HEAD 及同项目单一写入占用，不要求独立 Worktree 或擅自切换分支；非 Git 核对完整 cwd。首次写入前用 `git status --porcelain=v1 --untracked-files=all` 保护已有状态，按当前策略核对分支/基线。
+5. 取得真实 id 后复读精确项目、非 pinned、标题、cwd 与 ready 状态。Git Worktree 环境在保存项目与 Task 工作区核对 `git rev-parse --path-format=absolute --git-common-dir`，再核对 `git worktree list --porcelain`、起始 HEAD/OID 与既有登记；Git Local 环境核对 cwd 等于保存项目完整路径、Git 顶层/common-dir、冻结分支/HEAD 及同项目单一写入占用，不要求独立 Worktree 或擅自切换分支；非 Git 核对完整 cwd。首次写入前保护已有文件状态，Git 环境使用 `git status --porcelain=v1 --untracked-files=all`，非 Git 环境读取当前文件现状，按当前策略核对分支/基线。
 6. 身份、绑定或状态异常先在授权范围尽力修复原 Task 并复读；涉及其他业务或新增副作用不越界。无法修复保持零业务执行、保留原 Task 和证据，不跳过绑定或创建替代 Task。
 
 ## 进度与完成

@@ -51,8 +51,7 @@ describe("workspace creation", () => {
         testBaseUrl: "",
         releaseBaseUrl: "",
         agentPolicy: recommendedAgentPolicy("test"),
-        skipInstall: true,
-        skipGit: true
+        skipInstall: true
       }
       try {
         await instantiateProject(

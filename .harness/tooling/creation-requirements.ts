@@ -85,7 +85,7 @@ export async function readCreationRequirements(file: string): Promise<CreationRe
   }
 }
 
-/** 将已由实例化入口校验的冻结原文纳入同一次 staging 与基线提交，不写入模板或身份配置。 */
+/** 将已由实例化入口校验的冻结原文纳入同一次 staging 事务，不写入模板或身份配置。 */
 export async function writeCreationRequirements(
   root: string,
   input: CreationRequirements

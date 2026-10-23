@@ -67,22 +67,56 @@ function fact<T>(value: T | undefined): T {
   return value
 }
 
+/** 需求可选且必须在宿主选择之前处理，旧分析修订也不能替用户选择宿主。 */
+test.each([
+  [{}, "requirementsFile"],
+  [{ requirementsFile: "" }, "projectType"],
+  [{ requirementsText: "个人笔记编辑器" }, "projectType"]
+])("固定创建前两步 %#", async (values, field) => {
+  const result = await inspectCreationForm(repositoryRoot, { values })
+  expect(result.phase).toBe("collecting")
+  expect(result.field).toBe(field)
+  if (field === "projectType") {
+    const stale = await inspectCreationForm(repositoryRoot, {
+      values,
+      selection: { revision: "stale-analysis" }
+    })
+    expect(stale.phase).toBe("collecting")
+    expect(stale.field).toBe("projectType")
+  }
+})
+
+/** 即使分析认定唯一适配，也不能跳过用户对 Web 或 Extension 的明确选择。 */
+test.each(["web", "extension"])("拒绝自动选择宿主 %s", async (projectType) => {
+  await expect(
+    inspectCreationForm(repositoryRoot, {
+      values: { requirementsFile: "" },
+      selection: {
+        revision: "analysis",
+        projectType: {
+          value: projectType,
+          reason: "需求唯一适配",
+          mode: "automatic"
+        }
+      }
+    })
+  ).rejects.toThrow(/必须由用户明确选择/)
+})
+
 /** 需求自动决定独立记录来源，随需求/范围失效，显式答案仍优先。 */
 test("自动选择可进入完整确认，不能伪装用户答案或复用旧分析", async () => {
   const { input } = await fixture()
-  delete input.values.projectType
   delete input.values.serverMode
   input.values.requirementsText = "浏览器中本地编辑文字，不联网。"
   const first = await inspectCreationForm(repositoryRoot, input)
   input.selection = {
     revision: fact(first.analysisRevision),
-    projectType: { value: "web", reason: "独立浏览器页面完成文字编辑", mode: "automatic" },
     serverMode: { value: "none", reason: "需求确定本地且不联网", mode: "automatic" }
   }
   const selected = await inspectCreationForm(repositoryRoot, input)
   expect(selected.phase).toBe("awaiting-confirmation")
   expect(selected.summary).toContain("Agent 根据需求自动选择：需求确定本地且不联网")
-  expect(input.values).not.toHaveProperty("projectType")
+  expect(input.values.projectType).toBe("web")
   expect(input.values).not.toHaveProperty("serverMode")
   input.decision = { revision: fact(selected.revision), answer: "确认", source: "用户确认完整范围" }
   const authorized = await inspectCreationForm(repositoryRoot, input)
@@ -431,7 +465,7 @@ describe("共享聊天创建表单", () => {
       instantiate: (supplied) =>
         instantiateProject({
           ...supplied,
-          init: { ...supplied.init, skipInstall: true, skipGit: true }
+          init: { ...supplied.init, skipInstall: true }
         })
     })
     const target = path.join(fact(input.values.targetRoot), config.id)

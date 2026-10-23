@@ -35,9 +35,11 @@ type teamCommand struct {
 	Code           string   `json:"code"`
 }
 
-// registerTeams 挂载成员、邀请和权限写接口；集合查询统一由 GraphQL 提供。
+// registerTeams 挂载上下文、权限快照和写接口；列表查询由 GraphQL 提供。
 func (m *accountModule) registerTeams(group *gin.RouterGroup) {
 	teams := group.Group("/teams")
+	teams.GET("/context", m.teamContext)
+	teams.GET("/:organizationId/members/:subjectId/permissions", m.teamPermissions)
 	teams.POST("/switch", m.teamSwitch)
 	teams.PUT("/name", m.teamRename)
 	teams.POST("/invitations", m.teamInvite)
@@ -48,6 +50,26 @@ func (m *accountModule) registerTeams(group *gin.RouterGroup) {
 	teams.POST("/roles", m.teamCreateRole)
 	teams.PUT("/roles", m.teamUpdateRole)
 	teams.POST("/roles/remove", m.teamDeleteRole)
+}
+
+// teamContext 读取当前账号的上下文快照，内嵌成员组织不构成独立列表查询。
+func (m *accountModule) teamContext(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	result, err := m.teams.Context(c.Request.Context(), teamActor(c))
+	if err != nil {
+		panic(err)
+	}
+	response.OK(c, "team.context", result)
+}
+
+// teamPermissions 按资源路径读取当前成员的权限快照，领域服务逐次校验主体。
+func (m *accountModule) teamPermissions(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
+	codes, err := m.teams.Permissions(c.Request.Context(), teamActor(c), teamValue(c.Param("organizationId")), teamValue(c.Param("subjectId")))
+	if err != nil {
+		panic(err)
+	}
+	response.OK(c, "team.permissions", gin.H{"permissions": codes})
 }
 
 // teamActor 仅从已认证上下文取账号 ID。

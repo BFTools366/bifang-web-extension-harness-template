@@ -61,7 +61,7 @@ function usage(): string {
   pnpm harness validate
 
 禁止原地初始化；创建 Workspace，成员内部保持唯一宿主。
-先采集需求；Agent 基于充分需求优先自动选择唯一适配宿主和本地方案，等价或有争议时才推荐。CLI 不分析语义，后续显式选择 1.Web 或 2.Extension，再补服务事实。无现成服务默认 create；明确不需要服务端则 none，只创建前端。最终目录为 <parent-outside-harness>/<id>。
+先尝试采集可选需求，再由用户明确选择 1.Web 或 2.Extension；Agent 不自动选择宿主。后续能力和本地方案按需求唯一适配时自动采用，存在分歧时推荐，再按需补服务事实。无现成服务默认 create；明确不需要服务端则 none，只创建前端。最终目录为 <parent-outside-harness>/<id>。
 `
 }
 

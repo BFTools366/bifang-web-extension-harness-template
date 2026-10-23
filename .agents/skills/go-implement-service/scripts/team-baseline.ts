@@ -53,6 +53,33 @@ export async function completeTeamBaseline(
     )
   )
   await collect(fileURLToPath(new URL("../assets/team-baseline/", import.meta.url)))
+  // 原始 health/me 仅用于 gqlgen 首次引导，公开根及其 resolver 统一归本地列表 SDL。
+  const schema = files.get("internal/graphql/schema.graphqls")
+  if (!schema || !/type Query \{[\s\S]*?\n\}/u.test(schema))
+    throw new Error("GraphQL 引导 Query 锚点已变化")
+  files.set(
+    "internal/graphql/schema.graphqls",
+    "# 来源类型仅用于引导；公开 Query 只保留真实列表，其他请求走 RESTful。\n" +
+      schema.slice(schema.indexOf("scalar Timestamp")).replace(/type Query \{[\s\S]*?\n\}/u, "")
+  )
+  change(
+    "internal/graphql/schema.resolvers.go",
+    "// Query returns QueryResolver implementation.\nfunc (r *Resolver) Query() QueryResolver { return &queryResolver{r} }\n\ntype queryResolver struct{ *Resolver }",
+    "// 根 Query 由本地 team.resolvers.go 提供；旧字段仅保留到首次重新生成。"
+  )
+  const transport = files.get("internal/api/v1/graphql.go")
+  const example = /\/\/ defaultPlaygroundQuery[\s\S]*?\n\}`/u
+  if (!transport || !example.test(transport)) throw new Error("GraphQL 示例锚点已变化")
+  files.set(
+    "internal/api/v1/graphql.go",
+    transport.replace(
+      example,
+      "// defaultPlaygroundQuery 演示真实的团队成员分页列表，org 使用已授权组织 ID。\n" +
+        "const defaultPlaygroundQuery = `query Members($org: ID!) {\n" +
+        "  teamMembers(organizationId: $org, page: 1, pageSize: 20) {\n" +
+        "    total items { id displayName }\n  }\n}`"
+    )
+  )
   files.delete("internal/model/organization_user.go")
   change(
     "internal/model/account.go",
@@ -132,8 +159,6 @@ export async function completeTeamBaseline(
   )
   const mappings = [
     "TeamMember",
-    "TeamMembership",
-    "TeamContext",
     "TeamInvitation",
     "TeamMemberPage",
     "TeamInvitationPage",

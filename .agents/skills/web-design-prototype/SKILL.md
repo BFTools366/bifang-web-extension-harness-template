@@ -9,8 +9,8 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游处理新页�
 
 ## 准入与事实
 
-1. 仅在已初始化下游运行：确认有效的 `.harness/project.json`、Git 根和工作区；没有下游身份时，停止原型工作，创建需求输入交给源实例化流程；成功后切换到下游并复用原文继续。Harness 自身维护本 Skill 不受此限制。
-2. 正式 PRD、原型与登记只按各自事件创建，也不读写全局 Skills；创建需求语义与下游 PRD 归 `$web-define-product`，能力选择归 `$web-compose-capabilities`，本 Skill 只拥有实际桌面布局、交互原型与登记。所选能力优先组合 catalog 中的固定 design.md 与页面模板，保持登录、用户区、导航、权限和购买的既定交互；按需求补齐真实首页与正文，不重新随意设计能力页。完整创建只有匹配工程事务交接的一次性首版授权凭据时，才可在展示后复用该批准；后续设计修改重新走反馈门禁。
+1. 仅在已初始化下游运行：确认有效的 Workspace/前端成员身份与规范工作区；已有 Git 时再核对顶层归属，无 Git 不阻断；没有下游身份时，停止原型工作，创建需求输入交给源实例化流程；成功后切换到下游并复用原文继续。Harness 自身维护本 Skill 不受此限制。
+2. 正式 PRD、原型与登记只按各自事件创建，也不读写全局 Skills；创建需求语义与下游 PRD 归 `$web-define-product`，能力选择归 `$web-compose-capabilities`，本 Skill 只拥有实际桌面布局、交互原型与登记。所选能力优先组合 catalog 中的固定 design.md 与页面模板，保持登录、用户区、导航、权限和购买的既定交互；按需求补齐真实首页与正文，不重新随意设计能力页。完整创建的首版也必须展示预览并等待用户明确确认；工程或产品范围确认不能批准尚未展示的设计。
 3. 读取最新 `docs/product_spec/` 索引与正文、`docs/MANTINE_UI_GUIDELINES.md` 的当前宿主章节和直接相关 UI。没有已确认 PRD、目标/边界有歧义时先用 `$web-define-product`；PRD 的结构和范围补齐归需求定义，记录合同见 [PRD 结构](../web-define-product/references/prd-outline.md)。只逐项澄清影响当前设计的关键缺口，复用已确认事实，不重启整套问卷。
 4. Product Spec 是唯一 PRD，不另建 `docs/prd/`。需求须为 `Approved`；纯视觉变更复用有效 PRD，业务范围变化才回需求定义修订；原型摘要只登记在 `docs/prototypes/<scope>/review.json`，不复制为第二套需求或计划。登记不代表用户新增授权或交互质量已验证。
 5. 按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 继承已选模块与具体操作，只读对应知识和设计参考；未选能力不进入原型。管理目标组织与操作者身份分开，Extension 按实际 surface 适配。
@@ -44,9 +44,9 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游处理新页�
 
 1. 交接 PRD、scope、唯一原型链接及版本、review.json、成功标准、状态/数据契约、自查证据和未验证项。不自动创建左侧 Task、Work Plan、发布候选或外部副作用。
 2. 当前设计取得明确反馈且 `check` 通过后，才交给 `$web-implement-change`。原请求仅限原型时只交付设计；用户要求暂缓时保持暂缓。无需 A/B 选型不等于省略预览反馈。
-3. 仅当用户明确要求跳过本次预览并直接实施，才可执行 `waive <scope> <reviewHash> <明确跳过> <用户消息来源及原话>`。明确跳过接受“跳过本次预览并直接实施”“跳过预览直接实施”“不用预览直接改”或 `skip preview and implement`；等义自然回答可提取成规范值，source 保留真实原话及消息引用，不能把普通“改一下”或需求确认解释为跳过。仍生成并自查本轮原型，留下当前版本和豁免依据，不把豁免扩大到后续改版。
-4. 完整创建一次确认仅用于首版：工程事务经已授权表单写入 `.harness/initial-creation.json`，绑定项目实例、完整创建修订、七项范围与真实确认来源。首版固定使用 `initial-create` scope 的 `v1`；下游 Approved PRD 保留精确的 `创建确认：<revision>` 与 `创建范围：<七项 scope 的 JSON>` 两行，结构化范围须与凭据完全一致，设计必须符合该范围。`prepare` 的 request 使用凭据中的 source；展示当前原型后执行 `initial-create <scope> <reviewHash>` 再 `check`，不新增阶段确认。凭据只能绑定一次评审；重新登记、设计内容或需求变化后不得重复消费，缺凭据或范围不符时回到普通预览反馈。任一普通设计批准或显式跳过会关闭尚未消费的首版凭据，不能留给后续改版。初始 CLI 工程确认不产生这份完整首版授权。
-5. PRD、原型或本轮设计要求变化时，旧摘要失效：修订当前唯一设计、自查、重新登记、展示并取得新反馈。即使旧文件哈希仍匹配，新设计请求也不能复用旧批准；无设计变化且批准覆盖当前范围时才复用。旧 schemaVersion 1/2 记录不自动转成批准，不删除历史产物。
+3. 仅已完成首版原型确认的后续变更，在用户明确要求跳过本次预览并直接实施时，才可执行 `waive <scope> <reviewHash> <明确跳过> <用户消息来源及原话>`。明确跳过接受“跳过本次预览并直接实施”“跳过预览直接实施”“不用预览直接改”或 `skip preview and implement`；等义自然回答可提取成规范值，source 保留真实原话及消息引用，不能把普通“改一下”或需求确认解释为跳过。仍生成并自查本轮原型，留下当前版本和豁免依据，不把豁免扩大到后续改版。
+4. 首版原型必须展示并取得用户明确确认，再进入前后端业务开发和测试。新工程的 `.harness/initial-creation.json` 记录待确认门禁与可选产品范围来源；范围确认、旧 consumed/closed 字段、旧 initial-create 自动批准命令均不能代替设计反馈。首版使用 `initial-create` scope 的 `v1`，PRD 沿用已确认范围并保留其来源；执行 prepare → present 后停下等待新用户回复，再执行 approve → check。首次确认前不能 waive，即使改换 scope 也不能绕过；真实确认后由工具记录 prototypeApproval，后续变更仍按当前请求核验。
+5. PRD、原型或本轮设计要求变化时，旧摘要失效：修订当前唯一设计、自查、重新登记、展示并取得新反馈。即使旧文件哈希仍匹配，新设计请求也不能复用旧批准；无设计变化且批准覆盖当前范围时才复用。旧 schemaVersion 1/2 记录及旧 initial-create 批准均不自动转成有效设计反馈，不删除历史产物。
 
 ## 完成输出
 

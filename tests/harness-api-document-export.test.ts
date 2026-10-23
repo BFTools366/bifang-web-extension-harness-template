@@ -83,6 +83,47 @@ describe("API and business export bundle", () => {
     await expect(checkExport(root)).rejects.toThrow(/远端列表查询必须使用 GraphQL/)
   })
 
+  /** 条件查单对象、数量或布尔值都按读取语义分类，不依赖 wire 返回形状。 */
+  test.each(["GraphQL", "REST", "其他"])("checks conditional GET reads: %s", async (protocol) => {
+    const root = await bundle()
+    await change(root, "api/metadata.md", (source) =>
+      source.replace("| 列表查询 | GraphQL |", `| 条件查询 | ${protocol} |`)
+    )
+    await change(root, "api/items.md", (source) =>
+      source.replace(
+        "GraphQL HTTP 列表查询，无筛选也使用 GraphQL。",
+        "按邮箱条件查找单个账号，GET 类读取经 POST 传输。"
+      )
+    )
+    if (protocol === "GraphQL")
+      await expect(checkExport(root)).resolves.toMatchObject({ operations: 2 })
+    else
+      await expect(checkExport(root)).rejects.toThrow(/带业务查询条件的 GET 类读取必须使用 GraphQL/)
+  })
+
+  /** 无条件单对象、写入和其他请求不能因 GraphQL 支持对应操作而绕过 RESTful。 */
+  test.each(["单对象查询", "写操作", "其他"])(
+    "requires REST for remaining requests: %s",
+    async (kind) => {
+      const root = await bundle()
+      await change(root, "api/metadata.md", (source) =>
+        source.replace("| 列表查询 | GraphQL |", `| ${kind} | REST |`)
+      )
+      await expect(checkExport(root)).resolves.toMatchObject({ operations: 2 })
+      for (const protocol of ["GraphQL", "其他"]) {
+        await change(root, "api/metadata.md", (source) =>
+          source.replace(`| ${kind} | REST |`, `| ${kind} | ${protocol} |`)
+        )
+        await expect(checkExport(root)).rejects.toThrow(
+          /列表和条件 GET 类读取以外的请求必须使用 RESTful/
+        )
+        await change(root, "api/metadata.md", (source) =>
+          source.replace(`| ${kind} | ${protocol} |`, `| ${kind} | REST |`)
+        )
+      }
+    }
+  )
+
   /** 验证缺失分类的旧元数据不能被直接宣称完成强约定检查。 */
   test.each(["header", "type", "protocol"])(
     "requires explicit operation classification: %s",

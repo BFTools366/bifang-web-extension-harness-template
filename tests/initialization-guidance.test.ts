@@ -35,7 +35,8 @@ test("需求先分析，等价宿主推荐与服务事实保持各自边界", as
   const { inspectCreationForm } = await import("../.harness/tooling/initialization-form.ts")
   const values = { requirementsText: "阅读和摘录网页内容，独立页或扩展都可。" }
   const first = await inspectCreationForm(repositoryRoot, { values })
-  expect(first.phase).toBe("needs-scope")
+  expect(first.phase).toBe("collecting")
+  expect(first.field).toBe("projectType")
   expect(first.analysisRevision).toBeDefined()
   const recommended = await inspectCreationForm(repositoryRoot, {
     values,
@@ -64,7 +65,7 @@ test("需求全文与范围事实稳定绑定分析修订", async () => {
   const root = await temporaryDirectory("selection-source-")
   const file = path.join(root, "brief.md")
   await writeFile(file, "本地文字编辑。")
-  const values = { requirementsFile: file, name: "Notes", targetRoot: root }
+  const values = { requirementsFile: file, projectType: "web", name: "Notes", targetRoot: root }
   const scope = {
     users: "个人",
     home: "编辑器",
@@ -77,7 +78,6 @@ test("需求全文与范围事实稳定绑定分析修订", async () => {
   const first = await inspectCreationForm(repositoryRoot, { values, scope })
   const selection = {
     revision: first.analysisRevision ?? "",
-    projectType: { value: "web", reason: "独立编辑页", mode: "automatic" as const },
     serverMode: { value: "none", reason: "确定本地处理", mode: "automatic" as const }
   }
   const reversed = Object.fromEntries(Object.entries(scope).reverse())
@@ -207,7 +207,7 @@ describe("初始化渐进式引导", () => {
         await confirmInstantiation(summary, async (question) => {
           expect(question).toContain("问题名称：创建确认\n是否保存到汇总中的指定路径并创建工程？")
           expect(question).toContain(
-            "确认（按工程汇总写入目标与暂存目录、安装依赖并建立 Git 基线；首版页面功能由 Agent 在下游继续完成）"
+            "确认（按工程汇总写入目标与暂存目录、安装依赖，不启用 Git 或配置提交身份；首版页面功能由 Agent 在下游继续完成）"
           )
           expect(question).toContain("取消（结束本次创建，不写入目标或暂存目录）")
           expect(question).not.toContain("回车采用")

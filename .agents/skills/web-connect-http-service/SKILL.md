@@ -18,11 +18,11 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，把已�
 
 读取 `docs/RUNTIME_CONFIGURATION.md`、`docs/DATA_ACCESS.md` 的 HTTP/认证、迁移与测试章节；仅按真实传输需要扩大读取。没有消费者时不新增依赖、跨上下文架构或通用 adapter。
 
-按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 核对实际操作和可信服务契约；协议不符合或契约缺失时返回阻断，迁移不超出当前实现授权。
+按 [列表查询协议强约定](../../../docs/DATA_ACCESS.md#列表查询协议强约定) 核对列表查询/条件 GET 类读取必须 GraphQL、其余请求必须 RESTful 的双向分工及可信服务契约；协议不符合或契约缺失时返回阻断，迁移不超出当前实现授权。
 
 按 [功能模块组合](../web-compose-capabilities/references/requirements-selection.md) 复用唯一 PRD 或本次明确需求的模块、操作与作用域；命中时调用 `$web-compose-capabilities`，只读所选知识，实施需要时再取模板。不按产品分类默认启用功能，不从已安装 Skill 推断授权；范围清楚的日常修复直接返回当前流程。Web 与 Extension 各自遵守宿主边界。
 
-持续 SSE/GraphQL Subscription 由 `$web-implement-event-stream` 拥有连接与恢复；收到这类接入时传递已有配置、契约和授权范围给它，不套用有限 `requestHttpQuery`、不建立第二连接。混合流程只在此接入有限请求部分，两者返回当前调用方。
+持续 REST SSE 由 `$web-implement-event-stream` 拥有连接与恢复；收到这类接入时传递已有配置、契约和授权范围给它，不套用有限 `requestHttpQuery`、不建立第二连接。混合流程只在此接入有限请求部分，两者返回当前调用方。既有 GraphQL Subscription 只核对来源差异并报告协议不符合，不能交给事件 Skill 新增或接入。
 
 ## 工作流程
 

@@ -85,7 +85,7 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 ## 项目边界
 
 - \`.harness/project.json\` 是项目名称、标识、描述、唯一 \`projectType\` 与品牌配置的事实源。
-- 成员内部保持平铺 pnpm 单包；已登记 Workspace 由根拥有 packages、依赖锁、Git、PRD 与策略，成员继承根 pnpm 策略。旧独立项目的 \`pnpm-workspace.yaml\` 仅配置 \`allowBuilds\`，不自行声明 \`packages\`、引入嵌套 workspace、\`apps/\`、第二宿主或项目类型切换入口。
+- 成员内部保持平铺 pnpm 单包；已登记 Workspace 由根拥有 packages、依赖锁、PRD 与策略，Git 可选且启用时只归根，成员继承根 pnpm 策略。旧独立项目的 \`pnpm-workspace.yaml\` 仅配置 \`allowBuilds\`，不自行声明 \`packages\`、引入嵌套 workspace、\`apps/\`、第二宿主或项目类型切换入口。
 - 固定技术栈：${stackName(config)}。
 - \`.harness/brand/logo-1024.png\` 是 Logo 母版；${brandAssets(config)}只能由受管品牌流程派生。
 - 保护用户和其他 Agent 的既有修改；未知文件默认归用户所有，不得用整文件覆盖绕过冲突。
@@ -101,8 +101,8 @@ function engineeringRules(config: ProjectConfig, canonicalEngineeringRules: stri
 - React 组件负责渲染与局部交互；TanStack Query 管理远端或异步服务状态；Jotai 只管理确需跨组件共享的纯客户端状态，不镜像 Query 数据。
 - \`src/pagination/\` 的 page/pageSize session 状态、成功空页回退，以及 \`src/data/api/client/\` 的三个 header、显式 Token 写入、401/403 与统一错误反馈 遵循 \`docs/DATA_ACCESS.md\`；真实业务 endpoint 只能按域加入。
 - 产品远端操作只使用真实 typed API；地址未配置、未实现或服务不可达时明确报错，禁止失败后自动回落 Mock。本地能力直接真实实现，不要求 BaseURL；测试替身只用于隔离测试，具体边界以 \`docs/DATA_ACCESS.md\` §3.1 为准。
-- **带查询条件的网络请求必须使用 GraphQL Query**。查询条件包括字段查找、搜索、筛选、范围、排序与分页；返回单对象、集合、数量或布尔值均适用，不因条件放在 URL query、路径或请求体中，或采用 GET/POST 而改走 REST。条件必须按可信 Schema 通过类型化 variables 传递；缺少 GraphQL 契约时不得以 REST 绕过。无条件远端列表仍须使用 GraphQL；详细协议边界见 \`docs/DATA_ACCESS.md\` §1.2。
-- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。REST 负责无查询条件的单对象读取、主要交互与写入，GraphQL 强制负责远端列表查询及所有带查询条件的读取，并负责复杂查询与 Subscription；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
+- **仅远端列表查询，或其他带业务查询条件的 GET 类读取，必须使用 GraphQL Query；其余请求全部使用 RESTful**。条件包括字段查找、搜索、筛选、范围、排序与分页；返回单对象、数量或布尔值也适用。路径 ID 详情、当前账号/上下文/权限快照、无条件读取和全部写操作使用 RESTful。认证、追踪、资源身份、作用域和写入输入不算读取查询条件；复杂度本身不触发 GraphQL。按业务语义判断，不能通过 GET/POST 或条件承载位置绕过；条件经可信 Schema 的类型化 variables 传递，缺少契约时阻断。详细协议边界见 \`docs/DATA_ACCESS.md\` §1.2。
+- \`src/data/\` 统一 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；\`data/api/\` 承载服务边界，\`data/storage/\` 集中存储访问。GraphQL 强制负责远端列表查询和其他带业务查询条件的 GET 类读取；其余请求全部使用 RESTful；Dexie 仅用于真实 IndexedDB 消费者，其他存储保持原生语义，详细分工见 \`docs/DATA_ACCESS.md\` §1.1–1.3。
 - Ky 为默认 HTTP 传输；OpenAPI、GraphQL、SSE 与可选 RxJS 事件流依赖只随真实消费者加入，并复用既有请求安全与状态所有权契约。
 - RxJS 只在多来源或复杂时序需求出现时编排瞬时事件，不成为 Query/Jotai 的第二状态仓库、持久事件日志或全局可写 Subject。
 - Mantine UI 的 theme、令牌、布局、组件语义、交互状态、响应式与无障碍遵循 \`docs/MANTINE_UI_GUIDELINES.md\`；不散落品牌常量、不建立第二套基础组件系统。
@@ -127,7 +127,7 @@ ${hostRules}
 
 ## 需求与设计变更
 
-需求变更先判断页面与流程影响；新产品、新页面、影响用户流程的变更，以及明确改变设计、视觉、布局、风格、主题或交互时，先调用 \`$web-design-prototype\`。自查后展示可打开预览并等待用户反馈，不得先改产品代码；普通实施授权不代替本轮设计反馈。产品范围变化由 \`$web-define-product\` 修订 PRD，纯视觉变化复用有效 PRD。实施前运行 \`pnpm prototype:check <scope> <设计请求来源>\`，只接受与当前请求、文件及项目实例绑定的批准；豁免和一次性首版授权以设计 Skill 为唯一详细合同。纯逻辑修复、文案纠错或恢复已确认设计的缺陷可直接实施，不能把明确改设计归为小修复。
+需求变更先判断页面与流程影响；新产品、新页面、影响用户流程的变更，以及明确改变设计、视觉、布局、风格、主题或交互时，先调用 \`$web-design-prototype\`。自查后展示可打开预览并等待用户反馈，不得先改产品代码；普通实施授权不代替本轮设计反馈。产品范围变化由 \`$web-define-product\` 修订 PRD，纯视觉变化复用有效 PRD。实施前运行 \`pnpm prototype:check <scope> <设计请求来源>\`，只接受与当前请求、文件及项目实例绑定的批准；首版必须先展示原型并取得用户明确确认，才进行前后端业务开发和测试；后续变更的豁免以设计 Skill 为唯一详细合同。纯逻辑修复、文案纠错或恢复已确认设计的缺陷可直接实施，不能把明确改设计归为小修复。
 
 ## 渐进式交互引导
 

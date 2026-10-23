@@ -1,21 +1,12 @@
-import { execFile } from "node:child_process"
 import { readFile, realpath } from "node:fs/promises"
-import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
-import { promisify } from "node:util"
 import { format, resolveConfig } from "prettier"
-import {
-  bootstrapGitIdentity,
-  checkCommitConfiguration,
-  checkGitIdentity,
-  installCommitConfiguration,
-  reportGitIdentity
-} from "../../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { createProjectConfig, PROJECT_CONFIG_PATH, MASTER_LOGO_PATH } from "./config.ts"
 import { derivedLogoPaths } from "./brand.ts"
 import {
   assertAbsent,
+  passesThroughDirectory,
   pathExists,
   readJson,
   writeAtomic,
@@ -44,65 +35,8 @@ const FORMATTABLE_EXTENSIONS = new Set([".css", ".html", ".json", ".md", ".mjs",
 // 定义 InitializationCommandRunner 类型，允许回归测试观察创建期外部命令而不执行真实安装。
 export type InitializationCommandRunner = typeof runCommand
 
-// 定义 InitializationGitConfigurator 类型，允许回归测试隔离真实 Git 元数据写入。
-export type InitializationGitConfigurator = (
-  root: string,
-  commandRunner: InitializationCommandRunner
-) => Promise<void>
-
 export const DOWNSTREAM_ONLY_INITIALIZATION_ERROR =
   "Refusing to initialize inside the source Harness. No files were changed. Create a downstream project outside this repository with `pnpm instantiate -- <absolute-parent> ...`."
-
-// 保存 execFileAsync 变量，用于不经 Shell 读取 Git 仓库事实。
-const execFileAsync = promisify(execFile)
-
-// 执行 gitOutput 函数并返回去除末尾换行的标准输出。
-async function gitOutput(root: string, args: string[]): Promise<string> {
-  const result = await execFileAsync("git", args, { cwd: root, encoding: "utf8" })
-  return result.stdout.replace(/\r?\n$/u, "")
-}
-
-// 执行 fallbackGitUsername 函数，从设备账号确定性派生安全 ASCII fallback。
-function fallbackGitUsername(): string {
-  const normalized = os
-    .userInfo()
-    .username.normalize("NFKD")
-    .replace(/[^A-Za-z0-9._-]+/gu, "-")
-    .replace(/^[^A-Za-z]+/u, "")
-    .replace(/[^A-Za-z0-9]+$/u, "")
-  if (normalized === "") {
-    throw new Error("Cannot derive a safe ASCII Git identity from the device username")
-  }
-  return normalized
-}
-
-// 执行 initializeBaselineRepository 函数，建立唯一、干净且无远端的本地基线提交。
-async function initializeBaselineRepository(
-  root: string,
-  commandRunner: InitializationCommandRunner = runCommand
-): Promise<void> {
-  const identity = await reportGitIdentity(root)
-  if (identity.effectiveName.value === undefined || identity.effectiveEmail.value === undefined) {
-    await bootstrapGitIdentity(root, fallbackGitUsername())
-  }
-  await checkGitIdentity(root)
-  await installCommitConfiguration(root)
-  await checkCommitConfiguration(root)
-  await commandRunner("git", ["add", "--all"], root)
-  const pending = await gitOutput(root, ["status", "--porcelain=v1"])
-  if (pending === "") throw new Error("Generated project has no files for its baseline commit")
-  await commandRunner("git", ["commit", "-m", "chore: 初始化项目"], root)
-
-  const [branch, commitCount, remotes, status] = await Promise.all([
-    gitOutput(root, ["branch", "--show-current"]),
-    gitOutput(root, ["rev-list", "--count", "HEAD"]),
-    gitOutput(root, ["remote"]),
-    gitOutput(root, ["status", "--porcelain=v1"])
-  ])
-  if (branch !== "main" || commitCount !== "1" || remotes !== "" || status !== "") {
-    throw new Error("Generated Git baseline must be one clean local commit on main without remotes")
-  }
-}
 
 // 执行 isSameOrNestedPath 函数的处理逻辑。
 function isSameOrNestedPath(parent: string, candidate: string): boolean {
@@ -120,11 +54,20 @@ export function rejectInPlaceInitialization(): never {
 
 // 执行 assertDownstreamInitializationRoot 函数的处理逻辑。
 export async function assertDownstreamInitializationRoot(root: string): Promise<void> {
+  const requestedRoot = path.resolve(root)
+  if (isSameOrNestedPath(path.resolve(SOURCE_HARNESS_ROOT), requestedRoot)) {
+    rejectInPlaceInitialization()
+  }
   const [sourceRoot, candidateRoot] = await Promise.all([
     realpath(SOURCE_HARNESS_ROOT),
     realpath(root)
   ])
-  if (isSameOrNestedPath(sourceRoot, candidateRoot)) rejectInPlaceInitialization()
+  if (
+    isSameOrNestedPath(sourceRoot, requestedRoot) ||
+    isSameOrNestedPath(sourceRoot, candidateRoot) ||
+    (await passesThroughDirectory(requestedRoot, sourceRoot))
+  )
+    rejectInPlaceInitialization()
 }
 
 // 执行 assertSinglePackageRoot 函数的处理逻辑。
@@ -202,11 +145,10 @@ export async function formatInitializationFiles(
   )
 }
 
-// 执行 runPostInitialization 函数，只安装一次依赖并按需建立独立 Git 根。
+// 执行 runPostInitialization 函数，只安装一次依赖，不配置或初始化 Git。
 export async function runPostInitialization(
   options: InitOptions,
-  commandRunner: InitializationCommandRunner = runCommand,
-  gitConfigurator: InitializationGitConfigurator = initializeBaselineRepository
+  commandRunner: InitializationCommandRunner = runCommand
 ): Promise<void> {
   if (options.skipInstall !== true) {
     await commandRunner(
@@ -216,10 +158,6 @@ export async function runPostInitialization(
     )
   } else {
     console.log("Skipped dependency installation through internal test injection.")
-  }
-  if (options.skipGit !== true && !(await pathExists(path.join(options.root, ".git")))) {
-    await commandRunner("git", ["init", "-b", "main"], options.root)
-    await gitConfigurator(options.root, commandRunner)
   }
 }
 
@@ -282,15 +220,16 @@ export async function initializeProject(
   }
   await writeJsonAtomic(path.join(root, "package.json"), projectManifest)
   await writeJsonNew(path.join(root, PROJECT_CONFIG_PATH), config)
-  if (resolvedOptions.initialCreationAuthorization) {
-    await writeJsonNew(path.join(root, ".harness/initial-creation.json"), {
-      schemaVersion: 1,
-      projectId: config.id,
-      projectType: config.projectType,
-      initializedAt: config.initializedAt,
-      authorization: resolvedOptions.initialCreationAuthorization
-    })
-  }
+  await writeJsonNew(path.join(root, ".harness/initial-creation.json"), {
+    schemaVersion: 1,
+    projectId: config.id,
+    projectType: config.projectType,
+    initializedAt: config.initializedAt,
+    prototypeApprovalRequired: true,
+    ...(resolvedOptions.initialCreationAuthorization
+      ? { authorization: resolvedOptions.initialCreationAuthorization }
+      : {})
+  })
   // 将审核过的第三方原始字节仅写入项目目录，不纳入初始化文本格式化。
   for (const [relativePath, contents] of designSkillFiles) {
     await writeNew(path.join(root, relativePath), contents)

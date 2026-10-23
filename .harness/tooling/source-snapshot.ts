@@ -69,7 +69,7 @@ async function readGitSnapshot(root: string): Promise<TemplateGitSnapshot | unde
       await execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd: root, encoding: "utf8" })
     ).stdout.trim()
     if ((await realpath(topLevel)) !== root) {
-      throw new Error(`Instantiation source must be the Git top-level directory: ${root}`)
+      return undefined
     }
     const [head, status] = await Promise.all([
       execFileAsync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }),
@@ -82,7 +82,8 @@ async function readGitSnapshot(root: string): Promise<TemplateGitSnapshot | unde
   } catch (error) {
     const code = (error as { code?: unknown }).code
     const stderr = String((error as { stderr?: unknown }).stderr ?? "")
-    if (code === 128 || stderr.includes("not a git repository")) return undefined
+    if (code === "ENOENT" || code === 128 || stderr.includes("not a git repository"))
+      return undefined
     throw error
   }
 }

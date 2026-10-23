@@ -1,5 +1,4 @@
 import { describe, test } from "vitest"
-import { execFileSync } from "node:child_process"
 import {
   TEST_BASE_URLS,
   expect,
@@ -10,6 +9,7 @@ import {
   path,
   profileFromArgs,
   readFile,
+  readdir,
   runPostInitialization,
   seedTemplateRoot,
   temporaryDirectory,
@@ -46,73 +46,42 @@ describe("terminal runtime and release governance", () => {
     expect(() => profileFromArgs(["--", "--profile", "test"])).toThrow(/Usage/)
   })
 
-  /** 验证 installs once without formatting or building and stops before Git on failure 场景。 */
-  test("installs once without formatting or building and stops before Git on failure", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
+  /** 初始化只安装依赖，不执行 Git 或身份配置，安装失败保持短路。 */
+  test("installs once without Git, formatting or building", async () => {
     const root = await temporaryDirectory("web-harness-post-init-")
-    // 保存 commands 变量记录创建期实际请求的外部命令。
     const commands: Array<{ command: string; args: string[]; root: string }> = []
-    // 保存 commandRunner 变量并定义无副作用的命令观察器。
-    const commandRunner = async (
-      command: string,
-      args: string[],
-      commandRoot: string
-    ): Promise<void> => {
-      commands.push({ command, args, root: commandRoot })
-    }
     await runPostInitialization(
-      { ...options(root, "web"), skipInstall: false, skipGit: false },
-      commandRunner,
-      async () => undefined
+      { ...options(root, "web"), skipInstall: false },
+      async (command, args, commandRoot) => {
+        commands.push({ command, args, root: commandRoot })
+      }
     )
     expect(commands).toEqual([
       {
         command: "pnpm",
         args: ["install", "--no-frozen-lockfile", "--prefer-offline"],
         root
-      },
-      { command: "git", args: ["init", "-b", "main"], root }
+      }
     ])
-    // 保存 requestedArguments 变量汇总全部创建期命令参数。
-    const requestedArguments = commands.flatMap((entry) => entry.args)
-    expect(requestedArguments).not.toContain("format")
-    expect(requestedArguments).not.toContain("build")
-
-    // 保存 failedCommands 变量记录安装失败后的短路行为。
     const failedCommands: string[] = []
-    // 保存 failingRunner 变量并定义确定性安装失败替身。
-    const failingRunner = async (command: string): Promise<void> => {
-      failedCommands.push(command)
-      throw new Error("install failed")
-    }
     await expect(
-      runPostInitialization(
-        { ...options(root, "web"), skipInstall: false, skipGit: false },
-        failingRunner
-      )
+      runPostInitialization({ ...options(root, "web"), skipInstall: false }, async (command) => {
+        failedCommands.push(command)
+        throw new Error("install failed")
+      })
     ).rejects.toThrow("install failed")
     expect(failedCommands).toEqual(["pnpm"])
   })
 
-  /** 验证公开初始化的 Git 阶段形成唯一、干净、受管且无远端的本地基线。 */
-  test("creates one governed local baseline commit", async () => {
-    const root = await temporaryDirectory("web-harness-git-baseline-")
+  /** 无需身份或仓库即可完成初始化后处理，已有工程文件保持原样。 */
+  test("does not create Git metadata or require a Git identity", async () => {
+    const root = await temporaryDirectory("web-harness-no-git-")
     await writeFile(path.join(root, "README.md"), "# Generated project\n")
-
-    await runPostInitialization({
-      ...options(root, "web"),
-      skipInstall: true,
-      skipGit: false
+    await runPostInitialization({ ...options(root, "web"), skipInstall: true }, async () => {
+      throw new Error("No external command should run")
     })
-
-    // 保存 git 函数，用无 Shell 的真实命令读取临时仓库事实。
-    const git = (args: string[]): string =>
-      execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim()
-    expect(git(["branch", "--show-current"])).toBe("main")
-    expect(git(["rev-list", "--count", "HEAD"])).toBe("1")
-    expect(git(["log", "-1", "--pretty=%s"])).toBe("chore: 初始化项目")
-    expect(git(["status", "--porcelain=v1"])).toBe("")
-    expect(git(["remote"])).toBe("")
-    expect(git(["config", "--local", "--get", "core.commentString"])).toBe("#")
+    expect(await readdir(root)).toEqual(["README.md"])
+    expect(await readFile(path.join(root, "README.md"), "utf8")).toBe("# Generated project\n")
   })
 
   /** 验证 rejects invalid or colliding environment configuration before completion 场景。 */

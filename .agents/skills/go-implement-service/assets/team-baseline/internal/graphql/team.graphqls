@@ -14,13 +14,6 @@ type TeamMember {
  canAssignRoles: Boolean!
  permissions: [String!]!
 }
-type TeamMembership {
- id: ID!
- name: String!
- ownerAccountId: ID!
- user: TeamMember!
-}
-type TeamContext { current: ID!, available: [TeamMembership!]! }
 type TeamInvitation {
  id: ID!
  organizationId: ID!
@@ -34,11 +27,9 @@ type TeamMemberPage { items: [TeamMember!]!, total: Int! }
 type TeamInvitationPage { items: [TeamInvitation!]!, total: Int! }
 type TeamRole { canManage: Boolean!, id: ID!, organizationId: ID!, code: String!, name: String!, protected: Boolean!, version: Int!, permissions: [String!]! }
 type TeamRolePage { items: [TeamRole!]!, total: Int! }
-extend type Query {
- teamContext: TeamContext!
+type Query {
  teamMembers(organizationId: ID!, page: Int!, pageSize: Int!): TeamMemberPage!
  teamInvitations(organizationId: ID, page: Int!, pageSize: Int!): TeamInvitationPage!
- teamPermissions(organizationId: ID!, subjectId: ID!): [String!]!
  teamPermissionCatalog(organizationId: ID!): [String!]!
  teamAssignableRoles(organizationId: ID!): TeamRolePage!
  teamRoles(organizationId: ID!, page: Int!, pageSize: Int!): TeamRolePage!

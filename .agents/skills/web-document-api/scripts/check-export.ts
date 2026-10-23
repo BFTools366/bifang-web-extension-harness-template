@@ -292,7 +292,7 @@ function operationDirectory(
     const id = cells[0]?.replace(/^`|`$/gu, "") ?? ""
     const operationType = cells[operationTypeColumn]?.replace(/^`|`$/gu, "")
     const protocol = cells[protocolColumn]?.replace(/^`|`$/gu, "")
-    if (!["列表查询", "单对象查询", "写操作", "其他"].includes(operationType ?? "")) {
+    if (!["列表查询", "条件查询", "单对象查询", "写操作", "其他"].includes(operationType ?? "")) {
       errors.push(`${id}：操作类型缺失或无效`)
     }
     if (!["GraphQL", "REST", "其他"].includes(protocol ?? "")) {
@@ -300,6 +300,16 @@ function operationDirectory(
     }
     if (operationType === "列表查询" && protocol !== "GraphQL") {
       errors.push(`${id}：远端列表查询必须使用 GraphQL；当前协议为 ${protocol ?? "未确认"}`)
+    }
+    if (operationType === "条件查询" && protocol !== "GraphQL") {
+      errors.push(
+        `${id}：带业务查询条件的 GET 类读取必须使用 GraphQL；当前协议为 ${protocol ?? "未确认"}`
+      )
+    }
+    if (["单对象查询", "写操作", "其他"].includes(operationType ?? "") && protocol !== "REST") {
+      errors.push(
+        `${id}：列表和条件 GET 类读取以外的请求必须使用 RESTful；当前协议为 ${protocol ?? "未确认"}`
+      )
     }
     if (!known.has(id)) errors.push(`元数据包含未知操作标识：${id}`)
     if (seen.has(id)) errors.push(`元数据重复登记操作：${id}`)

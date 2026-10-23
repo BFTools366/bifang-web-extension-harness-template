@@ -2,6 +2,7 @@ import { access, lstat, readdir, realpath, stat } from "node:fs/promises"
 import { constants } from "node:fs"
 import path from "node:path"
 import type { PromptDefaults } from "./initialization-input.ts"
+import { passesThroughDirectory } from "./files.ts"
 
 /** 只读解析不存在路径的最近真实祖先，得到用于确认的规范目标。 */
 export async function canonicalizeProspectiveTarget(targetRoot: string): Promise<string> {
@@ -43,17 +44,27 @@ export async function preflightConfirmedTarget(
   targetRoot: string,
   canonicalTargetRoot: string,
   canonicalSourceRoot: string,
-  projectId: string
+  projectId: string,
+  sourceRoot = canonicalSourceRoot
 ): Promise<void> {
   if (path.basename(targetRoot) !== projectId) {
     throw new Error(`Target directory name must exactly match project id "${projectId}"`)
   }
-  const relativeToSource = path.relative(canonicalSourceRoot, canonicalTargetRoot)
+  // 请求位置和真实位置都必须在源外，不能通过模板内的外链目录绕过门禁。
+  const locations = [
+    [path.resolve(sourceRoot), path.resolve(targetRoot)],
+    [canonicalSourceRoot, path.resolve(targetRoot)],
+    [canonicalSourceRoot, canonicalTargetRoot]
+  ] as const
   if (
-    relativeToSource === "" ||
-    (relativeToSource !== ".." &&
-      !relativeToSource.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relativeToSource))
+    locations.some(([source, target]) => {
+      const relative = path.relative(source, target)
+      return (
+        relative === "" ||
+        (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative))
+      )
+    }) ||
+    (await passesThroughDirectory(targetRoot, canonicalSourceRoot))
   ) {
     throw new Error("Target must be outside the Harness template directory")
   }
@@ -82,6 +93,7 @@ export async function validateInitializationTarget(
     target,
     await canonicalizeProspectiveTarget(target),
     await realpath(sourceRoot),
-    values.id
+    values.id,
+    sourceRoot
   )
 }

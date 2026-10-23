@@ -59,7 +59,7 @@ describe("minimal public instantiation inputs", () => {
           instantiate: (supplied) =>
             instantiateProject({
               ...supplied,
-              init: { ...supplied.init, skipInstall: true, skipGit: true }
+              init: { ...supplied.init, skipInstall: true }
             })
         }
       )
@@ -156,46 +156,61 @@ describe("minimal public instantiation inputs", () => {
     }
   )
 
-  /** 验证暂存提交模板异常在原子发布前失败，保留缺席或空目标。 */
-  test.each([false, true])(
-    "rejects a changed staged template with empty target %s",
-    async (exists) => {
-      const parent = await temporaryDirectory("harness-template-binding-")
-      const targetRoot = path.join(parent, "template-binding")
-      if (exists) await mkdir(targetRoot)
-      const { root: ignoredRoot, ...init } = options(targetRoot, "web")
-      void ignoredRoot
-      await expect(
-        instantiateProject(
-          {
-            sourceRoot: repositoryRoot,
-            targetRoot,
-            init: { ...init, id: "template-binding", skipGit: false }
-          },
-          async (stagedOptions, logo) => {
-            const config = await initializeProject(stagedOptions, logo)
-            execFileSync(
-              "git",
-              ["config", "--local", "commit.template", "unexpected-template.txt"],
-              {
-                cwd: stagedOptions.root
-              }
-            )
-            return config
-          }
-        )
-      ).rejects.toThrow(/Local Git config commit.template/)
-      if (exists) expect(await readdir(targetRoot)).toEqual([])
-      else await expect(readdir(targetRoot)).rejects.toMatchObject({ code: "ENOENT" })
-      expect(
-        (await readdir(parent)).filter((entry) => entry.startsWith(".template-binding."))
-      ).toEqual([])
-    }
-  )
+  /** 缺席或空目标都直接发布工程，不再要求暂存仓库及提交模板。 */
+  test.each([false, true])("publishes without Git with empty target %s", async (exists) => {
+    const parent = await temporaryDirectory("harness-without-git-")
+    const targetRoot = path.join(parent, "without-git")
+    if (exists) await mkdir(targetRoot)
+    const { root: ignoredRoot, ...init } = options(targetRoot, "web")
+    void ignoredRoot
+    await instantiateProject({
+      sourceRoot: repositoryRoot,
+      targetRoot,
+      init: { ...init, id: "without-git" }
+    })
+    expect(await readdir(targetRoot)).not.toContain(".git")
+    expect(
+      JSON.parse(await readFile(path.join(targetRoot, ".harness/project.json"), "utf8")).id
+    ).toBe("without-git")
+    expect((await readdir(parent)).filter((entry) => entry.startsWith(".without-git."))).toEqual([])
+  })
 })
 
 /** 验证 safe template instantiation 的完整回归场景。 */
 describe("safe template instantiation", () => {
+  /** Git 可执行缺失时仍通过源文件快照完成原子创建，不要求用户提交身份。 */
+  test("publishes when Git is not installed", async () => {
+    const parent = await temporaryDirectory("harness-missing-git-")
+    const sourceRoot = path.join(parent, "source")
+    const targetRoot = path.join(parent, "without-git")
+    const emptyPath = path.join(parent, "empty-path")
+    await mkdir(path.join(sourceRoot, "docs"), { recursive: true })
+    await mkdir(emptyPath)
+    await writeFile(path.join(sourceRoot, "docs/example.md"), "# Preserve this source\n")
+    const { root: ignoredRoot, ...init } = options(targetRoot, "web")
+    void ignoredRoot
+    const transaction = { sourceRoot, targetRoot, init: { ...init, id: "without-git" } }
+    const instantiateModule = new URL("../.harness/tooling/instantiate.ts", import.meta.url).href
+    const configModule = new URL("../.harness/tooling/config.ts", import.meta.url).href
+    execFileSync(
+      process.execPath,
+      [
+        "--input-type=module",
+        "--eval",
+        `
+      import { instantiateProject } from ${JSON.stringify(instantiateModule)};
+      import { createProjectConfig } from ${JSON.stringify(configModule)};
+      await instantiateProject(${JSON.stringify(transaction)}, async (options) => createProjectConfig(options));
+    `
+      ],
+      { env: { ...process.env, PATH: emptyPath }, cwd: parent }
+    )
+    expect(await readFile(path.join(targetRoot, "docs/example.md"), "utf8")).toBe(
+      "# Preserve this source\n"
+    )
+    expect(await readdir(targetRoot)).not.toContain(".git")
+  })
+
   /** 验证两类宿主继承同一模块合同、支持跨平台换行，并拒绝缺失或空章节。 */
   test.each(["web", "extension"] as const)(
     "derives module structure from canonical engineering rules for %s",
@@ -369,9 +384,9 @@ describe("safe template instantiation", () => {
     await expect(readdir(hiddenTarget)).rejects.toThrow()
   })
 
-  /** 验证 keeps the target atomic when install or Git initialization fails 场景。 */
+  /** 验证 keeps the target atomic when dependency installation fails 场景。 */
   test("keeps the target atomic when install or Git initialization fails", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
-    for (const failedCommand of ["pnpm", "git"] as const) {
+    for (const failedCommand of ["pnpm"] as const) {
       const parent = await temporaryDirectory(`web-harness-${failedCommand}-failure-`)
       const id = `${failedCommand}-failure`
       const targetRoot = path.join(parent, id)
@@ -386,8 +401,7 @@ describe("safe template instantiation", () => {
             init: {
               ...init,
               id,
-              skipInstall: false,
-              skipGit: false
+              skipInstall: false
             }
           },
           (initOptions, preparedLogo) =>
@@ -421,8 +435,7 @@ describe("safe template instantiation", () => {
           brandColor: "#5B5BD6",
           agentPolicy: TEST_AGENT_POLICY,
           ...TEST_BASE_URLS,
-          skipInstall: true,
-          skipGit: true
+          skipInstall: true
         }
       })
     ).rejects.toThrow(/must be empty/)
@@ -445,8 +458,7 @@ describe("safe template instantiation", () => {
           brandColor: "#4C6EF5",
           agentPolicy: TEST_AGENT_POLICY,
           ...TEST_BASE_URLS,
-          skipInstall: true,
-          skipGit: true
+          skipInstall: true
         }
       })
     ).rejects.toThrow(/must exactly match project id/)
@@ -471,8 +483,7 @@ describe("safe template instantiation", () => {
           brandColor: "#4C6EF5",
           agentPolicy: TEST_AGENT_POLICY,
           ...TEST_BASE_URLS,
-          skipInstall: true,
-          skipGit: true
+          skipInstall: true
         }
       })
     ).rejects.toThrow(/symbolic link/)

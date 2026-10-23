@@ -84,7 +84,7 @@ export const SKILL_CONTRACTS = {
   },
   "web-implement-event-stream": {
     description:
-      "在已初始化 React Web 或 Plasmo Extension 下游中，按真实协议实施或修复 SSE、GraphQL Subscription 及持续多来源事件的适配、生命周期、恢复和状态投影；按需采用 RxJS，不从查询接口推断推送，不建立全局事件总线或默认扩大宿主权限。",
+      "在已初始化 React Web 或 Plasmo Extension 下游中，按真实协议实施或修复 REST SSE 及持续多来源事件的适配、生命周期、恢复和状态投影；按需采用 RxJS，既有 GraphQL Subscription 仅核对差异，不新增订阅或默认扩大宿主权限。",
     title: "# Web Harness：实施持续事件流",
     displayName: "Web Harness：实施持续事件流",
     shortDescription: "按真实推送协议实现事件适配、连接清理、恢复与单一状态投影",
@@ -197,7 +197,7 @@ export const SKILL_CONTRACTS = {
     displayName: "Web Harness：设计单一桌面原型",
     shortDescription: "设计变更先展示桌面交互原型，绑定当前版本并等待用户反馈",
     defaultPrompt:
-      "使用 $web-design-prototype 处理页面、流程或明确设计变更，生成一个桌面 HTML 原型，自查后展示可打开预览并等待用户反馈，绑定当前请求和原型版本后才交接开发；首版授权与明确跳过按专用合同处理。"
+      "使用 $web-design-prototype 生成一个桌面 HTML 原型，自查并展示预览，等待用户明确确认当前设计后才交接前后端业务开发和测试；首版不能复用创建确认或跳过，后续变更的豁免按专用合同处理。"
   },
   "web-document-api": {
     description:
@@ -240,9 +240,9 @@ export const SKILL_CONTRACTS = {
       "通过源 Web Harness 创建独立 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension，并在成功下游按已确认需求完成首版页面、功能和开发验证；工程事务只是内部阶段，需求、固定能力模板、设计与实施分别委托对应 Skill，不在源实现产品。",
     title: "# Web Harness：实例化前端项目",
     displayName: "Web Harness：实例化前端项目",
-    shortDescription: "一次确认首版范围，创建工程后在下游完成固定设计、页面功能与开发验证",
+    shortDescription: "先需求再明确选宿主，原型确认后进行首版前后端开发与测试",
     defaultPrompt:
-      "使用 $web-instantiate-project 复用实际需求并确认完整范围，委托需求与能力分析，创建源外工程后继续在下游完成固定设计、代码接线及首版验证。"
+      "使用 $web-instantiate-project 先复用或尝试收集需求，再由用户明确选择 Web / Extension；后续按需求自动处理或推荐，在源外创建工程并展示原型，等待用户明确确认后才进行前后端业务开发与测试。"
   },
   "web-plan-change": {
     description:
@@ -255,12 +255,12 @@ export const SKILL_CONTRACTS = {
   },
   "web-prepare-brand-identity": {
     description:
-      "为当前唯一的纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目按需求优先自动选择唯一适配的 Logo 方向，等价或有争议时推荐候选，或沿用正式源图，并同步当前宿主品牌元数据。用于首次实例化、品牌改名、Logo 或用户可见前端产品元数据变化。",
+      "为 React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 按产品名称与首次需求分析生成三个 Logo 方案，由用户三选一；首次无需求则直接按名称生成，已有正式源图可沿用，并同步当前宿主品牌元数据。用于首次实例化、品牌改名、Logo 或用户可见前端产品元数据变化。",
     title: "# Web Harness：准备前端品牌身份",
     displayName: "Web Harness：准备前端品牌身份",
-    shortDescription: "按需求自动选择适配品牌，等价或有争议时推荐候选并同步",
+    shortDescription: "结合产品名称与首次需求分析生成 Logo 三选一，无需求按名称生成",
     defaultPrompt:
-      "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目按充分需求自动选择唯一适配 Logo，多个方向同样适用或有争议时推荐候选，或沿用正式源图，再同步品牌元数据。"
+      "使用 $web-prepare-brand-identity 按产品名称与首次需求分析生成三个独立 Logo 方案，展示并等待用户三选一；首次无需求则直接按名称生成，已有明确选定的正式源图直接沿用，再同步当前前端宿主品牌元数据。"
   },
   "web-prepare-release": {
     description:

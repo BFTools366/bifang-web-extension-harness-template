@@ -51,15 +51,16 @@ test("opt-in capability assets are indexed, readable and governed as source", as
   }
 })
 
-/** 完整示例包维持操作/业务关联，不把离线购买设计混入已模拟API。 */
-test("neutral account API example is a complete linked export", async () => {
-  const report = await checkExport(
-    path.join(
-      repositoryRoot,
-      ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/api-example"
-    )
+/** 历史来源的无条件 GraphQL 读取如实保留，但不能再被当作合规导出。 */
+test("legacy account API example reports its GraphQL protocol differences", async () => {
+  const root = path.join(
+    repositoryRoot,
+    ".agents/skills/web-compose-capabilities/templates/compositions/account-workspace/api-example"
   )
-  expect(report.operations).toBe(13)
+  await expect(checkExport(root)).rejects.toThrow(/列表和条件 GET 类读取以外的请求必须使用 RESTful/)
+  expect(await readFile(path.join(root, "api/metadata.md"), "utf8")).toContain(
+    "不符合当前接口协议分工"
+  )
 })
 
 /** 损坏依赖、遗漏宿主代码或越界资源在任何下游装配前失败。 */

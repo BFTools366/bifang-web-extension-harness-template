@@ -208,8 +208,7 @@ function options(root: string, projectType: "web" | "extension"): InitOptions {
     brandColor: "#5B5BD6",
     agentPolicy: TEST_AGENT_POLICY,
     ...TEST_BASE_URLS,
-    skipInstall: true,
-    skipGit: true
+    skipInstall: true
   }
 }
 

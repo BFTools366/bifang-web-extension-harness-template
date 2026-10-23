@@ -241,7 +241,7 @@ describe("single-package Harness initialization", () => {
         root,
         { interactive: false }
       )
-      await initializeProject({ ...resolved, skipInstall: true, skipGit: true })
+      await initializeProject({ ...resolved, skipInstall: true })
       await expect(validateProject(root)).resolves.toContain(projectType)
       await expectPrototypeWorkflowDistributed(root)
       await expectRealRemoteAndLocalBoundaryDocs(root)

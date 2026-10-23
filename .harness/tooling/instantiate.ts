@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process"
 import { chmod, lstat, mkdtemp, realpath, readFile } from "node:fs/promises"
 import path from "node:path"
 import {
@@ -6,13 +5,11 @@ import {
   validateCreationRequirements,
   writeCreationRequirements
 } from "./creation-requirements.ts"
-import { promisify } from "node:util"
-import { checkCommitConfiguration } from "../../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import { normalizeAgentPolicy } from "./agent-policy.ts"
 import { createProjectConfig, INSTANTIATION_ONLY_EXCLUDED_PATHS } from "./config.ts"
 import { ENVIRONMENT_FILES, FORBIDDEN_ENVIRONMENT_FILES, validateBaseUrls } from "./environment.ts"
 import { initializeProject } from "./init.ts"
-import { pathExists, sha256Hex } from "./files.ts"
+import { passesThroughDirectory, pathExists, sha256Hex } from "./files.ts"
 import { createLogo } from "./logo.ts"
 import {
   assertTemplateSnapshotUnchanged,
@@ -31,28 +28,6 @@ import {
   commitStagedProject,
   cleanupStagingRoot
 } from "./instantiate-target.ts"
-
-/** 无 Shell 执行 Git 配置迁移和回读。 */
-const execFileAsync = promisify(execFile)
-
-/** 发布前把受管提交模板预绑定到最终路径，所有失败仍留在 staging。 */
-async function bindPublishedCommitTemplate(stagingRoot: string, targetRoot: string): Promise<void> {
-  const configuration = await checkCommitConfiguration(stagingRoot)
-  if (configuration.commonDir !== path.join(stagingRoot, ".git")) {
-    throw new Error("Initialization Git metadata must belong to the staged project")
-  }
-  const finalTemplatePath = path.join(targetRoot, ".git/harness/meaningful-commit-template.txt")
-  await execFileAsync("git", ["config", "--local", "commit.template", finalTemplatePath], {
-    cwd: stagingRoot
-  })
-  const rebound = await execFileAsync("git", ["config", "--local", "--get", "commit.template"], {
-    cwd: stagingRoot,
-    encoding: "utf8"
-  })
-  if (rebound.stdout.trim() !== finalTemplatePath) {
-    throw new Error("Initialization Git commit template did not bind to the final project path")
-  }
-}
 
 // 保存 TOP_LEVEL_SEED_NAMES 变量供当前逻辑使用。
 const TOP_LEVEL_SEED_NAMES = new Set([
@@ -156,6 +131,13 @@ export async function instantiateProject(
   const sourceRoot = await realpath(requestedSourceRoot)
   // 保存 requestedTarget 变量供当前逻辑使用。
   const requestedTarget = path.resolve(options.targetRoot)
+  if (
+    isNestedPath(requestedSourceRoot, requestedTarget) ||
+    isNestedPath(sourceRoot, requestedTarget) ||
+    (await passesThroughDirectory(requestedTarget, sourceRoot))
+  ) {
+    throw new Error("Target must be outside the Harness template directory")
+  }
   // 保存 previewConfig 变量供当前逻辑使用。
   const previewConfig = createProjectConfig(options.init)
   validateBaseUrls(options.init)
@@ -276,9 +258,6 @@ export async function instantiateProject(
         },
         preparedLogo
       )
-      if (options.init.skipGit !== true) {
-        await bindPublishedCommitTemplate(stagingRoot, targetRoot)
-      }
       await assertTemplateSnapshotUnchanged(
         sourceSnapshot,
         (relativePath, name) => !shouldExclude(relativePath, name)

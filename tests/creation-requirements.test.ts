@@ -49,7 +49,7 @@ describe("创建需求输入", () => {
       "name",
       "targetRoot"
     ])
-    expect(questions[1]).toContain("无默认值")
+    expect(questions[1]).toMatch(/(?:无|没有)默认值/u)
     expect(questions[1]).not.toContain("建议/默认")
     for (const hint of [
       ".md",
@@ -241,7 +241,7 @@ describe("创建需求输入", () => {
         instantiate: (supplied) =>
           instantiateProject({
             ...supplied,
-            init: { ...supplied.init, skipInstall: true, skipGit: true }
+            init: { ...supplied.init, skipInstall: true }
           })
       }
     )
@@ -347,7 +347,7 @@ describe("创建需求输入", () => {
         instantiate: (supplied) =>
           instantiateProject({
             ...supplied,
-            init: { ...supplied.init, skipInstall: true, skipGit: true }
+            init: { ...supplied.init, skipInstall: true }
           })
       }
     )

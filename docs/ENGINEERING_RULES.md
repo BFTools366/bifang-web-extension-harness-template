@@ -12,11 +12,11 @@
 
 ### 2.1 硬规则
 
-- 新创建下游以 Workspace 为唯一 Git、策略与 PRD 根，拓扑、服务归属和命名以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准；这取代旧的平铺单包互斥限制。
+- 新创建下游以 Workspace 为唯一策略与 PRD 根，Git 可选且启用时只归根管理，拓扑、服务归属和命名以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准；这取代旧的平铺单包互斥限制。
 - 根 package.json 包装成员，pnpm-workspace.yaml 精确声明选中前端成员及构建许可；Go 依赖归 _server 的 go.mod/go.sum。各前端成员仍是单包，拥有唯一 projectType；不跨成员导入源码或建立共享 core。
 - 根标识为 ASCII kebab-case；成员目录与身份使用 _web、_extension、_server 后缀。Workspace 元数据和成员身份共同校验，不从目录猜测已选成员。
 - 前端 .harness/project.json 与 Logo 母版仍是本成员身份与品牌的唯一来源；不在成员创建嵌套 Git、独立策略或第二份产品规格。
-- 初始化保持确定性、源外空目标、sibling staging、身份绑定、失败回收和一次原子发布；所有成员完成后才安装依赖并建立根 Git 基线。
+- 初始化保持确定性、源外空目标、sibling staging、身份绑定、失败回收和一次原子发布；所有成员完成后才统一安装依赖；Git 不作为初始化前置，默认不建仓或提交。
 
 ### 2.2 Web 单包职责
 
@@ -53,12 +53,12 @@
 - 按业务能力和变化原因组织模块。避免 `utils`、`common`、`helpers`、`misc` 等无法表达职责的兜底目录。
 - Web 的顶层职责从最小真实集合开始：`app/` 只装配全局 Provider、主题、QueryClient、Router 与真实宿主 adapter；`routes/` 只声明文件路由契约；`features/` 内聚业务 UI、hooks、客户端状态与测试；`i18n/` 保存初始化、语言偏好与资源；`pagination/` 保存统一分页基础；`data/` 统一承载 API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB；`data/api/` 提供 client 与类型化服务边界，`data/storage/` 集中存储访问。页面或 route 文件不得直接拼任意 URL。
 - 产品运行路径只用真实 typed API；已有服务要求 BaseURL 与可信契约，没有服务则在 Workspace 创建 Go 服务并连接。未接通显示真实失败，不提供业务 Mock；测试替身仅在测试中。本地能力直接真实实现，细节见 DATA_ACCESS.md §3.1；存储访问经 src/data/storage，选型与归属见 §1.3。
-- **带查询条件的网络请求必须使用 GraphQL Query**。查询条件包括字段查找、搜索、筛选、范围、排序与分页；返回单对象、集合、数量或布尔值均适用，不因条件放在 URL query、路径或请求体中，或采用 GET/POST 而改走 REST。条件必须按可信 Schema 通过类型化 variables 传递；缺少 GraphQL 契约时不得以 REST 绕过。无条件远端列表仍须使用 GraphQL；详细协议边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.2。
+- **仅远端列表查询，或其他带业务查询条件的 GET 类读取，必须使用 GraphQL Query；其余请求全部使用 RESTful**。条件包括字段查找、搜索、筛选、范围、排序与分页；返回单对象、数量或布尔值也适用。路径 ID 详情、当前账号/上下文/权限快照、无条件读取和全部写操作使用 RESTful。认证、追踪、资源身份、作用域和写入输入不算读取查询条件；复杂度本身不触发 GraphQL。按业务语义判断，不能通过 GET/POST 或条件承载位置绕过；条件经可信 Schema 的类型化 variables 传递，缺少契约时阻断。详细协议边界见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.2。
 - `data/api/client/` 是两种宿主都生成的 Ky HTTP 工程基础：受控 BaseURL、timeout/取消、`X-Http-Request`、`X-Lang`、`X-AUTH-TOKEN`、并发 revision、统一请求/响应/错误拦截、`ApiError`、显式 `setAuthToken` 与 401 `UnauthorizedHandler`、403 权限边界 属于 client；惰性 `applicationHttp` 与 `requestHttpQuery` 复用同一会话，Query 只在最终失败反馈；endpoint 契约、外部分页字段映射与边界校验属于真实域模块。基础 client 不生成业务请求、refresh/replay、Cookie 策略或第二套 `services/`，默认声明 Ky 运行时依赖并关闭其重试、超时与 HTTP 抛错，由 client 统一处理；未来 OpenAPI adapter 必须复用同一安全语义。
 - `pagination/` 统一使用从 1 开始的 `page`、受控 `pageSize`、`items` 与非负安全整数 `total`。通用 session 模式只保存按项目 ID、Schema 版本和稳定 scope 隔离的 `{ version: 1, page, pageSize }`；`pageSize` 变化回第一页。只有与当前 page/pageSize 对应、明确 success、非 fetching/loading/placeholder 且 `items` 为空的非第一页结果可以回退第一页；错误、旧响应和暂时空态不得改变页码。Web 路由列表仍复用同一 1-based/pageSize 基础，但按 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.5 由 Router 拥有运行时状态，sessionStorage 只在无 owned key 时读取一次启动快照。
 - Query key、请求前缓存、新鲜度、mutation 和失效策略留在消费它的 feature，并包含影响结果的 page/pageSize、target、语言与非敏感 scope。REST/GraphQL 有限查询统一复用当前上下文的 QueryClient 与 feature Query options，缓存已解析校验的领域数据；Ky/client 不再建立结果缓存，不缓存可消耗的 Response。详细入口和新鲜度语义见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §2.7。服务器列表、`total`、原始错误和认证状态不得复制进分页 Storage 或 Jotai；HTTP 反馈 atom 只允许固定本地化键、分类与恢复能力的客户端投影。
 - React 组件负责呈现和交互编排；可复用的纯逻辑放在当前单包内有业务名称的模块或 hook 中。不要为假想复用建立跨包抽象。
-- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言与分页经 `data/storage/webStorage.ts` 访问原生 Storage；外观偏好经 `data/storage/colorScheme.ts` 复用 Mantine manager。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 默认只留在当前执行上下文内存，不得写入环境或任一持久存储；已选择身份认证持久化方案的 Web 仅会话凭据按 `DATA_ACCESS.md` §1.3 的范围例外进入 LocalStorage，continuation 与 Extension 不适用。REST 负责无查询条件的单对象读取、主要交互与写入，GraphQL 强制负责远端列表查询及所有带查询条件的读取，并负责复杂查询与 Subscription；IndexedDB 默认用 Dexie，其他存储保持原生语义，详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3。
+- 副作用集中在明确边界：网络、Storage、浏览器 API、DOM、计时器和可选 Observable adapter 应可替换、可观察、可取消并具有对称 teardown 与失败处理。语言与分页经 `data/storage/webStorage.ts` 访问原生 Storage；外观偏好经 `data/storage/colorScheme.ts` 复用 Mantine manager。语言 localStorage 和分页 sessionStorage 的损坏、拒绝或写入失败必须安全回退；Token 与 continuation 默认只留在当前执行上下文内存，不得写入环境或任一持久存储；已选择身份认证持久化方案的 Web 仅会话凭据按 `DATA_ACCESS.md` §1.3 的范围例外进入 LocalStorage，continuation 与 Extension 不适用。GraphQL 强制负责远端列表查询和其他带业务查询条件的 GET 类读取；其余请求全部使用 RESTful；IndexedDB 默认用 Dexie，其他存储保持原生语义，详见 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3。
 - 运行时配置集中在 `src/config/`，业务代码只读冻结的 `APP_CONFIG`；组件、route、feature、service 与扩展入口不得直接散落 `import.meta.env`、`process.env` 或硬编码服务 URL。字段、前缀和三环境映射见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 - 应用日志集中在 `src/observability/logger.ts`。产品代码不得直接使用 `console.*`；只允许 logger 默认 sink、测试替身或工具脚本在明确边界使用 console。事件字段、级别、Release allowlist 与脱敏规则见 [`LOGGING.md`](LOGGING.md)。
 - Promise 必须被等待、返回或显式处理；用户触发的异步操作需要加载、成功与失败反馈，取消或卸载后不得更新失效 UI。
@@ -132,7 +132,7 @@
 ### 6.2 构建与完整候选验收
 
 - 生成项目日常开发只运行本次变化需要的相关非空测试或最小替代检查，通常使用 `pnpm test:related <changed-source...>`；依赖图没有发现测试时必须回退到所属非空测试文件或说明相称替代验证，不得自动追加格式、lint、类型、全仓检查或构建。行为保持重构运行全量 `pnpm test`；纯文档、元数据或机械变化只做解析或差异完整性所需的最小检查。
-- `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖和建立 Git 根；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。用户明确要求完整验收或当前变更触发候选硬门禁时，才在两个真实下游创建成功后另行显式构建精确 Release 候选。
+- `pnpm instantiate` 只负责在 sibling staging 内安全生成、定向格式化本次输出、直接执行结构/三环境/终端化校验、安装一次依赖；Git 不作前置，不自动建仓、配置身份或提交；初始化成功不运行或宣称 `pnpm build`、全量测试、`release:inspect` 或 E2E 通过。用户明确要求完整验收或当前变更触发候选硬门禁时，才在两个真实下游创建成功后另行显式构建精确 Release 候选。
 - `pnpm build` 是生成项目唯一最终产物入口并固定委托 `build:release`。同一发布流程复用已明确的 E2E `enabled|disabled` 选择并显式传参；仅在尚无选择时询问，交互式 CLI 省略参数时提供终端选择。它自动运行三环境/活动 Release profile、`pnpm harness validate`、格式、包含 §3.1 与 §4 门禁的 lint、类型、非空全量测试；Web 按上海时区生成 `YYMMDDHHMMSS` 页面版本，Extension 从 `package.json.version` 读取稳定 SemVer（`X.Y.Z`）并注入页面，再完成宿主生产构建和 `pnpm release:inspect`。不得在外层重复执行同一批全量门禁，也不得提供 development/test 产物构建脚本。Extension `pnpm package` 对同一 Release profile 执行相同门禁后生成 zip，不自动递增版本。
 - `build:release` 与 Extension `package` 在宿主构建后必须自动运行 `pnpm release:inspect`：除文件名、BaseURL、日志、路径与 source map 门禁外，还必须确认当前宿主的页面版本存在于候选；Extension 另须确认两个目标动态生成的 manifest 与 `package.json.version` 精确一致。Extension 还必须先运行 `pnpm harness validate`，扫描 production JS 并拒绝运行时依赖的 Parcel self-map；检查对象是 `build/chrome-mv3-prod` 和 `build/firefox-mv2-prod` 而非直接解包 zip。该固定泄漏门禁不提供通用秘密扫描，真实浏览器捕获到的 console 记录还必须符合 [`LOGGING.md`](LOGGING.md)。
 - 构建命令、时间版本、E2E 选择和构建门禁结果的报告与持久记录边界见 §7。
@@ -153,7 +153,7 @@ Workspace 根 `pnpm release` / `release:<member>` 在成员门禁通过后，将
 - 文档中的命令、路径、依赖和能力必须来自真实仓库。计划中的能力标记为“计划”，未执行检查写“未执行”。
 - 活动 Work Plan 的每个 Todo 必须使用稳定 ID 和 `pending|in_progress|blocked|done` 显式状态；存在任一非 `done` Todo 时，不得写入 `accepted`、`ready`、`passed`、已验收、已就绪、可发布或等价候选验收/发布就绪结论。完成条件可以描述未来门禁，但不能冒充已经发生的候选事实；`pnpm validate:harness` 只拒绝形如 `候选状态：已验收`、`发布就绪：ready`、`Candidate status: accepted` 的行首结论，其他措辞靠评审。
 - 每项事实只有一个权威来源；其他文档只摘要并链接。实现与文档冲突时调查真实行为并在同一任务修正。
-- 下游需求澄清、PRD、原型登记的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与摘要绑定证据。分发能力不证明产品流程已经完成；新产品、新页面、影响页面或用户流程的需求变更，以及明确改变设计、视觉、布局、风格、主题或交互时，先调用设计 Skill，展示可打开预览并等待用户反馈，不得先改产品代码。普通实施授权不代替本轮设计反馈；明确跳过、一次性首版授权和当前评审核验按设计 Skill 合同执行。纯逻辑修复、文案纠错或恢复已确认设计的缺陷可直接实施，不能把明确改设计归为小修复。
+- 下游需求澄清、PRD、原型登记的详细合同以项目级 `$web-define-product` 与 `$web-design-prototype` 为准：产品规格（Product Spec）是唯一 PRD，`docs/prototypes/` 只保存评审产物与摘要绑定证据。分发能力不证明产品流程已经完成；新产品、新页面、影响页面或用户流程的需求变更，以及明确改变设计、视觉、布局、风格、主题或交互时，先调用设计 Skill，展示可打开预览并等待用户反馈，不得先改产品代码。普通实施授权不代替本轮设计反馈；首版必须展示并取得新用户明确确认，再进入前后端业务开发和测试；后续变更的明确跳过及当前评审核验按设计 Skill 合同执行。纯逻辑修复、文案纠错或恢复已确认设计的缺陷可直接实施，不能把明确改设计归为小修复。
 - 标题和首段先给结论，再说明原因、边界与验证。内部链接使用相对路径且必须有效。
 - 日期采用 `YYYY-MM-DD`；Harness 源版本采用上海时间 `YYYYMMDDHHMM`，Web 候选页面版本采用上海时间 `YYMMDDHHMMSS`，Extension 候选使用 `package.json.version` 的稳定 SemVer。
 - 普通缺陷修复、纯重构、格式和测试补强不制造日期流水账。长期决定、硬规则例外、重要交接与发布证据只在真实触发时按需创建；构建命令、构建时间版本、E2E/冒烟选择及其测试或扫描结果只进入命令输出与当次任务交付说明，不因执行或验收构建创建或更新 Work Plan、ADR、Status、Changelog、Verification 等持久记录。
@@ -176,6 +176,7 @@ Workspace 根 `pnpm release` / `release:<member>` 在成员门禁通过后，将
 
 ### 7.1 渐进式交互引导
 
+- Logo 创建与重设计按 `$web-prepare-brand-identity` 的三选一合同执行：结合产品名称与首次需求分析，首次无需求则只按名称生成，必须展示三个独立方案并等待用户选择；本领域显式选择要求优先于下述通用自动决定默认值。
 - 先复用当前请求、会话与工程中已明确且有效的事实；各流程的检查清单用于 Agent 自查，不是要求用户一次填写全部信息的问卷。只补当前下一步真正依赖的缺项，不重问已有答案。
 - SOP 从需求采集和理解开始，先按目标、入口、流程与数据归属推导必要选择；充分依据唯一适配时自动采用并记录理由，只有真实争议或多个方案同样适用时才推荐和提问。用户显式决定优先；自动逻辑选择与外部事实、范围批准及副作用授权分别记录，不编造服务存在性、地址、权属或保存位置。
 - 每轮优先提出一个真正影响下一步的关键问题，确有共同依赖时才合并少量问题。用已理解的事实引出自然、具体的问题；有真实分歧才给简短互斥选项、建议及实际影响，没有缺口就继续，不把每项分析或默认行为变成批准题。工程固定题面由共享题库拥有；没有可靠默认值时直接明确选择，不强凑建议。

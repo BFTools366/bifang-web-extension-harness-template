@@ -13,7 +13,7 @@
 | 验证码/找回 | 条件资产有接口和生命周期                           | 自建邮箱注册默认挂载；无邮件服务时 dev 模拟投递并在表单回显，真实 SMTP 关闭回显，找回要求真实投递 |
 | GraphQL     | health、me                                         | 无客户、组织成员、角色等集合查询；按操作补 SDL/resolver，不能从基础 me 推断                       |
 
-上表描述固定上游快照，不代表本地扩展的全部能力。本地 install-users 在上游之上装配八表 RBAC、组织邀请/成员/角色/权限、GraphQL 查询和 REST 命令；数据归属及不变量的唯一来源是 [ACCOUNT_OWNERSHIP.md](ACCOUNT_OWNERSHIP.md)。profile 仍只返回账号与自有默认组织，当前工作组织从 teamContext 读取，不能混用。
+上表描述固定上游快照，不代表本地扩展的全部能力。本地 install-users 在上游之上装配八表 RBAC、组织邀请/成员/角色/权限、GraphQL 查询和 REST 命令；数据归属及不变量的唯一来源是 [ACCOUNT_OWNERSHIP.md](ACCOUNT_OWNERSHIP.md)。profile 仍只返回账号与自有默认组织，当前工作组织从 REST 上下文快照读取，不能混用。
 
 ## 本地个人设置
 
@@ -29,20 +29,22 @@
 
 以下均为本地 overlay 的实际合同，原始快照和外部已有服务不自动具备。REST 前缀 /api/v1/auth/teams；全部需要有效 Bearer。ID 为字符串，字段为 camelCase，成功空结果沿用既有 empty 信封。
 
-| 操作                  | 方法 / 路径                              | JSON                                                          |
-| --------------------- | ---------------------------------------- | ------------------------------------------------------------- |
-| 切换组织              | POST /switch                             | organizationId                                                |
-| 组织改名              | PUT /name                                | organizationId, name                                          |
-| 定向邀请              | POST /invitations                        | organizationId, email；返回 team.invitation 对象及 id/version |
-| 接受 / 拒绝 / 撤销    | POST /invitations/accept、reject、revoke | invitationId, version                                         |
-| 本人退出 / 管理员移除 | POST /members/remove                     | organizationId, memberId, version                             |
-| 修改组织内成员昵称    | PUT /members/nickname                    | organizationId, memberId, version, nickname                   |
-| 替换成员自定义角色    | PUT /members/roles                       | organizationId, memberId, version, roleIds                    |
-| 创建角色              | POST /roles                              | organizationId, code, name, codes                             |
-| 修改角色名称和权限    | PUT /roles                               | organizationId, roleId, version, name, codes                  |
-| 删除角色              | POST /roles/remove                       | organizationId, roleId, version                               |
+| 操作                  | 方法 / 路径                                         | JSON                                                          |
+| --------------------- | --------------------------------------------------- | ------------------------------------------------------------- |
+| 账号组织上下文        | GET /context                                        | team.context 对象：current、available（内嵌有效成员组织）     |
+| 当前成员权限快照      | GET /:organizationId/members/:subjectId/permissions | team.permissions 对象：permissions；只允许当前账号的真实成员  |
+| 切换组织              | POST /switch                                        | organizationId                                                |
+| 组织改名              | PUT /name                                           | organizationId, name                                          |
+| 定向邀请              | POST /invitations                                   | organizationId, email；返回 team.invitation 对象及 id/version |
+| 接受 / 拒绝 / 撤销    | POST /invitations/accept、reject、revoke            | invitationId, version                                         |
+| 本人退出 / 管理员移除 | POST /members/remove                                | organizationId, memberId, version                             |
+| 修改组织内成员昵称    | PUT /members/nickname                               | organizationId, memberId, version, nickname                   |
+| 替换成员自定义角色    | PUT /members/roles                                  | organizationId, memberId, version, roleIds                    |
+| 创建角色              | POST /roles                                         | organizationId, code, name, codes                             |
+| 修改角色名称和权限    | PUT /roles                                          | organizationId, roleId, version, name, codes                  |
+| 删除角色              | POST /roles/remove                                  | organizationId, roleId, version                               |
 
-POST /graphql 使用标准 data/errors；实际 SDL 随服务生成在 internal/graphql/team.graphqls。teamContext 返回 current 和有效成员组织 available；teamMembers(organizationId,page,pageSize) 与 teamInvitations(organizationId?,page,pageSize) 返回 items/total，page 从 1 起、pageSize 1–100。未指定组织的邀请查询只读本人收到的邀请，指定组织则要求 team.members.read + team.members.invite。teamPermissions(organizationId,subjectId) 只返回当前账号在该组织真实成员的权限；teamPermissionCatalog(organizationId) 要求 team.roles.read，只返回操作者可授予的有效权限。错误码沿用 common.forbidden/conflict/bad.request 等既有稳定码，不暴露 SQL。
+POST /graphql 使用标准 data/errors；实际 SDL 随服务生成在 internal/graphql/team.graphqls。上下文和当前成员权限快照走上表 REST，不把内嵌数组或资源 ID 当作列表/业务筛选；teamMembers(organizationId,page,pageSize) 与 teamInvitations(organizationId?,page,pageSize) 返回 items/total，page 从 1 起、pageSize 1–100。未指定组织的邀请查询只读本人收到的邀请，指定组织则要求 team.members.read + team.members.invite。teamPermissionCatalog(organizationId) 要求 team.roles.read，只返回操作者可授予的有效权限。错误码沿用 common.forbidden/conflict/bad.request 等既有稳定码，不暴露 SQL。
 
 teamRoles(organizationId,page,pageSize) 要求 team.roles.read，返回角色 items/total；角色字段 id/organizationId/code/name/protected/canManage/version/permissions。角色归组织，角色权限必须来自服务目录；创建、修改和分配角色不得授予操作者自己没有的权限，系统角色不可经客户端更改。
 
@@ -62,7 +64,7 @@ REST 字段均保留原始 snake_case；ID 为十进制字符串，Unix 时间�
 
 共享 wire 类型和校验来自 [serviceContract](../.agents/skills/web-compose-capabilities/templates/compositions/account-workspace/data/api/auth/serviceContract.ts.txt)，REST 信封来自 [foundationProtocol](../.agents/skills/web-compose-capabilities/templates/compositions/account-workspace/data/api/foundationProtocol.ts.txt)，实际请求使用 [Go identity adapter](../.agents/skills/workspace-implement-users/assets/go-identity-adapter.ts.txt)。上游 nullable org 可用于最小身份；不能因此宣称完整组织方案已就绪。
 
-GraphQL 另有 camelCase DTO：Account 无 phone，lastLoginTime 对应 REST last_login_at；Org 无 owner_id，字段为 id/name/isDefault/createdTime/updatedTime。返回标准 data/errors，业务码位于 errors[].extensions.code。me 为非空字段；OptionalAuth 会把无效 Token 降为匿名，me 报 auth.token.missing，不保留 REST 的 expired/revoked 细分原因。
+固定上游 GraphQL 的 health/me 仅保留为来源与首次引导，最终本地装配删除这些根字段；其无条件读取不符合当前协议分工。来源 GraphQL 另有 camelCase DTO：Account 无 phone，lastLoginTime 对应 REST last_login_at；Org 无 owner_id，字段为 id/name/isDefault/createdTime/updatedTime。返回标准 data/errors，业务码位于 errors[].extensions.code。me 为非空字段；OptionalAuth 会把无效 Token 降为匿名，me 报 auth.token.missing，不保留 REST 的 expired/revoked 细分原因。
 
 ## HTTP 操作
 

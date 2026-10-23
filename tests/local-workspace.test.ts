@@ -31,8 +31,7 @@ test.each(["web", "extension"] as const)(
       testBaseUrl: "",
       releaseBaseUrl: "",
       agentPolicy: recommendedAgentPolicy("test"),
-      skipInstall: true,
-      skipGit: true
+      skipInstall: true
     }
     await instantiateProject(
       { sourceRoot: repositoryRoot, targetRoot: target, init },

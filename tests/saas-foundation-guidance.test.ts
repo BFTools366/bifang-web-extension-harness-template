@@ -93,6 +93,10 @@ test("GraphQL 列表强约定按两宿主完整传播", async () => {
     expect(emitted).toContain(policy)
     expect(emitted).not.toContain("常规详情/列表")
     expect(documents.get("docs/ENGINEERING_RULES.md")).toContain("GraphQL 强制负责远端列表查询")
+    expect(emitted).toContain("其余请求全部使用 RESTful")
+    expect(emitted).toContain("按路径 ID 读取详情仍是 REST")
+    expect(documents.get("docs/ENGINEERING_RULES.md")).toContain("其余请求全部使用 RESTful")
+    expect(documents.get("docs/ENGINEERING_RULES.md")).not.toContain("复杂查询与 Subscription")
     if (projectType === "extension") expect(emitted).not.toContain("### 2.5 React Web 路由列表契约")
   }
 })

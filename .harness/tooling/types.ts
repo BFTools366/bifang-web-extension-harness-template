@@ -105,7 +105,7 @@ export interface InitOptions extends EnvironmentBaseUrls {
   requirementsFile?: string
   /** 保存创建期直接输入或 Word 提取的需求文本，不写入身份配置。 */
   requirementsText?: string
-  /** 仅由完整创建表单交接首版授权，初始化后作为一次性凭据保存。 */
+  /** 仅由完整创建表单交接产品范围确认，不授予原型批准。 */
   initialCreationAuthorization?: InitialCreationAuthorization
   // 描述 id 接口成员的结构契约。
   id: string
@@ -121,8 +121,6 @@ export interface InitOptions extends EnvironmentBaseUrls {
   agentPolicy: AgentPolicySelection
   // 描述 skipInstall 接口成员的结构契约。
   skipInstall?: boolean
-  // 描述 skipGit 接口成员的结构契约。
-  skipGit?: boolean
 }
 
 // 定义 InstantiateOptions 接口的结构契约。
@@ -148,7 +146,7 @@ export interface CreationApproval {
   initialCreationAuthorization?: InitialCreationAuthorization
 }
 
-/** 冻结完整创建确认与七项首版范围，不授予后续设计变更。 */
+/** 冻结完整创建确认与七项首版范围；首版和后续原型均须独立取得设计反馈。 */
 export interface InitialCreationAuthorization {
   revision: string
   source: string

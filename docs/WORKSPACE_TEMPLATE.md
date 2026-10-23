@@ -13,7 +13,7 @@
 3. 选择自建服务时同事务创建真实 Go HTTP 服务，前端开发地址连接该服务。测试和生产地址不推断，本地连通不代表部署完成。
 4. 原始 Go 验证码 smtp/http 未实现发送，本地专用 overlay 已补 SMTP TLS。自建邮箱注册默认接线验证，未接邮件服务时 dev 默认模拟投递并在注册表单显示验证码；接通 SMTP 同时关闭 mock，真实回执移除回显，非开发拒绝 Mock，找回要求真实通道。
 5. 上游账号只有默认组织，没有 owner 成员；完整用户方案必须补齐 Account、Organization、OrganizationUser 的原子创建与授权。
-6. 前端 Ky 的 Token/continuation 头与 Go Bearer/request_id 不是同一协议，使用显式 adapter。GraphQL 基础只有 health/me，业务集合必须实现对应 SDL/resolver。
+6. 前端 Ky 的 Token/continuation 头与 Go Bearer/request_id 不是同一协议，使用显式 adapter。锁定上游的 GraphQL health/me 仅供引导与追溯，最终 SDL 仅公开列表或其他带业务查询条件的 GET 类读取；其余请求全部 RESTful。
 7. Go 自己的初始化问卷、独立 Git、Task、版本和发布状态不迁入；根拥有同一产品事实、策略与结果边界。
 
 ## 创建形态
@@ -23,7 +23,7 @@
   package.json
   pnpm-workspace.yaml
   pnpm-lock.yaml
-  .git/
+  .git/                       # 可选，仅用户明确启用 Git 时存在
   .harness/workspace.json
   .harness/runtime/workspace.mjs
   .agents/skills/
@@ -35,7 +35,7 @@
 
 根标识仍为小写 ASCII kebab-case；成员目录、前端 package name/成员身份和 Go module 使用对应标准后缀。`.harness/workspace.json` 保存精确成员目录和服务归属；前端 `.harness/project.json` 只保存本成员身份和唯一宿主，不改成多值类型。成员间不导入对方源码，不引入共享 core；前后端通过真实 HTTP/GraphQL 契约协作。
 
-先复用或采集需求，再按目标、入口、流程及数据范围自动选择唯一适配的 Web / Extension 宿主、必要能力与本地方案；有真实争议或多个方案同样适用时才推荐。已有合法选择优先复用，自动选择单独记录依据。需要服务时仅补现成服务事实，不能凭缺地址推断没有服务。已有服务时只创建所选前端，不生成 `_server`；选择自建服务时默认创建所选前端和一个 `_server`，并连接本地 Go 服务，不再询问成员组合或服务端类型。未选前端不生成。需求确定完全本地且无需服务时自动使用 none，只创建所选前端。纯本地功能可以真实实现，不需要为它创建虚构业务 endpoint；当前创建流程仍按用户明确的服务来源决定是否有服务成员。
+先尝试收集可选需求，再由用户明确选择 Web / Extension；随后按目标、入口、流程及数据范围自动采用唯一适配的必要能力与本地方案，有分歧时推荐并等待取舍。已有合法选择优先复用，自动选择单独记录依据。需要服务时仅补现成服务事实，不能凭缺地址推断没有服务。已有服务时只创建所选前端，不生成 `_server`；选择自建服务时默认创建所选前端和一个 `_server`，并连接本地 Go 服务，不再询问成员组合或服务端类型。未选前端不生成。需求确定完全本地且无需服务时自动使用 none，只创建所选前端。纯本地功能可以真实实现，不需要为它创建虚构业务 endpoint；当前创建流程仍按用户明确的服务来源决定是否有服务成员。
 
 公开入口仍是源 `pnpm instantiate`，例如：
 
@@ -48,7 +48,7 @@ Agent 与 CLI 共享题库、条件、汇总和确认。每轮只问一个缺项
 
 ## 原子事务与命令
 
-一个工作区只有一次 sibling staging 事务、一次根依赖安装和一个 Git 基线。各前端成员内部生成和校验时跳过安装/Git；Go 依赖由自身 go.mod/go.sum 声明。任一成员、安装或校验失败时不发布整个工作区，继续使用原有租约、inode 保护与精确回收。已存在用户内容不得覆盖。
+一个工作区只有一次 sibling staging 事务、一次根依赖安装；默认不启用 Git、不配置身份或创建基线提交。各前端成员内部生成和校验时跳过安装；Go 依赖由自身 go.mod/go.sum 声明。任一成员、安装或校验失败时不发布整个工作区，继续使用原有租约、inode 保护与精确回收。已存在用户内容不得覆盖。
 
 根 package.json 不含产品运行时依赖，只包装成员：
 

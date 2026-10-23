@@ -12,15 +12,6 @@ import (
 	"project_id/internal/service"
 )
 
-// TeamContext 从认证账号恢复所有有效成员团队。
-func (r *queryResolver) TeamContext(ctx context.Context) (*dto.TeamContext, error) {
-	id, err := currentAccountID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return r.Teams.Context(ctx, id)
-}
-
 // TeamMembers 按团队和有界分页读取成员。
 func (r *queryResolver) TeamMembers(ctx context.Context, organizationID string, page int, pageSize int) (*dto.TeamMemberPage, error) {
 	id, err := currentAccountID(ctx)
@@ -48,23 +39,6 @@ func (r *queryResolver) TeamInvitations(ctx context.Context, organizationID *str
 		}
 	}
 	return r.Teams.Invitations(ctx, id, org, page, pageSize)
-}
-
-// TeamPermissions 不接受调用方伪造其他账号的成员身份。
-func (r *queryResolver) TeamPermissions(ctx context.Context, organizationID string, subjectID string) ([]string, error) {
-	id, err := currentAccountID(ctx)
-	if err != nil {
-		return nil, err
-	}
-	org, err := service.TeamID(organizationID)
-	if err != nil {
-		return nil, err
-	}
-	subject, err := service.TeamID(subjectID)
-	if err != nil {
-		return nil, err
-	}
-	return r.Teams.Permissions(ctx, id, org, subject)
 }
 
 // TeamPermissionCatalog 只向有管理权限的成员公开可授予目录。
@@ -105,3 +79,9 @@ func (r *queryResolver) TeamRoles(ctx context.Context, organizationID string, pa
 	}
 	return r.Teams.Roles(ctx, id, org, page, pageSize)
 }
+
+// Query 的根实现随本地列表 SDL 一起维护，避免从引导文件生成重复声明。
+func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
+
+// queryResolver 为已选择的列表操作提供同一领域依赖。
+type queryResolver struct{ *Resolver }

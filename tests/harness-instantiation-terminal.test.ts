@@ -3,18 +3,15 @@ import { describe, test } from "vitest"
 import { execFileSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { initializeProject } from "../.harness/tooling/init.ts"
-import { runCommand } from "../.harness/tooling/process.ts"
 import { HARNESS_ONLY_PATHS } from "../.harness/tooling/config.ts"
 import ts from "typescript"
 import { walkFiles } from "../.harness/tooling/files.ts"
-import { checkCommitConfiguration } from "../.agents/skills/web-configure-git-commits/scripts/configure-git-commit.ts"
 import {
   INSTANTIATION_ONLY_EXCLUDED_PATHS,
   TEST_BASE_URLS,
   TEST_AGENT_POLICY,
   expect,
   instantiateProject,
-  mkdir,
   path,
   readFile,
   readdir,
@@ -99,7 +96,7 @@ describe("terminal source projection", () => {
   test("copies a clean template into a governed terminal project", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     const parent = await temporaryDirectory("web-harness-copy-")
     const targetRoot = path.join(parent, "terminal-project")
-    // 用真实 Git 基线证明交接原文不会遗漏在提交之外；BOM 与混合换行一次覆盖 LF/CRLF。
+    // 无 Git 创建仍须完整保留交接原文；BOM 与混合换行一次覆盖 LF/CRLF。
     const requirements = "\uFEFF# 创建需求\r\n\n仅公开介绍页，无账户或组织功能。\r\n"
     await instantiateProject(
       {
@@ -117,61 +114,24 @@ describe("terminal source projection", () => {
           brandColor: "#4C6EF5",
           agentPolicy: TEST_AGENT_POLICY,
           ...TEST_BASE_URLS,
-          skipInstall: true,
-          skipGit: false
+          skipInstall: true
         }
       },
-      (options, logo) =>
-        initializeProject(options, logo, async (command, args, root) => {
-          await runCommand(command, args, root)
-          // 模拟启用自动换行转换的真实 Git，规则必须在首次 add 前生效。
-          if (command === "git" && args[0] === "init") {
-            await runCommand("git", ["config", "--local", "core.autocrlf", "true"], root)
-          }
-        })
+      initializeProject
     )
 
-    // 保存 git 函数，用无 Shell 的真实命令验证 staging 随项目一起原子发布。
-    const git = (args: string[]): string =>
-      execFileSync("git", args, { cwd: targetRoot, encoding: "utf8" }).trim()
-    expect(git(["branch", "--show-current"])).toBe("main")
-    expect(git(["rev-list", "--count", "HEAD"])).toBe("1")
-    expect(git(["status", "--porcelain=v1"])).toBe("")
-    expect(git(["remote"])).toBe("")
+    expect(await readdir(targetRoot)).not.toContain(".git")
     // 终端 tooling 由手写模板生成，任一相对具名导入缺少文件或导出都会在真实下游链接失败。
     expect(await missingTerminalToolingImports(targetRoot)).toEqual([])
     // 所有登记为源专用的回归都不能携带到缺少源 fixture 的终端项目。
     for (const sourceTest of HARNESS_ONLY_PATHS.filter((entry) => entry.startsWith("tests/"))) {
-      expect(git(["ls-files", sourceTest])).toBe("")
       await expect(readFile(path.join(targetRoot, sourceTest))).rejects.toMatchObject({
         code: "ENOENT"
       })
     }
-    expect(git(["show", "HEAD:docs/requirements/source.txt"])).toBe(requirements.trim())
-    expect(git(["ls-files", "docs/requirements/source.txt"])).toBe("docs/requirements/source.txt")
-    // 基线 Git blob 与再次检出的文件必须保留 BOM/CRLF，与确认摘要一致。
-    const committedRequirements = execFileSync(
-      "git",
-      ["show", "HEAD:docs/requirements/source.txt"],
-      {
-        cwd: targetRoot
-      }
+    expect(await readFile(path.join(targetRoot, "docs/requirements/source.txt"))).toEqual(
+      Buffer.from(requirements, "utf8")
     )
-    expect(committedRequirements).toEqual(Buffer.from(requirements, "utf8"))
-    const checkoutRoot = path.join(parent, "requirements-checkout")
-    await mkdir(checkoutRoot)
-    execFileSync(
-      "git",
-      ["checkout-index", "--prefix", checkoutRoot + path.sep, "--", "docs/requirements/source.txt"],
-      {
-        cwd: targetRoot
-      }
-    )
-    expect(await readFile(path.join(checkoutRoot, "docs/requirements/source.txt"))).toEqual(
-      committedRequirements
-    )
-    expect(git(["config", "--local", "--get", "core.commentString"])).toBe("#")
-    await expect(checkCommitConfiguration(targetRoot)).resolves.toMatchObject({ status: "ok" })
     expect(
       await readFile(path.join(targetRoot, ".harness/tooling/agent-policy.ts"), "utf8")
     ).not.toContain("AgentPolicyMode")

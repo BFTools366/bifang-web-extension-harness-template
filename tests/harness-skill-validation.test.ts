@@ -16,6 +16,10 @@ describe("Harness Skill and Agent policy validation", () => {
   })
   /** 验证拆分后的只读、授权、恢复和绑定边界仍受源门禁约束。 */
   test.each([
+    ["web-prepare-brand-identity", "产品名称 + 首次需求分析结果"],
+    ["web-prepare-brand-identity", "首次未提供需求时，直接按产品名称生成"],
+    ["web-prepare-brand-identity", "三个独立编号候选，等待用户明确三选一"],
+    ["web-prepare-brand-identity", "可推荐一项，但不得自动选定"],
     ["web-implement-auth-session", "不创建第二套会话"],
     ["web-implement-auth-session", "迟到登录、恢复或 401 不得覆盖或清理后来会话"],
     ["web-review-api-contract", "不修改代码、配置、测试或文档"],

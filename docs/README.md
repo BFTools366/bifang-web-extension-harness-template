@@ -25,6 +25,6 @@
 
 功能按具体操作组合，知识库与模板库见 [功能组合 Skill](../.agents/skills/web-compose-capabilities/SKILL.md)，当前选择归下游唯一 PRD。完整创建在下游按已确认需求持续完成首版页面、功能及开发验证；工程事务只是内部阶段。能力采用固定设计与代码接线，操作依赖由 catalog 明确计算。
 
-API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；REST/Ky 负责主要交互，GraphQL 负责复杂查询与订阅，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3 为准。
+API 与 Cookie、LocalStorage、SessionStorage、Memory、IndexedDB 统一归入 `src/data/`；GraphQL 强制负责远端列表查询和其他带业务查询条件的 GET 类读取；其余请求全部使用 RESTful，Dexie 仅用于 IndexedDB。目录、选型与生命周期以 [`DATA_ACCESS.md`](DATA_ACCESS.md) §1.1–1.3 为准。
 
 下游需要导出 API 与业务说明时，调用 [`$web-document-api`](../.agents/skills/web-document-api/SKILL.md)，在 `docs/api/` 导出统一文档包：根关联说明、`api/` 内一份通用结构与一份 API 元数据及按业务聚合的接口文档、`business/` 内已实现业务目标/调用流程/设计思路。每次对照已有文档、当前接口与真实消费者核对差异；局部委托仅同步受影响范围与关联。REST 保持六项与 JSON 加字段表，GraphQL 保留有来源的 Schema；导出不含本地代码或路径。未接入契约与设计建议仍保留并标明状态，不冒充已实现业务或联调通过。布局、迁移与检查以 Skill 为准，初始化只分发能力，不生成业务文档。 `API.md` 仍是可选基础契约参考。

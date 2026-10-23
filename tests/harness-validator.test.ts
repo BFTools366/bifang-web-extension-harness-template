@@ -177,7 +177,7 @@ describe("Harness template validator", () => {
       postInitializationSource.replace('"--prefer-offline"', '"build"')
     )
     await expect(validateHarness(postInitializationRoot)).rejects.toThrow(
-      /missing the single install and Git initialization contract/
+      /missing the single dependency installation contract/
     )
 
     const e2eRoot = await copyRepository()

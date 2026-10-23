@@ -181,6 +181,8 @@ function validateSelection(raw: unknown): void {
       throw new Error(`selection.${field} 需要合法值、非空理由和选择模式`)
     if (field === "serverMode" && choice.mode === "automatic" && choice.value !== "none")
       throw new Error("只能自动选择确定的纯本地模式；是否有现成服务须复用或询问用户事实")
+    if (field === "projectType" && choice.mode === "automatic")
+      throw new Error("Web / Extension 必须由用户明确选择，不能由需求分析自动填入")
   }
 }
 
@@ -266,7 +268,7 @@ export async function inspectCreationForm(
   const staleSelection = input.selection !== undefined && selection === undefined
   const selectedValues: PromptDefaults = { ...input.values }
   const automaticSources: Record<string, string> = {}
-  for (const field of ["projectType", "serverMode"] as const) {
+  for (const field of ["serverMode"] as const) {
     const choice = selection?.[field]
     if (input.values[field] === undefined && choice?.mode === "automatic") {
       selectedValues[field] = choice.value
@@ -296,18 +298,20 @@ export async function inspectCreationForm(
     )
   } catch (error) {
     if (error instanceof PendingQuestion) {
-      if (staleSelection && !["requirementsFile", "requirementsText"].includes(error.field))
+      if (
+        staleSelection &&
+        !["requirementsFile", "requirementsText", "projectType"].includes(error.field)
+      )
         return {
           phase: "needs-scope",
           analysisRevision,
           issue: "需求、范围或显式选择已变化，请重新分析并绑定当前修订"
         }
-      // 先分析需求再决定宿主与服务，不要求提前填满最终七项范围。
+      // 先询问可选需求，再取得用户明确宿主选择，之后才分析服务与能力。
       if (
         !input.scope &&
         !selection &&
         [
-          "projectType",
           "serverMode",
           "apiContract",
           "developmentBaseUrl",

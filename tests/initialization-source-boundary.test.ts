@@ -18,6 +18,7 @@ import {
   initializeProject
 } from "../.harness/tooling/init.ts"
 import { instantiateProject } from "../.harness/tooling/instantiate.ts"
+import { initializeWorkspace } from "../.harness/tooling/workspace.ts"
 import { validateProject } from "../.harness/tooling/validate.ts"
 import { createSymlinkOrSkip } from "./setup.ts"
 import {
@@ -31,6 +32,45 @@ import {
 
 /** 验证 initialization source isolation and snapshot protection 的完整回归场景。 */
 describe("initialization source isolation and snapshot protection", () => {
+  /** 模板位于其他仓库子目录时仍按源文件快照创建，不强制其自身为 Git 顶层。 */
+  test("accepts a source directory inside an unrelated Git repository", async () => {
+    const enclosing = await temporaryDirectory("harness-enclosing-git-")
+    await git(enclosing, ["init", "-b", "main"])
+    const sourceRoot = path.join(enclosing, "template")
+    await mkdir(path.join(sourceRoot, "docs"), { recursive: true })
+    await writeFile(path.join(sourceRoot, "docs/example.md"), "# Template source\n")
+    const parent = await temporaryDirectory("harness-nested-source-target-")
+    const targetRoot = path.join(parent, "nested-source")
+    const { root: ignoredRoot, ...init } = initOptions(targetRoot, "web", "nested-source")
+    void ignoredRoot
+    await instantiateProject({ sourceRoot, targetRoot, init }, async (options) =>
+      createProjectConfig(options)
+    )
+    expect(await readFile(path.join(targetRoot, "docs/example.md"), "utf8")).toBe(
+      "# Template source\n"
+    )
+    expect(await readdir(targetRoot)).not.toContain(".git")
+  })
+
+  /** 内部单包及 Workspace 初始化不能借模板内链接把下游移到外部生成。 */
+  test("blocks source-local links to outside roots in both initializers", async (context) => {
+    const fixture = await mkdtemp(path.join(repositoryRoot, "..harness-link-boundary-"))
+    const external = await temporaryDirectory("harness-outside-linked-root-")
+    const link = path.join(fixture, "downstream")
+    try {
+      await createSymlinkOrSkip(context, external, link, "dir")
+      for (const initialize of [initializeProject, initializeWorkspace]) {
+        await expect(initialize(initOptions(link, "web", "blocked-source"))).rejects.toThrow(
+          DOWNSTREAM_ONLY_INITIALIZATION_ERROR
+        )
+      }
+      expect(await readdir(external)).toEqual([])
+      expect(await readdir(fixture)).toEqual(["downstream"])
+    } finally {
+      await rm(fixture, { recursive: true, force: true })
+    }
+  })
+
   /** 验证 blocks the public in-place command before parsing input or writing files 场景。 */
   test("blocks the public in-place command before parsing input or writing files", /* 执行 当前声明 函数的处理逻辑。 */ async () => {
     // 保存 root 变量供当前逻辑使用。

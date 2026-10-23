@@ -8,7 +8,7 @@
 | [协议适配](data/api/auth/mockProtocol.ts.txt)、[内存服务](data/api/auth/mockAuthService.ts.txt)             | 校验请求/响应、Header、验证码与原始服务状态，地址已配置但未接入时失败关闭                              | web-implement-change 按需适配数据边界                                                   |
 | [精确存储](data/storage/authSessionStorage.ts.txt)                                                          | 只适用该 Mock 引用协议；原生 Web Locks、随机 revision、精确 raw 和写后核实，不直接替代字符串凭据适配器 | web-implement-browser-storage 消费既有持久化授权；状态转换归 web-implement-auth-session |
 | [协议回归](data/api/auth/mockBoundary.test.ts.txt)、[存储回归](data/storage/authSessionStorage.test.ts.txt) | 保留报文拒绝、用途/期限、重置、迟到结果及存储冲突测试，不证明应用 UI 或真实跨标签页可用                | 当前适配入口运行相关回归                                                                |
-| [中性 API 导出包](api-example/README.md)                                                                    | 13 个内存模拟公开操作及测试消费流程，未接真实 HTTP                                                     | web-document-api 只参考格式，逐次核对当前真实消费者                                     |
+| [历史 API 差异包](api-example/README.md)                                                                    | 13 个历史模拟操作；无条件 GraphQL 读取属于协议不符合项，仅供格式及差异评审                             | web-document-api 只参考格式，逐次核对当前真实消费者                                     |
 
 独立会话协调器位于 [身份模板](../../identity/session.ts.txt)，不依赖组织或权限；实际会话状态机实施由 web-implement-auth-session 负责。组织与权限分别消费当前应用的真实作用域和授权；模板资产拥有者与执行入口不混用。
 

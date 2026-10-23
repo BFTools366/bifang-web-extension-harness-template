@@ -48,6 +48,12 @@ export const EXPECTED_EXTENSION_ONLY_TERMINAL_SKILLS = [
 
 /** 按能力拥有者保存源与终端共用的正文门禁，不让发现信息替代行为约束。 */
 export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly string[]>> = {
+  "web-prepare-brand-identity": [
+    "产品名称 + 首次需求分析结果",
+    "首次未提供需求时，直接按产品名称生成",
+    "三个独立编号候选，等待用户明确三选一",
+    "可推荐一项，但不得自动选定"
+  ],
   "web-define-product": [
     "展示可打开预览并等待用户反馈",
     "需求批准不代替设计反馈",
@@ -184,6 +190,8 @@ export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly str
     "消费者 × Chrome MV3 / Firefox MV2"
   ],
   "web-design-prototype": [
+    "首版原型必须展示并取得用户明确确认",
+    "首次确认前不能 waive",
     "展示预览并等待用户反馈",
     "awaiting-feedback",
     "reviewHash",
@@ -196,6 +204,10 @@ export const SHARED_SKILL_BODY_REQUIREMENTS: Partial<Record<string, readonly str
     "不规划、生成或验证 Mobile 支持",
     "pnpm prototype:check",
     "旧摘要失效"
+  ],
+  "workspace-implement-feature": [
+    "前后端业务开发和测试必须等待原型确认",
+    "创建范围确认不能代替设计反馈"
   ],
   "web-implement-list-view": [
     "](../../../docs/DATA_ACCESS.md#列表查询协议强约定)",

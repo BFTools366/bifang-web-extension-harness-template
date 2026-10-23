@@ -1,4 +1,4 @@
 interface:
   display_name: "Web Harness：准备前端品牌身份"
-  short_description: "按需求自动选择适配品牌，等价或有争议时推荐候选并同步"
-  default_prompt: "使用 $web-prepare-brand-identity 为当前纯 TypeScript React Web 或 Plasmo Chrome MV3 / Firefox MV2 Extension 前端项目按充分需求自动选择唯一适配 Logo，多个方向同样适用或有争议时推荐候选，或沿用正式源图，再同步品牌元数据。"
+  short_description: "结合产品名称与首次需求分析生成 Logo 三选一，无需求按名称生成"
+  default_prompt: "使用 $web-prepare-brand-identity 按产品名称与首次需求分析生成三个独立 Logo 方案，展示并等待用户三选一；首次无需求则直接按名称生成，已有明确选定的正式源图直接沿用，再同步当前前端宿主品牌元数据。"

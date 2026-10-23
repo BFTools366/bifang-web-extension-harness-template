@@ -234,18 +234,17 @@ export async function validateToolingContract(root: string, errors: string[]): P
     !containsStringLiteral(postInitialization, "pnpm") ||
     !containsStringLiteral(postInitialization, "install") ||
     !containsStringLiteral(postInitialization, "--no-frozen-lockfile") ||
-    !containsStringLiteral(postInitialization, "--prefer-offline") ||
-    !containsStringLiteral(postInitialization, "git") ||
-    !containsStringLiteral(postInitialization, "init")
+    !containsStringLiteral(postInitialization, "--prefer-offline")
   ) {
-    errors.push("Harness initializer is missing the single install and Git initialization contract")
+    errors.push("Harness initializer is missing the single dependency installation contract")
   }
   if (
     postInitialization !== undefined &&
     (containsStringLiteral(postInitialization, "format") ||
-      containsStringLiteral(postInitialization, "build"))
+      containsStringLiteral(postInitialization, "build") ||
+      containsStringLiteral(postInitialization, "git"))
   ) {
-    errors.push("Harness initializer must not run format or build commands after installation")
+    errors.push("Harness initializer must not run format, build or Git commands after installation")
   }
   const initializationCalls = [
     {

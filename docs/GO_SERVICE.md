@@ -24,9 +24,9 @@ Go 命令始终在服务成员执行：`go test ./...`、`go vet ./...`、`go bu
 
 REST 单对象：`{model,data,request_id}`；空结果为 HTTP 200 `{model:"empty",request_id}`；失败是 `{model:"errors",errors:{model:"data.set",datas:[{model:"error",code,message}],total},request_id}`。错误码稳定，UI 不把服务 message 直接当本地化键。
 
-分页实际形状：`{model,page:{current,size,total},result:{model:"data.set",datas,total,request_id}}`。上游文档的 `page.total_page` 和顶层 request_id 并未由当前代码输出；消费者按真实形状解析，不编造字段。带查询条件的远端读取与远端集合必须按 [工程规则](ENGINEERING_RULES.md) 和 [数据访问协议](DATA_ACCESS.md#12-rest-与-graphql-分工) 使用 GraphQL；REST 单对象或分页能力不代表可以绕过该约定。
+分页实际形状：`{model,page:{current,size,total},result:{model:"data.set",datas,total,request_id}}`。上游文档的 `page.total_page` 和顶层 request_id 并未由当前代码输出；消费者按真实形状解析，不编造字段。仅列表查询或其他带业务查询条件的 GET 类读取必须按 [工程规则](ENGINEERING_RULES.md) 和 [数据访问协议](DATA_ACCESS.md#12-rest-与-graphql-分工) 使用 GraphQL；路径 ID 详情、当前账号/上下文/权限快照及其余请求全部走 RESTful，分页编码能力不代表可以绕过该约定。
 
-ID 一律字符串，时间单位显式为 Unix 秒，前端不得当毫秒或 Number ID。GraphQL 使用标准 `{data,errors}`，不套 REST 信封。业务查询的 SDL、resolver 和授权随操作实施；基础 health/me 不能冒充商品、成员、订单等列表。
+ID 一律字符串，时间单位显式为 Unix 秒，前端不得当毫秒或 Number ID。GraphQL 使用标准 `{data,errors}`，不套 REST 信封。业务查询的 SDL、resolver 和授权随操作实施；锁定来源的 health/me 仅供引导与追溯，最终装配不公开这些无条件 GraphQL 根字段。
 
 CORS 按真实前端 Origin 和 headers 配置，拒绝无依据通配凭据；Extension host 权限另按已授权服务精确配置，不因存在 BaseURL 自动增加宽权限。
 

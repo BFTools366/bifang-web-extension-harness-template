@@ -29,7 +29,7 @@ export const WORKSPACE_SKILL_CONTRACTS = {
   },
   "go-implement-graphql": {
     description:
-      "为带查询条件的远端读取、集合与复杂读取实现 Go GraphQL SDL、resolver 和前端 typed Query，复用领域 service，不以 JSON 列表冒充 GraphQL。",
+      "仅为列表查询或其他带业务查询条件的 GET 类读取实现 Go GraphQL SDL、resolver 和前端 typed Query，其余请求使用 RESTful，复用领域 service。",
     title: "# Web Harness：实施 Go 查询契约",
     displayName: "Web Harness：实施 Go 查询契约",
     shortDescription: "在统一工作区内实施 Go 查询契约，复用真实服务契约并完成相关实现与验证",

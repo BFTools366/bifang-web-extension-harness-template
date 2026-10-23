@@ -1,6 +1,16 @@
 import { createHash, randomUUID } from "node:crypto"
 import { constants, realpathSync, type Stats } from "node:fs"
-import { access, lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
+import {
+  access,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  writeFile
+} from "node:fs/promises"
 import path from "node:path"
 import { pathToFileURL } from "node:url"
 
@@ -22,6 +32,24 @@ export async function pathExists(filePath: string): Promise<boolean> {
     return true
   } catch {
     return false
+  }
+}
+
+/** 逐级识别请求经过的真实目录，防止大小写别名或中途外链隐藏受保护祖先。 */
+export async function passesThroughDirectory(
+  candidatePath: string,
+  canonicalDirectory: string
+): Promise<boolean> {
+  let cursor = path.resolve(candidatePath)
+  while (true) {
+    try {
+      if ((await realpath(cursor)) === canonicalDirectory) return true
+    } catch (error) {
+      if ((error as { code?: unknown }).code !== "ENOENT") throw error
+    }
+    const parent = path.dirname(cursor)
+    if (parent === cursor) return false
+    cursor = parent
   }
 }
 

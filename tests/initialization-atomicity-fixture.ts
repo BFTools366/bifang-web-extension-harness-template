@@ -52,8 +52,7 @@ export function initOptions(
     brandColor: "#4C6EF5",
     agentPolicy: TEST_AGENT_POLICY,
     ...BASE_URLS,
-    skipInstall: true,
-    skipGit: true
+    skipInstall: true
   }
 }
 

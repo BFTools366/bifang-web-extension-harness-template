@@ -1,6 +1,6 @@
 ---
 name: web-implement-event-stream
-description: 在已初始化 React Web 或 Plasmo Extension 下游中，按真实协议实施或修复 SSE、GraphQL Subscription 及持续多来源事件的适配、生命周期、恢复和状态投影；按需采用 RxJS，不从查询接口推断推送，不建立全局事件总线或默认扩大宿主权限。
+description: 在已初始化 React Web 或 Plasmo Extension 下游中，按真实协议实施或修复 REST SSE 及持续多来源事件的适配、生命周期、恢复和状态投影；按需采用 RxJS，既有 GraphQL Subscription 仅核对差异，不新增订阅或默认扩大宿主权限。
 ---
 
 # Web Harness：实施持续事件流
@@ -10,7 +10,7 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，按真�
 ## 触发与边界
 
 - 仅已初始化下游的真实订阅、持续来源或复杂时序需求触发；普通 callback、有限 HTTP、单次浏览器消息不需要本 Skill 或 RxJS。源 Harness 只维护通用规则。
-- 先复用已确认的 endpoint/Schema、认证与事件/恢复契约；没有 Subscription 或推送协议时不能从查询接口推断支持。缺项按工程规则逐项补问，不要求全套协议一次提交。
+- 新接口只采用 REST SSE 等真实 HTTP 推送合同；既有 GraphQL Subscription 仅核对不符合项与迁移风险，不新增或接入。复用已确认的 endpoint、认证与事件/恢复契约，不能从查询接口推断支持。缺项按工程规则逐项补问，不要求全套协议一次提交。
 - 连接 adapter 负责传输、校验与幂等 teardown，feature hook/service 拥有启停、恢复和投影；不创建全局可写 Subject 或另一套请求/认证状态机。
 - 返回调用方，不反向启动接入、产品定义或候选验收。接入授权不扩大真实服务、凭据、生产或浏览器权限范围。
 
@@ -18,12 +18,12 @@ description: 在已初始化 React Web 或 Plasmo Extension 下游中，按真�
 
 先读 `docs/DATA_ACCESS.md` 的数据层与状态所有权、现有消费者和受影响契约；随后只读命中分支：
 
-| 本次能力             | 所需章节与证据                                                      |
-| -------------------- | ------------------------------------------------------------------- |
-| SSE                  | “Server-Sent Events”：方法/headers、认证、恢复游标与 client 选择    |
-| GraphQL Subscription | “Subscription 推送”：可信 Schema、实际握手协议与 payload/error 语义 |
-| 多来源/复杂时序      | “可选 RxJS 事件流编排”：真实引入条件、共享与 teardown               |
-| Extension 跨上下文   | 当前宿主兼容规则、消息边界及 Chrome MV3 / Firefox MV2 生命周期      |
+| 本次能力                  | 所需章节与证据                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| SSE                       | “Server-Sent Events”：方法/headers、认证、恢复游标与 client 选择               |
+| 既有 GraphQL Subscription | “Subscription 推送”：只核对来源差异和迁移风险，不授权接入；新推送使用 REST SSE |
+| 多来源/复杂时序           | “可选 RxJS 事件流编排”：真实引入条件、共享与 teardown                          |
+| Extension 跨上下文        | 当前宿主兼容规则、消息边界及 Chrome MV3 / Firefox MV2 生命周期                 |
 
 没有命中某分支不读取、不安装其依赖；选用新库时按项目依赖规则核对官方证据与锁文件。
 

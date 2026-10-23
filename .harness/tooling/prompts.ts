@@ -300,6 +300,8 @@ export function formatInstantiationSummary(summary: InstantiationSummary): strin
 - 目标路径（原始）：${summary.rawTargetRoot}
 - 目标路径（规范）：${summary.canonicalTargetRoot}
 - 保存位置：${summary.canonicalTargetRoot}（确认后使用此绝对路径）
+- Git：默认不启用，不配置身份或创建提交
+- 首版开发门禁：展示原型并获用户明确确认后，才开发前后端业务及运行业务测试
 - Agent 策略模式：${summary.policyMode === "recommended" ? "预设" : "自定义"}
 - 项目类型：${summary.init.projectType}
 - 需求文档：${summary.requirements === undefined ? "未提供，实际首版需求由 Agent 澄清" : `${summary.requirements.sourcePath}（${summary.requirements.byteLength} 字节，SHA-256: ${summary.requirements.sha256}；原文随项目保存，已有完整范围确认在下游复用）`}

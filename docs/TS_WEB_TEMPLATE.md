@@ -2,11 +2,11 @@
 
 服务来源也接受显式 --server none，只生成所选前端，用于明确不需要服务端的本地功能；不要求或生成业务 endpoint。该模式三环境地址为空，正式空地址例外仅属于有效本地成员；不得放宽远端项目的正式地址门禁。
 
-本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，先采集并澄清需求，再自动选择唯一适配的 Web / Extension 宿主、必要能力与本地方案；等价或有争议时才推荐，需要服务时仅补现成服务事实；没有则默认同时创建一个 Go 服务端；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
+本文档定义 Bifang Web Harness Template 的初始化契约和固定技术基线。结论是：新初始化生成 Workspace，先尝试采集可选需求，再由用户明确选择 Web / Extension；之后根据需求自动处理唯一适配的能力与本地方案，有争议时推荐并等待取舍，需要服务时仅补现成服务事实；没有则默认同时创建一个 Go 服务端；根拓扑和表单以 [WORKSPACE_TEMPLATE.md](WORKSPACE_TEMPLATE.md) 为准，本文的单包、唯一宿主约束仅适用各前端成员。
 
 ## 工程基础与功能组合
 
-完整创建任务按已确认需求交付首版页面与功能；`pnpm instantiate` 只执行其中的工程创建事务。事务成功后，Agent 在下游继续唯一 PRD、固定设计原型、代码接线与开发浏览器流程验证。基础应用具有主界面和宿主路由，真实首页由需求实现；能力按操作自动计算并展示最小依赖，购买必须包含基础身份资源。当前低层依赖图不自动生成组织/权限，完整用户方案仍必须满足[账号与组织基线](../.agents/skills/web-compose-capabilities/knowledge/identity.md#完整用户信息)，未覆盖的注册、资料或邀请接线按已确认范围补齐，不能把生成器成功当作完整用户交付。
+完整创建任务按已确认需求交付首版页面与功能；`pnpm instantiate` 只执行其中的工程创建事务。事务成功后，Agent 在下游准备唯一 PRD 与单一原型；展示并取得用户明确设计确认后，才进行前后端业务接线、相关测试与开发浏览器流程验证。基础应用具有主界面和宿主路由，真实首页由需求实现；能力按操作自动计算并展示最小依赖，购买必须包含基础身份资源。当前低层依赖图不自动生成组织/权限，完整用户方案仍必须满足[账号与组织基线](../.agents/skills/web-compose-capabilities/knowledge/identity.md#完整用户信息)，未覆盖的注册、资料或邀请接线按已确认范围补齐，不能把生成器成功当作完整用户交付。
 
 ## 1. 不变量
 
@@ -38,10 +38,10 @@ pnpm instantiate -- /absolute/path --type extension --server create \
 
 位置参数是源 Harness 之外的相对或绝对父目录；相对路径按调用 cwd 解析（聊天表单按源 Harness 根），只读核对可访问性后展示绝对保存位置，询问是否保存到该位置，用户同意后继续，无需重输绝对路径。无交互终端的相对参数须通过已确认表单执行；最终项目目录自动拼接为“父目录/项目标识”，该子目录必须不存在或为空。上述示例分别创建 `/absolute/path/example-web` 和 `/absolute/path/example-extension`。不要先复制模板并在副本内初始化，也不要直接调用底层 initializer。
 
-- 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`；CLI 无默认值，Agent 可依据充分需求自动选择唯一适配宿主并记录理由。
-- 需求采集先于类型。Agent 根据充分需求自动选择唯一适配宿主及服务需求，等价或有争议时才推荐；已有合法选择优先复用，自动结果独立记录依据。确定完全本地时自动 none，需要服务且现成服务事实未知才询问：有则使用 `--server existing` 并提供开发 BaseURL；没有则使用 `--server create`，默认创建所选前端和一个 Go 服务端；确定纯本地且不需要服务端时自动采用 `--server none`，无需再选服务端类型。
+- 项目类型显示 1.Web / 2.Extension；交互及 `--type` 均接受编号 `1` / `2` 或 `web` / `extension`；Agent 与 CLI 都无默认值，必须复用或取得用户明确的 Web / Extension 选择，分析只可推荐，不能代答。
+- 前两步固定为可选需求输入、用户明确选择 Web / Extension。宿主确定后再按需求判断服务与能力，唯一适配自动采用，有争议才推荐；已有合法答案优先复用，自动结果独立记录依据。确定完全本地时自动 none，需要服务且现成服务事实未知才询问：有则使用 `--server existing` 并提供开发 BaseURL；没有则使用 `--server create`，默认创建所选前端和一个 Go 服务端；确定纯本地且不需要服务端时自动采用 `--server none`，无需再选服务端类型。
 - `--name` 是用户可见名称。
-- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互作为第一项询问，先于类型与服务来源，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging、回收与唯一基线提交，不写入身份配置或前端产物，也不从源复制既存需求输入。
+- 需求输入可选，支持 Markdown（.md）、TXT（.txt）、Word（.doc/.docx）或直接文字，也可暂不提供；用途是明确用户、页面、核心流程与范围，减少重复沟通。CLI 的 `--requirements-file <md-or-txt-path>` 或 `--requirements-text <text>` 二选一，最多 1 MiB、非空 UTF-8。Word 由 Agent 实际读取完整正文后传入文本，CLI 不直接解析 Word；提取摘要只绑定正文快照，不代表原二进制或版式。交互作为第一项询问，先于类型与服务来源，可用 `text:正文` / `文字：正文` 直接输入，实际回车跳过。实例化按 [输入与交接合同](../.agents/skills/web-instantiate-project/references/requirements-intake.md) 委托需求定义只读分析界面需求，再由功能组合返回身份、权限、组织等独立能力建议；CLI 只冻结并交接原文，不执行语义分析或装配业务。完整汇总展示路径、大小和 SHA-256，确认期间文档变化在写入前拒绝。原文保存在下游 `docs/requirements/source.txt`，纳入同一 staging 与回收事务，不写入身份配置或前端产物，也不从源复制既存需求输入。
 - 项目标识默认由项目名称的英文翻译自动生成小写 kebab-case，供包名、目录名和确定性品牌生成共用。Agent 负责翻译并传入 `--english-name`，不要求用户手填标识；英文显示名称可直接生成。纯终端无翻译能力时只补问英文译名，不使用拼音或父目录名推导；非交互中文名称需提供 `--english-name`。已有显式 `--id` 优先复用，仍须通过跨平台安全校验。英文译名仅作创建输入，不自动写入身份本地化。
 - Agent 设置默认采用预设，聊天和 CLI 均不再询问策略模式，`--policy-mode` 可省略，汇总记录“默认预设”。主动提供单项策略时沿用为自定义；显式自定义仍逐项补齐，非交互须提供五项合法值。显式预设不能混入单项覆盖，最终创建确认保持不变。
 - Web 的可选 `--description` 缺省或为空时使用显示名称。Extension 必须提供非空简短说明（最多 132 字符）；交互时询问缺失/非法项，非交互缺少说明在写入前拒绝。
@@ -52,9 +52,9 @@ pnpm instantiate -- /absolute/path --type extension --server create \
 - `--brand-color` 可选，使用 `#RRGGBB`；缺省为 `#4C6EF5`。例如追加 `--logo /absolute/path/logo.png --brand-color "#3B82F6"`。
 - 初始化不接受 `--e2e`，也不在创建期构建 Release 产物；后续显式 `pnpm build` 解析或复用本次发布的 `--e2e=enabled|disabled` 选择。
 
-创建时遵循[固定初始化表单](../.agents/skills/web-instantiate-project/references/initialization-form.md#固定问题清单)：每轮只问一项，逐字使用固定问题名称、题面和选项的括号说明；收到实际回答并校验后才继续。基础字段按依赖顺序逐项引导，直接回答普通文本；主动提供多个字段的 JSON 仍复用。项目标识按英文名称自动生成，父目录与服务地址不猜测。最终汇总同时展示原始父目录、完整项目目录与规范路径。全部解析后才展示完整汇总；CLI 使用 JSON 的 `confirmation`，Agent 使用 `agentConfirmation` 和共享只读工具绑定当前修订。已有覆盖当前汇总的明确完整创建授权直接复用；CLI 确认空回答取消，聊天无回复不能视为默认值或确认。参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 同级暂存目录 完成复制，通过内部初始化器 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。内部初始化器 还会拒绝源 Harness 根及其任意子路径；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
+创建时遵循[固定初始化表单](../.agents/skills/web-instantiate-project/references/initialization-form.md#固定问题清单)：每轮只问一项，逐字使用固定问题名称、题面和选项的括号说明；收到实际回答并校验后才继续。基础字段按依赖顺序逐项引导，直接回答普通文本；主动提供多个字段的 JSON 仍复用。项目标识按英文名称自动生成，父目录与服务地址不猜测。最终汇总同时展示原始父目录、完整项目目录与规范路径。全部解析后才展示完整汇总；CLI 使用 JSON 的 `confirmation`，Agent 使用 `agentConfirmation` 和共享只读工具绑定当前修订。已有覆盖当前汇总的明确完整创建授权直接复用；CLI 确认空回答取消，聊天无回复不能视为默认值或确认。参数的精确必填性、错误格式与帮助文本以 `pnpm instantiate` 的真实实现为准。未知参数、非法类型、非法 BaseURL、不可读 Logo、无效颜色、非空目标冲突、源内目标或路径越界属于预检失败，必须在生成项目文件前终止并保持目标零写入。`pnpm instantiate` 在目标同级 同级暂存目录 完成复制，通过内部初始化器 生成项目、只格式化本次生成/改写文件、执行静态结构校验并安装一次依赖；成功后才原子发布目标，失败时原先不存在的目标仍不存在，预存空目录仍为空。请求路径或解析后的真实路径只要位于源 Harness 根及其任意子路径，一律零写入拒绝；模板内符号链接指向外部也不能绕过，演示、临时和测试下游同样受限。内部初始化器独立执行同一门禁；`pnpm harness init` 稳定拒绝，`pnpm harness:init` 不存在。完整环境契约见 [`RUNTIME_CONFIGURATION.md`](RUNTIME_CONFIGURATION.md)。
 
-生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。公开 CLI 不接受跳过安装或 Git 的参数；单元测试只能通过直接调用内部 TypeScript 接口注入跳过状态。后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。工程事务不运行格式 CLI、lint、typecheck、全量测试或生产构建；成功下游的首版实施执行本次需要的类型检查、相关非空行为测试和开发浏览器核心流程走查。最终 Release 构建的完整门禁仍由唯一入口拥有。
+生成器在当前类型 manifest 写入后执行一次 `pnpm install --no-frozen-lockfile --prefer-offline`，首次解析并固定 `pnpm-lock.yaml`。公开 CLI 不接受跳过安装的参数；单元测试只能通过内部 TypeScript 接口跳过安装。初始化不要求 Git，不建仓、不配置身份或创建提交，不询问 Git 用户名或邮箱；用户需要 Git 时在成功下游另行明确执行。后续 CI、复现和发布候选使用 frozen lockfile，并在 manifest 与 lockfile 不一致时失败。工程事务不运行格式 CLI、lint、typecheck、全量测试或生产构建；成功下游的首版实施执行本次需要的类型检查、相关非空行为测试和开发浏览器核心流程走查。最终 Release 构建的完整门禁仍由唯一入口拥有。
 
 ## 3. 项目身份与品牌事实
 
@@ -88,10 +88,10 @@ pnpm instantiate -- /absolute/path --type extension --server create \
 `.harness/brand/logo-1024.png` 是 1024×1024 的规范母版：
 
 - 上传模式：读取用户提供图像，校验格式与尺寸，按规范缩放/留白并输出 PNG 母版；不得覆盖用户原文件。
-- Agent 创建或重设计路径显式调用 `$web-prepare-brand-identity`，生成、查看并展示需求唯一适配的方向并自动选定；等价方向或审美分歧时才展示编号候选并推荐，最终只通过 `--logo` 导入选中图；已有明确选定正式 Logo 则直接沿用。候选临时文件位于源和目标之外，自动或人工选定前不写正式母版或项目事实，未选候选不进入项目。离线候选 helper、展示、自动或人工选择与清理合同由品牌 Skill 唯一维护；选图不代替创建确认。CLI 无图像生成服务依赖；直接省略 `--logo` 时保留原有单图离线生成，并在汇总与完成输出列出母版、Web Logo/Favicon 或 Extension icon。
+- Agent 创建或重设计路径显式调用 `$web-prepare-brand-identity`，以产品名称与首次需求分析结果生成、查看并展示三个独立编号方案，等待用户三选一，不能自动选定；首次无需求直接按名称生成，不为 Logo 补需求或等待完整 scope。最终只通过 `--logo` 导入用户选中图；已有明确选定正式 Logo 则直接沿用。候选临时文件位于源和目标之外，用户选定前不写正式母版或项目事实，未选候选不进入项目。离线候选 helper、生成依据、展示、用户选择与清理合同由品牌 Skill 唯一维护；选图不代替创建确认。CLI 无图像生成服务依赖；直接省略 `--logo` 时保留原有单图离线生成，并在汇总与完成输出列出母版、Web Logo/Favicon 或 Extension icon。
 - 离线生成模式：以稳定项目标识、名称和品牌色为输入，确定性生成母版；同一输入和模板版本必须得到相同字节或等价的稳定像素结果。
 - 所有派生资产从母版生成。派生失败必须使初始化报错，现有文件不能被宣称为完成项目。
-- 母版与项目事实需要一并纳入版本控制；临时源文件和绝对上传路径不应成为运行时依赖。
+- 启用版本控制时，母版与项目事实一并纳入；临时源文件和绝对上传路径不应成为运行时依赖，不为品牌同步要求启用 Git。
 
 ### 3.3 Web 品牌同步
 
@@ -438,7 +438,7 @@ pnpm harness validate
 
 以下条件只证明工程创建事务完成，不代表完整创建任务完成：
 
-1. 非交互 `--type`、有依据的 Agent 自动选择或无默认值的 CLI 提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；已明确选择唯一 Web / Extension 宿主类型，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
+1. 用户已明确提供的非交互 `--type` 或无默认值的 Agent/CLI 宿主提示已解析为一个合法值，`.harness/project.json.projectType` 与之相同；已明确选择唯一 Web / Extension 宿主类型，README 创建交接保留准确选择，首次 PRD 不重复询问模式。
 2. 目标中只有当前宿主文件，不含另一宿主或 monorepo 痕迹。
 3. `.harness/brand/logo-1024.png` 存在，当前宿主品牌派生齐全且身份一致。
 4. JSON 与 TypeScript 配置可解析，依赖和脚本与当前宿主匹配。
@@ -448,7 +448,7 @@ pnpm harness validate
 8. 普通首次安装已通过一次 `pnpm install --no-frozen-lockfile --prefer-offline` 生成与 manifest 一致的 `pnpm-lock.yaml`；公开 CLI 不提供跳过安装入口，内部单元测试注入跳过状态时必须明确断言安装未执行。
 9. 初始化期没有运行 `pnpm build`，目标内不存在 `dist/`、`build/` 或 zip，E2E 尚未选择。生成项目仍只提供唯一 Release 产物入口；需要候选时，该入口自动完成 Harness、格式、`lint`（含中文声明注释与源码体积门禁）、`typecheck`、非空全量 `test`、版本注入、宿主生产构建与 `release:inspect`。development/test profile 没有产物入口。
 10. 工程事务成功不宣称 Release 产物、日志/敏感信息扫描或最终候选浏览器行为通过，这些范围保持 `Unverified`，直到后续显式构建和适用验收实际完成。初始化只检查一次 Node.js/pnpm；后续普通命令不预探测工具链，已经报出疑似环境错误后才诊断相关组件。
-11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装、静态校验或 Git 初始化失败也不得发布 同级暂存目录 内容到目标，且必须保持原目标不存在或为空。
+11. 非空目标、源内目标、路径、参数和输入资产等预检失败保持目标零写入；`instantiate` 的依赖安装或静态校验失败也不得发布 同级暂存目录 内容到目标，且必须保持原目标不存在或为空。
 12. `docs/MANTINE_UI_GUIDELINES.md`、终端 Agent 读取入口与校验门禁存在；规范保留共同规则和当前宿主章节，不包含另一宿主专属布局约定。各终端 canonical Skills 数量以 `AGENTS.md` Skills 地图为准，两宿主均含 `$web-compose-capabilities`，Web 另含 `$web-implement-list-view`，Extension 另含 `$web-review-extension-compatibility`；两类下游另含项目级 `design-taste-frontend`，检查 §3.9 的默认补装与已有版本保留合同。
 13. 成功下游已删除 `instantiate`、`harness:init`、源专用 `$web-instantiate-project`、内部 init/instantiate tooling 及其他只服务模板派生的入口；源 Harness 方法论文档被删除，剩余工程/发布文档只描述已选类型。
 

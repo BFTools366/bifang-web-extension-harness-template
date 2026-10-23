@@ -88,7 +88,7 @@ export function createWorkspaceConfig(options: InitOptions): WorkspaceConfig {
   }
 }
 
-/** 在同一个受保护 staging 事务内生成成员，统一安装并建立唯一 Git 基线。 */
+/** 在同一个受保护 staging 事务内生成成员，统一安装依赖，不配置 Git。 */
 export async function initializeWorkspace(
   options: InitOptions,
   logo?: Uint8Array,
@@ -147,8 +147,7 @@ export async function initializeWorkspace(
         id: member.directory,
         projectType: member.type as "web" | "extension",
         developmentBaseUrl: workspace.service.developmentBaseUrl,
-        skipInstall: true,
-        skipGit: true
+        skipInstall: true
       },
       logo,
       commandRunner
@@ -254,14 +253,16 @@ export async function initializeWorkspace(
         : "")
   )
   await writeJsonNew(path.join(root, ".harness/workspace.json"), workspace)
-  if (options.initialCreationAuthorization)
-    await writeJsonNew(path.join(root, ".harness/initial-creation.json"), {
-      schemaVersion: 1,
-      projectId: options.id,
-      projectType: options.projectType,
-      initializedAt: workspace.initializedAt,
-      authorization: options.initialCreationAuthorization
-    })
+  await writeJsonNew(path.join(root, ".harness/initial-creation.json"), {
+    schemaVersion: 1,
+    projectId: options.id,
+    projectType: options.projectType,
+    initializedAt: workspace.initializedAt,
+    prototypeApprovalRequired: true,
+    ...(options.initialCreationAuthorization
+      ? { authorization: options.initialCreationAuthorization }
+      : {})
+  })
   await writeJsonNew(path.join(root, "package.json"), workspacePackage(workspace, existing))
   const jsMembers = workspace.members
     .filter((item) => item.type !== "server")
